@@ -1,0 +1,59 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze *)",
+      "Bash(flutter test *)",
+      "Bash(flutter pub get)",
+      "Bash(flutter --version)",
+      "Bash(flutter doctor *)",
+      "Bash(dart format *)",
+      "Bash(dart analyze *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch --show-current)",
+      "PowerShell(flutter analyze *)",
+      "PowerShell(flutter test *)",
+      "PowerShell(flutter pub get)",
+      "PowerShell(flutter --version)",
+      "PowerShell(flutter doctor *)",
+      "PowerShell(dart format *)",
+      "PowerShell(dart analyze *)",
+      "PowerShell(git status *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git log *)",
+      "PowerShell(git show *)",
+      "PowerShell(git branch --show-current)"
+    ],
+    "ask": [
+      "Bash(flutter pub add *)",
+      "Bash(flutter pub remove *)",
+      "Bash(flutter pub upgrade *)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Bash(git checkout -- *)",
+      "Bash(git branch -D *)",
+      "PowerShell(flutter pub add *)",
+      "PowerShell(flutter pub remove *)",
+      "PowerShell(flutter pub upgrade *)",
+      "PowerShell(git push *)",
+      "PowerShell(git reset --hard *)",
+      "PowerShell(git clean *)",
+      "PowerShell(git checkout -- *)",
+      "PowerShell(git branch -D *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./android/key.properties)",
+      "Read(./**/*.jks)",
+      "Read(./**/*.keystore)",
+      "Read(./**/*.p12)"
+    ]
+  }
+}

@@ -1,0 +1,48 @@
+# Claude Code: личные настройки не коммитим (общие .claude/settings.json, agents, skills — коммитим)
+.claude/settings.local.json
+.claude/agent-memory-local/
+
+# Секреты и ключи подписи
+.env
+.env.*
+!.env.example
+key.properties
+*.jks
+*.keystore
+*.p12
+
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+coverage/
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/debug
+android/app/profile
+android/app/release
+android/captures/
+**/android/**/GeneratedPluginRegistrant.java
+
+# iOS / macOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/**/xcuserdata/
+**/ios/**/DerivedData/
+
+# IDE / ОС
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
