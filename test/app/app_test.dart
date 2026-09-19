@@ -5,7 +5,7 @@ void main() {
   testWidgets('MoneyApp показывает заголовок и заглушку', (tester) async {
     await tester.pumpWidget(const MoneyApp());
 
-    expect(find.text('MoneyAPP'), findsOneWidget);
+    expect(find.text('Money App'), findsOneWidget);
     expect(find.text('Здесь скоро появятся ваши расходы'), findsOneWidget);
   });
 }

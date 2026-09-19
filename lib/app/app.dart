@@ -7,9 +7,9 @@ class MoneyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MoneyAPP',
+      title: 'Money App',
       home: Scaffold(
-        appBar: AppBar(title: const Text('MoneyAPP')),
+        appBar: AppBar(title: const Text('Money App')),
         body: const Center(child: Text('Здесь скоро появятся ваши расходы')),
       ),
     );

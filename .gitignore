@@ -21,6 +21,9 @@ build/
 .flutter-plugins-dependencies
 *.iml
 coverage/
+migrate_working_dir/
+app.*.symbols
+app.*.map.json
 
 # Android
 android/.gradle/
