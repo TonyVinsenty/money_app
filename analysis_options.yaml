@@ -1,12 +1,6 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
-#
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# Настройки анализатора Dart (запуск: `flutter analyze`).
+# Подробнее: https://dart.dev/guides/language/analysis-options
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
@@ -14,21 +8,27 @@ analyzer:
     - build/**
     - android/**
     - ios/**
+  language:
+    strict-casts: true # запрет неявного приведения типов (dynamic -> конкретный)
+    strict-inference: true # если тип нельзя вывести, анализатор просит указать явно
+    strict-raw-types: true # запрет «сырых» дженериков вроде List вместо List<int>
+  errors:
+    missing_return: error # функция с типом результата обязана вернуть значение
+    missing_required_param: error # обязательный параметр нельзя пропускать
 
 linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
-
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+    - always_declare_return_types # у функций всегда явный тип результата
+    - always_use_package_imports # только package:-импорты, без относительных путей
+    - avoid_dynamic_calls # не вызывать методы у dynamic, там нет проверки типов
+    - avoid_slow_async_io # медленные асинхронные файловые вызовы заменять быстрыми
+    - cancel_subscriptions # подписку на поток нужно отменять (ADR 0002, утечки)
+    - close_sinks # Sink/StreamController нужно закрывать (ADR 0002, утечки)
+    - directives_ordering # единый порядок импортов и экспортов
+    - only_throw_errors # бросать только Error/Exception, не строки и числа
+    - prefer_final_in_for_each # переменная цикла for-in — final
+    - prefer_final_locals # локальные переменные, которые не меняются, — final
+    - prefer_single_quotes # строки в одинарных кавычках
+    - sort_pub_dependencies # зависимости в pubspec.yaml по алфавиту
+    - unawaited_futures # забытый await у Future в async-функции — вероятная ошибка
+    - unnecessary_lambdas # не оборачивать функцию в лишнюю лямбду
