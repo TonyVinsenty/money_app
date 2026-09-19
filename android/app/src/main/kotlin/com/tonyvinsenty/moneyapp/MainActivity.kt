@@ -1,4 +1,4 @@
-package com.tonyvinsenty.money_app
+package com.tonyvinsenty.moneyapp
 
 import io.flutter.embedding.android.FlutterActivity
 
