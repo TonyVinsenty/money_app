@@ -31,6 +31,35 @@ void main() {
       expect(Money.fromMajorParts(1, 99, 'RUB'), rub(199));
     });
 
+    test('fromMajorParts: самый большой допустимый major проходит', () {
+      // Литерал 9223372036854775807 работает только на VM, как и ниже.
+      const maxInt = 9223372036854775807;
+      final maxMajor99 = (maxInt - 99) ~/ 100;
+      final big = Money.fromMajorParts(maxMajor99, 99, 'RUB');
+      expect(big.minorUnits, maxMajor99 * 100 + 99);
+      expect(big.minorUnits, isPositive);
+
+      final maxMajor0 = maxInt ~/ 100;
+      final big0 = Money.fromMajorParts(maxMajor0, 0, 'RUB');
+      expect(big0.minorUnits, maxMajor0 * 100);
+      expect(big0.minorUnits, isPositive);
+    });
+
+    test(
+      'fromMajorParts: на 1 больше границы это ошибка, а не переполнение',
+      () {
+        const maxInt = 9223372036854775807;
+        expect(
+          () => Money.fromMajorParts((maxInt - 99) ~/ 100 + 1, 99, 'RUB'),
+          throwsA(isA<ArgumentError>()),
+        );
+        expect(
+          () => Money.fromMajorParts(maxInt ~/ 100 + 1, 0, 'RUB'),
+          throwsA(isA<ArgumentError>()),
+        );
+      },
+    );
+
     test('fromMajorParts: копеек 100 или больше это ошибка', () {
       expect(
         () => Money.fromMajorParts(1, 100, 'RUB'),
@@ -121,7 +150,7 @@ void main() {
       final a = rub(100);
       final b = rub(50);
       final results = [a + b, a - b, -a, a * 3];
-      expect(results.length, 4);
+      expect(results, [rub(150), rub(50), rub(-100), rub(300)]);
       expect(a, rub(100));
       expect(b, rub(50));
     });
@@ -183,10 +212,16 @@ void main() {
       expect(rub(100) == other, isFalse);
     });
 
-    test('работает как ключ Set и Map', () {
+    test('работает как ключ Set', () {
       final set = {rub(1), rub(1), rub(2), usd(1)};
       expect(set.length, 3);
       expect(set.contains(Money.fromMinor(2, 'RUB')), isTrue);
+    });
+
+    test('работает как ключ Map', () {
+      final map = {Money.fromMinor(1, 'RUB'): 'one'};
+      expect(map[Money.fromMinor(1, 'RUB')], 'one');
+      expect(map[Money.fromMinor(1, 'USD')], isNull);
     });
 
     test('операторы сравнения', () {
@@ -365,6 +400,14 @@ void main() {
       final wrapped = rub(9223372036854775807) + rub(1);
       expect(wrapped.minorUnits, -9223372036854775808);
       expect(wrapped.isNegative, isTrue);
+    });
+
+    test('dividedBy на границе целого: смещение половины переполняется', () {
+      // Поведение вне зоны честной работы, не желаемое: maxInt + 1 (сдвиг на
+      // половину делителя) заворачивается в отрицательное, и результат
+      // получается отрицательным. Зафиксировано как документация.
+      final result = rub(9223372036854775807).dividedBy(2);
+      expect(result.isNegative, isTrue);
     });
   });
 }
