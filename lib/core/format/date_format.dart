@@ -9,6 +9,16 @@ import 'package:money_app/core/time/date_only.dart';
 String formatDate(DateOnly date) =>
     DateFormat.yMMMMd('ru').format(date.toDateTime());
 
+/// День недели, число и месяц без года: «пятница, 19 сентября». Требует
+/// `initializeDateFormatting('ru')`.
+String formatWeekdayDayMonth(DateOnly date) =>
+    DateFormat('EEEE, d MMMM', 'ru').format(date.toDateTime());
+
+/// То же с годом: «пятница, 19 сентября 2025 г.». Требует
+/// `initializeDateFormatting('ru')`.
+String formatWeekdayFullDate(DateOnly date) =>
+    DateFormat.yMMMMEEEEd('ru').format(date.toDateTime());
+
 /// Месяц и год по-русски, например «сентябрь 2026 г.» (месяц в именительном
 /// падеже). Требует того же `initializeDateFormatting('ru')`, что и
 /// [formatDate].

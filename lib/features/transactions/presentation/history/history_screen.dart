@@ -108,7 +108,7 @@ class _HistoryList extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = items[index];
         if (item is DateOnly) {
-          return _DayHeader(label: dayLabel(item, today: today));
+          return _DayHeader(label: historyDayLabel(item, today: today));
         }
         final t = item as Transaction;
         final category = categoriesById[t.categoryId];
@@ -119,7 +119,7 @@ class _HistoryList extends StatelessWidget {
           transaction: t,
           title: _title(category, subcategory),
           iconKey: category?.iconKey,
-          dayText: dayLabel(t.occurredOn, today: today),
+          dayText: historyDayLabel(t.occurredOn, today: today),
           onTap: () => onTransactionTap(t),
         );
       },
