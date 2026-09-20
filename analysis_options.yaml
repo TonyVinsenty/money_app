@@ -8,6 +8,7 @@ analyzer:
     - build/**
     - android/**
     - ios/**
+    - "**/*.g.dart" # сгенерированный код (drift) не проверяем нашими правилами
   language:
     strict-casts: true # запрет неявного приведения типов (dynamic -> конкретный)
     strict-inference: true # если тип нельзя вывести, анализатор просит указать явно

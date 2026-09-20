@@ -51,6 +51,7 @@ MoneyAPP — мобильное приложение для учёта личн�
 
 ```powershell
 flutter pub get                 # подтянуть зависимости
+dart run build_runner build     # после правки таблиц drift: сгенерировать *.g.dart (файлы коммитим; повторный запуск ничего не меняет)
 dart format .                   # форматирование
 flutter analyze                 # статический анализ (должен быть без замечаний)
 flutter test                    # все тесты
