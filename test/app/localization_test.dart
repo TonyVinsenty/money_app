@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
+import '../support/in_memory_database.dart';
+
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('ru');
@@ -15,7 +17,11 @@ void main() {
   testWidgets('showDatePicker показывает русские строки', (tester) async {
     final settings = AppSettingsController();
     addTearDown(settings.dispose);
-    await tester.pumpWidget(MoneyApp(settings: settings));
+    await tester.pumpWidget(
+      MoneyApp(settings: settings, openDatabase: openInMemoryDatabase),
+    );
+    // Первый кадр — загрузка; второй — база открылась, показаны вкладки.
+    await tester.pump();
 
     // Результат нам не нужен: проверяем только, что нарисовал диалог.
     unawaited(

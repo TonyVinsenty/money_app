@@ -4,6 +4,8 @@ import 'package:money_app/app/app.dart';
 import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
+import '../support/in_memory_database.dart';
+
 void main() {
   test('defaultAppTabs: пять вкладок по порядку, список неизменяемый', () {
     expect(defaultAppTabs.map((tab) => tab.label).toList(), [
@@ -26,7 +28,11 @@ void main() {
     final settings = AppSettingsController();
     addTearDown(settings.dispose);
 
-    await tester.pumpWidget(MoneyApp(settings: settings));
+    await tester.pumpWidget(
+      MoneyApp(settings: settings, openDatabase: openInMemoryDatabase),
+    );
+    // Первый кадр — загрузка; второй — база открылась, показаны вкладки.
+    await tester.pump();
 
     final bar = find.byType(NavigationBar);
     for (final label in [
@@ -52,7 +58,10 @@ void main() {
   ) async {
     final settings = AppSettingsController();
     addTearDown(settings.dispose);
-    await tester.pumpWidget(MoneyApp(settings: settings));
+    await tester.pumpWidget(
+      MoneyApp(settings: settings, openDatabase: openInMemoryDatabase),
+    );
+    await tester.pump();
 
     Brightness currentBrightness() =>
         Theme.of(tester.element(find.byType(Scaffold))).brightness;

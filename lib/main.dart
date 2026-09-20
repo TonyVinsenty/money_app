@@ -10,11 +10,9 @@ Future<void> main() async {
   // Загружаем русские названия месяцев и дней для форматирования дат.
   await initializeDateFormatting('ru');
 
-  // Открываем файловую базу: при первом запуске файл создаётся, дальше
-  // открывается тот же. Живёт всё время работы приложения, close не нужен.
-  final database = await openAppDatabase();
-
-  // Тоже живёт всё время работы приложения, поэтому dispose не нужен.
+  // Базу открываем не здесь, а внутри приложения (DatabaseGate): если открыть
+  // не получится, runApp всё равно вызван и пользователь увидит экран ошибки.
+  // Живёт всё время работы приложения, поэтому dispose не нужен.
   final settings = AppSettingsController();
-  runApp(MoneyApp(settings: settings, database: database));
+  runApp(MoneyApp(settings: settings, openDatabase: openAppDatabase));
 }
