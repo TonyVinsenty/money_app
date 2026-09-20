@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/category_picker_screen.dart';
 
 /// Экран быстрого ввода операции.
 ///
@@ -12,7 +17,14 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// словом («Новый расход»), цветом (цвет расхода/дохода из темы) и знаком
 /// («−» или «+» перед заголовком и перед суммой).
 class QuickAddScreen extends StatefulWidget {
-  const QuickAddScreen({required this.type, required this.clock, super.key});
+  const QuickAddScreen({
+    required this.type,
+    required this.clock,
+    required this.categories,
+    required this.transactions,
+    required this.idGenerator,
+    super.key,
+  });
 
   final TransactionType type;
 
@@ -20,6 +32,14 @@ class QuickAddScreen extends StatefulWidget {
   /// маршрут (`lib/app`): фича не знает про `AppScope`, а в тестах сюда
   /// подставляются фиксированные часы.
   final Clock clock;
+
+  /// Категории для экрана выбора категории.
+  final CategoriesRepository categories;
+
+  /// Пока не используются: понадобятся шагу 2.25 (сохранение операции). Уже
+  /// проведены через маршрут, чтобы не переделывать его второй раз.
+  final TransactionsRepository transactions;
+  final IdGenerator idGenerator;
 
   static const incomeTitle = 'Новый доход';
   static const expenseTitle = 'Новый расход';
@@ -59,9 +79,24 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   }
 
   /// Попытка продолжить: и кнопка, и клавиша на клавиатуре идут через
-  /// [AmountFieldController.submit]. Переход к выбору категории — шаг 2.23.
+  /// [AmountFieldController.submit]. Если сумма разобрана — открываем выбор
+  /// категории, иначе поле само покажет причину («Введите сумму»).
   void _next() {
-    _amount.submit();
+    final amount = _amount.submit();
+    if (amount != null) _openCategoryPicker(amount);
+  }
+
+  void _openCategoryPicker(Money amount) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CategoryPickerScreen(
+          type: widget.type,
+          amount: amount,
+          day: _day,
+          categories: widget.categories,
+        ),
+      ),
+    );
   }
 
   @override
@@ -108,8 +143,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                       controller: _amount,
                       isIncome: isIncome,
                       autofocus: true,
-                      // Клавиша «Далее» на клавиатуре уже делает submit();
-                      // переход к категориям (шаг 2.23) появится здесь.
+                      // Клавиша «Далее» на клавиатуре сама делает submit();
+                      // сумма разобрана - открываем выбор категории.
+                      onSubmitted: _openCategoryPicker,
                     ),
                     const SizedBox(height: 8),
                     DateChip(

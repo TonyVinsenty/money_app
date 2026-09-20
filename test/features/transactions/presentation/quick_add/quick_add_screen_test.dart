@@ -9,9 +9,14 @@ import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/category_picker_screen.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
+import '../../../../support/fake_id_generator.dart';
+import '../../../../support/fakes.dart';
 import '../../../../support/fixed_clock.dart';
 
 /// «Сейчас» в тестах: 20 сентября 2026, местное время.
@@ -25,7 +30,23 @@ Widget _app(TransactionType type, ThemeMode mode) {
     locale: MoneyApp.appLocale,
     supportedLocales: MoneyApp.supportedLocales,
     localizationsDelegates: MoneyApp.localizationsDelegates,
-    home: QuickAddScreen(type: type, clock: _clock),
+    home: QuickAddScreen(
+      type: type,
+      clock: _clock,
+      categories: StreamCategoriesRepository(
+        Stream.value([
+          Category.topLevel(
+            id: 'a',
+            kind: CategoryKind.expense,
+            name: 'Продукты',
+            iconKey: 'shopping_cart',
+            sortOrder: 0,
+          ),
+        ]),
+      ),
+      transactions: FakeTransactionsRepository(),
+      idGenerator: FakeIdGenerator(),
+    ),
   );
 }
 
@@ -182,5 +203,47 @@ void main() {
     await tester.enterText(find.byType(TextField), '350');
     await tester.pump();
     expect(find.text(message), findsNothing);
+  });
+
+  group('переход к выбору категории', () {
+    testWidgets('«Далее» с пустой суммой не уходит с экрана', (tester) async {
+      await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CategoryPickerScreen), findsNothing);
+      expect(find.text('Введите сумму'), findsOneWidget);
+    });
+
+    testWidgets('«Далее» с суммой открывает экран категорий', (tester) async {
+      await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+
+      await tester.enterText(find.byType(TextField), '350');
+      await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CategoryPickerScreen), findsOneWidget);
+      expect(find.text('Категория расхода'), findsOneWidget);
+      expect(find.text('Продукты'), findsOneWidget);
+      expect(find.textContaining('350,00'), findsOneWidget);
+
+      // «Назад» возвращает на ввод суммы.
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(CategoryPickerScreen), findsNothing);
+      expect(find.byType(QuickAddScreen), findsOneWidget);
+    });
+
+    testWidgets('клавиша «Далее» на клавиатуре ведёт туда же', (tester) async {
+      await tester.pumpWidget(_app(TransactionType.income, ThemeMode.light));
+
+      await tester.enterText(find.byType(TextField), '10');
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CategoryPickerScreen), findsOneWidget);
+      expect(find.text('Категория дохода'), findsOneWidget);
+    });
   });
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
 /// Имена маршрутов приложения. Живут в `lib/app/`, потому что только
@@ -12,15 +15,26 @@ abstract final class AppRoutes {
 
 /// Аргументы маршрута [AppRoutes.quickAdd].
 ///
-/// Зачем тут часы: открытый по имени экран лежит в `Navigator` рядом с главным
-/// экраном, а не под `AppScope`, поэтому сам достать сервисы он не может. Их
-/// достаёт тот, кто открывает маршрут (он стоит под `AppScope`), и передаёт
-/// сюда.
+/// Зачем тут часы и репозитории: открытый по имени экран лежит в `Navigator`
+/// рядом с главным экраном, а не под `AppScope`, поэтому сам достать сервисы он
+/// не может. Их достаёт тот, кто открывает маршрут (он стоит под `AppScope`), и
+/// передаёт сюда. Всё это интерфейсы из `domain` и `core`, а не реализации.
 final class QuickAddRouteArguments {
-  const QuickAddRouteArguments({required this.type, required this.clock});
+  const QuickAddRouteArguments({
+    required this.type,
+    required this.clock,
+    required this.categories,
+    required this.transactions,
+    required this.idGenerator,
+  });
 
   final TransactionType type;
   final Clock clock;
+  final CategoriesRepository categories;
+
+  /// Вместе с [idGenerator] нужен шагу 2.25 (сохранение операции).
+  final TransactionsRepository transactions;
+  final IdGenerator idGenerator;
 }
 
 /// Собирает маршрут по имени: подключается как `MaterialApp.onGenerateRoute`.
@@ -42,8 +56,13 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
       }
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) =>
-            QuickAddScreen(type: arguments.type, clock: arguments.clock),
+        builder: (_) => QuickAddScreen(
+          type: arguments.type,
+          clock: arguments.clock,
+          categories: arguments.categories,
+          transactions: arguments.transactions,
+          idGenerator: arguments.idGenerator,
+        ),
       );
   }
   return null;

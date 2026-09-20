@@ -53,12 +53,18 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Часы берём здесь, под AppScope: открытый маршрут AppScope уже не видит.
-    final clock = AppScope.of(context).clock;
+    // Сервисы берём здесь, под AppScope: открытый маршрут AppScope уже не видит.
+    final services = AppScope.of(context);
     return HomeScreen(
       onAddTransaction: (type) => Navigator.of(context).pushNamed(
         AppRoutes.quickAdd,
-        arguments: QuickAddRouteArguments(type: type, clock: clock),
+        arguments: QuickAddRouteArguments(
+          type: type,
+          clock: services.clock,
+          categories: services.categories,
+          transactions: services.transactions,
+          idGenerator: services.idGenerator,
+        ),
       ),
     );
   }

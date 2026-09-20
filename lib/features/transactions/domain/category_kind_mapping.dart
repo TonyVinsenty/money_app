@@ -16,3 +16,16 @@ extension CategoryKindTransactionType on CategoryKind {
     }
   }
 }
+
+/// Обратная связь: в каких категориях (по виду) можно вести операции типа.
+extension TransactionTypeCategoryKind on TransactionType {
+  /// Вид категорий, подходящий этому типу операции.
+  CategoryKind get categoryKind {
+    switch (this) {
+      case TransactionType.income:
+        return CategoryKind.income;
+      case TransactionType.expense:
+        return CategoryKind.expense;
+    }
+  }
+}

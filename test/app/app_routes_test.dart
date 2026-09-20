@@ -7,6 +7,8 @@ import 'package:money_app/features/settings/presentation/app_settings_controller
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
+import '../support/fake_id_generator.dart';
+import '../support/fakes.dart';
 import '../support/fixed_clock.dart';
 import '../support/in_memory_database.dart';
 
@@ -38,6 +40,9 @@ void main() {
           arguments: QuickAddRouteArguments(
             type: TransactionType.income,
             clock: FixedClock(DateTime(2026, 9, 20)),
+            categories: FakeCategoriesRepository(),
+            transactions: FakeTransactionsRepository(),
+            idGenerator: FakeIdGenerator(),
           ),
         ),
       );
