@@ -51,6 +51,24 @@ void main() {
       }
     });
 
+    test('the home and phone icons do not clash with other icons', () {
+      String iconOf(String name) =>
+          defaultCategories.firstWhere((c) => c.name == name).iconKey;
+
+      // 'home' занята иконкой вкладки «Главная», поэтому у «Дом» — 'house'.
+      expect(iconOf('Дом'), 'house');
+      expect(iconOf('Связь'), 'phone_android');
+      expect(defaultCategories.map((c) => c.iconKey), isNot(contains('home')));
+    });
+
+    test('icon keys are unique within a kind', () {
+      for (final kind in CategoryKind.values) {
+        final keys = ofKind(kind).map((c) => c.iconKey).toList();
+        // «Прочее» в расходах и доходах делит иконку, но это разные виды.
+        expect(keys.toSet(), hasLength(keys.length), reason: kind.name);
+      }
+    });
+
     test('every entry passes the Category rules', () {
       for (final template in defaultCategories) {
         final category = Category.topLevel(

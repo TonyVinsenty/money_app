@@ -33,7 +33,7 @@ final class Category {
     required this.parentId,
     required int sortOrder,
     DateTime? archivedAt,
-  }) : name = _checkedName(name),
+  }) : name = checkedName(name),
        iconKey = _checkedIconKey(iconKey),
        sortOrder = _checkedSortOrder(sortOrder),
        archivedAt = _checkedArchivedAt(archivedAt);
@@ -196,8 +196,15 @@ final class Category {
         'archivedAt: $archivedAt)';
   }
 
-  static String _checkedName(String name) {
-    final trimmed = name.trim();
+  /// Проверяет имя и возвращает его без пробелов по краям.
+  ///
+  /// Бросает [CategoryRuleException]: [CategoryRule.emptyName] (пустое имя или
+  /// одни пробелы) и [CategoryRule.nameTooLong] (длиннее
+  /// [categoryNameMaxLength] символов). Конструктор и [copyWith] используют
+  /// именно её; репозиторий вызывает её сам, чтобы переименовать категорию, не
+  /// собирая [Category] из (возможно, испорченной) строки хранилища.
+  static String checkedName(String raw) {
+    final trimmed = raw.trim();
     if (trimmed.isEmpty) {
       throw CategoryRuleException(CategoryRule.emptyName);
     }

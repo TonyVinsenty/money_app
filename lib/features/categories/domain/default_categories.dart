@@ -41,7 +41,7 @@ const List<DefaultCategory> defaultCategories = [
     name: 'Транспорт',
     iconKey: 'directions_bus',
   ),
-  DefaultCategory(kind: CategoryKind.expense, name: 'Дом', iconKey: 'home'),
+  DefaultCategory(kind: CategoryKind.expense, name: 'Дом', iconKey: 'house'),
   DefaultCategory(
     kind: CategoryKind.expense,
     name: 'Здоровье',
@@ -60,7 +60,7 @@ const List<DefaultCategory> defaultCategories = [
   DefaultCategory(
     kind: CategoryKind.expense,
     name: 'Связь',
-    iconKey: 'smartphone',
+    iconKey: 'phone_android',
   ),
   DefaultCategory(
     kind: CategoryKind.expense,

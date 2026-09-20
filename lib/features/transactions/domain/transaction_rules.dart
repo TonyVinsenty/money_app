@@ -26,6 +26,10 @@ enum TransactionRule {
 
   /// Подкатегория не принадлежит категории операции.
   subcategoryNotOfCategory,
+
+  /// Категория или подкатегория в архиве: новую операцию в ней создать
+  /// нельзя. Проверяет репозиторий (архивность известна только хранилищу).
+  categoryArchived,
 }
 
 /// Ошибка нарушения правила операции.
@@ -60,6 +64,8 @@ final class TransactionRuleException implements Exception {
       case TransactionRule.subcategoryNotOfCategory:
         return 'Transaction subcategory must belong to the transaction '
             'category';
+      case TransactionRule.categoryArchived:
+        return 'Transaction category or subcategory must not be archived';
     }
   }
 

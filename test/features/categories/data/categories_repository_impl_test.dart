@@ -505,6 +505,209 @@ void main() {
         expect((await rowOf('a')).sortOrder, 1);
       });
 
+      /// sort_order всех не удалённых строк семьи (top-level одного вида или
+      /// детей одного родителя) в порядке показа: id -> номер.
+      Future<Map<String, int>> familyOrders({
+        String? parentId,
+        String kind = 'expense',
+      }) async {
+        final rows = await db.select(db.categories).get();
+        final family =
+            rows
+                .where(
+                  (r) =>
+                      r.deletedAt == null &&
+                      r.parentId == parentId &&
+                      r.kind == kind,
+                )
+                .toList()
+              ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+        return {for (final r in family) r.id: r.sortOrder};
+      }
+
+      /// Номера в семье уникальны и непрерывны: 0..m-1.
+      Future<void> expectContiguous({
+        String? parentId,
+        String kind = 'expense',
+      }) async {
+        final orders = await familyOrders(parentId: parentId, kind: kind);
+        expect(orders.values.toList(), [
+          for (var i = 0; i < orders.length; i++) i,
+        ]);
+      }
+
+      test(
+        'a full list: every sibling gets 0..n-1 in the given order',
+        () async {
+          await repo.create(top('a', sortOrder: 0));
+          await repo.create(top('b', sortOrder: 1));
+          await repo.create(top('c', sortOrder: 2));
+
+          await repo.reorder(['b', 'c', 'a']);
+
+          expect(await familyOrders(), {'b': 0, 'c': 1, 'a': 2});
+          await expectContiguous();
+        },
+      );
+
+      test('a partial list without archived siblings: the rest keep their '
+          'relative order and follow', () async {
+        await repo.create(top('a', sortOrder: 0));
+        await repo.create(top('b', sortOrder: 1));
+        await repo.create(top('c', sortOrder: 2));
+        await repo.create(top('d', sortOrder: 3));
+
+        await repo.reorder(['c', 'a']);
+
+        expect(await familyOrders(), {'c': 0, 'a': 1, 'b': 2, 'd': 3});
+        await expectContiguous();
+        expect(await topIds(CategoryKind.expense), ['c', 'a', 'b', 'd']);
+      });
+
+      test('a partial list with an archived sibling: it goes to the tail and '
+          'is last after restore', () async {
+        await repo.create(top('a', sortOrder: 0));
+        await repo.create(top('b', sortOrder: 1));
+        await repo.create(top('c', sortOrder: 2));
+        await repo.create(top('d', sortOrder: 3));
+        await repo.archive('b');
+
+        await repo.reorder(['d', 'c']);
+
+        // 'a' и архивная 'b' не переданы: они встают следом в прежнем порядке.
+        expect(await familyOrders(), {'d': 0, 'c': 1, 'a': 2, 'b': 3});
+        await expectContiguous();
+        expect(await topIds(CategoryKind.expense), ['d', 'c', 'a']);
+
+        await repo.restore('b');
+
+        expect(await topIds(CategoryKind.expense), ['d', 'c', 'a', 'b']);
+      });
+
+      test(
+        'an empty list changes nothing, even duplicates in the family',
+        () async {
+          await rawInsert('x', sortOrder: 4);
+          await rawInsert('y', sortOrder: 4);
+          final before = await db.select(db.categories).get();
+
+          await repo.reorder([]);
+
+          expect(await db.select(db.categories).get(), before);
+        },
+      );
+
+      test('duplicate sort_order values already in the family are fixed by a '
+          'reorder', () async {
+        await rawInsert('x', sortOrder: 0);
+        await rawInsert('y', sortOrder: 0);
+        await rawInsert('z', sortOrder: 0);
+
+        await repo.reorder(['z']);
+
+        // Остальные идут по (sort_order, created_at, id): x, затем y.
+        expect(await familyOrders(), {'z': 0, 'x': 1, 'y': 2});
+        await expectContiguous();
+      });
+
+      test(
+        'a partial list of subcategories keeps the family contiguous',
+        () async {
+          await repo.create(top('p'));
+          await repo.create(child('s0', 'p', sortOrder: 0));
+          await repo.create(child('s1', 'p', sortOrder: 1));
+          await repo.create(child('s2', 'p', sortOrder: 2));
+          await repo.archive('s0');
+
+          await repo.reorder(['s2']);
+
+          expect(await familyOrders(parentId: 'p'), {
+            's2': 0,
+            's0': 1,
+            's1': 2,
+          });
+          await expectContiguous(parentId: 'p');
+        },
+      );
+
+      test('other families and soft-deleted rows are not touched', () async {
+        await repo.create(top('a', sortOrder: 0));
+        await repo.create(top('b', sortOrder: 1));
+        await repo.create(top('i', kind: CategoryKind.income, sortOrder: 7));
+        await repo.create(child('s', 'a', sortOrder: 5));
+        await rawInsert('gone', sortOrder: 1, deletedAt: 5);
+
+        await repo.reorder(['b']);
+
+        expect((await rowOf('b')).sortOrder, 0);
+        expect((await rowOf('a')).sortOrder, 1);
+        expect((await rowOf('i')).sortOrder, 7);
+        expect((await rowOf('s')).sortOrder, 5);
+        final gone = await rowOf('gone');
+        expect(gone.sortOrder, 1);
+        expect(gone.updatedAt, 1);
+      });
+
+      test('a partial list that changes nothing writes nothing and sends no '
+          'event', () async {
+        await repo.create(top('a', sortOrder: 0));
+        await repo.create(top('b', sortOrder: 1));
+        await repo.create(top('c', sortOrder: 2));
+        await repo.archive('c');
+        final rec = await record(repo.watchTopLevel(CategoryKind.expense));
+        final before = await db.select(db.categories).get();
+        clock.advance(const Duration(minutes: 1));
+
+        await repo.reorder(['a']);
+        await repo.reorder(['a', 'b']);
+        await rec.settle();
+
+        expect(await db.select(db.categories).get(), before);
+        expect(rec.ids, [
+          ['a', 'b'],
+        ]);
+      });
+
+      test('writes updated_at only for rows whose number changed', () async {
+        await repo.create(top('a', sortOrder: 0));
+        await repo.create(top('b', sortOrder: 1));
+        await repo.create(top('c', sortOrder: 2));
+        final created = clock.now().millisecondsSinceEpoch;
+        clock.advance(const Duration(minutes: 1));
+
+        await repo.reorder(['b']);
+
+        final now = clock.now().millisecondsSinceEpoch;
+        expect((await rowOf('b')).updatedAt, now); // 1 -> 0
+        expect((await rowOf('a')).updatedAt, now); // 0 -> 1
+        expect((await rowOf('c')).updatedAt, created); // остался 2
+      });
+
+      test('the family stays contiguous after a chain of operations', () async {
+        for (var i = 0; i < 5; i++) {
+          await repo.create(top('t$i', sortOrder: i));
+        }
+        await expectContiguous();
+
+        await repo.reorder(['t4', 't3']);
+        await expectContiguous();
+        await repo.archive('t0');
+        await expectContiguous();
+        await repo.reorder(['t1']);
+        await expectContiguous();
+        await repo.restore('t0');
+        await repo.reorder(['t2', 't0', 't4']);
+        await expectContiguous();
+
+        expect(await familyOrders(), {
+          't2': 0,
+          't0': 1,
+          't4': 2,
+          't1': 3,
+          't3': 4,
+        });
+      });
+
       test('is atomic: a failure in the middle leaves the old order', () async {
         await repo.create(top('a', sortOrder: 0));
         await repo.create(top('b', sortOrder: 1));
@@ -819,15 +1022,71 @@ void main() {
         );
       });
 
-      test('rename of a corrupted row is DataCorruptedException, not a '
-          'rule error', () async {
+      for (final entry in {
+        'empty name': '',
+        'blank name': '   ',
+        'name longer than 40': 'x' * 41,
+      }.entries) {
+        test('rename repairs a corrupted row (${entry.key}): it reads fine '
+            'afterwards', () async {
+          await rawInsert('bad-row', name: entry.value);
+          await expectLater(
+            repo.findById('bad-row'),
+            throwsA(isA<DataCorruptedException>()),
+          );
+
+          clock.advance(const Duration(minutes: 1));
+          await repo.rename('bad-row', '  Fine ');
+
+          final found = await repo.findById('bad-row');
+          expect(found!.name, 'Fine');
+          expect(
+            (await rowOf('bad-row')).updatedAt,
+            clock.now().millisecondsSinceEpoch,
+          );
+        });
+      }
+
+      test('rename with a bad name on a corrupted row is a rule error and '
+          'the row stays as it was', () async {
         await rawInsert('bad-row', name: '');
+        final before = await rowOf('bad-row');
 
         await expectLater(
-          repo.rename('bad-row', 'Fine'),
-          throwsA(isA<DataCorruptedException>()),
+          repo.rename('bad-row', '  '),
+          throwsA(
+            isA<CategoryRuleException>().having(
+              (e) => e.rule,
+              'rule',
+              CategoryRule.emptyName,
+            ),
+          ),
         );
+        await expectLater(
+          repo.rename('bad-row', 'x' * 41),
+          throwsA(
+            isA<CategoryRuleException>().having(
+              (e) => e.rule,
+              'rule',
+              CategoryRule.nameTooLong,
+            ),
+          ),
+        );
+
+        expect(await rowOf('bad-row'), before);
       });
+
+      test(
+        'rename of a row corrupted in another field does not read it',
+        () async {
+          // Пустой ключ иконки чинится не переименованием, но и не мешает ему.
+          await rawInsert('bad-row', iconKey: '   ');
+
+          await repo.rename('bad-row', 'Fine');
+
+          expect((await rowOf('bad-row')).name, 'Fine');
+        },
+      );
     });
 
     group('hasAny', () {

@@ -94,15 +94,15 @@ class DriftCategoriesRepository implements CategoriesRepository {
   @override
   Future<void> rename(String id, String newName) {
     return _db.transaction(() async {
-      final row = await _requireRow(id);
-      // copyWith заново проверяет имя правилами Category и обрезает пробелы.
-      final renamed = categoryFromRow(row).copyWith(name: newName);
+      // Строку в Category НЕ собираем: если имя в базе испорчено (пусто или
+      // слишком длинное), сборка бросила бы DataCorruptedException, и
+      // починить строку переименованием было бы нельзя. Нужны только
+      // существование и то, что строка не удалена.
+      await _requireNotDeleted(id);
+      final name = Category.checkedName(newName);
       await _updateRow(
         id,
-        CategoriesCompanion(
-          name: Value(renamed.name),
-          updatedAt: Value(_nowMs()),
-        ),
+        CategoriesCompanion(name: Value(name), updatedAt: Value(_nowMs())),
       );
     });
   }
@@ -140,9 +140,34 @@ class DriftCategoriesRepository implements CategoriesRepository {
         }
       }
 
+      // Все не удалённые «братья» (в том числе архивные) в текущем порядке.
+      final parentId = first.parentId;
+      final siblings =
+          await (_db.select(_db.categories)
+                ..where(
+                  (c) =>
+                      c.deletedAt.isNull() &
+                      c.kind.equals(first.kind) &
+                      (parentId == null
+                          ? c.parentId.isNull()
+                          : c.parentId.equals(parentId)),
+                )
+                ..orderBy(_stableOrder))
+              .get();
+
+      // Переданные id идут первыми в заданном порядке; остальные братья (не
+      // попавшие в список, например архивные) сохраняют прежнее положение и
+      // встают следом. Так номера в семье всегда 0..m-1 без повторов.
+      final requested = orderedIds.toSet();
+      final finalOrder = [
+        for (final id in orderedIds) byId[id]!,
+        for (final row in siblings)
+          if (!requested.contains(row.id)) row,
+      ];
+
       final now = _nowMs();
-      for (var i = 0; i < orderedIds.length; i++) {
-        final row = byId[orderedIds[i]]!;
+      for (var i = 0; i < finalOrder.length; i++) {
+        final row = finalOrder[i];
         if (row.sortOrder == i) {
           continue; // Уже на месте: строку и updated_at не трогаем.
         }
@@ -216,6 +241,20 @@ class DriftCategoriesRepository implements CategoriesRepository {
       throw ArgumentError.value(id, 'id', 'category not found');
     }
     return row;
+  }
+
+  /// Проверяет, что строка есть и не удалена, не читая её колонки в
+  /// `Category`: так работает и с испорченными строками.
+  Future<void> _requireNotDeleted(String id) async {
+    final table = _db.categories;
+    final row =
+        await (_db.selectOnly(table)
+              ..addColumns([table.id])
+              ..where(table.deletedAt.isNull() & table.id.equals(id)))
+            .getSingleOrNull();
+    if (row == null) {
+      throw ArgumentError.value(id, 'id', 'category not found');
+    }
   }
 
   Future<void> _updateRow(String id, CategoriesCompanion changes) {

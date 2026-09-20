@@ -136,9 +136,30 @@ void main() {
       final expenses = await top(CategoryKind.expense);
       await repo.rename('id-1', 'Еда');
       await repo.archive('id-2');
-      // Меняем порядок: живые категории, кроме id-1 и id-2, идут задом наперёд.
+      // Меняем порядок: id-3..id-10 идут задом наперёд. Список неполный: id-1
+      // и id-2 (архивная) в него не входят.
       await repo.reorder(
         expenses.skip(2).map((c) => c.id).toList().reversed.toList(),
+      );
+      // Переданные получают 0..7; id-1 и id-2 сохраняют прежнее положение
+      // друг относительно друга и встают следом: 8 и 9. Дублей нет.
+      final expenseRows = (await db.select(db.categories).get())
+          .where((r) => r.kind == 'expense')
+          .toList();
+      final sortOrders = {for (final r in expenseRows) r.id: r.sortOrder};
+      expect(sortOrders, {
+        for (var i = 0; i < 8; i++) 'id-${10 - i}': i,
+        'id-1': 8,
+        'id-2': 9,
+      });
+      expect(sortOrders.values.toSet(), hasLength(10));
+      // Семья доходов перестановкой расходов не затронута: id-11..id-14 -> 0..3.
+      final incomeRows = (await db.select(db.categories).get())
+          .where((r) => r.kind == 'income')
+          .toList();
+      expect(
+        {for (final r in incomeRows) r.id: r.sortOrder},
+        {for (var i = 0; i < 4; i++) 'id-${11 + i}': i},
       );
       final before = await db.select(db.categories).get();
 

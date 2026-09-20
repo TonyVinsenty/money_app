@@ -8,8 +8,11 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/data/transaction_mapper.dart';
+import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
+import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
@@ -34,23 +37,34 @@ class DriftTransactionsRepository implements TransactionsRepository {
   final AppDatabase _db;
   final Clock _clock;
 
-  /// Нарушение внешнего ключа (несуществующая категория или подкатегория)
-  /// не перехватывается: приходит исключение SQLite (ошибка программиста,
-  /// а не ситуация для пользователя, ведь категории выбираются из списка).
+  /// Вторая линия защиты: перед записью, в той же транзакции, репозиторий сам
+  /// перечитывает категорию и подкатегорию и проверяет связи (см.
+  /// [_checkLinks]). Нарушения бросают [TransactionRuleException] до записи.
+  /// Категория, которой нет (или она мягко удалена), — [ArgumentError].
   @override
-  Future<void> add(Transaction transaction) async {
-    final now = _clock.now();
-    await _db
-        .into(_db.transactions)
-        .insert(
-          transactionToInsertCompanion(
-            transaction,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+  Future<void> add(Transaction transaction) {
+    return _db.transaction(() async {
+      await _checkLinks(
+        transaction,
+        checkCategoryArchived: true,
+        checkSubcategoryArchived: transaction.subcategoryId != null,
+      );
+      final now = _clock.now();
+      await _db
+          .into(_db.transactions)
+          .insert(
+            transactionToInsertCompanion(
+              transaction,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+    });
   }
 
+  /// Архивность проверяется только у ИЗМЕНЁННЫХ `category_id` и
+  /// `subcategory_id`: если операция остаётся в той же (теперь архивной)
+  /// категории, править сумму и комментарий можно.
   @override
   Future<void> update(Transaction transaction) {
     return _db.transaction(() async {
@@ -62,6 +76,13 @@ class DriftTransactionsRepository implements TransactionsRepository {
           'transaction is deleted',
         );
       }
+      await _checkLinks(
+        transaction,
+        checkCategoryArchived: transaction.categoryId != state.categoryId,
+        checkSubcategoryArchived:
+            transaction.subcategoryId != null &&
+            transaction.subcategoryId != state.subcategoryId,
+      );
       await (_db.update(
         _db.transactions,
       )..where((t) => t.id.equals(transaction.id))).write(
@@ -178,13 +199,92 @@ class DriftTransactionsRepository implements TransactionsRepository {
     final table = _db.transactions;
     final row =
         await (_db.selectOnly(table)
-              ..addColumns([table.deletedAt])
+              ..addColumns([
+                table.deletedAt,
+                table.categoryId,
+                table.subcategoryId,
+              ])
               ..where(table.id.equals(id)))
             .getSingleOrNull();
     if (row == null) {
       throw ArgumentError.value(id, 'id', 'transaction not found');
     }
-    return _RowState(isDeleted: row.read(table.deletedAt) != null);
+    return _RowState(
+      isDeleted: row.read(table.deletedAt) != null,
+      categoryId: row.read(table.categoryId)!,
+      subcategoryId: row.read(table.subcategoryId),
+    );
+  }
+
+  /// Проверяет те же связи, что `Transaction.create`, но по строкам базы.
+  /// Порядок: категория есть -> верхнего уровня -> вид совпадает с типом ->
+  /// подкатегория есть -> её родитель именно эта категория -> вид совпадает
+  /// -> архивность (только для помеченных флагами).
+  Future<void> _checkLinks(
+    Transaction transaction, {
+    required bool checkCategoryArchived,
+    required bool checkSubcategoryArchived,
+  }) async {
+    final category = await _requireCategory(
+      transaction.categoryId,
+      'categoryId',
+    );
+    if (category.parentId != null) {
+      throw TransactionRuleException(TransactionRule.categoryMustBeTopLevel);
+    }
+    if (category.kind.transactionType != transaction.type) {
+      throw TransactionRuleException(TransactionRule.typeKindMismatch);
+    }
+    final subcategoryId = transaction.subcategoryId;
+    _CategoryInfo? subcategory;
+    if (subcategoryId != null) {
+      subcategory = await _requireCategory(subcategoryId, 'subcategoryId');
+      if (subcategory.parentId != transaction.categoryId) {
+        throw TransactionRuleException(
+          TransactionRule.subcategoryNotOfCategory,
+        );
+      }
+      if (subcategory.kind != category.kind) {
+        throw TransactionRuleException(TransactionRule.typeKindMismatch);
+      }
+    }
+    if ((checkCategoryArchived && category.isArchived) ||
+        (checkSubcategoryArchived &&
+            subcategory != null &&
+            subcategory.isArchived)) {
+      throw TransactionRuleException(TransactionRule.categoryArchived);
+    }
+  }
+
+  /// Читает нужные колонки категории напрямую; мягко удалённая категория
+  /// считается несуществующей ([ArgumentError]).
+  Future<_CategoryInfo> _requireCategory(String id, String argName) async {
+    final table = _db.categories;
+    final row =
+        await (_db.selectOnly(table)
+              ..addColumns([table.parentId, table.kind, table.archivedAt])
+              ..where(table.deletedAt.isNull() & table.id.equals(id)))
+            .getSingleOrNull();
+    if (row == null) {
+      throw ArgumentError.value(id, argName, 'category not found');
+    }
+    final kindText = row.read(table.kind)!;
+    final CategoryKind kind;
+    switch (kindText) {
+      case 'income':
+        kind = CategoryKind.income;
+      case 'expense':
+        kind = CategoryKind.expense;
+      default:
+        throw DataCorruptedException(
+          'Category row "$id" is corrupted: unknown kind "$kindText"',
+        );
+    }
+    return _CategoryInfo(
+      parentId: row.read(table.parentId),
+      kind: kind,
+      isArchived: row.read(table.archivedAt) != null,
+    );
   }
 
   Future<void> _write(String id, TransactionsCompanion changes) {
@@ -230,9 +330,29 @@ class DriftTransactionsRepository implements TransactionsRepository {
   }
 }
 
-/// Что нужно знать о строке перед правкой: удалена ли она.
+/// Что нужно знать о строке перед правкой: удалена ли она и в каких
+/// категориях лежит сейчас.
 final class _RowState {
-  const _RowState({required this.isDeleted});
+  const _RowState({
+    required this.isDeleted,
+    required this.categoryId,
+    required this.subcategoryId,
+  });
 
   final bool isDeleted;
+  final String categoryId;
+  final String? subcategoryId;
+}
+
+/// Колонки категории, нужные для проверки связей операции.
+final class _CategoryInfo {
+  const _CategoryInfo({
+    required this.parentId,
+    required this.kind,
+    required this.isArchived,
+  });
+
+  final String? parentId;
+  final CategoryKind kind;
+  final bool isArchived;
 }

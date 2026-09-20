@@ -72,6 +72,45 @@ void main() {
     });
   });
 
+  group('Category.checkedName', () {
+    test('обрезает пробелы и возвращает имя', () {
+      expect(Category.checkedName('  Food \t'), 'Food');
+    });
+
+    test('пустое имя и одни пробелы: emptyName', () {
+      expect(
+        () => Category.checkedName(''),
+        _throwsRule(CategoryRule.emptyName),
+      );
+      expect(
+        () => Category.checkedName('  \t '),
+        _throwsRule(CategoryRule.emptyName),
+      );
+    });
+
+    test('40 символов допустимо, 41 нет (считаются символы, не UTF-16)', () {
+      expect(Category.checkedName('a' * 40), 'a' * 40);
+      expect(
+        () => Category.checkedName('a' * 41),
+        _throwsRule(CategoryRule.nameTooLong),
+      );
+      const emoji = '😀';
+      expect(Category.checkedName(emoji * 40), emoji * 40);
+      expect(
+        () => Category.checkedName(emoji * 41),
+        _throwsRule(CategoryRule.nameTooLong),
+      );
+    });
+
+    test('конструктор и copyWith дают тот же результат', () {
+      expect(_top(name: '  Food ').name, Category.checkedName('  Food '));
+      expect(
+        _top().copyWith(name: '  Bar ').name,
+        Category.checkedName(' Bar'),
+      );
+    });
+  });
+
   group('ключ иконки и порядок', () {
     test('пустой iconKey запрещён', () {
       expect(() => _top(iconKey: ''), _throwsRule(CategoryRule.emptyIconKey));

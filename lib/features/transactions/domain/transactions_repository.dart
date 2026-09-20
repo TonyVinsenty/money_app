@@ -11,7 +11,8 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// или подменить в тестах фейком.
 ///
 /// Общие ошибки методов:
-/// - `TransactionRuleException` — нарушено правило операции;
+/// - `TransactionRuleException` — нарушено правило операции (в том числе
+///   связи с категориями в `add` и `update`);
 /// - `DataCorruptedException` — данные в хранилище испорчены и не
 ///   превращаются в корректную `Transaction`. Репозиторий сам превращает в
 ///   неё ошибки конвертеров (`FormatException`): наружу они не выходят.
@@ -19,12 +20,28 @@ abstract interface class TransactionsRepository {
   /// Сохраняет новую [transaction].
   ///
   /// `createdAt` и `updatedAt` ставит хранилище.
+  ///
+  /// Вторая линия защиты: репозиторий сам перечитывает категорию и
+  /// подкатегорию из хранилища и проверяет те же связи, что и
+  /// `Transaction.create`, ещё до записи (при нарушении база не меняется):
+  /// - `TransactionRuleException` с правилом `categoryMustBeTopLevel`,
+  ///   `typeKindMismatch`, `subcategoryNotOfCategory` или `categoryArchived`
+  ///   (новую операцию нельзя создать в архивной категории или
+  ///   подкатегории);
+  /// - `ArgumentError`, если категории или подкатегории нет либо она мягко
+  ///   удалена;
+  /// - `DataCorruptedException`, если данные категории испорчены.
   Future<void> add(Transaction transaction);
 
   /// Заменяет сохранённую операцию с тем же `id` на [transaction].
   ///
-  /// Запись должна существовать и быть живой (не удалённой). `createdAt`
-  /// не меняется, `updatedAt` обновляется.
+  /// Запись должна существовать и быть живой (не удалённой), иначе
+  /// `ArgumentError`. `createdAt` не меняется, `updatedAt` обновляется.
+  ///
+  /// Связи с категориями перепроверяются так же, как в [add]. Отличие в
+  /// архивности: она проверяется (`categoryArchived`) только у только что
+  /// изменённых категории и подкатегории. Если операция остаётся в той же,
+  /// пусть и архивной, категории, править сумму и комментарий можно.
   Future<void> update(Transaction transaction);
 
   /// Мягкое удаление операции [id]: строка остаётся в хранилище, но

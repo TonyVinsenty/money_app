@@ -12,6 +12,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
+import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../../../support/fixed_clock.dart';
@@ -64,15 +65,16 @@ void main() {
     late AppDatabase db;
     late FixedClock clock;
     late DriftTransactionsRepository repo;
+    late DriftCategoriesRepository categories;
 
     setUp(() async {
       db = AppDatabase(NativeDatabase.memory());
       clock = FixedClock(DateTime.utc(2026, 9, 20, 12));
       repo = DriftTransactionsRepository(db, clock: clock);
 
-      // Категории для внешних ключей. Вид и родство базой не проверяются,
-      // но данные делаем правдоподобными.
-      final categories = DriftCategoriesRepository(db, clock: clock);
+      // Категории для проверки связей: расходные 'cat' (с подкатегориями
+      // 'sub' и 'sub2') и 'cat2', доходная 'inc' (с подкатегорией 'incsub').
+      categories = DriftCategoriesRepository(db, clock: clock);
       await categories.create(
         Category.topLevel(
           id: 'cat',
@@ -102,11 +104,31 @@ void main() {
         ),
       );
       await categories.create(
+        Category(
+          id: 'sub2',
+          kind: CategoryKind.expense,
+          name: 'Milk',
+          iconKey: 'icon',
+          parentId: 'cat',
+          sortOrder: 1,
+        ),
+      );
+      await categories.create(
         Category.topLevel(
           id: 'inc',
           kind: CategoryKind.income,
           name: 'Salary',
           iconKey: 'icon',
+          sortOrder: 0,
+        ),
+      );
+      await categories.create(
+        Category(
+          id: 'incsub',
+          kind: CategoryKind.income,
+          name: 'Bonus',
+          iconKey: 'icon',
+          parentId: 'inc',
           sortOrder: 0,
         ),
       );
@@ -123,7 +145,7 @@ void main() {
       String currency = 'RUB',
       DateOnly? day,
       DateTime? at,
-      String categoryId = 'cat',
+      String? categoryId,
       String? subcategoryId,
       String? note,
     }) {
@@ -134,7 +156,10 @@ void main() {
         amount: Money.fromMinor(amountMinor, currency),
         occurredOn: onDay,
         occurredAt: at ?? DateTime.utc(onDay.year, onDay.month, onDay.day, 10),
-        categoryId: categoryId,
+        // По умолчанию категория подходит типу: 'cat' для расхода и 'inc'
+        // для дохода.
+        categoryId:
+            categoryId ?? (type == TransactionType.income ? 'inc' : 'cat'),
         subcategoryId: subcategoryId,
         note: note,
       );
@@ -151,13 +176,14 @@ void main() {
       int occurredOn = 20260920,
       int occurredAt = 1000,
       int amountMinor = 100,
+      String categoryId = 'cat',
     }) {
       return db.customStatement(
         'INSERT INTO transactions (id, type, amount_minor, currency, '
         'occurred_on, occurred_at, category_id, subcategory_id, note, '
         'created_at, updated_at, deleted_at) '
-        "VALUES (?, 'expense', ?, 'RUB', ?, ?, 'cat', NULL, NULL, 1, 1, NULL)",
-        [id, amountMinor, occurredOn, occurredAt],
+        "VALUES (?, 'expense', ?, 'RUB', ?, ?, ?, NULL, NULL, 1, 1, NULL)",
+        [id, amountMinor, occurredOn, occurredAt, categoryId],
       );
     }
 
@@ -190,8 +216,8 @@ void main() {
           currency: 'USD',
           day: DateOnly(2026, 3, 7),
           at: DateTime.utc(2026, 3, 7, 21, 30, 15, 123),
-          categoryId: 'cat',
-          subcategoryId: 'sub',
+          categoryId: 'inc',
+          subcategoryId: 'incsub',
           note: 'Coffee and bread',
         );
 
@@ -273,55 +299,353 @@ void main() {
       });
     });
 
-    group('foreign keys', () {
-      test(
-        'a missing category is a SQLite exception, nothing is stored',
-        () async {
-          Object? caught;
-          try {
-            await repo.add(tx('a', categoryId: 'nope'));
-          } catch (error) {
-            caught = error;
-          }
+    /// Категория «в обход» репозитория (в том числе такая, какую он сам не
+    /// создал бы: подкатегория другого вида, испорченный вид, удалённая).
+    Future<void> rawCategory(
+      String id, {
+      String kind = 'expense',
+      String? parentId,
+      int? archivedAt,
+      int? deletedAt,
+    }) {
+      return db.customStatement(
+        'INSERT INTO categories (id, kind, name, icon_key, parent_id, '
+        'sort_order, archived_at, created_at, updated_at, deleted_at) '
+        "VALUES (?, ?, 'Raw', 'icon', ?, 9, ?, 1, 1, ?)",
+        [id, kind, parentId, archivedAt, deletedAt],
+      );
+    }
 
-          expect(caught, isNotNull);
-          // Фактический тип: SqliteException (пакет sqlite3, внутри drift).
-          expect(caught.runtimeType.toString(), 'SqliteException');
-          expect(caught.toString(), contains('FOREIGN KEY constraint failed'));
-          expect(caught, isNot(isA<DataCorruptedException>()));
-          expect(caught, isNot(isA<ArgumentError>()));
-          expect(await repo.findById('a'), isNull);
+    Matcher throwsRule(TransactionRule rule) => throwsA(
+      isA<TransactionRuleException>().having((e) => e.rule, 'rule', rule),
+    );
+
+    Future<int> rowCount() async =>
+        (await db.select(db.transactions).get()).length;
+
+    group('links to categories (second line of defence)', () {
+      test('an expense in an income category is typeKindMismatch and nothing '
+          'is stored', () async {
+        await expectLater(
+          repo.add(tx('a', categoryId: 'inc')),
+          throwsRule(TransactionRule.typeKindMismatch),
+        );
+
+        expect(await rowCount(), 0);
+      });
+
+      test('an income in an expense category is typeKindMismatch', () async {
+        await expectLater(
+          repo.add(tx('a', type: TransactionType.income, categoryId: 'cat')),
+          throwsRule(TransactionRule.typeKindMismatch),
+        );
+        expect(await rowCount(), 0);
+      });
+
+      test(
+        'a subcategory of another category is subcategoryNotOfCategory',
+        () async {
+          await expectLater(
+            repo.add(tx('a', categoryId: 'cat2', subcategoryId: 'sub')),
+            throwsRule(TransactionRule.subcategoryNotOfCategory),
+          );
+          expect(await rowCount(), 0);
         },
       );
 
-      test('a missing subcategory is a SQLite exception too', () async {
+      test('a top-level category as the subcategory is '
+          'subcategoryNotOfCategory', () async {
+        await expectLater(
+          repo.add(tx('a', categoryId: 'cat', subcategoryId: 'cat2')),
+          throwsRule(TransactionRule.subcategoryNotOfCategory),
+        );
+      });
+
+      test('a subcategory as the category is categoryMustBeTopLevel', () async {
+        await expectLater(
+          repo.add(tx('a', categoryId: 'sub')),
+          throwsRule(TransactionRule.categoryMustBeTopLevel),
+        );
+        expect(await rowCount(), 0);
+      });
+
+      test('a subcategory of another kind under the right parent is '
+          'typeKindMismatch', () async {
+        // Такую строку репозиторий категорий не создал бы (kindMismatch),
+        // но испорченная база может её содержать.
+        await rawCategory('badkind', kind: 'income', parentId: 'cat');
+
+        await expectLater(
+          repo.add(tx('a', categoryId: 'cat', subcategoryId: 'badkind')),
+          throwsRule(TransactionRule.typeKindMismatch),
+        );
+        expect(await rowCount(), 0);
+      });
+
+      test('a missing category is an ArgumentError with the id, not a SQLite '
+          'error', () async {
+        Object? caught;
+        try {
+          await repo.add(tx('a', categoryId: 'nope'));
+        } catch (error) {
+          caught = error;
+        }
+
+        expect(caught, isA<ArgumentError>());
+        expect((caught! as ArgumentError).invalidValue, 'nope');
+        expect(await rowCount(), 0);
+      });
+
+      test('a missing subcategory is an ArgumentError', () async {
         await expectLater(
           repo.add(tx('a', subcategoryId: 'nope')),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.invalidValue,
+              'invalidValue',
+              'nope',
+            ),
+          ),
+        );
+        expect(await rowCount(), 0);
+      });
+
+      test('soft-deleted categories count as missing', () async {
+        await rawCategory('gone', deletedAt: 5);
+        await rawCategory('gone-sub', parentId: 'cat', deletedAt: 5);
+
+        await expectLater(
+          repo.add(tx('a', categoryId: 'gone')),
+          throwsArgumentError,
+        );
+        await expectLater(
+          repo.add(tx('b', subcategoryId: 'gone-sub')),
+          throwsArgumentError,
+        );
+        expect(await rowCount(), 0);
+      });
+
+      test('the database foreign key is still the last barrier for a raw '
+          'insert', () async {
+        await expectLater(
+          rawInsert('a', categoryId: 'nope'),
           throwsA(
             predicate<Object>(
               (e) => e.toString().contains('FOREIGN KEY constraint failed'),
             ),
           ),
         );
-        expect(await repo.findById('a'), isNull);
       });
 
-      test(
-        'update to a missing category fails and keeps the old row',
-        () async {
+      test('a corrupted category kind is DataCorruptedException', () async {
+        // CHECK схемы не даёт записать такой вид; на время вставки его
+        // выключаем, как это сделала бы испорченная база.
+        await db.customStatement('PRAGMA ignore_check_constraints = ON');
+        await rawCategory('weird', kind: 'other');
+        await db.customStatement('PRAGMA ignore_check_constraints = OFF');
+
+        await expectLater(
+          repo.add(tx('a', categoryId: 'weird')),
+          throwsA(
+            isA<DataCorruptedException>().having(
+              (e) => e.message,
+              'message',
+              contains('weird'),
+            ),
+          ),
+        );
+        expect(await rowCount(), 0);
+      });
+
+      test('a valid category with a subcategory is stored', () async {
+        await repo.add(tx('a', subcategoryId: 'sub'));
+
+        expect((await repo.findById('a'))!.subcategoryId, 'sub');
+      });
+
+      group('archived categories', () {
+        test('add in an archived category is categoryArchived', () async {
+          await categories.archive('cat2');
+
+          await expectLater(
+            repo.add(tx('a', categoryId: 'cat2')),
+            throwsRule(TransactionRule.categoryArchived),
+          );
+          expect(await rowCount(), 0);
+        });
+
+        test('add in an archived subcategory is categoryArchived', () async {
+          await categories.archive('sub');
+
+          await expectLater(
+            repo.add(tx('a', subcategoryId: 'sub')),
+            throwsRule(TransactionRule.categoryArchived),
+          );
+          // Соседняя живая подкатегория той же категории по-прежнему годится.
+          await repo.add(tx('b', subcategoryId: 'sub2'));
+          expect(await rowCount(), 1);
+        });
+
+        test('restore makes the category usable again', () async {
+          await categories.archive('cat2');
+          await categories.restore('cat2');
+
+          await repo.add(tx('a', categoryId: 'cat2'));
+
+          expect(await rowCount(), 1);
+        });
+
+        test('update to an archived category is categoryArchived and keeps '
+            'the old row', () async {
+          await repo.add(tx('a'));
+          await categories.archive('cat2');
+          final before = await rowOf('a');
+
+          await expectLater(
+            repo.update(tx('a', categoryId: 'cat2')),
+            throwsRule(TransactionRule.categoryArchived),
+          );
+
+          expect(await rowOf('a'), before);
+        });
+
+        test('update to an archived subcategory is categoryArchived', () async {
+          await repo.add(tx('a', subcategoryId: 'sub'));
+          await categories.archive('sub2');
+
+          await expectLater(
+            repo.update(tx('a', subcategoryId: 'sub2')),
+            throwsRule(TransactionRule.categoryArchived),
+          );
+          expect((await repo.findById('a'))!.subcategoryId, 'sub');
+        });
+
+        test('update that stays in the now archived category may change the '
+            'amount and the note', () async {
+          await repo.add(tx('a', subcategoryId: 'sub', amountMinor: 100));
+          await categories.archive('cat');
+          await categories.archive('sub');
+
+          await repo.update(
+            tx('a', subcategoryId: 'sub', amountMinor: 250, note: 'fixed'),
+          );
+
+          final found = await repo.findById('a');
+          expect(found!.amount.minorUnits, 250);
+          expect(found.note, 'fixed');
+          expect(found.categoryId, 'cat');
+          expect(found.subcategoryId, 'sub');
+        });
+
+        test('update may drop the archived subcategory', () async {
+          await repo.add(tx('a', subcategoryId: 'sub'));
+          await categories.archive('sub');
+
+          await repo.update(tx('a'));
+
+          expect((await repo.findById('a'))!.subcategoryId, isNull);
+        });
+
+        test('update may add a live subcategory under an unchanged archived '
+            'category', () async {
+          await repo.add(tx('a', amountMinor: 1));
+          await categories.archive('cat');
+
+          // Категория та же (архивная) и не менялась, подкатегория новая и
+          // живая: разрешено.
+          await repo.update(tx('a', subcategoryId: 'sub'));
+
+          expect((await repo.findById('a'))!.subcategoryId, 'sub');
+        });
+      });
+
+      group('update', () {
+        test('to a missing category is an ArgumentError and keeps the old '
+            'row', () async {
           await repo.add(tx('a'));
 
           await expectLater(
             repo.update(tx('a', categoryId: 'nope')),
-            throwsA(
-              predicate<Object>(
-                (e) => e.toString().contains('FOREIGN KEY constraint failed'),
-              ),
-            ),
+            throwsArgumentError,
           );
           expect((await repo.findById('a'))!.categoryId, 'cat');
-        },
-      );
+        });
+
+        test('to a category of another kind is typeKindMismatch', () async {
+          await repo.add(tx('a'));
+
+          await expectLater(
+            repo.update(tx('a', categoryId: 'inc')),
+            throwsRule(TransactionRule.typeKindMismatch),
+          );
+          expect((await repo.findById('a'))!.categoryId, 'cat');
+        });
+
+        test(
+          'changing the type with a new category of the new kind works',
+          () async {
+            await repo.add(tx('a', subcategoryId: 'sub'));
+
+            await repo.update(
+              tx('a', type: TransactionType.income, categoryId: 'inc'),
+            );
+
+            final found = await repo.findById('a');
+            expect(found!.type, TransactionType.income);
+            expect(found.categoryId, 'inc');
+            expect(found.subcategoryId, isNull);
+          },
+        );
+
+        test('changing the type but keeping the old category is '
+            'typeKindMismatch', () async {
+          await repo.add(tx('a'));
+
+          await expectLater(
+            repo.update(
+              tx('a', type: TransactionType.income, categoryId: 'cat'),
+            ),
+            throwsRule(TransactionRule.typeKindMismatch),
+          );
+          expect((await repo.findById('a'))!.type, TransactionType.expense);
+        });
+
+        test('a subcategory of another category is '
+            'subcategoryNotOfCategory', () async {
+          await repo.add(tx('a'));
+
+          await expectLater(
+            repo.update(tx('a', categoryId: 'cat2', subcategoryId: 'sub')),
+            throwsRule(TransactionRule.subcategoryNotOfCategory),
+          );
+        });
+
+        test(
+          'a subcategory as the category is categoryMustBeTopLevel',
+          () async {
+            await repo.add(tx('a'));
+
+            await expectLater(
+              repo.update(tx('a', categoryId: 'sub')),
+              throwsRule(TransactionRule.categoryMustBeTopLevel),
+            );
+          },
+        );
+
+        test('staying in an archived category still requires a matching '
+            'type', () async {
+          // Архивность не проверяется, но вид категории и тип — да.
+          await repo.add(tx('a'));
+          await categories.archive('cat');
+
+          await expectLater(
+            repo.update(
+              tx('a', type: TransactionType.income, categoryId: 'cat'),
+            ),
+            throwsRule(TransactionRule.typeKindMismatch),
+          );
+        });
+      });
     });
 
     group('update', () {
@@ -426,7 +750,7 @@ void main() {
           currency: 'USD',
           day: DateOnly(2026, 3, 7),
           at: DateTime.utc(2026, 3, 7, 21, 30, 15, 123),
-          subcategoryId: 'sub',
+          subcategoryId: 'incsub',
           note: 'Coffee',
         );
         await repo.add(original);
