@@ -214,39 +214,68 @@ void main() {
       },
     );
 
-    test('currency must have exactly 3 characters', () async {
+    test('currency must be exactly three uppercase Latin letters', () async {
       await insertCategory('food');
 
-      await expectLater(
-        insert('c2', currency: 'RU'),
-        throwsSqlite('CHECK constraint failed'),
-      );
-      await expectLater(
-        insert('c4', currency: 'RUBL'),
-        throwsSqlite('CHECK constraint failed'),
-      );
-      await insert('c3', currency: 'RUB');
+      for (final bad in ['rub', 'Rub', 'РУБ', '123', 'RU', 'RUBL', '']) {
+        await expectLater(
+          insert('bad', currency: bad),
+          throwsSqlite('CHECK constraint failed'),
+          reason: 'валюта "$bad" должна отклоняться',
+        );
+      }
+      await insert('rub', currency: 'RUB');
+      await insert('usd', currency: 'USD');
 
       final rows = await db.select(db.transactions).get();
-      expect(rows.map((t) => t.id), ['c3']);
+      expect(rows.map((t) => t.id), unorderedEquals(['rub', 'usd']));
     });
 
-    test(
-      'note: 200 characters and NULL are accepted, 201 is rejected',
-      () async {
-        await insertCategory('food');
+    test('occurred_on must be within 10101..99991231', () async {
+      await insertCategory('food');
 
-        await insert('n200', note: 'a' * 200);
-        await insert('nnull', note: null);
+      // Пишем сырым SQL: DateOnly не даст создать значение вне диапазона.
+      Future<void> insertRaw(String id, int occurredOn) => db.customInsert(
+        'INSERT INTO transactions (id, type, amount_minor, currency, '
+        'occurred_on, occurred_at, category_id, created_at, updated_at) '
+        "VALUES ('$id', 'expense', 100, 'RUB', $occurredOn, 1, 'food', 1, 1)",
+      );
+
+      for (final bad in [0, -1, 10100, 99991232, 100000000]) {
         await expectLater(
-          insert('n201', note: 'a' * 201),
+          insertRaw('bad', bad),
           throwsSqlite('CHECK constraint failed'),
+          reason: 'occurred_on = $bad должен отклоняться',
         );
+      }
+      await insertRaw('min', 10101);
+      await insertRaw('max', 99991231);
 
-        final rows = await db.select(db.transactions).get();
-        expect(rows.map((t) => t.id), unorderedEquals(['n200', 'nnull']));
-      },
-    );
+      final raw = await db
+          .customSelect('SELECT id FROM transactions ORDER BY id')
+          .get();
+      expect(raw.map((r) => r.read<String>('id')), ['max', 'min']);
+    });
+
+    test('note: 1 and 200 characters and NULL are accepted, '
+        'empty and 201 are rejected', () async {
+      await insertCategory('food');
+
+      await insert('n1', note: 'a');
+      await insert('n200', note: 'a' * 200);
+      await insert('nnull', note: null);
+      await expectLater(
+        insert('n0', note: ''),
+        throwsSqlite('CHECK constraint failed'),
+      );
+      await expectLater(
+        insert('n201', note: 'a' * 201),
+        throwsSqlite('CHECK constraint failed'),
+      );
+
+      final rows = await db.select(db.transactions).get();
+      expect(rows.map((t) => t.id), unorderedEquals(['n1', 'n200', 'nnull']));
+    });
 
     test('note length is counted in characters, not bytes', () async {
       await insertCategory('food');
@@ -313,6 +342,44 @@ void main() {
       ]);
       expect(rows.first.occurredOn, from);
       expect(rows.last.occurredOn, to);
+    });
+
+    test('history order: newest day first, then latest moment first', () async {
+      await insertCategory('food');
+      await insert('sep1', occurredOn: DateOnly(2026, 9, 1), occurredAt: 9000);
+      await insert(
+        'sep2_early',
+        occurredOn: DateOnly(2026, 9, 2),
+        occurredAt: 1000,
+      );
+      await insert(
+        'sep2_late',
+        occurredOn: DateOnly(2026, 9, 2),
+        occurredAt: 2000,
+      );
+      await insert('sep3', occurredOn: DateOnly(2026, 9, 3), occurredAt: 500);
+      await insert(
+        'sep2_deleted',
+        occurredOn: DateOnly(2026, 9, 2),
+        occurredAt: 3000,
+        deletedAt: 5000,
+      );
+
+      final rows =
+          await (db.select(db.transactions)
+                ..where((t) => t.deletedAt.isNull())
+                ..orderBy([
+                  (t) => OrderingTerm.desc(t.occurredOn),
+                  (t) => OrderingTerm.desc(t.occurredAt),
+                ]))
+              .get();
+
+      expect(rows.map((t) => t.id), [
+        'sep3',
+        'sep2_late',
+        'sep2_early',
+        'sep1',
+      ]);
     });
 
     test('soft-deleted row is stored and readable', () async {
@@ -410,7 +477,7 @@ void main() {
       };
 
       expect(created, {
-        'transactions_occurred_on': 1,
+        'transactions_occurred_on_at': 1,
         'transactions_category_occurred_on': 1,
       });
 
@@ -425,8 +492,11 @@ void main() {
       };
 
       expect(
-        sqlByName['transactions_occurred_on'],
-        allOf(contains('(occurred_on)'), endsWith('deleted_at IS NULL')),
+        sqlByName['transactions_occurred_on_at'],
+        allOf(
+          contains('(occurred_on, occurred_at)'),
+          endsWith('deleted_at IS NULL'),
+        ),
       );
       expect(
         sqlByName['transactions_category_occurred_on'],

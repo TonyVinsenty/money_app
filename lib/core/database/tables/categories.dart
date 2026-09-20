@@ -10,6 +10,7 @@ import 'package:drift/drift.dart';
 /// Индексы частичные: в них попадают только «живые» строки
 /// (`deleted_at IS NULL`), поэтому они маленькие, а обычная выборка
 /// сетки категорий читает только их.
+@DataClassName('CategoryRow')
 @TableIndex.sql(
   'CREATE INDEX categories_level_order ON categories '
   '(parent_id, sort_order) WHERE deleted_at IS NULL',

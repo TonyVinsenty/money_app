@@ -320,8 +320,9 @@ class Transactions extends Table with TableInfo {
     'PRIMARY KEY(id)',
     'CHECK(type IN (\'income\', \'expense\'))',
     'CHECK(amount_minor >= 0)',
-    'CHECK(length(currency) = 3)',
-    'CHECK(note IS NULL OR length(note) <= 200)',
+    'CHECK(currency GLOB \'[A-Z][A-Z][A-Z]\')',
+    'CHECK(occurred_on BETWEEN 10101 AND 99991231)',
+    'CHECK(note IS NULL OR length(note) BETWEEN 1 AND 200)',
   ];
   @override
   bool get dontWriteConstraints => true;
@@ -340,9 +341,9 @@ class DatabaseAtV1 extends GeneratedDatabase {
     'categories_kind_level_order',
     'CREATE INDEX categories_kind_level_order ON categories (kind, parent_id, sort_order) WHERE deleted_at IS NULL',
   );
-  late final Index transactionsOccurredOn = Index(
-    'transactions_occurred_on',
-    'CREATE INDEX transactions_occurred_on ON transactions (occurred_on) WHERE deleted_at IS NULL',
+  late final Index transactionsOccurredOnAt = Index(
+    'transactions_occurred_on_at',
+    'CREATE INDEX transactions_occurred_on_at ON transactions (occurred_on, occurred_at) WHERE deleted_at IS NULL',
   );
   late final Index transactionsCategoryOccurredOn = Index(
     'transactions_category_occurred_on',
@@ -358,7 +359,7 @@ class DatabaseAtV1 extends GeneratedDatabase {
     transactions,
     categoriesLevelOrder,
     categoriesKindLevelOrder,
-    transactionsOccurredOn,
+    transactionsOccurredOnAt,
     transactionsCategoryOccurredOn,
   ];
   @override

@@ -17,11 +17,14 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// - обрезку пробелов в `note` и превращение пустой строки в NULL.
 ///
 /// Индексы частичные: в них попадают только «живые» строки
-/// (`deleted_at IS NULL`). Итоги по периоду читают `occurred_on`, итоги по
-/// категориям — `(category_id, occurred_on)`.
+/// (`deleted_at IS NULL`). `(occurred_on, occurred_at)` покрывает и отбор
+/// по дню/периоду, и сортировку «Истории»
+/// `ORDER BY occurred_on DESC, occurred_at DESC`; итоги по категориям
+/// читают `(category_id, occurred_on)`.
+@DataClassName('TransactionRow')
 @TableIndex.sql(
-  'CREATE INDEX transactions_occurred_on ON transactions '
-  '(occurred_on) WHERE deleted_at IS NULL',
+  'CREATE INDEX transactions_occurred_on_at ON transactions '
+  '(occurred_on, occurred_at) WHERE deleted_at IS NULL',
 )
 @TableIndex.sql(
   'CREATE INDEX transactions_category_occurred_on ON transactions '
@@ -38,7 +41,7 @@ class Transactions extends Table {
   /// Сумма в копейках: целое число, не отрицательное (ноль допустим).
   IntColumn get amountMinor => integer()();
 
-  /// Трёхбуквенный код валюты, например `RUB`.
+  /// Трёхбуквенный код валюты: три заглавные латинские буквы, например `RUB`.
   TextColumn get currency => text()();
 
   /// Локальный календарный день операции (ГГГГММДД). Фиксируется при записи и
@@ -60,7 +63,8 @@ class Transactions extends Table {
   TextColumn get subcategoryId =>
       text().nullable().references(Categories, #id)();
 
-  /// Комментарий до 200 символов; NULL — комментария нет.
+  /// Комментарий от 1 до 200 символов; NULL — комментария нет (пустая строка
+  /// запрещена, обрезку пробелов делает репозиторий).
   TextColumn get note => text().nullable()();
 
   IntColumn get createdAt => integer()();
@@ -79,7 +83,13 @@ class Transactions extends Table {
   List<String> get customConstraints => [
     "CHECK (type IN ('income', 'expense'))",
     'CHECK (amount_minor >= 0)',
-    'CHECK (length(currency) = 3)',
-    'CHECK (note IS NULL OR length(note) <= 200)',
+    // GLOB чувствителен к регистру: 'rub', 'РУБ', '123' и 4 символа не пройдут.
+    "CHECK (currency GLOB '[A-Z][A-Z][A-Z]')",
+    // Только границы разумного диапазона DateOnly (1.01.1 .. 31.12.9999).
+    // Мусор внутри диапазона, например 20261332, база не поймает: это
+    // делает DateOnlyConverter.
+    'CHECK (occurred_on BETWEEN 10101 AND 99991231)',
+    // Пустая строка запрещена: «нет комментария» — это NULL.
+    'CHECK (note IS NULL OR length(note) BETWEEN 1 AND 200)',
   ];
 }

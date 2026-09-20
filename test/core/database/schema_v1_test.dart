@@ -70,15 +70,16 @@ void main() {
       for (final check in [
         "CHECK (type IN ('income', 'expense'))",
         'CHECK (amount_minor >= 0)',
-        'CHECK (length(currency) = 3)',
-        'CHECK (note IS NULL OR length(note) <= 200)',
+        "CHECK (currency GLOB '[A-Z][A-Z][A-Z]')",
+        'CHECK (occurred_on BETWEEN 10101 AND 99991231)',
+        'CHECK (note IS NULL OR length(note) BETWEEN 1 AND 200)',
       ]) {
         expect(appSql['transactions'], contains(_normalize(check)));
       }
       const partialIndexes = [
         'categories_level_order',
         'categories_kind_level_order',
-        'transactions_occurred_on',
+        'transactions_occurred_on_at',
         'transactions_category_occurred_on',
       ];
       for (final name in partialIndexes) {

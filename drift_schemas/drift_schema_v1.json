@@ -365,8 +365,9 @@
         "constraints": [
           "CHECK (type IN ('income', 'expense'))",
           "CHECK (amount_minor >= 0)",
-          "CHECK (length(currency) = 3)",
-          "CHECK (note IS NULL OR length(note) <= 200)"
+          "CHECK (currency GLOB '[A-Z][A-Z][A-Z]')",
+          "CHECK (occurred_on BETWEEN 10101 AND 99991231)",
+          "CHECK (note IS NULL OR length(note) BETWEEN 1 AND 200)"
         ],
         "explicit_pk": [
           "id"
@@ -409,8 +410,8 @@
       "type": "index",
       "data": {
         "on": 2,
-        "name": "transactions_occurred_on",
-        "sql": "CREATE INDEX transactions_occurred_on ON transactions (occurred_on) WHERE deleted_at IS NULL",
+        "name": "transactions_occurred_on_at",
+        "sql": "CREATE INDEX transactions_occurred_on_at ON transactions (occurred_on, occurred_at) WHERE deleted_at IS NULL",
         "unique": false,
         "columns": []
       }
@@ -454,7 +455,7 @@
       "sql": [
         {
           "dialect": "sqlite",
-          "sql": "CREATE TABLE IF NOT EXISTS \"transactions\" (\"id\" TEXT NOT NULL, \"type\" TEXT NOT NULL, \"amount_minor\" INTEGER NOT NULL, \"currency\" TEXT NOT NULL, \"occurred_on\" INTEGER NOT NULL, \"occurred_at\" INTEGER NOT NULL, \"category_id\" TEXT NOT NULL REFERENCES categories (id), \"subcategory_id\" TEXT NULL REFERENCES categories (id), \"note\" TEXT NULL, \"created_at\" INTEGER NOT NULL, \"updated_at\" INTEGER NOT NULL, \"deleted_at\" INTEGER NULL, PRIMARY KEY (\"id\"), CHECK (type IN ('income', 'expense')), CHECK (amount_minor >= 0), CHECK (length(currency) = 3), CHECK (note IS NULL OR length(note) <= 200));"
+          "sql": "CREATE TABLE IF NOT EXISTS \"transactions\" (\"id\" TEXT NOT NULL, \"type\" TEXT NOT NULL, \"amount_minor\" INTEGER NOT NULL, \"currency\" TEXT NOT NULL, \"occurred_on\" INTEGER NOT NULL, \"occurred_at\" INTEGER NOT NULL, \"category_id\" TEXT NOT NULL REFERENCES categories (id), \"subcategory_id\" TEXT NULL REFERENCES categories (id), \"note\" TEXT NULL, \"created_at\" INTEGER NOT NULL, \"updated_at\" INTEGER NOT NULL, \"deleted_at\" INTEGER NULL, PRIMARY KEY (\"id\"), CHECK (type IN ('income', 'expense')), CHECK (amount_minor >= 0), CHECK (currency GLOB '[A-Z][A-Z][A-Z]'), CHECK (occurred_on BETWEEN 10101 AND 99991231), CHECK (note IS NULL OR length(note) BETWEEN 1 AND 200));"
         }
       ]
     },
@@ -477,11 +478,11 @@
       ]
     },
     {
-      "name": "transactions_occurred_on",
+      "name": "transactions_occurred_on_at",
       "sql": [
         {
           "dialect": "sqlite",
-          "sql": "CREATE INDEX transactions_occurred_on ON transactions (occurred_on) WHERE deleted_at IS NULL"
+          "sql": "CREATE INDEX transactions_occurred_on_at ON transactions (occurred_on, occurred_at) WHERE deleted_at IS NULL"
         }
       ]
     },
