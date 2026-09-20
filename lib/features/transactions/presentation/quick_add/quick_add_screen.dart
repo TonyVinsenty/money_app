@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/money/money.dart';
@@ -6,10 +8,16 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
+import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/transactions/domain/occurrence.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
+import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/category_picker_screen.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 
 /// Экран быстрого ввода операции.
 ///
@@ -36,8 +44,7 @@ class QuickAddScreen extends StatefulWidget {
   /// Категории для экрана выбора категории.
   final CategoriesRepository categories;
 
-  /// Пока не используются: понадобятся шагу 2.25 (сохранение операции). Уже
-  /// проведены через маршрут, чтобы не переделывать его второй раз.
+  /// Куда сохраняется операция и откуда берётся её id.
   final TransactionsRepository transactions;
   final IdGenerator idGenerator;
 
@@ -57,12 +64,12 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
 
   /// «Сегодня» на момент открытия экрана. Если экран простоит открытым через
   /// полночь, «сегодня» и выбранный день намеренно не обновляются: ввод
-  /// занимает секунды, а при сохранении (шаг 2.25) момент всё равно берётся из
-  /// часов через `Occurrence.onDay`.
+  /// занимает секунды, а при сохранении момент всё равно берётся из часов
+  /// через `Occurrence.onDay`.
   late final DateOnly _today;
 
-  /// Выбранный день операции. При сохранении (шаг 2.25) из него и из часов
-  /// выводятся обе величины операции: `Occurrence.onDay(_day, clock: ...)`.
+  /// Выбранный день операции. При сохранении из него и из часов выводятся обе
+  /// величины операции: `Occurrence.onDay(_day, clock: ...)`.
   late DateOnly _day;
 
   @override
@@ -70,6 +77,13 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     super.initState();
     _today = widget.clock.today();
     _day = _today;
+    // Сообщение о прошлом сохранении с кнопкой «Отменить» осталось бы висеть
+    // поверх этого экрана и закрывало бы кнопку «Далее». Человек начал новый
+    // ввод, значит, с прошлым он закончил. `context` для messenger в
+    // `initState` брать нельзя, поэтому после первого кадра.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    });
   }
 
   @override
@@ -94,9 +108,97 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
           amount: amount,
           day: _day,
           categories: widget.categories,
+          onCategorySelected: (category, note) =>
+              unawaited(_save(amount, category, note)),
         ),
       ),
     );
+  }
+
+  /// Идёт сохранение (или оно уже удалось): повторные тапы по плиткам
+  /// игнорируются, иначе два быстрых тапа создали бы две записи. После успеха
+  /// флаг не сбрасывается: экран сразу закрывается и второго сохранения быть
+  /// не должно. Сбрасывается только при ошибке, чтобы можно было повторить.
+  bool _saving = false;
+
+  /// Сохраняет операцию и возвращает на «Главную» с сообщением «сохранён».
+  ///
+  /// `ScaffoldMessenger` и `Navigator` берутся ДО первого `await`: после
+  /// закрытия экрана его `context` уже нельзя использовать, а сообщение
+  /// принадлежит корневому messenger приложения и переживает закрытие.
+  Future<void> _save(Money amount, Category category, String? note) async {
+    if (_saving) return;
+    _saving = true;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final transactions = widget.transactions;
+    final type = widget.type;
+    try {
+      // День и момент выводятся вместе из выбранного дня и часов.
+      final occurrence = Occurrence.onDay(_day, clock: widget.clock);
+      final transaction = Transaction.create(
+        id: widget.idGenerator.newId(),
+        type: type,
+        amount: amount,
+        occurredOn: occurrence.occurredOn,
+        occurredAt: occurrence.occurredAt,
+        category: category,
+        note: note,
+      );
+      // Тексты собираем до записи: если они не соберутся, ничего не сохранено.
+      final text = SavedSnackBar.text(
+        type: type,
+        amount: amount,
+        categoryName: category.name,
+      );
+      final spokenText = SavedSnackBar.spokenText(
+        type: type,
+        amount: amount,
+        categoryName: category.name,
+      );
+      await transactions.add(transaction);
+
+      navigator.popUntil((route) => route.isFirst);
+      // Предыдущее сообщение убираем, чтобы новое не встало в очередь за ним.
+      // Каждое сообщение отменяет именно свою запись (id из замыкания).
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SavedSnackBar.build(
+            text: text,
+            spokenText: spokenText,
+            onUndo: () =>
+                unawaited(_undo(messenger, transactions, transaction.id)),
+          ),
+        );
+    } on TransactionRuleException catch (error) {
+      _saving = false;
+      _showError(messenger, transactionRuleMessage(error.rule, type: type));
+    } on Object {
+      // Ошибки базы, ArgumentError и всё прочее: пользователь их исправить не
+      // может. Экран остаётся открытым, введённое не теряется.
+      _saving = false;
+      _showError(messenger, transactionSaveFailedText);
+    }
+  }
+
+  /// «Отменить»: мягкое удаление только что созданной записи.
+  Future<void> _undo(
+    ScaffoldMessengerState messenger,
+    TransactionsRepository transactions,
+    String id,
+  ) async {
+    try {
+      await transactions.softDelete(id);
+    } on Object {
+      _showError(messenger, SavedSnackBar.undoFailedText);
+    }
+  }
+
+  void _showError(ScaffoldMessengerState messenger, String text) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
   }
 
   @override

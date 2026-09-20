@@ -20,8 +20,8 @@ import 'package:money_app/features/transactions/presentation/quick_add/note_fiel
 ///
 /// Между суммой и сеткой — необязательная строка комментария ([NoteField]).
 /// Тап по плитке вызывает [onCategorySelected] с категорией и комментарием.
-/// Сохранение операции подключает шаг 2.25; пока колбэк не задан, тап ничего
-/// не делает.
+/// Само сохранение делает тот, кто открыл экран (`QuickAddScreen`); пока
+/// колбэк не задан, тап ничего не делает.
 class CategoryPickerScreen extends StatefulWidget {
   const CategoryPickerScreen({
     required this.type,
@@ -35,8 +35,8 @@ class CategoryPickerScreen extends StatefulWidget {
   final TransactionType type;
   final Money amount;
 
-  /// Выбранный на предыдущем экране день. Здесь он только «едет» дальше до
-  /// шага 2.25, где из него и из часов собирается операция.
+  /// Выбранный на предыдущем экране день. Сам экран его не
+  /// использует: операция собирается на `QuickAddScreen`.
   final DateOnly day;
 
   final CategoriesRepository categories;
