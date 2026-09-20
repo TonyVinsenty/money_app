@@ -1,8 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- allowBackup="false": резервного копирования в Google-аккаунт нет,
-         данные защищает только экспорт CSV (решение пользователя). -->
+         данные защищает только экспорт CSV (решение пользователя).
+         enableOnBackInvokedCallback="true": предиктивный «Назад». Android 13+
+         показывает предпросмотр жеста «Назад» (что будет под текущим экраном),
+         а на Android 16+ / targetSdk 36 этот режим станет обязательным.
+         Наш PopScope в AppShell с ним совместим. -->
     <application
         android:allowBackup="false"
+        android:enableOnBackInvokedCallback="true"
         android:label="Zuno"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

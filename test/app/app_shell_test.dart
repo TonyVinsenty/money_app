@@ -3,7 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/app/app_scope.dart';
+import 'package:money_app/app/app_services.dart';
 import 'package:money_app/app/app_shell.dart';
+import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+
+import '../support/fakes.dart';
 
 /// Вкладка, у которой есть собственное состояние: счётчик нажатий.
 class _CounterTab extends StatefulWidget {
@@ -27,6 +32,17 @@ class _CounterTabState extends State<_CounterTab> {
         ),
       ],
     );
+  }
+}
+
+/// Вкладка, читающая сервисы из `AppScope` в собственном `build`.
+class _ServicesTab extends StatelessWidget {
+  const _ServicesTab();
+
+  @override
+  Widget build(BuildContext context) {
+    final services = AppScope.of(context);
+    return Text('Сервисы: ${identityHashCode(services)}');
   }
 }
 
@@ -464,6 +480,35 @@ void main() {
       await tester.pump();
       expect(find.text('Счёт: 2'), findsOneWidget);
     });
+  });
+
+  testWidgets('открытая вкладка, читающая AppScope в build, видит новые '
+      'сервисы после их подмены над каркасом', (tester) async {
+    final settings = AppSettingsController();
+    addTearDown(settings.dispose);
+    final first = fakeAppServices(settings: settings);
+    final second = fakeAppServices(settings: settings);
+    final tabs = [
+      _tab('Первая', (_) => const _ServicesTab()),
+      _tab('Вторая', (_) => const Text('Содержимое второй')),
+      _tab('Третья', (_) => const Text('Содержимое третьей')),
+    ];
+    // Одни и те же вкладки и то же дерево: меняется только AppScope.
+    Widget app(AppServices services) => MaterialApp(
+      home: AppScope(
+        services: services,
+        child: AppShell(tabs: tabs),
+      ),
+    );
+
+    await tester.pumpWidget(app(first));
+    expect(find.text('Сервисы: ${identityHashCode(first)}'), findsOneWidget);
+
+    await tester.pumpWidget(app(second));
+
+    expect(identityHashCode(first), isNot(identityHashCode(second)));
+    expect(find.text('Сервисы: ${identityHashCode(second)}'), findsOneWidget);
+    expect(find.text('Сервисы: ${identityHashCode(first)}'), findsNothing);
   });
 
   test('меньше 3 или больше 5 вкладок недопустимо', () {
