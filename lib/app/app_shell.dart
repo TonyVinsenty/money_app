@@ -46,18 +46,56 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
 
+  /// Уже построенное содержимое открытых вкладок по индексу. Ключи этой карты
+  /// и есть «множество открытых вкладок»: индекса нет — вкладку ещё не
+  /// показывали, и её строитель не вызывался. Один и тот же виджет отдаётся
+  /// в [IndexedStack] при каждой перерисовке, поэтому строитель вызывается
+  /// ровно один раз на вкладку, а состояние вкладки не теряется.
+  final Map<int, Widget> _openedTabs = {};
+
+  @override
+  void didUpdateWidget(AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Тот же набор вкладок (даже в новом списке) кэш не сбрасывает. Другой
+    // набор: старые индексы указывают уже на другие вкладки, кэш забываем.
+    if (!_sameTabs(oldWidget.tabs, widget.tabs)) {
+      _openedTabs.clear();
+      if (_selectedIndex >= widget.tabs.length) {
+        _selectedIndex = widget.tabs.length - 1;
+      }
+    }
+  }
+
+  static bool _sameTabs(List<AppTab> a, List<AppTab> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!identical(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Выбранная вкладка строится при первом показе и дальше берётся из кэша.
+    _openedTabs.putIfAbsent(
+      _selectedIndex,
+      () => widget.tabs[_selectedIndex].builder(context),
+    );
     return Scaffold(
       // Верхней панели (AppBar) нет, поэтому без SafeArea содержимое уехало бы
       // под системную строку состояния. Низ не защищаем: этим занимается сама
       // NavigationBar.
       body: SafeArea(
         bottom: false,
-        // IndexedStack держит в дереве все вкладки сразу и показывает одну.
+        // IndexedStack держит в дереве все свои дочерние виджеты и показывает
+        // один. Ещё не открытые вкладки — пустые заглушки, открытые — их
+        // кэшированное содержимое (оно остаётся в дереве скрытым).
         child: IndexedStack(
           index: _selectedIndex,
-          children: [for (final tab in widget.tabs) tab.builder(context)],
+          children: [
+            for (var i = 0; i < widget.tabs.length; i++)
+              _openedTabs[i] ?? const SizedBox.shrink(),
+          ],
         ),
       ),
       bottomNavigationBar: NavigationBar(

@@ -42,6 +42,24 @@ List<AppTab> _testTabs() => [
   _tab('Третья', (_) => const Text('Содержимое третьей')),
 ];
 
+/// Вкладки со счётчиком вызовов строителей: `calls[i]` растёт на 1 при
+/// каждом вызове строителя вкладки `i`. Подписи: «Первая», «Вторая», «Третья»
+/// (для 3 вкладок) либо «Вкладка i подпись»; содержимое — «`prefix` i».
+List<AppTab> _countingTabs(
+  List<int> calls, {
+  String prefix = 'Вкладка',
+  int count = 3,
+}) {
+  const names = ['Первая', 'Вторая', 'Третья'];
+  return [
+    for (var i = 0; i < count; i++)
+      _tab(count == 3 ? names[i] : 'Вкладка $i подпись', (_) {
+        calls[i]++;
+        return Text('$prefix $i');
+      }),
+  ];
+}
+
 Future<void> _pumpShell(WidgetTester tester, List<AppTab> tabs) {
   return tester.pumpWidget(MaterialApp(home: AppShell(tabs: tabs)));
 }
@@ -77,7 +95,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Содержимое второй'), findsOneWidget);
-    // IndexedStack оставляет остальные вкладки в дереве, но скрытыми
+    // IndexedStack оставляет открытые вкладки в дереве, но скрытыми
     // (Offstage). find по умолчанию пропускает скрытое, поэтому первая
     // вкладка «не находится», хотя её состояние живо (см. следующий тест).
     expect(find.text('Счёт: 0'), findsNothing);
@@ -102,6 +120,194 @@ void main() {
     await tester.pump();
 
     expect(find.text('Счёт: 2'), findsOneWidget);
+  });
+
+  group('ленивая загрузка вкладок', () {
+    testWidgets('до первого открытия строитель вкладки не вызывается', (
+      tester,
+    ) async {
+      final calls = <int>[0, 0, 0];
+      await _pumpShell(tester, _countingTabs(calls));
+
+      expect(calls, [1, 0, 0]);
+      expect(find.text('Вкладка 0'), findsOneWidget);
+    });
+
+    testWidgets('после первого перехода строитель вызван ровно один раз', (
+      tester,
+    ) async {
+      final calls = <int>[0, 0, 0];
+      await _pumpShell(tester, _countingTabs(calls));
+
+      await tester.tap(find.text('Вторая'));
+      await tester.pump();
+      expect(calls, [1, 1, 0]);
+
+      // Туда-обратно несколько раз: новых вызовов быть не должно.
+      await tester.tap(find.text('Первая'));
+      await tester.pump();
+      await tester.tap(find.text('Вторая'));
+      await tester.pump();
+      await tester.tap(find.text('Первая'));
+      await tester.pump();
+      expect(calls, [1, 1, 0]);
+    });
+
+    testWidgets('перерисовки шлюза не вызывают строители повторно', (
+      tester,
+    ) async {
+      final calls = <int>[0, 0, 0];
+      final tabs = _countingTabs(calls);
+      late StateSetter rebuildParent;
+      var brightness = Brightness.light;
+
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuildParent = setState;
+            return MaterialApp(
+              theme: ThemeData(brightness: brightness),
+              home: AppShell(tabs: tabs),
+            );
+          },
+        ),
+      );
+      await tester.tap(find.text('Вторая'));
+      await tester.pump();
+      expect(calls, [1, 1, 0]);
+
+      // Родитель перерисовывается с прежним набором вкладок.
+      rebuildParent(() {});
+      await tester.pump();
+      // Смена темы: шлюз перестраивается, вкладки тоже, но строители молчат.
+      rebuildParent(() => brightness = Brightness.dark);
+      await tester.pumpAndSettle();
+
+      expect(calls, [1, 1, 0]);
+      expect(find.text('Вкладка 1'), findsOneWidget);
+    });
+
+    testWidgets('позиция прокрутки открытой вкладки сохраняется', (
+      tester,
+    ) async {
+      final tabs = [
+        _tab('Первая', (_) => const Text('Первая вкладка')),
+        _tab(
+          'Список',
+          (_) => ListView.builder(
+            itemCount: 100,
+            itemBuilder: (_, i) =>
+                SizedBox(height: 60, child: Text('Строка $i')),
+          ),
+        ),
+        _tab('Третья', (_) => const Text('Третья вкладка')),
+      ];
+      await _pumpShell(tester, tabs);
+
+      await tester.tap(find.text('Список'));
+      await tester.pump();
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pump();
+      final before = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+      expect(before, greaterThan(0));
+
+      await tester.tap(find.text('Первая'));
+      await tester.pump();
+      await tester.tap(find.text('Третья'));
+      await tester.pump();
+      await tester.tap(find.text('Список'));
+      await tester.pump();
+
+      final after = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+      expect(after, before);
+    });
+
+    testWidgets('не открытая вкладка не в дереве, открытая остаётся скрытой', (
+      tester,
+    ) async {
+      await _pumpShell(tester, _testTabs());
+
+      // Ни вторая, ни третья ещё не открывались: их виджетов нет совсем.
+      expect(find.text('Содержимое второй', skipOffstage: false), findsNothing);
+      expect(
+        find.text('Содержимое третьей', skipOffstage: false),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('Вторая'));
+      await tester.pump();
+
+      // Первая открыта раньше: скрыта, но в дереве. Третья по-прежнему нет.
+      expect(find.text('Счёт: 0'), findsNothing);
+      expect(find.text('Счёт: 0', skipOffstage: false), findsOneWidget);
+      expect(
+        find.text('Содержимое третьей', skipOffstage: false),
+        findsNothing,
+      );
+    });
+
+    testWidgets('при смене набора вкладок кэш сбрасывается, сборка ленивая', (
+      tester,
+    ) async {
+      final oldCalls = <int>[0, 0, 0];
+      await _pumpShell(tester, _countingTabs(oldCalls, prefix: 'Старая'));
+      await tester.tap(find.text('Вторая'));
+      await tester.pump();
+      expect(oldCalls, [1, 1, 0]);
+
+      final newCalls = <int>[0, 0, 0];
+      await _pumpShell(tester, _countingTabs(newCalls, prefix: 'Новая'));
+      await tester.pump();
+
+      // Выбранной остаётся вторая вкладка (индекс 1), строится только она.
+      expect(newCalls, [0, 1, 0]);
+      expect(oldCalls, [1, 1, 0]);
+      expect(find.text('Новая 1'), findsOneWidget);
+      // Содержимое старого набора не «протекло» в новое дерево.
+      expect(find.textContaining('Старая', skipOffstage: false), findsNothing);
+      expect(find.text('Новая 0', skipOffstage: false), findsNothing);
+    });
+
+    testWidgets('набор стал короче: выбранный индекс остаётся допустимым', (
+      tester,
+    ) async {
+      await _pumpShell(tester, _countingTabs([0, 0, 0, 0, 0], count: 5));
+      await tester.tap(find.text('Вкладка 4 подпись'));
+      await tester.pump();
+      expect(find.text('Вкладка 4'), findsOneWidget);
+
+      final newCalls = <int>[0, 0, 0];
+      await _pumpShell(tester, _countingTabs(newCalls, prefix: 'Новая'));
+      await tester.pump();
+
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        2,
+      );
+      expect(newCalls, [0, 0, 1]);
+      expect(find.text('Новая 2'), findsOneWidget);
+    });
+
+    testWidgets('тот же набор в новом списке кэш не сбрасывает', (
+      tester,
+    ) async {
+      final calls = <int>[0, 0, 0];
+      final tabs = _countingTabs(calls);
+      await _pumpShell(tester, tabs);
+      await tester.tap(find.text('Вторая'));
+      await tester.pump();
+
+      await _pumpShell(tester, List.of(tabs));
+      await tester.pump();
+
+      expect(calls, [1, 1, 0]);
+    });
   });
 
   test('меньше 3 или больше 5 вкладок недопустимо', () {
