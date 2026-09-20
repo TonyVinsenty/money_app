@@ -212,6 +212,125 @@ void main() {
     await _finish(tester);
   });
 
+  group('строка «Доходы за месяц»', () {
+    final emptyIncome = find.text('В этом месяце доходов ещё нет');
+    String income(String month, int minor) =>
+        'Доходы за $month: +${formatMoney(Money.fromMinor(minor, 'RUB'))}';
+
+    testWidgets('доходов нет: пустое состояние, расход в неё не входит', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        seed: () =>
+            _put('e1', TransactionType.expense, 999900, DateOnly(2026, 9, 3)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(emptyIncome, findsOneWidget);
+      expect(find.textContaining('Доходы за'), findsNothing);
+      expect(find.text(_total('сентябрь', 999900)), findsOneWidget);
+      await _finish(tester);
+    });
+
+    testWidgets(
+      'в итог входят только доходы текущего месяца, границы включены',
+      (tester) async {
+        await _pumpApp(
+          tester,
+          seed: () async {
+            await _put(
+              'i1',
+              TransactionType.income,
+              10000,
+              DateOnly(2026, 9, 1),
+            );
+            await _put(
+              'i2',
+              TransactionType.income,
+              20000,
+              DateOnly(2026, 9, 30),
+            );
+            await _put(
+              'i3',
+              TransactionType.income,
+              5000,
+              DateOnly(2026, 9, 15),
+            );
+            // Не входят: соседние месяцы и расход.
+            await _put(
+              'x1',
+              TransactionType.income,
+              700,
+              DateOnly(2026, 8, 31),
+            );
+            await _put(
+              'x2',
+              TransactionType.income,
+              900,
+              DateOnly(2026, 10, 1),
+            );
+            await _put(
+              'x3',
+              TransactionType.expense,
+              999900,
+              DateOnly(2026, 9, 15),
+            );
+          },
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(income('сентябрь', 35000)), findsOneWidget);
+        expect(emptyIncome, findsNothing);
+        await _finish(tester);
+      },
+    );
+
+    testWidgets('доход есть с первого показа: пустое состояние не мигает', (
+      tester,
+    ) async {
+      await _pumpApp(
+        tester,
+        seed: () =>
+            _put('i1', TransactionType.income, 1234500, DateOnly(2026, 9, 5)),
+      );
+
+      var shown = false;
+      for (var i = 0; i < 20 && !shown; i++) {
+        expect(emptyIncome, findsNothing, reason: 'кадр $i');
+        shown = find.text(income('сентябрь', 1234500)).evaluate().isNotEmpty;
+        if (!shown) await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(shown, isTrue);
+      await _finish(tester);
+    });
+
+    testWidgets('доход, сохранённый быстрым вводом, попадает в строку сам, '
+        '«Отменить» возвращает пустое состояние', (tester) async {
+      await _pumpApp(tester);
+      await tester.pumpAndSettle();
+      expect(emptyIncome, findsOneWidget);
+
+      await tester.tap(find.text('Доход'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '1500,50');
+      await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Зарплата'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(income('сентябрь', 150050)), findsOneWidget);
+      expect(emptyIncome, findsNothing);
+      // Расходов доход не трогает.
+      expect(_empty, findsOneWidget);
+
+      await tester.tap(find.text('Отменить'));
+      await tester.pumpAndSettle();
+      expect(emptyIncome, findsOneWidget);
+      await _finish(tester);
+    });
+  });
+
   testWidgets('после сохранения расхода итог обновляется сам, «Отменить» '
       'возвращает пустое состояние', (tester) async {
     await _pumpApp(tester);

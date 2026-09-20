@@ -58,7 +58,8 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
 /// Вкладка «Главная»: связывает экран фичи `home` с маршрутами приложения.
 /// Сам `HomeScreen` маршрутов не знает: ему передаётся только функция.
 ///
-/// Он же даёт экрану поток «расходы за текущий месяц» из репозитория.
+/// Он же даёт экрану потоки «расходы» и «доходы за текущий месяц» из
+/// репозитория.
 class HomeTab extends StatefulWidget {
   const HomeTab({super.key});
 
@@ -71,6 +72,7 @@ class _HomeTabState extends State<HomeTab> {
   Clock? _clock;
   late DateOnly _month;
   late Stream<Money> _monthExpenses;
+  late Stream<Money> _monthIncome;
 
   // Поток создаём один раз (и заново только при смене репозитория или часов):
   // если создавать его в build, каждая перерисовка начинала бы подписку заново
@@ -93,6 +95,10 @@ class _HomeTabState extends State<HomeTab> {
         type: TransactionType.expense,
         period: monthRange(_month),
       );
+      _monthIncome = services.transactions.watchTotal(
+        type: TransactionType.income,
+        period: monthRange(_month),
+      );
     }
   }
 
@@ -102,6 +108,7 @@ class _HomeTabState extends State<HomeTab> {
     final services = AppScope.of(context);
     return HomeScreen(
       monthExpenses: _monthExpenses,
+      monthIncome: _monthIncome,
       month: _month,
       onAddTransaction: (type) => Navigator.of(context).pushNamed(
         AppRoutes.quickAdd,

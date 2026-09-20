@@ -15,17 +15,18 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// 6 секунд: следующий расход нельзя было бы ввести сразу.
 const double _snackBarReserve = 112;
 
-/// Главный экран: итог расходов за месяц и две крупные кнопки «Доход» и
-/// «Расход».
+/// Главный экран: итоги расходов и доходов за месяц и две крупные кнопки
+/// «Доход» и «Расход».
 ///
 /// Экран не знает, куда ведёт нажатие и откуда берутся суммы: об этом знает
-/// только приложение (`lib/app`), которое передаёт [onAddTransaction] и поток
-/// [monthExpenses]. Так фича `home` не зависит от маршрутов, репозиториев и
+/// только приложение (`lib/app`), которое передаёт [onAddTransaction] и потоки
+/// [monthExpenses] и [monthIncome]. Так фича `home` не зависит от маршрутов, репозиториев и
 /// других экранов (ADR 0002).
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
     required this.onAddTransaction,
     required this.monthExpenses,
+    required this.monthIncome,
     required this.month,
     super.key,
   });
@@ -35,6 +36,9 @@ class HomeScreen extends StatelessWidget {
   /// Итог расходов за [month]. Поток должен быть один и тот же между
   /// перерисовками (его создаёт вызывающий), иначе подписка начнётся заново.
   final Stream<Money> monthExpenses;
+
+  /// Итог доходов за [month]; те же правила, что у [monthExpenses].
+  final Stream<Money> monthIncome;
 
   /// Любой день показываемого месяца: из него берётся название месяца.
   final DateOnly month;
@@ -63,9 +67,26 @@ class HomeScreen extends StatelessWidget {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _MonthExpenses(stream: monthExpenses, month: month),
+                  _MonthTotal(
+                    stream: monthExpenses,
+                    month: month,
+                    title: 'Расходы',
+                    emptyText: 'В этом месяце расходов ещё нет',
+                    errorText: 'Не удалось посчитать расходы за месяц',
+                  ),
+                  const SizedBox(height: 8),
+                  // Знак «+» и цвет дохода: смысл не передаётся одним цветом.
+                  _MonthTotal(
+                    stream: monthIncome,
+                    month: month,
+                    title: 'Доходы',
+                    emptyText: 'В этом месяце доходов ещё нет',
+                    errorText: 'Не удалось посчитать доходы за месяц',
+                    sign: '+',
+                    color: colors.income,
+                  ),
                   // Этап 4: сюда встанет круговая диаграмма расходов по
-                  // категориям (место под неё оставлено здесь, под итогом).
+                  // категориям (место под неё оставлено здесь, под итогами).
                 ],
               ),
             ),
@@ -97,12 +118,32 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-/// Итог расходов месяца, пустое состояние или сообщение об ошибке.
-class _MonthExpenses extends StatelessWidget {
-  const _MonthExpenses({required this.stream, required this.month});
+/// Итог месяца по одному типу операций (расходы или доходы), пустое состояние
+/// или сообщение об ошибке.
+class _MonthTotal extends StatelessWidget {
+  const _MonthTotal({
+    required this.stream,
+    required this.month,
+    required this.title,
+    required this.emptyText,
+    required this.errorText,
+    this.sign = '',
+    this.color,
+  });
 
   final Stream<Money> stream;
   final DateOnly month;
+
+  /// Начало строки: «Расходы» или «Доходы» (дальше «за сентябрь: сумма»).
+  final String title;
+  final String emptyText;
+  final String errorText;
+
+  /// Знак перед суммой («+» у доходов), у расходов пусто.
+  final String sign;
+
+  /// Цвет строки; `null` — обычный цвет текста темы.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -111,27 +152,21 @@ class _MonthExpenses extends StatelessWidget {
     // нет»): пустое состояние означает «спросили базу, и там ноль».
     return AsyncView<Money>(
       stream: stream,
-      errorBuilder: (context, error) => Text(
-        'Не удалось посчитать расходы за месяц',
-        textAlign: TextAlign.center,
-        style: style,
-      ),
+      errorBuilder: (context, error) =>
+          Text(errorText, textAlign: TextAlign.center, style: style),
       isEmpty: (total) => total.minorUnits == 0,
-      emptyBuilder: (context) => Text(
-        'В этом месяце расходов ещё нет',
-        textAlign: TextAlign.center,
-        style: style,
-      ),
+      emptyBuilder: (context) =>
+          Text(emptyText, textAlign: TextAlign.center, style: style),
       dataBuilder: (context, total) {
         final name = formatMonthName(month);
         // Скринридеру суммы читаем словами, а не «12 345,00 ₽» с символом.
         return Semantics(
-          label: 'Расходы за $name: ${spokenMoney(total)}',
+          label: '$title за $name: ${spokenMoney(total)}',
           excludeSemantics: true,
           child: Text(
-            'Расходы за $name: ${formatMoney(total)}',
+            '$title за $name: $sign${formatMoney(total)}',
             textAlign: TextAlign.center,
-            style: style,
+            style: style?.copyWith(color: color),
           ),
         );
       },

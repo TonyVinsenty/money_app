@@ -16,6 +16,7 @@ import 'package:money_app/features/transactions/presentation/quick_add/saved_sna
 Widget _app({
   required void Function(TransactionType) onAdd,
   Stream<Money>? expenses,
+  Stream<Money>? income,
   ThemeMode mode = ThemeMode.light,
   double textScale = 1,
 }) {
@@ -32,6 +33,7 @@ Widget _app({
       body: HomeScreen(
         onAddTransaction: onAdd,
         monthExpenses: expenses ?? Stream.value(Money.zero('RUB')),
+        monthIncome: income ?? Stream.value(Money.zero('RUB')),
         month: DateOnly(2026, 9, 20),
       ),
     ),
@@ -251,6 +253,157 @@ void main() {
     });
   });
 
+  group('итог доходов за месяц', () {
+    setUpAll(() async {
+      await initializeDateFormatting('ru');
+    });
+
+    final emptyText = find.text('В этом месяце доходов ещё нет');
+    final errorText = find.text('Не удалось посчитать доходы за месяц');
+    final money = formatMoney(Money.fromMinor(1234500, 'RUB'));
+
+    testWidgets('строка под расходами: знак «+», месяц и сумма', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          onAdd: (_) {},
+          expenses: Stream.value(Money.fromMinor(50000, 'RUB')),
+          income: Stream.value(Money.fromMinor(1234500, 'RUB')),
+        ),
+      );
+      await tester.pump();
+
+      final incomeLine = find.text('Доходы за сентябрь: +$money');
+      expect(incomeLine, findsOneWidget);
+      expect(emptyText, findsNothing);
+      // Раскладка: «Расходы» выше «Доходов».
+      expect(
+        tester.getTopLeft(find.textContaining('Расходы за')).dy,
+        lessThan(tester.getTopLeft(incomeLine).dy),
+      );
+    });
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      testWidgets('цвет дохода из темы ($mode), контраст не ниже 4.5', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _app(
+            onAdd: (_) {},
+            mode: mode,
+            income: Stream.value(Money.fromMinor(1234500, 'RUB')),
+          ),
+        );
+        await tester.pump();
+
+        final context = tester.element(find.byType(HomeScreen));
+        final text = tester.widget<Text>(
+          find.text('Доходы за сентябрь: +$money'),
+        );
+        final color = text.style!.color!;
+        expect(color, context.appColors.income);
+        expect(
+          _contrast(color, Theme.of(context).colorScheme.surface),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+    }
+
+    testWidgets('до первого значения нет ни суммы, ни пустого состояния', (
+      tester,
+    ) async {
+      final controller = StreamController<Money>();
+      addTearDown(controller.close);
+      await tester.pumpWidget(_app(onAdd: (_) {}, income: controller.stream));
+      await tester.pump();
+
+      expect(find.textContaining('Доходы за'), findsNothing);
+      expect(emptyText, findsNothing);
+      expect(errorText, findsNothing);
+
+      controller.add(Money.fromMinor(1234500, 'RUB'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Доходы за сентябрь: +$money'), findsOneWidget);
+      expect(emptyText, findsNothing);
+    });
+
+    testWidgets('нулевой итог: пустое состояние, расходы не затронуты', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          onAdd: (_) {},
+          expenses: Stream.value(Money.fromMinor(50000, 'RUB')),
+        ),
+      );
+      await tester.pump();
+
+      expect(emptyText, findsOneWidget);
+      expect(find.textContaining('Доходы за'), findsNothing);
+      expect(find.textContaining('Расходы за сентябрь'), findsOneWidget);
+    });
+
+    testWidgets('ошибка потока доходов: короткий текст, расходы целы', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          onAdd: (_) {},
+          expenses: Stream.value(Money.fromMinor(50000, 'RUB')),
+          income: Stream.error(StateError('boom')),
+        ),
+      );
+      await tester.pump();
+
+      expect(errorText, findsOneWidget);
+      expect(find.textContaining('Расходы за сентябрь'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('скринридер читает сумму прописью, без знака и символа', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _app(
+          onAdd: (_) {},
+          income: Stream.value(Money.fromMinor(1234550, 'RUB')),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.bySemanticsLabel('Доходы за сентябрь: 12345 рублей 50 копеек'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('масштаб шрифта 200% на узком экране: без переполнения', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(240, 480);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _app(
+          onAdd: (_) {},
+          textScale: 2,
+          expenses: Stream.value(Money.fromMinor(123456789, 'RUB')),
+          income: Stream.value(Money.fromMinor(987654321, 'RUB')),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('Доходы за'), findsOneWidget);
+      expect(find.text('Расход'), findsOneWidget);
+    });
+  });
+
   group('место под SnackBar', () {
     // Экран целиком: каркас, нижняя панель и сообщение после сохранения.
     Widget appWithBar(List<TransactionType> calls, {double textScale = 1}) {
@@ -267,6 +420,7 @@ void main() {
             child: HomeScreen(
               onAddTransaction: calls.add,
               monthExpenses: Stream.value(Money.fromMinor(35000, 'RUB')),
+              monthIncome: Stream.value(Money.fromMinor(100000, 'RUB')),
               month: DateOnly(2026, 9, 20),
             ),
           ),
