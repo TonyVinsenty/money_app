@@ -3,6 +3,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/app/open_and_seed_database.dart';
 import 'package:money_app/app/orientation_lock.dart';
+import 'package:money_app/core/database/archive_broken_database.dart';
 import 'package:money_app/core/database/open_app_database.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
@@ -24,6 +25,9 @@ Future<void> main() async {
       // Открываем базу и сразу засеваем категории по умолчанию. Если засев
       // упадёт, база закроется, а пользователь увидит экран ошибки.
       openDatabase: () => openAndSeedDatabase(openAppDatabase),
+      // «Начать заново» на экране ошибки: старый файл переименовывается, а не
+      // удаляется.
+      startOverDatabase: archiveAppDatabase,
     ),
   );
 }

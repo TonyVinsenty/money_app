@@ -43,6 +43,32 @@ String databaseRetryFailedMessage(int attempt) =>
 const databaseRetryUnlikelyMessage =
     'Повторные попытки, скорее всего, не помогут.';
 
+/// Подпись второстепенной кнопки «Начать заново» на экране ошибки.
+const databaseStartOverLabel = 'Начать заново';
+
+/// Первый диалог подтверждения «Начать заново».
+const databaseStartOverTitle1 = 'Начать заново?';
+const databaseStartOverBody1 =
+    'Файл со старыми данными не удаляется: он останется на телефоне под '
+    'другим именем, но Zuno начнёт с пустой базы.';
+
+/// Второй диалог подтверждения (текст утверждён пользователем).
+const databaseStartOverTitle2 = 'Точно начать заново?';
+const databaseStartOverBody2 =
+    'Все записи будут потеряны, восстановить можно только из CSV.';
+
+/// Кнопки диалогов.
+const databaseDialogCancelLabel = 'Отмена';
+const databaseDialogContinueLabel = 'Продолжить';
+
+/// Строка под кнопками, если «Начать заново» не удалось.
+const databaseStartOverFailedMessage =
+    'Не удалось начать заново. Файл базы занят или недоступен. '
+    'Попробуйте ещё раз или перезагрузите телефон.';
+
+/// Начало строки с техническим текстом ошибки «Начать заново» в подробностях.
+const databaseStartOverDetailsPrefix = 'Ошибка «Начать заново»: ';
+
 /// Через сколько показывать индикатор загрузки: при быстром открытии базы он
 /// не успевает мигнуть.
 const databaseSpinnerDelay = Duration(milliseconds: 300);
@@ -60,11 +86,21 @@ const databaseSpinnerDelay = Duration(milliseconds: 300);
 /// Шлюз владеет открытой им базой и закрывает её, когда сам удаляется из
 /// дерева виджетов.
 class DatabaseGate extends StatefulWidget {
-  const DatabaseGate({required this.open, required this.builder, super.key});
+  const DatabaseGate({
+    required this.open,
+    required this.builder,
+    this.onStartOver,
+    super.key,
+  });
 
   /// Открывает базу. Вызывается при старте и при каждом нажатии «Повторить»,
   /// но не при простых перерисовках.
   final Future<AppDatabase> Function() open;
+
+  /// Убирает старый файл базы «в сторону», чтобы можно было начать с пустой
+  /// базы. Вызывается только после двух подтверждений на экране ошибки; затем
+  /// база открывается заново. Если null — кнопки «Начать заново» нет.
+  final Future<void> Function()? onStartOver;
 
   /// Строит приложение, когда база открыта.
   final Widget Function(BuildContext context, AppDatabase database) builder;
@@ -131,10 +167,80 @@ class _DatabaseGateState extends State<DatabaseGate> {
     }
   }
 
+  /// Технический текст ошибки последней попытки «Начать заново» (или null).
+  Object? _startOverError;
+
   void _retry() {
     if (_retrying) return;
     // Экран ошибки не убираем: пользователь видит, что попытка идёт.
-    setState(() => _retrying = true);
+    setState(() {
+      _retrying = true;
+      _startOverError = null;
+    });
+    unawaited(_open());
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String body,
+    required String confirmLabel,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(databaseDialogCancelLabel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  /// «Начать заново»: два подтверждения, затем [DatabaseGate.onStartOver] и
+  /// новая попытка открытия базы. Ошибка не роняет приложение, а показывается
+  /// строкой на экране.
+  Future<void> _startOver() async {
+    final onStartOver = widget.onStartOver;
+    if (onStartOver == null || _retrying) return;
+
+    final first = await _confirm(
+      title: databaseStartOverTitle1,
+      body: databaseStartOverBody1,
+      confirmLabel: databaseDialogContinueLabel,
+    );
+    if (!first || !mounted) return;
+    final second = await _confirm(
+      title: databaseStartOverTitle2,
+      body: databaseStartOverBody2,
+      confirmLabel: databaseStartOverLabel,
+    );
+    if (!second || !mounted || _retrying) return;
+
+    setState(() {
+      _retrying = true;
+      _startOverError = null;
+    });
+    try {
+      await onStartOver();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _startOverError = error;
+        _retrying = false;
+      });
+      return;
+    }
+    if (!mounted) return;
     unawaited(_open());
   }
 
@@ -169,6 +275,8 @@ class _DatabaseGateState extends State<DatabaseGate> {
         failedAttempt: _failedAttempt,
         retrying: _retrying,
         onRetry: _retry,
+        onStartOver: widget.onStartOver == null ? null : _startOver,
+        startOverError: _startOverError,
       );
     }
     return _DatabaseLoadingView(showSpinner: _showSpinner);
@@ -201,9 +309,25 @@ class _DatabaseErrorView extends StatelessWidget {
     required this.failedAttempt,
     required this.retrying,
     required this.onRetry,
+    required this.onStartOver,
+    required this.startOverError,
   });
 
   final Object error;
+
+  /// Нажатие «Начать заново»; null — кнопки нет.
+  final VoidCallback? onStartOver;
+
+  /// Ошибка последней попытки «Начать заново» (null — её не было).
+  final Object? startOverError;
+
+  /// Технический текст для «Подробностей» и буфера обмена.
+  String get _details {
+    final startOver = startOverError;
+    return startOver == null
+        ? error.toString()
+        : '$error\n$databaseStartOverDetailsPrefix$startOver';
+  }
 
   /// Номер попытки, которая закончилась этой ошибкой (1 — первая, при старте).
   final int failedAttempt;
@@ -215,7 +339,7 @@ class _DatabaseErrorView extends StatelessWidget {
 
   Future<void> _copyDetails(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    await Clipboard.setData(ClipboardData(text: error.toString()));
+    await Clipboard.setData(ClipboardData(text: _details));
     messenger.showSnackBar(
       const SnackBar(content: Text(databaseCopiedMessage)),
     );
@@ -314,7 +438,7 @@ class _DatabaseErrorView extends StatelessWidget {
                     childrenPadding: const EdgeInsets.all(16),
                     expandedCrossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SelectableText(error.toString()),
+                      SelectableText(_details),
                       const SizedBox(height: 8),
                       TextButton(
                         onPressed: () => unawaited(_copyDetails(context)),
@@ -322,6 +446,26 @@ class _DatabaseErrorView extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (onStartOver != null) ...[
+                    const SizedBox(height: 8),
+                    // Второстепенный путь: не заметная кнопка, чтобы не нажать
+                    // случайно вместо «Повторить».
+                    TextButton(
+                      onPressed: retrying ? null : onStartOver,
+                      child: const Text(databaseStartOverLabel),
+                    ),
+                  ],
+                  if (startOverError != null && !retrying) ...[
+                    const SizedBox(height: 12),
+                    Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        databaseStartOverFailedMessage,
+                        style: textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

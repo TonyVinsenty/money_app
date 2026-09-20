@@ -14,6 +14,7 @@ class MoneyApp extends StatelessWidget {
   const MoneyApp({
     required this.settings,
     required this.openDatabase,
+    this.startOverDatabase,
     super.key,
   });
 
@@ -27,6 +28,10 @@ class MoneyApp extends StatelessWidget {
   /// а не до `runApp`, чтобы сбой открытия показывался экраном, а не
   /// закрывал приложение.
   final Future<AppDatabase> Function() openDatabase;
+
+  /// Убирает файл базы в сторону для режима «Начать заново» на экране ошибки
+  /// (см. [DatabaseGate.onStartOver]). Null — кнопки нет.
+  final Future<void> Function()? startOverDatabase;
 
   /// Русский — единственный язык приложения.
   static const appLocale = Locale('ru');
@@ -57,6 +62,7 @@ class MoneyApp extends StatelessWidget {
           onGenerateRoute: onGenerateAppRoute,
           home: DatabaseGate(
             open: openDatabase,
+            onStartOver: startOverDatabase,
             // AppScope появляется только когда база открыта: до этого
             // показан индикатор или экран ошибки, а зависимостям без базы
             // взяться неоткуда. Тот же экземпляр settings попадает и в scope.
