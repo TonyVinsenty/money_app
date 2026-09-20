@@ -7,6 +7,7 @@ import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/category_icons.dart';
+import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
@@ -18,8 +19,6 @@ import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/edit/edit_category_picker_screen.dart';
-import 'package:money_app/features/transactions/presentation/history/history_screen.dart'
-    show noCategoryLabel;
 import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 
@@ -55,7 +54,7 @@ class EditTransactionScreen extends StatefulWidget {
   static const savedDuration = Duration(seconds: 4);
   static const categoryLabel = 'Категория';
   static const categoryLoadingLabel = 'Загрузка…';
-  static const deleteLabel = 'Удалить';
+  static const deleteTooltip = 'Удалить';
   static const deleteSemanticLabel = 'Удалить операцию';
   static const deletedText = 'Операция удалена';
   static const alreadyDeletedText = 'Эта операция уже удалена';
@@ -84,6 +83,23 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   Category? _currentSubcategory;
   bool _loaded = false;
 
+  /// Названия не удалось загрузить (ошибка базы): в озвучке удаления тогда
+  /// категорию не называем, чтобы не сказать неверное «Без категории».
+  bool _categoryLoadFailed = false;
+
+  /// Завершается, когда загрузка названий закончилась (успешно или нет).
+  late final Future<void> _categoriesLoaded;
+
+  final _noteFocus = FocusNode();
+
+  /// Последний известный текст полей: слушатели контроллера срабатывают и на
+  /// смену выделения, а ошибку сохранения нужно сбрасывать только на правку.
+  late String _lastAmountText;
+  late String _lastNoteText;
+
+  /// Выделять ли число целиком при первом получении фокуса полем суммы.
+  bool _selectAmountOnFocus = true;
+
   /// Тип операции в правке (может отличаться от исходного).
   late TransactionType _type;
 
@@ -107,7 +123,12 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     _type = t.type;
     _amount.text.text = formatMoney(t.amount, withCurrencySymbol: false);
     _note = TextEditingController(text: t.note);
-    unawaited(_loadCategories());
+    _lastAmountText = _amount.text.text;
+    _lastNoteText = _note.text;
+    _amount.text.addListener(_onAmountTextChanged);
+    _note.addListener(_onNoteTextChanged);
+    _amount.focusNode.addListener(_onAmountFocusChanged);
+    _categoriesLoaded = _loadCategories();
     // Сообщение «Изменения сохранены» от прошлой правки закрыло бы кнопку
     // «Сохранить» на этом экране. `context` для messenger в `initState` брать
     // нельзя, поэтому после первого кадра (как в быстром вводе).
@@ -118,15 +139,55 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
 
   @override
   void dispose() {
+    _amount.text.removeListener(_onAmountTextChanged);
+    _note.removeListener(_onNoteTextChanged);
+    _amount.focusNode.removeListener(_onAmountFocusChanged);
     _amount.dispose();
     _note.dispose();
+    _noteFocus.dispose();
     super.dispose();
+  }
+
+  /// Ошибка сохранения относилась к прежним данным: любая правка её снимает.
+  void _clearError() {
+    if (_error != null && mounted) setState(() => _error = null);
+  }
+
+  void _onAmountTextChanged() {
+    final text = _amount.text.text;
+    if (text == _lastAmountText) return;
+    _lastAmountText = text;
+    _clearError();
+  }
+
+  void _onNoteTextChanged() {
+    final text = _note.text;
+    if (text == _lastNoteText) return;
+    _lastNoteText = text;
+    _clearError();
+  }
+
+  /// При первом получении фокуса выделяем всё число: чтобы поправить сумму,
+  /// не нужно стирать «,00» вручную. Выделение ставим после кадра: тап, который
+  /// дал фокус, сам ставит курсор, и наше выделение должно прийти позже него.
+  void _onAmountFocusChanged() {
+    if (!_selectAmountOnFocus || !_amount.focusNode.hasFocus) return;
+    _selectAmountOnFocus = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final text = _amount.text;
+      text.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: text.text.length,
+      );
+    });
   }
 
   Future<void> _loadCategories() async {
     final t = widget.transaction;
     Category? category;
     Category? subcategory;
+    var failed = false;
     try {
       category = await widget.categories.findById(t.categoryId);
       final subId = t.subcategoryId;
@@ -134,13 +195,22 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     } on Object {
       // Название не загрузилось: показываем запасной текст, сохранение при
       // этом работает (ему нужен только id категории).
+      failed = true;
     }
-    if (!mounted) return;
-    setState(() {
+    void apply() {
       _currentCategory = category;
       _currentSubcategory = subcategory;
+      _categoryLoadFailed = failed;
       _loaded = true;
-    });
+    }
+
+    // Результат нужен и закрывшемуся экрану: удаление досказывает сообщение
+    // после закрытия.
+    if (mounted) {
+      setState(apply);
+    } else {
+      apply();
+    }
   }
 
   bool get _typeChanged => _type != widget.transaction.type;
@@ -227,7 +297,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         return;
       }
       await widget.transactions.update(edited);
-      navigator.pop();
+      // Если человек успел нажать «Назад», закрывать уже нечего (иначе `pop`
+      // закрыл бы «Историю»). Сообщение при этом всё равно показываем.
+      if (mounted) navigator.pop();
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(
@@ -267,9 +339,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     final navigator = Navigator.of(context);
     final transactions = widget.transactions;
     final t = widget.transaction;
-    final categoryName = _currentCategory?.name ?? noCategoryLabel;
     setState(() => _error = null);
     var alreadyGone = false;
+    String? categoryName;
     try {
       // Репозиторий на повторное удаление молча ничего не делает, поэтому
       // «уже удалена» узнаём заранее (`findById` мягко удалённых не отдаёт).
@@ -277,6 +349,13 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
       if (!alreadyGone) {
         await transactions.softDelete(t.id);
       }
+      // Название категории для озвучки: если оно ещё грузится (ранний тап),
+      // дожидаемся. Не загрузилось из-за ошибки — говорим без названия, а не
+      // «Без категории»; это слово только для категории, которой нет в базе.
+      await _categoriesLoaded;
+      categoryName = _categoryLoadFailed
+          ? null
+          : (_currentCategory?.name ?? noCategoryLabel);
     } on Object {
       _deleting = false;
       if (mounted) {
@@ -302,7 +381,8 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         spokenText:
             '${EditTransactionScreen.deletedText}: '
             '${t.type == TransactionType.income ? 'доход' : 'расход'} '
-            '${spokenMoney(t.amount)}, $categoryName',
+            '${spokenMoney(t.amount)}'
+            '${categoryName == null ? '' : ', $categoryName'}',
         onUndo: () => unawaited(_undoDelete(messenger, transactions, t.id)),
       ),
     );
@@ -369,6 +449,22 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
             ),
           ],
         ),
+        // «Удалить» в углу, далеко от «Сохранить»: внизу рядом с ним над
+        // клавиатурой легко промахнуться. Иконка 48 dp, цвет ошибки; скринридер
+        // читает «Удалить операцию» (подпись иконки), долгое нажатие показывает
+        // «Удалить».
+        actions: [
+          IconButton(
+            tooltip: EditTransactionScreen.deleteTooltip,
+            color: theme.colorScheme.error,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            onPressed: () => unawaited(_delete()),
+            icon: const Icon(
+              Icons.delete_outline,
+              semanticLabel: EditTransactionScreen.deleteSemanticLabel,
+            ),
+          ),
+        ],
       ),
       // Тело сжимается под клавиатуру, поэтому «Сохранить» всегда прямо над ней.
       body: SafeArea(
@@ -415,13 +511,19 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                       child: AmountField(
                         controller: _amount,
                         isIncome: isIncome,
+                        // «Далее» при верной сумме ведёт к комментарию; при
+                        // ошибке фокус остаётся в поле (см. AmountField).
+                        onSubmitted: (_) => _noteFocus.requestFocus(),
                       ),
                     ),
                     const SizedBox(height: 8),
                     DateChip(
                       value: _day,
                       today: _today,
-                      onChanged: (day) => setState(() => _day = day),
+                      onChanged: (day) => setState(() {
+                        _day = day;
+                        _error = null;
+                      }),
                     ),
                     const SizedBox(height: 8),
                     Padding(
@@ -462,7 +564,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         ),
                       ),
                     ),
-                    NoteField(controller: _note),
+                    NoteField(controller: _note, focusNode: _noteFocus),
                   ],
                 ),
               ),
@@ -491,27 +593,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                 ),
               ),
             ),
-            // «Удалить» — вторичная кнопка под «Сохранить»: без заливки, цвет
-            // ошибки, отдельная полоса, чтобы не нажать случайно.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    foregroundColor: theme.colorScheme.error,
-                    minimumSize: const Size(48, 48),
-                  ),
-                  onPressed: () => unawaited(_delete()),
-                  icon: const Icon(Icons.delete_outline),
-                  label: Semantics(
-                    label: EditTransactionScreen.deleteSemanticLabel,
-                    excludeSemantics: true,
-                    child: const Text(EditTransactionScreen.deleteLabel),
-                  ),
-                ),
-              ),
-            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

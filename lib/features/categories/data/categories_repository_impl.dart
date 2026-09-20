@@ -5,6 +5,7 @@ import 'package:money_app/features/categories/data/category_mapper.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
+import 'package:money_app/features/categories/domain/category_rules.dart';
 
 /// Реализация [CategoriesRepository] на drift (ADR 0001).
 ///
@@ -294,13 +295,13 @@ class DriftCategoriesRepository implements CategoriesRepository {
             (selfId == null ? const Constant(true) : c.id.equals(selfId).not()),
       );
     final rows = await query.get();
-    Category.checkUniqueName(
-      name: name,
-      kind: kind,
-      parentId: parentId,
-      existing: rows.map(categoryFromRow),
-      selfId: selfId,
-    );
+    // Вид, уровень, архивность и «себя» уже отсеяны запросом, поэтому сравниваем
+    // только имена по сырым строкам. Category у соседей не собираем: испорченный
+    // сосед (пустое имя, плохой порядок, пустой ключ иконки) не должен мешать.
+    final key = categoryNameKey(name);
+    if (rows.any((row) => categoryNameKey(row.name) == key)) {
+      throw CategoryRuleException(CategoryRule.duplicateName);
+    }
   }
 
   Future<void> _updateRow(String id, CategoriesCompanion changes) {

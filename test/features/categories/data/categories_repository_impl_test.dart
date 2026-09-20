@@ -1242,6 +1242,81 @@ void main() {
           expect((await rowOf('bad-row')).name, 'Fine');
         },
       );
+
+      Matcher duplicateName() => throwsA(
+        isA<CategoryRuleException>().having(
+          (e) => e.rule,
+          'rule',
+          CategoryRule.duplicateName,
+        ),
+      );
+
+      // Испорченный сосед того же вида и уровня не должен мешать create,
+      // rename и restore: имена сравниваются по сырым строкам.
+      for (final entry in variants.entries) {
+        group('corrupted neighbour (${entry.key})', () {
+          test('create without a duplicate works', () async {
+            await entry.value('bad-row');
+
+            await repo.create(top('a', name: 'Fine'));
+
+            expect((await rowOf('a')).name, 'Fine');
+          });
+
+          test('create with a duplicate is duplicateName, whatever the row '
+              'order', () async {
+            // Плохая строка добавлена до и после хорошей: результат один.
+            await entry.value('bad-before');
+            await repo.create(top('good', name: 'Dup'));
+            await entry.value('bad-after');
+
+            await expectLater(
+              repo.create(top('x', name: ' dup ')),
+              duplicateName(),
+            );
+          });
+
+          test('rename without a duplicate works', () async {
+            await repo.create(top('a', name: 'A'));
+            await entry.value('bad-row');
+
+            await repo.rename('a', 'B');
+
+            expect((await rowOf('a')).name, 'B');
+          });
+
+          test('rename to a duplicate is duplicateName', () async {
+            await entry.value('bad-before');
+            await repo.create(top('good', name: 'Dup'));
+            await repo.create(top('a', name: 'A'));
+            await entry.value('bad-after');
+
+            await expectLater(repo.rename('a', 'DUP'), duplicateName());
+            expect((await rowOf('a')).name, 'A');
+          });
+
+          test('restore without a duplicate works', () async {
+            await repo.create(top('a', name: 'A'));
+            await repo.archive('a');
+            await entry.value('bad-row');
+
+            await repo.restore('a');
+
+            expect((await rowOf('a')).archivedAt, isNull);
+          });
+
+          test('restore with a duplicate is duplicateName', () async {
+            await repo.create(top('a', name: 'Dup'));
+            await repo.archive('a');
+            await entry.value('bad-before');
+            await repo.create(top('good', name: 'dup'));
+            await entry.value('bad-after');
+
+            await expectLater(repo.restore('a'), duplicateName());
+            expect((await rowOf('a')).archivedAt, isNotNull);
+          });
+        });
+      }
     });
 
     group('hasAny', () {

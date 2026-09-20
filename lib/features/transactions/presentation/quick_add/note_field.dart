@@ -17,9 +17,13 @@ import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 /// - поле не забирает фокус само (`autofocus: false`): клавиатура открывается
 ///   только по тапу; кнопка «Готово» на клавиатуре убирает фокус.
 class NoteField extends StatelessWidget {
-  const NoteField({required this.controller, super.key});
+  const NoteField({required this.controller, this.focusNode, super.key});
 
   final TextEditingController controller;
+
+  /// Фокус поля, если владельцу нужно переводить на него курсор (например,
+  /// клавишей «Далее» в поле суммы). Освобождает владелец.
+  final FocusNode? focusNode;
 
   static const label = 'Комментарий (необязательно)';
 
@@ -38,6 +42,7 @@ class NoteField extends StatelessWidget {
           final length = runesLength(value.text);
           return TextField(
             controller: controller,
+            focusNode: focusNode,
             autofocus: false,
             maxLines: 1,
             keyboardType: TextInputType.text,

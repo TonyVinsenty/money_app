@@ -36,7 +36,7 @@ late DriftTransactionsRepository _repo;
 
 final _minus = String.fromCharCode(0x2212);
 
-Future<void> _pumpApp(WidgetTester tester) async {
+Future<void> _pumpApp(WidgetTester tester, {int amountMinor = 35000}) async {
   _clock = FixedClock(DateTime(2026, 9, 20, 15, 30));
   final settings = AppSettingsController();
   addTearDown(settings.dispose);
@@ -45,13 +45,15 @@ Future<void> _pumpApp(WidgetTester tester) async {
     idGenerator: FakeIdGenerator(prefix: 'seed'),
     clock: _clock,
   );
+  // Закрываем базу после теста (в том числе упавшего), а не в его теле.
+  addTearDown(_db.close);
   _repo = DriftTransactionsRepository(_db, clock: _clock);
-  // Расход 350 ₽ в «Продуктах» сегодня в 15:30 с комментарием.
+  // Расход (по умолчанию 350 ₽) в «Продуктах» сегодня в 15:30 с комментарием.
   await _repo.add(
     Transaction(
       id: 'tx-1',
       type: TransactionType.expense,
-      amount: Money.fromMinor(35000, 'RUB'),
+      amount: Money.fromMinor(amountMinor, 'RUB'),
       occurredOn: DateOnly(2026, 9, 20),
       occurredAt: DateTime(2026, 9, 20, 15, 30).toUtc(),
       categoryId: await _categoryId('Продукты'),
@@ -117,11 +119,8 @@ Future<TransactionRow> _row() => (_db.select(
   _db.transactions,
 )..where((t) => t.id.equals('tx-1'))).getSingle();
 
-// TextButton.icon создаёт подкласс, поэтому `byType` его не найдёт.
-Finder get _deleteButton => find.ancestor(
-  of: find.text('Удалить'),
-  matching: find.bySubtype<TextButton>(),
-);
+Finder get _deleteButton =>
+    find.widgetWithIcon(IconButton, Icons.delete_outline);
 
 Future<void> _delete(WidgetTester tester) async {
   await tester.tap(_deleteButton);
@@ -146,8 +145,8 @@ final _homeTotal = find.text(
 );
 
 Future<void> _finish(WidgetTester tester) async {
+  // Дерево снимаем до закрытия базы (её закрывает addTearDown из _pumpApp).
   await tester.pumpWidget(const SizedBox());
-  await _db.close();
 }
 
 void main() {
@@ -181,6 +180,36 @@ void main() {
     expect(find.text('Сегодня'), findsWidgets);
     expect(find.text('Продукты'), findsOneWidget);
     expect(tester.widget<TextField>(_noteInput).controller!.text, 'молоко');
+    await _finish(tester);
+  });
+
+  testWidgets('круговой проход: 1 234,56 ₽ без правок сохраняется как было', (
+    tester,
+  ) async {
+    await _pumpApp(tester, amountMinor: 123456);
+    final before = await _row();
+    await _openEdit(tester);
+
+    // Сумма в поле с неразрывным пробелом разряда: «1 234,56» (8 знаков).
+    final shown = tester.widget<TextField>(_amountInput).controller!.text;
+    expect(
+      shown,
+      formatMoney(Money.fromMinor(123456, 'RUB'), withCurrencySymbol: false),
+    );
+    expect(shown.length, 8);
+    expect(shown, isNot(contains(' ')));
+    expect(shown, matches(RegExp(r'^1\D234,56$')));
+
+    await _save(tester);
+
+    final after = await _row();
+    expect(after.amountMinor, 123456);
+    expect(after.currency, 'RUB');
+    expect(after.categoryId, before.categoryId);
+    expect(after.note, before.note);
+    expect(after.occurredOn, before.occurredOn);
+    expect(after.occurredAt, before.occurredAt);
+    expect(find.byType(EditTransactionScreen), findsNothing);
     await _finish(tester);
   });
 

@@ -7,6 +7,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
+import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -14,9 +15,6 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Настоящий минус (U+2212), а не дефис (как в `AmountField`).
 final String _minusSign = String.fromCharCode(0x2212);
-
-/// Запасное название, если категории операции нет в справочнике.
-const String noCategoryLabel = 'Без категории';
 
 /// Ключ заглушки-скелетона: по нему тесты отличают «ещё грузится» от «пусто».
 const Key historySkeletonKey = ValueKey('history-skeleton');

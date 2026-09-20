@@ -7,6 +7,7 @@ import 'package:money_app/app/app.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
@@ -16,6 +17,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/edit/edit_transaction_screen.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 
 import '../../../../support/fakes.dart';
 import '../../../../support/fixed_clock.dart';
@@ -76,8 +78,17 @@ class _Categories extends FakeCategoriesRepository {
 
   final List<Category> all;
 
+  /// Если задан, `findById` ждёт его завершения (названия ещё грузятся).
+  Completer<void>? gate;
+
+  /// Если `true`, `findById` бросает ошибку (база не ответила).
+  bool fail = false;
+
   @override
   Future<Category?> findById(String id) async {
+    final g = gate;
+    if (g != null) await g.future;
+    if (fail) throw StateError('db');
     for (final c in all) {
       if (c.id == id) return c;
     }
@@ -126,6 +137,7 @@ Widget _app(
   _Transactions transactions, {
   Transaction? transaction,
   double textScale = 1,
+  _Categories? categories,
 }) {
   return MaterialApp(
     theme: AppTheme.light(),
@@ -146,7 +158,7 @@ Widget _app(
                 builder: (_) => EditTransactionScreen(
                   transaction: transaction ?? _original,
                   clock: _clock,
-                  categories: _cats,
+                  categories: categories ?? _cats,
                   transactions: transactions,
                 ),
               ),
@@ -171,10 +183,12 @@ Finder get _amountInput => find.descendant(
 
 Finder get _saveButton => find.widgetWithText(FilledButton, 'Сохранить');
 
-// TextButton.icon создаёт подкласс, поэтому `byType` его не найдёт.
-Finder get _deleteButton => find.ancestor(
-  of: find.text('Удалить'),
-  matching: find.bySubtype<TextButton>(),
+Finder get _deleteButton =>
+    find.widgetWithIcon(IconButton, Icons.delete_outline);
+
+Finder get _noteInput => find.descendant(
+  of: find.byType(NoteField),
+  matching: find.byType(TextField),
 );
 
 void main() {
@@ -309,6 +323,155 @@ void main() {
     expect(find.text(EditTransactionScreen.goneText), findsOneWidget);
     expect(repo.updateCalls, 0);
     expect(find.byType(EditTransactionScreen), findsOneWidget);
+  });
+
+  testWidgets('«Сохранить» и сразу «Назад»: лишний маршрут не снимается', (
+    tester,
+  ) async {
+    final repo = _Transactions()..gate = Completer<void>();
+    await tester.pumpWidget(_app(repo));
+    await _open(tester);
+    await tester.enterText(_amountInput, '400');
+    await tester.tap(_saveButton);
+    await tester.pump();
+    expect(repo.updateCalls, 1);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(EditTransactionScreen), findsNothing);
+    expect(find.text('Открыть'), findsOneWidget);
+
+    // Запись закончилась уже после ухода: «История» не пропала, сообщение есть.
+    repo.gate!.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Открыть'), findsOneWidget);
+    expect(find.text('Изменения сохранены'), findsOneWidget);
+    expect(repo.updated, hasLength(1));
+  });
+
+  group('поле суммы', () {
+    testWidgets('первый фокус выделяет число целиком, повторный — нет', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(_Transactions()));
+      await _open(tester);
+      final controller = tester.widget<TextField>(_amountInput).controller!;
+      expect(controller.text, isNotEmpty);
+
+      await tester.tap(_amountInput);
+      await tester.pump();
+      expect(
+        controller.selection,
+        TextSelection(baseOffset: 0, extentOffset: controller.text.length),
+      );
+
+      // Ушли из поля и вернулись: выделение заново не навязываем.
+      controller.selection = const TextSelection.collapsed(offset: 1);
+      FocusManager.instance.primaryFocus?.unfocus();
+      // Пауза, чтобы второй тап не сочли двойным (он выделяет слово).
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(_amountInput);
+      await tester.pump();
+      expect(controller.selection.isCollapsed, isTrue);
+    });
+
+    testWidgets('«Далее» при верной сумме переводит фокус на комментарий', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(_Transactions()));
+      await _open(tester);
+      await tester.enterText(_amountInput, '400');
+      expect(tester.widget<TextField>(_amountInput).focusNode!.hasFocus, true);
+
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.pump();
+
+      expect(tester.widget<TextField>(_noteInput).focusNode!.hasFocus, isTrue);
+      expect(
+        tester.widget<TextField>(_amountInput).focusNode!.hasFocus,
+        isFalse,
+      );
+    });
+
+    testWidgets('«Далее» при ошибке остаётся в поле, ошибка под полем', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(_Transactions()));
+      await _open(tester);
+      await tester.enterText(_amountInput, '');
+
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.pump();
+
+      expect(find.text('Введите сумму'), findsOneWidget);
+      expect(tester.widget<TextField>(_amountInput).focusNode!.hasFocus, true);
+      expect(tester.widget<TextField>(_noteInput).focusNode!.hasFocus, isFalse);
+    });
+  });
+
+  group('ошибка сохранения', () {
+    Future<_Transactions> failedSave(WidgetTester tester) async {
+      final repo = _Transactions()..beforeUpdate = () => throw StateError('x');
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await tester.tap(_saveButton);
+      await tester.pumpAndSettle();
+      expect(find.text(transactionSaveFailedText), findsOneWidget);
+      return repo;
+    }
+
+    testWidgets('уходит при правке суммы', (tester) async {
+      await failedSave(tester);
+      await tester.enterText(_amountInput, '400');
+      await tester.pump();
+      expect(find.text(transactionSaveFailedText), findsNothing);
+    });
+
+    testWidgets('уходит при правке комментария', (tester) async {
+      await failedSave(tester);
+      await tester.enterText(_noteInput, 'сыр');
+      await tester.pump();
+      expect(find.text(transactionSaveFailedText), findsNothing);
+    });
+
+    testWidgets('не уходит от одной смены выделения', (tester) async {
+      await failedSave(tester);
+      await tester.tap(_amountInput);
+      await tester.pump();
+      expect(find.text(transactionSaveFailedText), findsOneWidget);
+    });
+
+    testWidgets('уходит при смене категории', (tester) async {
+      await failedSave(tester);
+      await tester.tap(find.text('Категория'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Кафе'));
+      await tester.pumpAndSettle();
+      expect(find.text(transactionSaveFailedText), findsNothing);
+    });
+
+    testWidgets('уходит при смене типа', (tester) async {
+      await failedSave(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SegmentedButton<TransactionType>),
+          matching: find.text('Доход'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(transactionSaveFailedText), findsNothing);
+    });
+
+    testWidgets('уходит при смене даты', (tester) async {
+      await failedSave(tester);
+      await tester.tap(find.byType(DateChip));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('19'));
+      await tester.tap(find.text('ОК'));
+      await tester.pumpAndSettle();
+      expect(find.text(transactionSaveFailedText), findsNothing);
+    });
   });
 
   group('смена типа', () {
@@ -473,22 +636,99 @@ void main() {
   });
 
   group('удаление', () {
-    testWidgets('«Удалить» отдельно под «Сохранить», зона не меньше 48 dp', (
+    testWidgets('«Удалить» — иконка в AppBar, не рядом с «Сохранить», 48 dp', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(_app(_Transactions()));
       await _open(tester);
 
+      // Кнопка в AppBar, а не внизу.
+      expect(
+        find.descendant(of: find.byType(AppBar), matching: _deleteButton),
+        findsOneWidget,
+      );
       final save = tester.getRect(_saveButton);
       final delete = tester.getRect(_deleteButton);
-      expect(delete.top, greaterThanOrEqualTo(save.bottom + 8));
+      expect(delete.bottom, lessThan(save.top));
+      // Не рядом: между ними не меньше 200 dp по вертикали.
+      expect(save.top - delete.bottom, greaterThan(200));
+      expect(delete.width, greaterThanOrEqualTo(48));
       expect(delete.height, greaterThanOrEqualTo(48));
       final colors = Theme.of(tester.element(_deleteButton)).colorScheme;
-      final style = tester.widget<TextButton>(_deleteButton).style!;
-      expect(style.foregroundColor!.resolve({}), colors.error);
-      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+      expect(tester.widget<IconButton>(_deleteButton).color, colors.error);
+      expect(tester.widget<IconButton>(_deleteButton).tooltip, 'Удалить');
       expect(find.bySemanticsLabel('Удалить операцию'), findsOneWidget);
+      // Старой нижней кнопки с подписью «Удалить» нет.
+      expect(find.text('Удалить'), findsNothing);
+      semantics.dispose();
+    });
+
+    testWidgets('озвучка: название категории ждёт загрузки при раннем тапе', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final categories = _Categories([_category('food', 'Продукты')])
+        ..gate = Completer<void>();
+      await tester.pumpWidget(_app(_Transactions(), categories: categories));
+      await _open(tester);
+
+      // Названия ещё грузятся, а «Удалить» уже нажали.
+      expect(find.text('Загрузка…'), findsOneWidget);
+      await tester.tap(_deleteButton);
+      await tester.pump();
+      categories.gate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EditTransactionScreen), findsNothing);
+      expect(
+        find.bySemanticsLabel('Операция удалена: расход 350 рублей, Продукты'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('озвучка: названия не загрузились — без категории в тексте', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final categories = _Categories([_category('food', 'Продукты')])
+        ..fail = true;
+      await tester.pumpWidget(_app(_Transactions(), categories: categories));
+      await _open(tester);
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel('Операция удалена: расход 350 рублей'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('озвучка: категории нет в справочнике — «Без категории»', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final orphan = Transaction(
+        id: 'tx',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(35000, 'RUB'),
+        occurredOn: DateOnly(2026, 9, 18),
+        occurredAt: DateTime.utc(2026, 9, 18, 7, 45),
+        categoryId: 'gone',
+      );
+      await tester.pumpWidget(_app(_Transactions(), transaction: orphan));
+      await _open(tester);
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel(
+          'Операция удалена: расход 350 рублей, Без категории',
+        ),
+        findsOneWidget,
+      );
       semantics.dispose();
     });
 
@@ -626,14 +866,18 @@ void main() {
       final delete = tester.getRect(_deleteButton);
       expect(save.overlaps(delete), isFalse);
       expect(delete.height, greaterThanOrEqualTo(48));
-      expect(delete.bottom, lessThanOrEqualTo(640));
+      expect(delete.top, greaterThanOrEqualTo(0));
 
-      // С клавиатурой оба ряда кнопок остаются над ней.
+      // С клавиатурой «Сохранить» остаётся над ней, «Удалить» — в углу сверху.
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(tester.getRect(_deleteButton).bottom, lessThanOrEqualTo(340));
+      expect(tester.getRect(_saveButton).bottom, lessThanOrEqualTo(340));
+      expect(
+        tester.getRect(_saveButton).overlaps(tester.getRect(_deleteButton)),
+        isFalse,
+      );
     });
   });
 
