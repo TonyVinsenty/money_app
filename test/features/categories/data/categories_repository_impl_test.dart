@@ -327,6 +327,36 @@ void main() {
         ]);
       });
 
+      test(
+        'watchAll: includes archived and subcategories, skips deleted',
+        () async {
+          await repo.create(top('p', sortOrder: 0));
+          await repo.create(top('a', sortOrder: 1));
+          await repo.create(child('s', 'p'));
+          await repo.archive('a');
+          await rawInsert('gone', deletedAt: 5);
+
+          final list = await repo.watchAll().first;
+
+          expect(list.map((c) => c.id), unorderedEquals(['p', 'a', 's']));
+          expect(list.firstWhere((c) => c.id == 'a').isArchived, isTrue);
+        },
+      );
+
+      test('watchAll: sends a new list after archive and rename', () async {
+        await repo.create(top('a'));
+        final rec = await record(repo.watchAll());
+
+        await repo.archive('a');
+        await rec.waitForEvents(2);
+        await repo.rename('a', 'Bread');
+        await rec.waitForEvents(3);
+        await rec.settle();
+
+        expect(rec.events.last.single.name, 'Bread');
+        expect(rec.events.last.single.isArchived, isTrue);
+      });
+
       test('watchSubcategories: create', () async {
         await repo.create(top('p'));
         final rec = await record(repo.watchSubcategories('p'));

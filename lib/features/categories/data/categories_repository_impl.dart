@@ -50,6 +50,15 @@ class DriftCategoriesRepository implements CategoriesRepository {
   }
 
   @override
+  Stream<List<Category>> watchAll() {
+    // Архивные нужны (имена в старых операциях), удалённых нет.
+    final query = _db.select(_db.categories)
+      ..where((c) => c.deletedAt.isNull())
+      ..orderBy(_stableOrder);
+    return _mapRows(query.watch());
+  }
+
+  @override
   Future<Category?> findById(String id) async {
     final row = await _liveOrArchivedRow(id);
     return row == null ? null : categoryFromRow(row);

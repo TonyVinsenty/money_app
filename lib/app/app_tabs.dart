@@ -6,9 +6,13 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/features/categories/domain/categories_repository.dart';
+import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
+import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 
 /// Вкладки приложения в порядке слева направо. Пока внутри только заглушки.
 /// Список неизменяемый: случайно добавить или убрать вкладку нельзя.
@@ -23,8 +27,7 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
     label: 'История',
     icon: Icons.receipt_long_outlined,
     selectedIcon: Icons.receipt_long,
-    builder: (_) =>
-        const TabPlaceholder('Здесь будет список доходов и расходов'),
+    builder: (_) => const HistoryTab(),
   ),
   AppTab(
     label: 'Аналитика',
@@ -110,6 +113,62 @@ class _HomeTabState extends State<HomeTab> {
           idGenerator: services.idGenerator,
         ),
       ),
+    );
+  }
+}
+
+/// Сколько последних операций показывает «История». Постраничной подгрузки
+/// пока нет, поэтому предел большой: список строится лениво (по мере
+/// прокрутки), и 500 строк ему не тяжелы.
+const int historyLimit = 500;
+
+/// Вкладка «История»: даёт экрану фичи `transactions` потоки из репозиториев.
+/// Сам `HistoryScreen` репозиториев не знает (ADR 0002).
+class HistoryTab extends StatefulWidget {
+  const HistoryTab({super.key});
+
+  @override
+  State<HistoryTab> createState() => _HistoryTabState();
+}
+
+class _HistoryTabState extends State<HistoryTab> {
+  TransactionsRepository? _transactionsRepository;
+  CategoriesRepository? _categoriesRepository;
+  Clock? _clock;
+  late DateOnly _today;
+  late Stream<List<Transaction>> _transactions;
+  late Stream<List<Category>> _categories;
+
+  // Потоки создаём один раз (и заново только при смене сервисов): в build
+  // каждая перерисовка начинала бы подписку заново, и список мигал бы.
+  //
+  // «Сегодня» берётся по часам в момент создания. Если приложение открыто через
+  // полночь, заголовки «Сегодня»/«Вчера» обновятся, только когда вкладка
+  // пересоздастся (как и месяц на «Главной»): редкий случай, не усложняем.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final services = AppScope.of(context);
+    if (!identical(services.transactions, _transactionsRepository) ||
+        !identical(services.categories, _categoriesRepository) ||
+        !identical(services.clock, _clock)) {
+      _transactionsRepository = services.transactions;
+      _categoriesRepository = services.categories;
+      _clock = services.clock;
+      _today = services.clock.today();
+      _transactions = services.transactions.watchRecent(limit: historyLimit);
+      _categories = services.categories.watchAll();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HistoryScreen(
+      transactions: _transactions,
+      categories: _categories,
+      today: _today,
+      // Шаг 2.28 подключит здесь правку операции.
+      onTransactionTap: (_) {},
     );
   }
 }
