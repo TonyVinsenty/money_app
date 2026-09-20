@@ -43,6 +43,32 @@ class _Transactions extends FakeTransactionsRepository {
     beforeUpdate?.call();
     updated.add(transaction);
   }
+
+  final deleted = <String>[];
+  final restored = <String>[];
+
+  /// Если задан, `softDelete` ждёт его завершения (удаление «в пути»).
+  Completer<void>? deleteGate;
+
+  /// Если задана, `softDelete` / `restore` бросают её (запись не меняется).
+  Exception? deleteError;
+  Exception? restoreError;
+
+  @override
+  Future<void> softDelete(String id) async {
+    deleted.add(id);
+    final g = deleteGate;
+    if (g != null) await g.future;
+    if (deleteError case final error?) throw error;
+    exists = false;
+  }
+
+  @override
+  Future<void> restore(String id) async {
+    if (restoreError case final error?) throw error;
+    restored.add(id);
+    exists = true;
+  }
 }
 
 class _Categories extends FakeCategoriesRepository {
@@ -144,6 +170,12 @@ Finder get _amountInput => find.descendant(
 );
 
 Finder get _saveButton => find.widgetWithText(FilledButton, 'Сохранить');
+
+// TextButton.icon создаёт подкласс, поэтому `byType` его не найдёт.
+Finder get _deleteButton => find.ancestor(
+  of: find.text('Удалить'),
+  matching: find.bySubtype<TextButton>(),
+);
 
 void main() {
   setUpAll(() async {
@@ -437,6 +469,171 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('Выберите категорию'), findsNWidgets(2));
+    });
+  });
+
+  group('удаление', () {
+    testWidgets('«Удалить» отдельно под «Сохранить», зона не меньше 48 dp', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_app(_Transactions()));
+      await _open(tester);
+
+      final save = tester.getRect(_saveButton);
+      final delete = tester.getRect(_deleteButton);
+      expect(delete.top, greaterThanOrEqualTo(save.bottom + 8));
+      expect(delete.height, greaterThanOrEqualTo(48));
+      final colors = Theme.of(tester.element(_deleteButton)).colorScheme;
+      final style = tester.widget<TextButton>(_deleteButton).style!;
+      expect(style.foregroundColor!.resolve({}), colors.error);
+      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+      expect(find.bySemanticsLabel('Удалить операцию'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('тап: мягкое удаление, возврат, сообщение без диалога', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final repo = _Transactions();
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+
+      expect(repo.deleted, ['tx']);
+      expect(find.byType(EditTransactionScreen), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('Операция удалена'), findsOneWidget);
+      expect(find.text('Отменить'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Операция удалена: расход 350 рублей, Продукты'),
+        findsOneWidget,
+      );
+      final bar = tester.widget<SnackBar>(find.byType(SnackBar));
+      expect(bar.duration, const Duration(seconds: 6));
+      expect(bar.persist, isFalse);
+      semantics.dispose();
+    });
+
+    testWidgets('«Отменить» восстанавливает именно эту запись', (tester) async {
+      final repo = _Transactions();
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Отменить'));
+      await tester.pumpAndSettle();
+
+      expect(repo.restored, ['tx']);
+      expect(find.text('Операция удалена'), findsNothing);
+    });
+
+    testWidgets('сообщение исчезает само через 6 секунд', (tester) async {
+      await tester.pumpWidget(_app(_Transactions()));
+      await _open(tester);
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('Операция удалена'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('Операция удалена'), findsNothing);
+    });
+
+    testWidgets('двойной тап: одно удаление, одно сообщение', (tester) async {
+      final repo = _Transactions()..deleteGate = Completer<void>();
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await tester.tap(_deleteButton);
+      await tester.pump();
+      await tester.tap(_deleteButton);
+      await tester.pump();
+      repo.deleteGate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(repo.deleted, hasLength(1));
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('Операция удалена'), findsOneWidget);
+    });
+
+    testWidgets('ошибка удаления: экран открыт, текст рядом с кнопками, '
+        'повтор возможен', (tester) async {
+      final repo = _Transactions()..deleteError = Exception('disk');
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await tester.enterText(_amountInput, '400');
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EditTransactionScreen), findsOneWidget);
+      expect(find.text('Не удалось удалить. Попробуйте ещё раз'), findsOne);
+      expect(find.byType(SnackBar), findsNothing);
+      // Введённое не потеряно.
+      expect(
+        tester.widget<TextField>(_amountInput).controller!.text,
+        contains('400'),
+      );
+
+      repo.deleteError = null;
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+      expect(find.byType(EditTransactionScreen), findsNothing);
+      expect(find.text('Операция удалена'), findsOneWidget);
+    });
+
+    testWidgets('запись уже удалена: экран закрыт, «Отменить» нет', (
+      tester,
+    ) async {
+      final repo = _Transactions()..exists = false;
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+
+      expect(repo.deleted, isEmpty);
+      expect(find.byType(EditTransactionScreen), findsNothing);
+      expect(find.text('Эта операция уже удалена'), findsOneWidget);
+      expect(find.text('Отменить'), findsNothing);
+    });
+
+    testWidgets('ошибка отмены: «Не удалось отменить...»', (tester) async {
+      final repo = _Transactions()..restoreError = Exception('disk');
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await tester.tap(_deleteButton);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Отменить'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Не удалось отменить. Попробуйте ещё раз'), findsOne);
+      expect(find.text('Операция удалена'), findsNothing);
+    });
+
+    testWidgets('масштаб 200 %: кнопки не перекрываются, без overflow', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app(_Transactions(), textScale: 2));
+      await _open(tester);
+
+      expect(tester.takeException(), isNull);
+      final save = tester.getRect(_saveButton);
+      final delete = tester.getRect(_deleteButton);
+      expect(save.overlaps(delete), isFalse);
+      expect(delete.height, greaterThanOrEqualTo(48));
+      expect(delete.bottom, lessThanOrEqualTo(640));
+
+      // С клавиатурой оба ряда кнопок остаются над ней.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(_deleteButton).bottom, lessThanOrEqualTo(340));
     });
   });
 

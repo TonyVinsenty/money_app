@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
@@ -20,6 +21,7 @@ import 'package:money_app/features/transactions/presentation/edit/edit_category_
 import 'package:money_app/features/transactions/presentation/history/history_screen.dart'
     show noCategoryLabel;
 import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 
 /// Экран правки операции (открывается тапом по строке «Истории»).
 ///
@@ -53,6 +55,11 @@ class EditTransactionScreen extends StatefulWidget {
   static const savedDuration = Duration(seconds: 4);
   static const categoryLabel = 'Категория';
   static const categoryLoadingLabel = 'Загрузка…';
+  static const deleteLabel = 'Удалить';
+  static const deleteSemanticLabel = 'Удалить операцию';
+  static const deletedText = 'Операция удалена';
+  static const alreadyDeletedText = 'Эта операция уже удалена';
+  static const deleteFailedText = 'Не удалось удалить. Попробуйте ещё раз';
   static const goneText = 'Эта операция уже удалена, сохранить нечего';
   static const typeLabel = 'Тип операции';
   static const expenseLabel = 'Расход';
@@ -180,7 +187,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   bool _saving = false;
 
   Future<void> _save() async {
-    if (_saving) return;
+    if (_saving || _deleting) return;
     // Пустая или неразобранная сумма: ошибка под полем, ничего не пишем.
     final amount = _amount.submit();
     final type = _type;
@@ -241,6 +248,82 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   void _fail(String text) {
     _saving = false;
     if (mounted) setState(() => _error = text);
+  }
+
+  /// Идёт удаление (или оно уже удалось): второй тап по «Удалить» игнорируется.
+  /// После успеха флаг не сбрасывается, экран закрывается; при ошибке —
+  /// сбрасывается.
+  bool _deleting = false;
+
+  /// Удаляет операцию сразу (мягко, без вопроса «Вы уверены?») и возвращает на
+  /// «Историю» с сообщением «Операция удалена» и кнопкой «Отменить».
+  ///
+  /// Удаляется именно сохранённая операция: несохранённые правки на экране
+  /// игнорируются. `messenger` и `navigator` берём до первого `await`.
+  Future<void> _delete() async {
+    if (_deleting || _saving) return;
+    _deleting = true;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final transactions = widget.transactions;
+    final t = widget.transaction;
+    final categoryName = _currentCategory?.name ?? noCategoryLabel;
+    setState(() => _error = null);
+    var alreadyGone = false;
+    try {
+      // Репозиторий на повторное удаление молча ничего не делает, поэтому
+      // «уже удалена» узнаём заранее (`findById` мягко удалённых не отдаёт).
+      alreadyGone = await transactions.findById(t.id) == null;
+      if (!alreadyGone) {
+        await transactions.softDelete(t.id);
+      }
+    } on Object {
+      _deleting = false;
+      if (mounted) {
+        setState(() => _error = EditTransactionScreen.deleteFailedText);
+      }
+      return;
+    }
+    // Если человек успел нажать «Назад», закрывать уже нечего (иначе `pop`
+    // закрыл бы «Историю»).
+    if (mounted) navigator.pop();
+    // Предыдущее сообщение убираем, чтобы новое не встало в очередь за ним.
+    // «Отменить» возвращает именно эту запись (id из замыкания).
+    messenger.hideCurrentSnackBar();
+    if (alreadyGone) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text(EditTransactionScreen.alreadyDeletedText)),
+      );
+      return;
+    }
+    messenger.showSnackBar(
+      SavedSnackBar.build(
+        text: EditTransactionScreen.deletedText,
+        spokenText:
+            '${EditTransactionScreen.deletedText}: '
+            '${t.type == TransactionType.income ? 'доход' : 'расход'} '
+            '${spokenMoney(t.amount)}, $categoryName',
+        onUndo: () => unawaited(_undoDelete(messenger, transactions, t.id)),
+      ),
+    );
+  }
+
+  /// «Отменить»: возвращает удалённую запись. Экран к этому времени закрыт,
+  /// поэтому всё нужное приходит аргументами.
+  Future<void> _undoDelete(
+    ScaffoldMessengerState messenger,
+    TransactionsRepository transactions,
+    String id,
+  ) async {
+    try {
+      await transactions.restore(id);
+    } on Object {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text(SavedSnackBar.undoFailedText)),
+        );
+    }
   }
 
   String get _categoryTitle {
@@ -399,12 +482,33 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: () => unawaited(_save()),
                   child: const Text(EditTransactionScreen.saveLabel),
+                ),
+              ),
+            ),
+            // «Удалить» — вторичная кнопка под «Сохранить»: без заливки, цвет
+            // ошибки, отдельная полоса, чтобы не нажать случайно.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    minimumSize: const Size(48, 48),
+                  ),
+                  onPressed: () => unawaited(_delete()),
+                  icon: const Icon(Icons.delete_outline),
+                  label: Semantics(
+                    label: EditTransactionScreen.deleteSemanticLabel,
+                    excludeSemantics: true,
+                    child: const Text(EditTransactionScreen.deleteLabel),
+                  ),
                 ),
               ),
             ),

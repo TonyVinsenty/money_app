@@ -117,6 +117,34 @@ Future<TransactionRow> _row() => (_db.select(
   _db.transactions,
 )..where((t) => t.id.equals('tx-1'))).getSingle();
 
+// TextButton.icon создаёт подкласс, поэтому `byType` его не найдёт.
+Finder get _deleteButton => find.ancestor(
+  of: find.text('Удалить'),
+  matching: find.bySubtype<TextButton>(),
+);
+
+Future<void> _delete(WidgetTester tester) async {
+  await tester.tap(_deleteButton);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _undo(WidgetTester tester) async {
+  await tester.tap(find.text('Отменить'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openTab(WidgetTester tester, String label) async {
+  await tester.tap(
+    find.descendant(of: find.byType(NavigationBar), matching: find.text(label)),
+  );
+  await tester.pumpAndSettle();
+}
+
+final _homeEmpty = find.text('В этом месяце расходов ещё нет');
+final _homeTotal = find.text(
+  'Расходы за сентябрь: ${formatMoney(Money.fromMinor(35000, 'RUB'))}',
+);
+
 Future<void> _finish(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
   await _db.close();
@@ -414,5 +442,120 @@ void main() {
     expect(find.byType(EditTransactionScreen), findsOneWidget);
     expect((await _row()).amountMinor, 35000);
     await _finish(tester);
+  });
+
+  group('удаление', () {
+    testWidgets('запись исчезает из «Истории» и итога, «Отменить» возвращает '
+        'её со всеми полями', (tester) async {
+      await _pumpApp(tester);
+      final before = await _row();
+      await _openEdit(tester);
+      await _delete(tester);
+
+      // Диалога нет, экран закрыт, сообщение с «Отменить» на месте.
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(EditTransactionScreen), findsNothing);
+      expect(find.text('Операция удалена'), findsOneWidget);
+      expect(find.text('Отменить'), findsOneWidget);
+      expect(find.text('молоко'), findsNothing);
+      expect((await _row()).deletedAt, isNotNull);
+
+      await _openTab(tester, 'Главная');
+      expect(_homeEmpty, findsOneWidget);
+
+      await _undo(tester);
+      final after = await _row();
+      expect(after.deletedAt, isNull);
+      expect(after.amountMinor, before.amountMinor);
+      expect(after.currency, before.currency);
+      expect(after.type, before.type);
+      expect(after.occurredOn, before.occurredOn);
+      expect(after.occurredAt, before.occurredAt);
+      expect(after.categoryId, before.categoryId);
+      expect(after.subcategoryId, before.subcategoryId);
+      expect(after.note, 'молоко');
+      expect(after.createdAt, before.createdAt);
+      expect(find.text('Операция удалена'), findsNothing);
+      expect(_homeTotal, findsOneWidget);
+
+      await _openTab(tester, 'История');
+      expect(find.text('молоко'), findsOneWidget);
+      expect(
+        find.text('$_minus${formatMoney(Money.fromMinor(35000, 'RUB'))}'),
+        findsOneWidget,
+      );
+      await _finish(tester);
+    });
+
+    testWidgets('сообщение исчезает само через 6 секунд', (tester) async {
+      await _pumpApp(tester);
+      await _openEdit(tester);
+      await _delete(tester);
+
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('Операция удалена'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('Операция удалена'), findsNothing);
+      expect((await _row()).deletedAt, isNotNull);
+      await _finish(tester);
+    });
+
+    testWidgets('двойной тап по «Удалить»: одно удаление', (tester) async {
+      await _pumpApp(tester);
+      await _openEdit(tester);
+      await tester.tap(_deleteButton);
+      await tester.tap(_deleteButton, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      // Второе удаление показало бы «Эта операция уже удалена».
+      expect(find.text('Операция удалена'), findsOneWidget);
+      expect(find.text('Эта операция уже удалена'), findsNothing);
+      expect(find.byType(SnackBar), findsOneWidget);
+      await _finish(tester);
+    });
+
+    testWidgets('удаление, отмена и повторное удаление: счётчики верны', (
+      tester,
+    ) async {
+      await _pumpApp(tester);
+      await _openEdit(tester);
+      await _delete(tester);
+      await _undo(tester);
+
+      // Второй круг: строка снова в «Истории», удаляем ещё раз.
+      expect(find.text('молоко'), findsOneWidget);
+      await tester.tap(find.text('молоко'));
+      await tester.pumpAndSettle();
+      await _delete(tester);
+      expect(find.text('молоко'), findsNothing);
+      expect((await _row()).deletedAt, isNotNull);
+      await _openTab(tester, 'Главная');
+      expect(_homeEmpty, findsOneWidget);
+
+      // И снова «Отменить»: в итоге и в списке ровно одна запись.
+      await _undo(tester);
+      expect(_homeTotal, findsOneWidget);
+      await _openTab(tester, 'История');
+      expect(find.text('молоко'), findsOneWidget);
+      expect((await _row()).deletedAt, isNull);
+      await _finish(tester);
+    });
+
+    testWidgets('запись уже удалена в другом месте: «Эта операция уже '
+        'удалена», без «Отменить»', (tester) async {
+      await _pumpApp(tester);
+      await _openEdit(tester);
+      await tester.runAsync(() => _repo.softDelete('tx-1'));
+      final deletedAt = (await _row()).deletedAt;
+      await _delete(tester);
+
+      expect(find.byType(EditTransactionScreen), findsNothing);
+      expect(find.text('Эта операция уже удалена'), findsOneWidget);
+      expect(find.text('Отменить'), findsNothing);
+      // Время первого удаления не перезаписано.
+      expect((await _row()).deletedAt, deletedAt);
+      await _finish(tester);
+    });
   });
 }
