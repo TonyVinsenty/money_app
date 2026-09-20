@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -9,9 +12,14 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// словом («Новый расход»), цветом (цвет расхода/дохода из темы) и знаком
 /// («−» или «+» перед заголовком и перед суммой).
 class QuickAddScreen extends StatefulWidget {
-  const QuickAddScreen({required this.type, super.key});
+  const QuickAddScreen({required this.type, required this.clock, super.key});
 
   final TransactionType type;
+
+  /// Источник «сегодня» для плашки даты. Приходит из `AppServices.clock` через
+  /// маршрут (`lib/app`): фича не знает про `AppScope`, а в тестах сюда
+  /// подставляются фиксированные часы.
+  final Clock clock;
 
   static const incomeTitle = 'Новый доход';
   static const expenseTitle = 'Новый расход';
@@ -26,6 +34,23 @@ class QuickAddScreen extends StatefulWidget {
 
 class _QuickAddScreenState extends State<QuickAddScreen> {
   final _amount = AmountFieldController();
+
+  /// «Сегодня» на момент открытия экрана. Если экран простоит открытым через
+  /// полночь, «сегодня» и выбранный день намеренно не обновляются: ввод
+  /// занимает секунды, а при сохранении (шаг 2.25) момент всё равно берётся из
+  /// часов через `Occurrence.onDay`.
+  late final DateOnly _today;
+
+  /// Выбранный день операции. При сохранении (шаг 2.25) из него и из часов
+  /// выводятся обе величины операции: `Occurrence.onDay(_day, clock: ...)`.
+  late DateOnly _day;
+
+  @override
+  void initState() {
+    super.initState();
+    _today = widget.clock.today();
+    _day = _today;
+  }
 
   @override
   void dispose() {
@@ -86,8 +111,13 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                       // Клавиша «Далее» на клавиатуре уже делает submit();
                       // переход к категориям (шаг 2.23) появится здесь.
                     ),
-                    // Шаги 2.22-2.25: здесь появятся дата, категория и
-                    // комментарий.
+                    const SizedBox(height: 8),
+                    DateChip(
+                      value: _day,
+                      today: _today,
+                      onChanged: (day) => setState(() => _day = day),
+                    ),
+                    // Шаги 2.23-2.25: здесь появятся категория и комментарий.
                     const SizedBox(height: 24),
                     const Text('Здесь появится ввод суммы'),
                   ],

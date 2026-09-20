@@ -1,23 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:money_app/app/app.dart';
 import 'package:money_app/core/money/parse_amount.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_failure_text.dart';
 import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
+
+import '../../../../support/fixed_clock.dart';
+
+/// «Сейчас» в тестах: 20 сентября 2026, местное время.
+final _clock = FixedClock(DateTime(2026, 9, 20, 15, 30));
 
 Widget _app(TransactionType type, ThemeMode mode) {
   return MaterialApp(
     theme: AppTheme.light(),
     darkTheme: AppTheme.dark(),
     themeMode: mode,
-    home: QuickAddScreen(type: type),
+    locale: MoneyApp.appLocale,
+    supportedLocales: MoneyApp.supportedLocales,
+    localizationsDelegates: MoneyApp.localizationsDelegates,
+    home: QuickAddScreen(type: type, clock: _clock),
   );
 }
 
+/// День, который сейчас хранит экран: то, что показывает его плашка даты.
+DateOnly _screenDay(WidgetTester tester) =>
+    tester.widget<DateChip>(find.byType(DateChip)).value;
+
 void main() {
+  setUpAll(() async {
+    await initializeDateFormatting('ru');
+  });
+
   for (final mode in [ThemeMode.light, ThemeMode.dark]) {
     for (final type in TransactionType.values) {
       final isIncome = type == TransactionType.income;
@@ -80,6 +100,72 @@ void main() {
 
     await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
     expect(find.text(String.fromCharCode(0x2212)), findsOneWidget);
+  });
+
+  group('плашка даты', () {
+    testWidgets('по умолчанию «Сегодня», день экрана — сегодняшний', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+
+      expect(find.text('Сегодня'), findsOneWidget);
+      expect(_screenDay(tester), DateOnly(2026, 9, 20));
+    });
+
+    testWidgets(
+      'после выбора вчерашнего дня — «Вчера», день хранится экраном',
+      (tester) async {
+        await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+
+        await tester.tap(find.byType(DateChip));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('19'));
+        await tester.tap(find.text('ОК'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Вчера'), findsOneWidget);
+        expect(_screenDay(tester), DateOnly(2026, 9, 19));
+      },
+    );
+
+    testWidgets('завтрашний день в календаре недоступен', (tester) async {
+      await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+
+      await tester.tap(find.byType(DateChip));
+      await tester.pumpAndSettle();
+      final calendar = tester.widget<CalendarDatePicker>(
+        find.byType(CalendarDatePicker),
+      );
+      expect(calendar.lastDate, DateTime(2026, 9, 20));
+
+      await tester.tap(find.text('21'));
+      await tester.tap(find.text('ОК'));
+      await tester.pumpAndSettle();
+
+      expect(_screenDay(tester), DateOnly(2026, 9, 20));
+    });
+
+    testWidgets('календарь на русском', (tester) async {
+      await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+
+      await tester.tap(find.byType(DateChip));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Выберите дату'), findsOneWidget);
+      expect(find.text('Отмена'), findsOneWidget);
+    });
+
+    testWidgets('«Отмена» оставляет выбранный день как был', (tester) async {
+      await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+
+      await tester.tap(find.byType(DateChip));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('19'));
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+
+      expect(_screenDay(tester), DateOnly(2026, 9, 20));
+    });
   });
 
   testWidgets('кнопка «Далее» видна и по нажатию просит ввести сумму', (

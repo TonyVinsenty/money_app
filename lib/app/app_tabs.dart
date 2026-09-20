@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/app/app_routes.dart';
+import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 
@@ -52,9 +53,13 @@ class HomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Часы берём здесь, под AppScope: открытый маршрут AppScope уже не видит.
+    final clock = AppScope.of(context).clock;
     return HomeScreen(
-      onAddTransaction: (type) =>
-          Navigator.of(context).pushNamed(AppRoutes.quickAdd, arguments: type),
+      onAddTransaction: (type) => Navigator.of(context).pushNamed(
+        AppRoutes.quickAdd,
+        arguments: QuickAddRouteArguments(type: type, clock: clock),
+      ),
     );
   }
 }

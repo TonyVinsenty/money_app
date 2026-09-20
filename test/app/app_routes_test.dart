@@ -7,6 +7,7 @@ import 'package:money_app/features/settings/presentation/app_settings_controller
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
+import '../support/fixed_clock.dart';
 import '../support/in_memory_database.dart';
 
 Future<void> _pumpApp(WidgetTester tester) async {
@@ -32,9 +33,12 @@ void main() {
 
     test('маршрут быстрого ввода со своим типом даёт страницу', () {
       final route = onGenerateAppRoute(
-        const RouteSettings(
+        RouteSettings(
           name: AppRoutes.quickAdd,
-          arguments: TransactionType.income,
+          arguments: QuickAddRouteArguments(
+            type: TransactionType.income,
+            clock: FixedClock(DateTime(2026, 9, 20)),
+          ),
         ),
       );
       expect(route, isA<MaterialPageRoute<void>>());
@@ -42,7 +46,12 @@ void main() {
     });
 
     test('без аргумента или с чужим аргументом — понятная ArgumentError', () {
-      for (final arguments in <Object?>[null, 'expense', 42]) {
+      for (final arguments in <Object?>[
+        null,
+        'expense',
+        42,
+        TransactionType.income,
+      ]) {
         expect(
           () => onGenerateAppRoute(
             RouteSettings(name: AppRoutes.quickAdd, arguments: arguments),
@@ -51,7 +60,7 @@ void main() {
             isA<ArgumentError>().having(
               (e) => e.toString(),
               'сообщение',
-              allOf(contains('/quick-add'), contains('TransactionType')),
+              allOf(contains('/quick-add'), contains('QuickAddRouteArguments')),
             ),
           ),
         );
