@@ -185,15 +185,15 @@ void main() {
       await _pickCategory(tester, 'Продукты');
       expect(find.textContaining('Продукты сохранён'), findsOneWidget);
 
-      // Кнопка «Расход» внизу «Главной» закрыта первым сообщением (см. отчёт),
-      // поэтому второй ввод начинаем с кнопки «Доход».
-      await _enterAmount(tester, button: 'Доход', amount: '0');
-      await _pickCategory(tester, 'Зарплата');
+      // Первое сообщение ещё на экране, но кнопка «Расход» выше него
+      // (на «Главной» под кнопками оставлен запас), поэтому ввод идёт как обычно.
+      await _enterAmount(tester, button: 'Расход', amount: '0');
+      await _pickCategory(tester, 'Транспорт');
 
       expect(await _rows(), hasLength(2));
       expect(find.byType(SnackBar), findsOneWidget);
       final zero = formatMoney(Money.zero('RUB'));
-      expect(find.text('Доход $zero · Зарплата сохранён'), findsOneWidget);
+      expect(find.text('Расход $zero · Транспорт сохранён'), findsOneWidget);
       expect(find.textContaining('Продукты сохранён'), findsNothing);
 
       // «Отменить» убирает вторую запись, первая остаётся живой.

@@ -60,6 +60,32 @@ void main() {
     });
   });
 
+  group('formatMonthName', () {
+    test('все 12 месяцев: именительный падеж, маленькая буква', () {
+      const nominative = [
+        'январь',
+        'февраль',
+        'март',
+        'апрель',
+        'май',
+        'июнь',
+        'июль',
+        'август',
+        'сентябрь',
+        'октябрь',
+        'ноябрь',
+        'декабрь',
+      ];
+      for (var month = 1; month <= 12; month++) {
+        expect(
+          formatMonthName(DateOnly(2026, month, 15)),
+          nominative[month - 1],
+          reason: 'месяц $month',
+        );
+      }
+    });
+  });
+
   group('formatMonthYear', () {
     test('сентябрь 2026', () {
       expect(

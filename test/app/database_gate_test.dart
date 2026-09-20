@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show DatabaseConnection;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +16,15 @@ import '../support/in_memory_database.dart';
 
 /// База, которая запоминает, что её закрыли.
 class _SpyDatabase extends AppDatabase {
-  _SpyDatabase() : super(NativeDatabase.memory());
+  // «Главная» теперь подписана на поток из базы; без closeStreamsSynchronously
+  // отписка оставляет «висящий» таймер (как в support/in_memory_database.dart).
+  _SpyDatabase()
+    : super(
+        DatabaseConnection(
+          NativeDatabase.memory(),
+          closeStreamsSynchronously: true,
+        ),
+      );
 
   bool closed = false;
 

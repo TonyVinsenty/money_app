@@ -14,3 +14,9 @@ String formatDate(DateOnly date) =>
 /// [formatDate].
 String formatMonthYear(DateOnly date) =>
     DateFormat.yMMMM('ru').format(date.toDateTime());
+
+/// Название месяца по-русски в именительном падеже и с маленькой буквы:
+/// «сентябрь». Формат `LLLL` (отдельно стоящий месяц) даёт «сентябрь», а
+/// `MMMM` — «сентября». Требует `initializeDateFormatting('ru')`.
+String formatMonthName(DateOnly date) =>
+    DateFormat.LLLL('ru').format(date.toDateTime());

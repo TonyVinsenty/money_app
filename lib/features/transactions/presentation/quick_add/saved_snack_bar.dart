@@ -50,6 +50,10 @@ abstract final class SavedSnackBar {
       ),
       duration: duration,
       persist: false,
+      // По умолчанию «Отменить» уходит на отдельную строку, если оно шире
+      // четверти экрана; тогда сообщение вырастает до ~150 dp и не влезает в
+      // запас под ним на «Главной». Держим кнопку в одной строке с текстом.
+      actionOverflowThreshold: 1,
       action: SnackBarAction(label: undoLabel, onPressed: onUndo),
     );
   }

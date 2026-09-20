@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
@@ -8,6 +9,11 @@ import 'package:money_app/features/settings/presentation/app_settings_controller
 import '../support/in_memory_database.dart';
 
 void main() {
+  setUpAll(() async {
+    // «Главная» показывает название месяца, а ему нужны данные русской локали.
+    await initializeDateFormatting('ru');
+  });
+
   test('defaultAppTabs: пять вкладок по порядку, список неизменяемый', () {
     expect(defaultAppTabs.map((tab) => tab.label).toList(), [
       'Главная',
