@@ -1,0 +1,132 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/app/app_routes.dart';
+import 'package:money_app/app/app_scope.dart';
+import 'package:money_app/app/app_shell.dart';
+import 'package:money_app/app/app_tabs.dart';
+import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/categories/presentation/categories_screen.dart';
+import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/transactions/domain/transaction_type.dart';
+
+import '../support/fakes.dart';
+
+/// Репозиторий операций для "Главной": ей нужны только итоги месяца.
+class _TotalsOnlyRepository extends FakeTransactionsRepository {
+  @override
+  Stream<Money> watchTotal({
+    required TransactionType type,
+    required DateRange period,
+    String currency = rubCurrencyCode,
+  }) => Stream.value(Money.zero(currency));
+}
+
+/// Каркас с настоящими вкладками и фейковыми репозиториями. Тема берётся из
+/// настроек, как в `MoneyApp`: так видно, что выбор в «Настройках» доходит
+/// до `MaterialApp`.
+Future<AppSettingsController> _pump(WidgetTester tester) async {
+  final settings = AppSettingsController();
+  addTearDown(settings.dispose);
+  await tester.pumpWidget(
+    ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) => MaterialApp(
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: settings.themeMode,
+        onGenerateRoute: onGenerateAppRoute,
+        home: AppScope(
+          services: fakeAppServices(
+            settings: settings,
+            transactions: _TotalsOnlyRepository(),
+          ),
+          child: AppShell(tabs: defaultAppTabs),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(
+    find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('Настройки'),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return settings;
+}
+
+ThemeMode _groupValue(WidgetTester tester) => tester
+    .widget<RadioGroup<ThemeMode>>(find.byType(RadioGroup<ThemeMode>))
+    .groupValue!;
+
+ThemeMode _appThemeMode(WidgetTester tester) =>
+    tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode!;
+
+void main() {
+  testWidgets('«Настройки»: заглушки нет, тема «как в системе» выбрана', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    expect(find.textContaining('Здесь будут'), findsNothing);
+    expect(find.text('Категории'), findsOneWidget);
+    expect(_groupValue(tester), ThemeMode.system);
+  });
+
+  testWidgets('выбор темы меняет тему приложения и отметку в списке', (
+    tester,
+  ) async {
+    final settings = await _pump(tester);
+
+    await tester.tap(find.text('Тёмная'));
+    await tester.pumpAndSettle();
+    expect(settings.themeMode, ThemeMode.dark);
+    expect(_appThemeMode(tester), ThemeMode.dark);
+    expect(_groupValue(tester), ThemeMode.dark);
+
+    await tester.tap(find.text('Светлая'));
+    await tester.pumpAndSettle();
+    expect(_appThemeMode(tester), ThemeMode.light);
+  });
+
+  testWidgets('пункт «Категории» открывает экран, «Назад» возвращает', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    await tester.tap(find.text('Категории'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CategoriesScreen), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text(categoriesScreenTitle),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(CategoriesScreen), findsNothing);
+    expect(find.text('Тема'), findsOneWidget);
+  });
+
+  for (final tab in ['Аналитика', 'Баланс']) {
+    testWidgets('вкладка «$tab» подписана «В разработке»', (tester) async {
+      await _pump(tester);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text(tab),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(tabInDevelopmentLabel), findsOneWidget);
+    });
+  }
+}

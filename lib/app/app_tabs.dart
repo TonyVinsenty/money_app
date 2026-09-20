@@ -9,6 +9,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
+import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
@@ -49,11 +50,28 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
     label: 'Настройки',
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
-    builder: (_) => const TabPlaceholder(
-      'Здесь будут тема, порядок категорий и другие настройки',
-    ),
+    builder: (_) => const SettingsTab(),
   ),
 ]);
+
+/// Вкладка «Настройки»: связывает экран фичи `settings` с настройками
+/// приложения и маршрутами. Сам `SettingsScreen` их не знает (ADR 0002).
+class SettingsTab extends StatelessWidget {
+  const SettingsTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // AppScope.of подписывает вкладку на настройки: выбранная тема в списке
+    // обновляется сразу после нажатия.
+    final settings = AppScope.of(context).settings;
+    return SettingsScreen(
+      themeMode: settings.themeMode,
+      onThemeModeChanged: settings.setThemeMode,
+      onOpenCategories: () =>
+          Navigator.of(context).pushNamed(AppRoutes.categories),
+    );
+  }
+}
 
 /// Вкладка «Главная»: связывает экран фичи `home` с маршрутами приложения.
 /// Сам `HomeScreen` маршрутов не знает: ему передаётся только функция.
@@ -189,7 +207,11 @@ class _HistoryTabState extends State<HistoryTab> {
   }
 }
 
-/// Заглушка вкладки: текст по центру.
+/// Подпись над текстом заглушки: приложение пока не показывают другим людям,
+/// но незаконченная вкладка должна честно так и называться.
+const tabInDevelopmentLabel = 'В разработке';
+
+/// Заглушка вкладки: «В разработке» и пояснение по центру.
 class TabPlaceholder extends StatelessWidget {
   const TabPlaceholder(this.text, {super.key});
 
@@ -200,7 +222,18 @@ class TabPlaceholder extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(text, textAlign: TextAlign.center),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              tabInDevelopmentLabel,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(text, textAlign: TextAlign.center),
+          ],
+        ),
       ),
     );
   }

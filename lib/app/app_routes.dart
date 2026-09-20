@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
+import 'package:money_app/features/categories/presentation/categories_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
@@ -16,6 +17,9 @@ abstract final class AppRoutes {
 
   /// Экран правки операции. Аргумент маршрута — [EditTransactionRouteArguments].
   static const editTransaction = '/edit-transaction';
+
+  /// Экран управления категориями (без аргументов).
+  static const categories = '/categories';
 }
 
 /// Аргументы маршрута [AppRoutes.quickAdd].
@@ -103,6 +107,11 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           categories: arguments.categories,
           transactions: arguments.transactions,
         ),
+      );
+    case AppRoutes.categories:
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => const CategoriesScreen(),
       );
   }
   return null;
