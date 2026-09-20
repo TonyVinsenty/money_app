@@ -104,6 +104,13 @@ configuration». Из-за этого пакет `sqlite3_flutter_libs` уста
 - **Виджет-тесты**: по документации drift в виджет-тестах базу надо отдавать через
   `DatabaseConnection` с `closeStreamsSynchronously: true`, иначе тест падает на «висящих»
   таймерах.
+- **Проверено 2026-09-20 (шаг 2.1 этапа 2):** пакет `sqlite3` 3.6.0 работает в `flutter test` на
+  Windows **без ручной установки `sqlite3.dll`** и в сборке Android (x86_64). Механизм: build hook
+  пакета скачивает готовую библиотеку с релизов GitHub (`simolus3/sqlite3.dart`, с проверкой хэша)
+  в `.dart_tool/hooks_runner/`; поэтому на чистой машине при первой сборке нужен доступ к github.com.
+  Вместе с пакетом подтянулись 13 служебных пакетов сборки (`hooks`, `code_assets`,
+  `native_toolchain_c`, `ffi` и др.). Вторая половина проверки — `NativeDatabase.memory()` из
+  drift — на шаге 2.2; iOS — на этапе 3.
 - **Риск, который надо проверить на первом же шаге с БД:** запустится ли
   `NativeDatabase.memory()` в `flutter test` на Windows без ручной установки `sqlite3.dll`.
   По описанию `sqlite3` 3.x должен бундлиться автоматически, но в документации drift по
