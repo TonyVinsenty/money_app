@@ -10,7 +10,7 @@ void main() {
 
     await tester.pumpWidget(MoneyApp(settings: settings));
 
-    expect(find.text('Money App'), findsOneWidget);
+    expect(find.text('Zuno'), findsOneWidget);
     expect(find.text('Здесь скоро появятся ваши расходы'), findsOneWidget);
   });
 

@@ -15,12 +15,12 @@ class MoneyApp extends StatelessWidget {
       listenable: settings,
       builder: (context, _) {
         return MaterialApp(
-          title: 'Money App',
+          title: 'Zuno',
           theme: AppTheme.light(),
           darkTheme: AppTheme.dark(),
           themeMode: settings.themeMode,
           home: Scaffold(
-            appBar: AppBar(title: const Text('Money App')),
+            appBar: AppBar(title: const Text('Zuno')),
             body: const Center(
               child: Text('Здесь скоро появятся ваши расходы'),
             ),
