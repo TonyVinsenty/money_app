@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show ChangeNotifier;
+import 'package:flutter/material.dart' show ThemeMode;
 
 /// Настройки приложения, которые можно менять на лету.
 ///

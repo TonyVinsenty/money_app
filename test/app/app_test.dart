@@ -1,9 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app.dart';
+import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
 void main() {
+  test('defaultAppTabs: пять вкладок по порядку, список неизменяемый', () {
+    expect(defaultAppTabs.map((tab) => tab.label).toList(), [
+      'Главная',
+      'История',
+      'Аналитика',
+      'Баланс',
+      'Настройки',
+    ]);
+    expect(
+      () => defaultAppTabs.add(defaultAppTabs.first),
+      throwsUnsupportedError,
+    );
+    expect(defaultAppTabs.removeLast, throwsUnsupportedError);
+  });
+
   testWidgets('MoneyApp показывает пять вкладок и содержимое «Главной»', (
     tester,
   ) async {

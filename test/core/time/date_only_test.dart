@@ -62,12 +62,19 @@ void main() {
     });
 
     test('fromDateTime: UTC-момент даёт день в поясе устройства', () {
-      final utc = DateTime.utc(2026, 8, 31, 21, 30);
-      final local = utc.toLocal();
-      expect(
-        DateOnly.fromDateTime(utc),
-        DateOnly(local.year, local.month, local.day),
-      );
+      // Ожидание считаем без DateOnly и без toLocal() в полях: берём смещение
+      // пояса машины и прибавляем к UTC-моменту. Получается «настенное»
+      // время в поясе устройства (в объекте с пометкой UTC), из которого
+      // читаем год/месяц/день. Тест верен в любом поясе: 23:30 UTC — это
+      // 19 или 20 сентября в зависимости от смещения, и ожидание это учитывает.
+      final value = DateTime.utc(2026, 9, 19, 23, 30);
+      final wall = value.add(value.toLocal().timeZoneOffset);
+
+      final result = DateOnly.fromDateTime(value);
+
+      expect(result.year, wall.year);
+      expect(result.month, wall.month);
+      expect(result.day, wall.day);
     });
 
     test('toDateTime: локальная полночь', () {

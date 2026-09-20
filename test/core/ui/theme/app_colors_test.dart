@@ -68,6 +68,41 @@ void main() {
     expect(atEnd.income, AppColors.dark.income);
   });
 
+  group('равенство', () {
+    test('одинаковое содержимое: равны и hashCode совпадает', () {
+      const a = AppColors(
+        expense: Color(0xFF112233),
+        income: Color(0xFF445566),
+      );
+      const b = AppColors(
+        expense: Color(0xFF112233),
+        income: Color(0xFF445566),
+      );
+
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+    });
+
+    test('copyWith с другим значением не равен исходному', () {
+      const base = AppColors.light;
+
+      expect(base.copyWith(income: Colors.blue), isNot(base));
+      expect(base.copyWith(expense: Colors.blue), isNot(base));
+      expect(base.copyWith(), base);
+    });
+
+    test('lerp: при t=0 равен исходному, при t=1 равен второму', () {
+      expect(AppColors.light.lerp(AppColors.dark, 0), AppColors.light);
+      expect(AppColors.light.lerp(AppColors.dark, 1), AppColors.dark);
+    });
+
+    test('объект другого типа не равен', () {
+      // Тип Object скрывает настоящий тип от анализатора: сравнение намеренное.
+      final Object other = Colors.red;
+      expect(AppColors.light == other, isFalse);
+    });
+  });
+
   test('lerp с не-AppColors возвращает исходный объект', () {
     expect(AppColors.light.lerp(null, 0.5), AppColors.light);
   });

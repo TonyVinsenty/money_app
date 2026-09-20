@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:money_app/app/app_shell.dart';
 
 /// Вкладки приложения в порядке слева направо. Пока внутри только заглушки.
-final List<AppTab> defaultAppTabs = [
+/// Список неизменяемый: случайно добавить или убрать вкладку нельзя.
+final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
   AppTab(
     label: 'Главная',
     icon: Icons.home_outlined,
@@ -42,7 +43,7 @@ final List<AppTab> defaultAppTabs = [
       'Здесь будут тема, порядок категорий и другие настройки',
     ),
   ),
-];
+]);
 
 /// Заглушка вкладки: текст по центру.
 class TabPlaceholder extends StatelessWidget {

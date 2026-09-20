@@ -44,6 +44,17 @@ class AppColors extends ThemeExtension<AppColors> {
       income: Color.lerp(income, other.income, t)!,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other.runtimeType == runtimeType &&
+        other is AppColors &&
+        other.expense == expense &&
+        other.income == income;
+  }
+
+  @override
+  int get hashCode => Object.hash(expense, income);
 }
 
 /// Короткий доступ: `context.appColors.expense`.

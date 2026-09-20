@@ -109,8 +109,8 @@ void main() {
       for (var i = 0; i < count; i++) _tab('Вкладка $i', (_) => const Text('')),
     ];
 
-    expect(() => AppShell(tabs: tabs(2)), throwsAssertionError);
-    expect(() => AppShell(tabs: tabs(6)), throwsAssertionError);
+    expect(() => AppShell(tabs: tabs(2)), throwsArgumentError);
+    expect(() => AppShell(tabs: tabs(6)), throwsArgumentError);
     expect(() => AppShell(tabs: tabs(3)), returnsNormally);
     expect(() => AppShell(tabs: tabs(5)), returnsNormally);
   });

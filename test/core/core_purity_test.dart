@@ -9,13 +9,22 @@ const _guardedFolders = <String>[
   'lib/core/id',
 ];
 
-/// Запрещённые фрагменты: шаблон и человеческое объяснение.
+/// Единственная папка, где разрешён пакет `uuid` (генератор идентификаторов).
+const _uuidFolder = 'lib/core/id/';
+
+/// Префиксы `package:`-импортов, разрешённых во всех охраняемых папках.
+const _allowedPackagePrefixes = <String>[
+  'package:money_app/core/money/',
+  'package:money_app/core/time/',
+  'package:money_app/core/id/',
+];
+
+/// Запрещённые фрагменты в импортах: шаблон и человеческое объяснение.
 ///
-/// `\bdouble\b` ловит слово `double` целиком (тип, `double.parse`, слово в
-/// комментарии), но не трогает части идентификаторов вроде `doubleValue`
-/// или `redoubled`: они не являются типом `double`, а ложные срабатывания
-/// делают сторож раздражающим.
-final _rules = <({RegExp pattern, String reason})>[
+/// Действуют на любую строку файла (в том числе на комментарий), как и было
+/// раньше. Это «чёрный список»: он даёт понятное сообщение для самых важных
+/// случаев, а всё остальное отсекает белый список ниже.
+final _importRules = <({RegExp pattern, String reason})>[
   (
     pattern: RegExp('package:flutter/'),
     reason: 'импорт Flutter запрещён в core (ADR 0002)',
@@ -29,38 +38,87 @@ final _rules = <({RegExp pattern, String reason})>[
     pattern: RegExp('package:intl/'),
     reason: 'импорт intl запрещён в core: форматирование только в UI',
   ),
-  (
-    pattern: RegExp(r'\bdouble\b', caseSensitive: false),
-    reason: 'слово double запрещено: деньги только целые (ADR 0004)',
-  ),
 ];
+
+/// Слово `double` запрещено везде, включая комментарии.
+///
+/// `\bdouble\b` ловит слово целиком (тип, `double.parse`, слово в
+/// комментарии), но не трогает части идентификаторов вроде `doubleValue`
+/// или `redoubled`: они не являются типом `double`, а ложные срабатывания
+/// делают сторож раздражающим.
+final _doubleRule = (
+  pattern: RegExp(r'\bdouble\b', caseSensitive: false),
+  reason: 'слово double запрещено: деньги только целые (ADR 0004)',
+);
+
+/// Директива `import`/`export`: слово, кавычка, путь до закрывающей кавычки.
+final _directive = RegExp(r'''^\s*(?:import|export)\s+['"]([^'"]*)['"]''');
+
+/// Разрешён ли путь [uri] из директивы `import`/`export` внутри core.
+///
+/// [allowUuid] включает `package:uuid/` (только для `lib/core/id`).
+bool isImportAllowed(String uri, {bool allowUuid = false}) {
+  if (uri.startsWith('dart:')) return !uri.startsWith('dart:ui');
+  if (_allowedPackagePrefixes.any(uri.startsWith)) return true;
+  return allowUuid && uri.startsWith('package:uuid/');
+}
 
 /// Ищет нарушения в тексте файла. Возвращает по одной строке на нарушение
 /// в формате `путь:номер_строки: причина`; пустой список — файл чистый.
+///
+/// Путь [path] нужен для сообщений и чтобы понять, лежит ли файл в
+/// `lib/core/id` (там разрешён `package:uuid/`).
 List<String> findViolations(String source, {String path = '<source>'}) {
+  final allowUuid = path.replaceAll(r'\', '/').contains(_uuidFolder);
   final violations = <String>[];
   final lines = source.split('\n');
   for (var i = 0; i < lines.length; i++) {
-    for (final rule in _rules) {
-      if (rule.pattern.hasMatch(lines[i])) {
-        violations.add('$path:${i + 1}: ${rule.reason}');
+    final line = lines[i];
+    final where = '$path:${i + 1}';
+
+    var importRuleHit = false;
+    for (final rule in _importRules) {
+      if (rule.pattern.hasMatch(line)) {
+        violations.add('$where: ${rule.reason}');
+        importRuleHit = true;
       }
+    }
+
+    // Строки-комментарии для белого списка игнорируем, а слово double
+    // ищем везде.
+    if (!importRuleHit && !line.trimLeft().startsWith('//')) {
+      final match = _directive.firstMatch(line);
+      if (match != null) {
+        final uri = match.group(1)!;
+        if (!isImportAllowed(uri, allowUuid: allowUuid)) {
+          violations.add(
+            '$where: импорт $uri не разрешён в core (белый список)',
+          );
+        }
+      }
+    }
+
+    if (_doubleRule.pattern.hasMatch(line)) {
+      violations.add('$where: ${_doubleRule.reason}');
     }
   }
   return violations;
 }
 
+/// Все `.dart`-файлы папки (включая вложенные), по алфавиту.
+List<File> dartFilesIn(Directory folder) {
+  return folder
+      .listSync(recursive: true)
+      .whereType<File>()
+      .where((file) => file.path.endsWith('.dart'))
+      .toList()
+    ..sort((a, b) => a.path.compareTo(b.path));
+}
+
 /// Собирает нарушения по всем `.dart`-файлам папки (включая вложенные).
 List<String> scanFolder(Directory folder) {
-  final files =
-      folder
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'))
-          .toList()
-        ..sort((a, b) => a.path.compareTo(b.path));
   final violations = <String>[];
-  for (final file in files) {
+  for (final file in dartFilesIn(folder)) {
     violations.addAll(
       findViolations(
         file.readAsStringSync(),
@@ -139,33 +197,124 @@ final class Amount {
     });
   });
 
-  group('сканирование реальных папок core', () {
-    test('lib/core/money существует и содержит .dart файлы', () {
-      final folder = Directory('lib/core/money');
-      expect(
-        folder.existsSync(),
-        isTrue,
-        reason:
-            'Папка lib/core/money пропала или переименована — '
-            'сторож остался бы пустым. Обновите _guardedFolders.',
-      );
-      final dartFiles = folder
-          .listSync(recursive: true)
-          .whereType<File>()
-          .where((file) => file.path.endsWith('.dart'));
-      expect(dartFiles, isNotEmpty);
+  group('белый список импортов', () {
+    test('разрешённые импорты проходят', () {
+      const allowed = [
+        "import 'dart:core';",
+        "import 'dart:math';",
+        "import 'dart:convert';",
+        "import 'package:money_app/core/money/money.dart';",
+        "import 'package:money_app/core/time/date_only.dart';",
+        "import 'package:money_app/core/id/id_generator.dart';",
+        "export 'package:money_app/core/money/currency.dart';",
+        '  import "dart:math";',
+        "import 'dart:math' show max;",
+      ];
+      for (final line in allowed) {
+        expect(
+          findViolations(line, path: 'lib/core/time/x.dart'),
+          isEmpty,
+          reason: line,
+        );
+      }
     });
 
+    test('запрещённые импорты ловятся', () {
+      const forbidden = [
+        "import 'package:money_app/core/format/money_format.dart';",
+        "import 'package:money_app/core/ui/theme/app_theme.dart';",
+        "import 'package:money_app/features/expenses/domain/expense.dart';",
+        "import 'package:flutter/material.dart';",
+        "import 'package:intl/intl.dart';",
+        "import 'dart:ui';",
+        "import 'x.dart';",
+        "import '../money/money.dart';",
+        "import 'package:collection/collection.dart';",
+        "export 'x.dart';",
+        "export 'package:money_app/core/format/date_format.dart';",
+      ];
+      for (final line in forbidden) {
+        expect(
+          findViolations(line, path: 'lib/core/money/x.dart'),
+          isNotEmpty,
+          reason: line,
+        );
+      }
+    });
+
+    test('сообщение называет импорт и белый список', () {
+      final result = findViolations(
+        "import 'x.dart';",
+        path: 'lib/core/money/a.dart',
+      );
+      expect(result, [
+        'lib/core/money/a.dart:1: импорт x.dart не разрешён в core '
+            '(белый список)',
+      ]);
+    });
+
+    test('чужой пакет не разрешён, и в сообщении есть его путь', () {
+      final result = findViolations(
+        "import 'package:collection/collection.dart';",
+        path: 'lib/core/time/a.dart',
+      );
+      expect(result.single, contains('package:collection/collection.dart'));
+    });
+
+    test('package:uuid/ разрешён только в lib/core/id', () {
+      const line = "import 'package:uuid/uuid.dart';";
+      expect(findViolations(line, path: 'lib/core/id/a.dart'), isEmpty);
+      expect(findViolations(line, path: 'lib/core/id/sub/a.dart'), isEmpty);
+      expect(findViolations(line, path: 'lib/core/money/a.dart'), isNotEmpty);
+      expect(findViolations(line, path: 'lib/core/time/a.dart'), isNotEmpty);
+      expect(findViolations(line), isNotEmpty);
+    });
+
+    test('строка-комментарий с импортом для белого списка игнорируется', () {
+      expect(findViolations("// import 'x.dart';"), isEmpty);
+      expect(findViolations("  /// import 'x.dart';"), isEmpty);
+    });
+
+    test('слово double в комментарии ловится по-прежнему', () {
+      expect(findViolations('// import double;'), hasLength(1));
+    });
+
+    test('isImportAllowed: dart:ui не разрешён, остальные dart: разрешены', () {
+      expect(isImportAllowed('dart:ui'), isFalse);
+      expect(isImportAllowed('dart:math'), isTrue);
+      expect(isImportAllowed('dart:core'), isTrue);
+    });
+
+    test('isImportAllowed: uuid только при allowUuid', () {
+      expect(isImportAllowed('package:uuid/uuid.dart'), isFalse);
+      expect(
+        isImportAllowed('package:uuid/uuid.dart', allowUuid: true),
+        isTrue,
+      );
+    });
+  });
+
+  group('сканирование реальных папок core', () {
     for (final path in _guardedFolders) {
-      final folder = Directory(path);
-      // Папки, которых ещё нет (time, id), пропускаем с пояснением: как
-      // только шаги 1.8/1.10 создадут папку, тест начнёт работать сам.
-      final skipReason = folder.existsSync()
-          ? null
-          : 'папки $path ещё нет, появится на следующих шагах';
+      test('$path существует и содержит .dart файлы', () {
+        final folder = Directory(path);
+        expect(
+          folder.existsSync(),
+          isTrue,
+          reason:
+              'Папка $path пропала или переименована — '
+              'сторож остался бы пустым. Обновите _guardedFolders.',
+        );
+        expect(
+          dartFilesIn(folder),
+          isNotEmpty,
+          reason: 'В папке $path нет ни одного .dart файла.',
+        );
+      });
+
       test('$path не содержит запрещённого', () {
-        expect(scanFolder(folder), isEmpty);
-      }, skip: skipReason);
+        expect(scanFolder(Directory(path)), isEmpty);
+      });
     }
   });
 }

@@ -33,12 +33,20 @@ void main() {
       expect(clock.today(), DateOnly(2027, 1, 1));
     });
 
-    test('advance двигает время и меняет today()', () {
-      final clock = FixedClock(DateTime(2026, 9, 19, 23));
-      expect(clock.today(), DateOnly(2026, 9, 19));
+    // Здесь время в UTC: сложение Duration с UTC-моментом всегда точное, а
+    // локальное время могло бы «прыгнуть» на час при переходе на летнее время
+    // в поясе машины. Поэтому тест не зависит от пояса, где его запускают.
+    test('advance двигает время: now() сдвигается ровно на заданный шаг', () {
+      final clock = FixedClock(DateTime.utc(2026, 9, 19, 23));
       clock.advance(const Duration(hours: 2));
-      expect(clock.now(), DateTime(2026, 9, 20, 1));
-      expect(clock.today(), DateOnly(2026, 9, 20));
+      expect(clock.now(), DateTime.utc(2026, 9, 20, 1));
+    });
+
+    test('advance на двое суток сдвигает today() ровно на два дня', () {
+      final clock = FixedClock(DateTime.utc(2026, 9, 19, 12));
+      final before = clock.today();
+      clock.advance(const Duration(hours: 48));
+      expect(clock.today(), before.addDays(2));
     });
 
     test('FixedClock можно использовать как Clock', () {

@@ -25,13 +25,16 @@ class AppTab {
 
 /// Каркас приложения: содержимое выбранной вкладки и нижняя панель навигации.
 class AppShell extends StatefulWidget {
-  // Конструктор не const: длину списка нельзя проверить на этапе компиляции,
-  // поэтому assert стоит в теле конструктора.
+  // Конструктор не const: длину списка нельзя проверить на этапе компиляции.
+  // Проверка явная (не assert), чтобы работала и в релизной сборке.
   AppShell({required this.tabs, super.key}) {
-    assert(
-      tabs.length >= 3 && tabs.length <= 5,
-      'NavigationBar в Material поддерживает от 3 до 5 вкладок',
-    );
+    if (tabs.length < 3 || tabs.length > 5) {
+      throw ArgumentError.value(
+        tabs.length,
+        'tabs',
+        'NavigationBar в Material поддерживает от 3 до 5 вкладок',
+      );
+    }
   }
 
   final List<AppTab> tabs;
