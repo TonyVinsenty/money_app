@@ -898,6 +898,131 @@ void main() {
       });
     });
 
+    group('duplicate names', () {
+      Matcher isDuplicate() => throwsA(
+        isA<CategoryRuleException>().having(
+          (e) => e.rule,
+          'rule',
+          CategoryRule.duplicateName,
+        ),
+      );
+
+      Category sub(String id, String parentId, String name) => Category(
+        id: id,
+        kind: CategoryKind.expense,
+        name: name,
+        iconKey: 'icon',
+        parentId: parentId,
+        sortOrder: 0,
+      );
+
+      Future<List<CategoryRow>> allRows() => db.select(db.categories).get();
+
+      test(
+        'create rejects the same name in another case with spaces',
+        () async {
+          await repo.create(top('a', name: 'Такси'));
+          final before = await allRows();
+
+          await expectLater(
+            repo.create(top('b', name: ' такси ')),
+            isDuplicate(),
+          );
+
+          expect(await allRows(), before);
+          expect(await repo.findById('b'), isNull);
+        },
+      );
+
+      test('the same name is fine for another kind', () async {
+        await repo.create(top('a', name: 'Прочее'));
+        await repo.create(top('b', name: 'Прочее', kind: CategoryKind.income));
+
+        expect(await repo.findById('b'), isNotNull);
+      });
+
+      test('the same name is fine on another level or under another '
+          'parent', () async {
+        await repo.create(top('p1', name: 'Транспорт'));
+        await repo.create(top('p2', name: 'Дом'));
+        await repo.create(sub('s1', 'p1', 'Такси'));
+        // Верхний уровень и подкатегория.
+        await repo.create(top('t', name: 'Такси'));
+        // Другой родитель.
+        await repo.create(sub('s2', 'p2', 'Такси'));
+        // Тот же родитель: дубль.
+        await expectLater(repo.create(sub('s3', 'p1', 'ТАКСИ')), isDuplicate());
+      });
+
+      test('an archived category does not block the name', () async {
+        await repo.create(top('a', name: 'Такси'));
+        await repo.archive('a');
+
+        await repo.create(top('b', name: 'Такси'));
+
+        expect(await repo.findById('b'), isNotNull);
+      });
+
+      test('a deleted category does not block the name', () async {
+        await rawInsert('gone', name: 'Такси', deletedAt: 5);
+
+        await repo.create(top('b', name: 'Такси'));
+
+        expect(await repo.findById('b'), isNotNull);
+      });
+
+      test('rename rejects a taken name and changes nothing', () async {
+        await repo.create(top('a', name: 'Такси'));
+        await repo.create(top('b', name: 'Метро', sortOrder: 1));
+        final before = await allRows();
+
+        await expectLater(repo.rename('b', 'такси'), isDuplicate());
+
+        expect(await allRows(), before);
+        expect((await repo.findById('b'))!.name, 'Метро');
+      });
+
+      test('rename to the own name in another case is allowed', () async {
+        await repo.create(top('a', name: 'Такси'));
+
+        await repo.rename('a', ' ТАКСИ ');
+
+        expect((await repo.findById('a'))!.name, 'ТАКСИ');
+      });
+
+      test('rename is checked for subcategories on the same level', () async {
+        await repo.create(top('p', name: 'Транспорт'));
+        await repo.create(sub('s1', 'p', 'Такси'));
+        await repo.create(sub('s2', 'p', 'Метро'));
+
+        await expectLater(repo.rename('s2', 'такси'), isDuplicate());
+        await repo.rename('s2', 'Транспорт'); // верхний уровень не мешает
+      });
+
+      test('restore is rejected while the name is taken', () async {
+        await repo.create(top('a', name: 'Такси'));
+        await repo.archive('a');
+        await repo.create(top('b', name: 'Такси', sortOrder: 1));
+        final before = await allRows();
+
+        await expectLater(repo.restore('a'), isDuplicate());
+
+        expect(await allRows(), before);
+        expect((await repo.findById('a'))!.isArchived, isTrue);
+      });
+
+      test('restore works after the other category is renamed', () async {
+        await repo.create(top('a', name: 'Такси'));
+        await repo.archive('a');
+        await repo.create(top('b', name: 'Такси', sortOrder: 1));
+        await repo.rename('b', 'Метро');
+
+        await repo.restore('a');
+
+        expect((await repo.findById('a'))!.isArchived, isFalse);
+      });
+    });
+
     group('findById', () {
       test('returns null for a missing id', () async {
         expect(await repo.findById('missing'), isNull);

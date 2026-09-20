@@ -23,7 +23,16 @@ enum CategoryRule {
 
   /// Вид подкатегории не совпадает с видом родителя.
   kindMismatch,
+
+  /// Среди не архивных категорий того же вида и уровня уже есть категория с
+  /// таким именем (без учёта регистра и пробелов по краям).
+  duplicateName,
 }
+
+/// Ключ для сравнения имён: без пробелов по краям и без учёта регистра.
+///
+/// Регистр убирает `toLowerCase()`; для кириллицы и латиницы этого достаточно.
+String categoryNameKey(String name) => name.trim().toLowerCase();
 
 /// Ошибка нарушения правила категории.
 ///
@@ -54,6 +63,8 @@ final class CategoryRuleException implements Exception {
         return 'Parent of a subcategory must be a top-level category';
       case CategoryRule.kindMismatch:
         return 'Subcategory kind must match the kind of its parent';
+      case CategoryRule.duplicateName:
+        return 'A category with this name already exists on the same level';
     }
   }
 

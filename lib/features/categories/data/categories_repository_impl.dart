@@ -79,6 +79,13 @@ class DriftCategoriesRepository implements CategoriesRepository {
         // заранее, она появится вместе с родителем после восстановления.
         Category.checkParent(category, categoryFromRow(parentRow));
       }
+      // Проверка и вставка в одной транзакции: между ними никто не успеет
+      // добавить такое же имя.
+      await _checkUniqueName(
+        name: category.name,
+        kind: category.kind,
+        parentId: parentId,
+      );
       final now = _clock.now();
       // Повторный id не перехватываем: это ошибка программиста, а не
       // ситуация для пользователя. Придёт исключение SQLite о нарушении
@@ -97,9 +104,15 @@ class DriftCategoriesRepository implements CategoriesRepository {
       // Строку в Category НЕ собираем: если имя в базе испорчено (пусто или
       // слишком длинное), сборка бросила бы DataCorruptedException, и
       // починить строку переименованием было бы нельзя. Нужны только
-      // существование и то, что строка не удалена.
-      await _requireNotDeleted(id);
+      // существование, вид и родитель.
+      final row = await _requireRow(id);
       final name = Category.checkedName(newName);
+      await _checkUniqueName(
+        name: name,
+        kind: categoryKindFromDb(row.kind),
+        parentId: row.parentId,
+        selfId: id,
+      );
       await _updateRow(
         id,
         CategoriesCompanion(name: Value(name), updatedAt: Value(_nowMs())),
@@ -204,6 +217,13 @@ class DriftCategoriesRepository implements CategoriesRepository {
       if (row.archivedAt == null) {
         return; // Не в архиве: менять нечего.
       }
+      // Пока категория лежала в архиве, её имя мог занять кто-то другой.
+      await _checkUniqueName(
+        name: row.name,
+        kind: categoryKindFromDb(row.kind),
+        parentId: row.parentId,
+        selfId: id,
+      );
       await _updateRow(
         id,
         CategoriesCompanion(
@@ -243,18 +263,35 @@ class DriftCategoriesRepository implements CategoriesRepository {
     return row;
   }
 
-  /// Проверяет, что строка есть и не удалена, не читая её колонки в
-  /// `Category`: так работает и с испорченными строками.
-  Future<void> _requireNotDeleted(String id) async {
-    final table = _db.categories;
-    final row =
-        await (_db.selectOnly(table)
-              ..addColumns([table.id])
-              ..where(table.deletedAt.isNull() & table.id.equals(id)))
-            .getSingleOrNull();
-    if (row == null) {
-      throw ArgumentError.value(id, 'id', 'category not found');
-    }
+  /// Бросает `CategoryRuleException(duplicateName)`, если среди «живых»
+  /// (не удалённых и не архивных) категорий того же вида и уровня уже есть
+  /// категория с таким именем. Саму [selfId] из выборки исключаем в запросе:
+  /// её строка может быть испорчена и не превратилась бы в `Category`.
+  Future<void> _checkUniqueName({
+    required String name,
+    required CategoryKind kind,
+    required String? parentId,
+    String? selfId,
+  }) async {
+    final query = _db.select(_db.categories)
+      ..where(
+        (c) =>
+            c.deletedAt.isNull() &
+            c.archivedAt.isNull() &
+            c.kind.equals(categoryKindToDb(kind)) &
+            (parentId == null
+                ? c.parentId.isNull()
+                : c.parentId.equals(parentId)) &
+            (selfId == null ? const Constant(true) : c.id.equals(selfId).not()),
+      );
+    final rows = await query.get();
+    Category.checkUniqueName(
+      name: name,
+      kind: kind,
+      parentId: parentId,
+      existing: rows.map(categoryFromRow),
+      selfId: selfId,
+    );
   }
 
   Future<void> _updateRow(String id, CategoriesCompanion changes) {

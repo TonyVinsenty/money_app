@@ -158,7 +158,7 @@ void main() {
     expect(find.byType(CategoryPickerScreen), findsNothing);
     expect(find.text('Открыть'), findsOneWidget);
     expect(
-      find.text('Расход $_amountText · Продукты сохранён'),
+      find.text('Сохранено: расход $_amountText · Продукты'),
       findsOneWidget,
     );
     expect(find.text('Отменить'), findsOneWidget);
@@ -175,7 +175,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repo.added.single.type, TransactionType.income);
-    expect(find.text('Доход $_amountText · Зарплата сохранён'), findsOneWidget);
+    expect(
+      find.text('Сохранено: доход $_amountText · Зарплата'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('нулевая сумма называется в сообщении', (tester) async {
@@ -188,7 +191,7 @@ void main() {
 
     final zero = formatMoney(Money.zero('RUB'));
     expect(repo.added.single.amount, Money.zero('RUB'));
-    expect(find.text('Расход $zero · Продукты сохранён'), findsOneWidget);
+    expect(find.text('Сохранено: расход $zero · Продукты'), findsOneWidget);
   });
 
   testWidgets('комментарий уходит в запись нормализованным', (tester) async {
@@ -288,7 +291,7 @@ void main() {
       // Экран выбора остался, введённое на месте.
       expect(find.byType(CategoryPickerScreen), findsOneWidget);
       expect(find.text('молоко'), findsOneWidget);
-      expect(find.textContaining('сохранён'), findsNothing);
+      expect(find.textContaining('Сохранено:'), findsNothing);
       expect(find.text('Отменить'), findsNothing);
     }
 
@@ -358,7 +361,7 @@ void main() {
       expect(repo.added.single.note, 'молоко');
       expect(repo.added.single.occurredOn, DateOnly(2026, 9, 19));
       expect(find.byType(CategoryPickerScreen), findsNothing);
-      expect(find.textContaining('Продукты сохранён'), findsOneWidget);
+      expect(find.textContaining('· Продукты'), findsOneWidget);
       // Текст ошибки не остался висеть рядом с сообщением об успехе.
       expect(find.byType(SnackBar), findsOneWidget);
       expect(find.text(transactionSaveFailedText), findsNothing);
@@ -409,7 +412,7 @@ void main() {
       await _toPicker(tester, amount: '350');
       await tester.tap(find.text('Продукты'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Продукты сохранён'), findsOneWidget);
+      expect(find.textContaining('· Продукты'), findsOneWidget);
 
       // Новый ввод убирает прошлое сообщение: оно не закрывает «Далее».
       await tester.tap(find.text('Открыть'));
@@ -424,8 +427,8 @@ void main() {
       expect(repo.added.map((t) => t.id), ['id-1', 'id-2']);
       // Осталось одно, новое сообщение.
       expect(find.byType(SnackBar), findsOneWidget);
-      expect(find.textContaining('Кафе сохранён'), findsOneWidget);
-      expect(find.textContaining('Продукты сохранён'), findsNothing);
+      expect(find.textContaining('· Кафе'), findsOneWidget);
+      expect(find.textContaining('· Продукты'), findsNothing);
 
       await tester.tap(find.text('Отменить'));
       await tester.pumpAndSettle();
@@ -460,7 +463,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.bySemanticsLabel('Расход 0 рублей · Продукты сохранён'),
+        find.bySemanticsLabel('Сохранено: расход 0 рублей · Продукты'),
         findsOneWidget,
       );
       semantics.dispose();

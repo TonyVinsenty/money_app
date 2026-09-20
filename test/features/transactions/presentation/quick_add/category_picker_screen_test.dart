@@ -333,20 +333,16 @@ void main() {
       0x1F467,
     ]);
 
-    testWidgets('подпись и подсказка видны при пустом и заполненном поле', (
-      tester,
-    ) async {
+    testWidgets('подпись видна при пустом и заполненном поле', (tester) async {
       await pump(tester);
       expect(find.text(NoteField.label), findsOneWidget);
       expect(find.text('Комментарий (необязательно)'), findsOneWidget);
-      expect(find.text(NoteField.hint), findsOneWidget);
       expect(find.text('0/200'), findsOneWidget);
 
       await tester.enterText(field, 'Молоко');
       await tester.pump();
 
       expect(find.text('Комментарий (необязательно)'), findsOneWidget);
-      expect(find.text(NoteField.hint), findsOneWidget);
       expect(find.text('6/200'), findsOneWidget);
     });
 

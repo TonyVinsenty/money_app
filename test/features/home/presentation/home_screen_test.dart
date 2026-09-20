@@ -286,9 +286,9 @@ void main() {
           .showSnackBar(
             SavedSnackBar.build(
               text:
-                  'Расход ${formatMoney(Money.fromMinor(35000, 'RUB'))} · '
-                  'Продукты сохранён',
-              spokenText: 'Расход 350 рублей · Продукты сохранён',
+                  'Сохранено: расход '
+                  '${formatMoney(Money.fromMinor(35000, 'RUB'))} · Продукты',
+              spokenText: 'Сохранено: расход 350 рублей · Продукты',
               onUndo: () {},
             ),
           );

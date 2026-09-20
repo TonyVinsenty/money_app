@@ -22,8 +22,6 @@ class NoteField extends StatelessWidget {
   final TextEditingController controller;
 
   static const label = 'Комментарий (необязательно)';
-  static const hint =
-      'Нажмите на категорию — операция сохранится сразу, вместе с комментарием';
 
   static String counterText(int length) => '$length/$transactionNoteMaxLength';
 
@@ -32,45 +30,33 @@ class NoteField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              final length = runesLength(value.text);
-              return TextField(
-                controller: controller,
-                autofocus: false,
-                maxLines: 1,
-                keyboardType: TextInputType.text,
-                textInputAction: TextInputAction.done,
-                textCapitalization: TextCapitalization.sentences,
-                inputFormatters: const [
-                  RunesLengthFormatter(transactionNoteMaxLength),
-                ],
-                decoration: InputDecoration(
-                  labelText: label,
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                  border: const OutlineInputBorder(),
-                  counter: Text(
-                    counterText(length),
-                    semanticsLabel: counterSemantics(length),
-                  ),
-                ),
-              );
-            },
-          ),
-          Text(
-            hint,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) {
+          final length = runesLength(value.text);
+          return TextField(
+            controller: controller,
+            autofocus: false,
+            maxLines: 1,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.done,
+            textCapitalization: TextCapitalization.sentences,
+            inputFormatters: const [
+              RunesLengthFormatter(transactionNoteMaxLength),
+            ],
+            decoration: InputDecoration(
+              labelText: label,
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              border: const OutlineInputBorder(),
+              counter: Text(
+                counterText(length),
+                semanticsLabel: counterSemantics(length),
+              ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

@@ -102,6 +102,48 @@ final class Category {
     }
   }
 
+  /// Занято ли [name] среди [existing]: есть ли там не архивная категория
+  /// того же вида [kind] и уровня ([parentId]; `null` — верхний уровень) с тем
+  /// же именем (см. [categoryNameKey]). Категорию с id [selfId] (сама себя при
+  /// переименовании или возврате из архива) не считает.
+  static bool isDuplicateName({
+    required String name,
+    required CategoryKind kind,
+    required String? parentId,
+    required Iterable<Category> existing,
+    String? selfId,
+  }) {
+    final key = categoryNameKey(name);
+    return existing.any(
+      (other) =>
+          other.id != selfId &&
+          !other.isArchived &&
+          other.kind == kind &&
+          other.parentId == parentId &&
+          categoryNameKey(other.name) == key,
+    );
+  }
+
+  /// То же, но при дубле бросает [CategoryRuleException] с правилом
+  /// [CategoryRule.duplicateName].
+  static void checkUniqueName({
+    required String name,
+    required CategoryKind kind,
+    required String? parentId,
+    required Iterable<Category> existing,
+    String? selfId,
+  }) {
+    if (isDuplicateName(
+      name: name,
+      kind: kind,
+      parentId: parentId,
+      existing: existing,
+      selfId: selfId,
+    )) {
+      throw CategoryRuleException(CategoryRule.duplicateName);
+    }
+  }
+
   /// Неизменяемый идентификатор (UUID v7, создаётся вне базы).
   final String id;
 

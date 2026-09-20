@@ -140,7 +140,7 @@ void main() {
     // Мы на «Главной», сообщение называет тип, сумму и категорию.
     expect(find.byType(NavigationBar), findsOneWidget);
     final amount = formatMoney(Money.fromMinor(35000, 'RUB'));
-    expect(find.text('Расход $amount · Продукты сохранён'), findsOneWidget);
+    expect(find.text('Сохранено: расход $amount · Продукты'), findsOneWidget);
     expect(find.text('Отменить'), findsOneWidget);
 
     // «Отменить»: запись мягко удалена и пропала из живого потока.
@@ -183,7 +183,7 @@ void main() {
       await _pumpApp(tester);
       await _enterAmount(tester, button: 'Расход', amount: '350');
       await _pickCategory(tester, 'Продукты');
-      expect(find.textContaining('Продукты сохранён'), findsOneWidget);
+      expect(find.textContaining('· Продукты'), findsOneWidget);
 
       // Первое сообщение ещё на экране, но кнопка «Расход» выше него
       // (на «Главной» под кнопками оставлен запас), поэтому ввод идёт как обычно.
@@ -193,8 +193,8 @@ void main() {
       expect(await _rows(), hasLength(2));
       expect(find.byType(SnackBar), findsOneWidget);
       final zero = formatMoney(Money.zero('RUB'));
-      expect(find.text('Расход $zero · Транспорт сохранён'), findsOneWidget);
-      expect(find.textContaining('Продукты сохранён'), findsNothing);
+      expect(find.text('Сохранено: расход $zero · Транспорт'), findsOneWidget);
+      expect(find.textContaining('· Продукты'), findsNothing);
 
       // «Отменить» убирает вторую запись, первая остаётся живой.
       await tester.tap(find.text('Отменить'));
@@ -256,7 +256,7 @@ void main() {
     expect(row.note, 'аванс');
     expect(row.categoryId, await _categoryId('Зарплата', kind: 'income'));
     final amount = formatMoney(Money.fromMinor(100050, 'RUB'));
-    expect(find.text('Доход $amount · Зарплата сохранён'), findsOneWidget);
+    expect(find.text('Сохранено: доход $amount · Зарплата'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());
     await _db.close();

@@ -12,27 +12,27 @@ abstract final class SavedSnackBar {
   /// Сколько сообщение висит на экране.
   static const duration = Duration(seconds: 6);
 
-  /// «Расход 350,00 ₽ · Продукты сохранён». Сумма называется всегда, и нулевая
-  /// тоже («Расход 0,00 ₽ · ...»).
+  /// «Сохранено: расход 350,00 ₽ · Продукты». Сумма называется всегда, и
+  /// нулевая тоже («Сохранено: расход 0,00 ₽ · ...»).
   static String text({
     required TransactionType type,
     required Money amount,
     required String categoryName,
   }) {
-    return '${_word(type)} ${formatMoney(amount)} · $categoryName сохранён';
+    return 'Сохранено: ${_word(type)} ${formatMoney(amount)} · $categoryName';
   }
 
-  /// То же для скринридера: сумма словами («Расход 350 рублей · ...»).
+  /// То же для скринридера: сумма словами («Сохранено: расход 350 рублей · ...»).
   static String spokenText({
     required TransactionType type,
     required Money amount,
     required String categoryName,
   }) {
-    return '${_word(type)} ${spokenMoney(amount)} · $categoryName сохранён';
+    return 'Сохранено: ${_word(type)} ${spokenMoney(amount)} · $categoryName';
   }
 
   static String _word(TransactionType type) =>
-      type == TransactionType.income ? 'Доход' : 'Расход';
+      type == TransactionType.income ? 'доход' : 'расход';
 
   /// Сообщение с кнопкой «Отменить». Автоматически исчезает через [duration]:
   /// `persist: false` нужно явно, иначе у сообщения с кнопкой время не

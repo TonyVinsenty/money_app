@@ -39,13 +39,16 @@ abstract interface class CategoriesRepository {
   ///
   /// Для подкатегории проверяет связь с родителем (`Category.checkParent`):
   /// `CategoryRuleException`, если родитель не верхнего уровня или вид
-  /// не совпадает.
+  /// не совпадает. Если среди не архивных категорий того же вида и уровня уже
+  /// есть такое имя (без учёта регистра), бросает `CategoryRuleException` с
+  /// правилом `duplicateName`.
   Future<void> create(Category category);
 
   /// Переименовывает категорию [id] в [newName].
   ///
   /// Имя проходит те же проверки, что и при создании
-  /// (`CategoryRuleException`, см. `Category.checkedName`). Категория должна
+  /// (`CategoryRuleException`, см. `Category.checkedName`) и проверку на
+  /// дубль имени (правило `duplicateName`, как в [create]). Категория должна
   /// существовать и не быть удалённой, иначе `ArgumentError`. Сохранённая
   /// строка не превращается в `Category`, поэтому переименованием можно
   /// починить испорченное имя (пустое или слишком длинное).
@@ -73,5 +76,8 @@ abstract interface class CategoriesRepository {
   Future<void> archive(String id);
 
   /// Возвращает категорию [id] из архива.
+  ///
+  /// Если её имя за это время занято другой не архивной категорией того же
+  /// вида и уровня, бросает `CategoryRuleException` с правилом `duplicateName`.
   Future<void> restore(String id);
 }
