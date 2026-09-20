@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- allowBackup="false": резервного копирования в Google-аккаунт нет,
+         данные защищает только экспорт CSV (решение пользователя). -->
     <application
+        android:allowBackup="false"
         android:label="Zuno"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

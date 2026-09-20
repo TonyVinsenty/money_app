@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/isolate.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/database/open_app_database.dart';
@@ -38,8 +39,12 @@ void main() {
     });
 
     tearDown(() async {
+      // Каждую базу закрываем отдельно: одна ошибка не должна оставить
+      // открытые файлы (и мусор в TEMP) от остальных.
       for (final db in opened) {
-        await db.close();
+        try {
+          await db.close();
+        } catch (_) {}
       }
       opened.clear();
       if (tempDir.existsSync()) {
@@ -114,6 +119,32 @@ void main() {
 
       expect(keys, {'a', 'b'});
     });
+
+    test(
+      'a file that is not a database gives an error and is released',
+      () async {
+        dbFile().writeAsStringSync('this is just plain text, not a database');
+
+        await expectLater(
+          openAppDatabaseIn(tempDir),
+          // Запросы идут в отдельном потоке (isolate), поэтому ошибка SQLite
+          // (код 26, «file is not a database») приходит обёрнутой в
+          // DriftRemoteException.
+          throwsA(
+            isA<DriftRemoteException>().having(
+              (e) => e.toString(),
+              'message',
+              contains('file is not a database'),
+            ),
+          ),
+        );
+
+        // Соединение закрыто: файл (и каталог) можно удалить, в том числе на
+        // Windows, где открытый файл удалить нельзя.
+        dbFile().deleteSync();
+        expect(dbFile().existsSync(), isFalse);
+      },
+    );
 
     test(
       'a missing directory gives a clear error and creates nothing',

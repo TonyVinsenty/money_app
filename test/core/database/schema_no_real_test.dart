@@ -3,13 +3,17 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/database/app_database.dart';
 
-/// Типы колонок, в которых живут дробные числа. Деньги в них хранить нельзя
-/// (ADR 0001/0004): только целые минорные единицы.
-const _forbiddenTypeParts = ['REAL', 'FLOAT', 'DOUBLE', 'NUMERIC', 'DECIMAL'];
+/// Белый список: единственные типы колонок, разрешённые в базе. Всё остальное
+/// (REAL, FLOAT, NUMERIC, DECIMAL, MONEY, BLOB, INT, BOOLEAN и даже колонка
+/// без типа) — нарушение. Так дробное число не проскочит под незнакомым
+/// названием типа (ADR 0001/0004: деньги — только целые минорные единицы).
+const _allowedTypes = {'TEXT', 'INTEGER'};
 
-/// Возвращает сообщения обо всех колонках с дробным типом во всех таблицах
-/// базы (служебные таблицы `sqlite_*` пропускаются). Пустой список — всё чисто.
-Future<List<String>> findFractionalColumns(GeneratedDatabase db) async {
+/// Возвращает сообщения обо всех колонках, чей тип не из белого списка, во
+/// всех таблицах базы (служебные таблицы `sqlite_*` пропускаются). Пустой
+/// список — всё чисто. Сравнение без учёта регистра, пробелы по краям
+/// игнорируются.
+Future<List<String>> findDisallowedColumnTypes(GeneratedDatabase db) async {
   final tables = await db
       .customSelect(
         "SELECT name FROM sqlite_master WHERE type = 'table' "
@@ -28,11 +32,10 @@ Future<List<String>> findFractionalColumns(GeneratedDatabase db) async {
         .get();
     for (final column in columns) {
       final type = column.read<String>('type');
-      final upper = type.toUpperCase();
-      if (_forbiddenTypeParts.any(upper.contains)) {
+      if (!_allowedTypes.contains(type.trim().toUpperCase())) {
         problems.add(
           '$tableName.${column.read<String>('name')} имеет тип $type — '
-          'дробные типы запрещены (ADR 0001/0004)',
+          'разрешены только TEXT и INTEGER (ADR 0001/0004)',
         );
       }
     }
@@ -41,7 +44,7 @@ Future<List<String>> findFractionalColumns(GeneratedDatabase db) async {
 }
 
 void main() {
-  group('schema has no fractional columns', () {
+  group('schema column types whitelist', () {
     late AppDatabase db;
 
     setUp(() {
@@ -52,14 +55,11 @@ void main() {
       await db.close();
     });
 
-    test(
-      'no table of the app database has REAL/FLOAT/DOUBLE/NUMERIC',
-      () async {
-        final problems = await findFractionalColumns(db);
+    test('every column of the app database is TEXT or INTEGER', () async {
+      final problems = await findDisallowedColumnTypes(db);
 
-        expect(problems, isEmpty, reason: problems.join('\n'));
-      },
-    );
+      expect(problems, isEmpty, reason: problems.join('\n'));
+    });
 
     test('the guard really looks at the app tables', () async {
       final tables = await db
@@ -75,23 +75,37 @@ void main() {
       );
     });
 
-    test('the check catches fractional columns in a sample table', () async {
+    test('the check catches disallowed types in a sample table', () async {
+      // Колонка price объявлена без типа вообще: SQLite отдаёт пустой тип.
       await db.customStatement(
         'CREATE TABLE bad_sample ('
-        'id INTEGER, price REAL, score float, ratio DOUBLE PRECISION, '
-        'total NUMERIC(10, 2), ok TEXT)',
+        'id INTEGER, price, amount MONEY, r REAL, score float, '
+        'ratio DOUBLE PRECISION, total NUMERIC(10, 2), small INT, '
+        'ok TEXT)',
       );
 
-      final problems = await findFractionalColumns(db);
+      final problems = await findDisallowedColumnTypes(db);
 
+      const tail = '— разрешены только TEXT и INTEGER (ADR 0001/0004)';
       expect(problems, [
-        'bad_sample.price имеет тип REAL — дробные типы запрещены (ADR 0001/0004)',
-        'bad_sample.score имеет тип float — дробные типы запрещены (ADR 0001/0004)',
-        'bad_sample.ratio имеет тип DOUBLE PRECISION — '
-            'дробные типы запрещены (ADR 0001/0004)',
-        'bad_sample.total имеет тип NUMERIC(10, 2) — '
-            'дробные типы запрещены (ADR 0001/0004)',
+        'bad_sample.price имеет тип  $tail',
+        'bad_sample.amount имеет тип MONEY $tail',
+        'bad_sample.r имеет тип REAL $tail',
+        'bad_sample.score имеет тип float $tail',
+        'bad_sample.ratio имеет тип DOUBLE PRECISION $tail',
+        'bad_sample.total имеет тип NUMERIC(10, 2) $tail',
+        'bad_sample.small имеет тип INT $tail',
       ]);
+    });
+
+    test('a table of only TEXT and INTEGER columns passes', () async {
+      await db.customStatement(
+        'CREATE TABLE good_sample (id TEXT, n integer, note Text)',
+      );
+
+      final problems = await findDisallowedColumnTypes(db);
+
+      expect(problems, isEmpty, reason: problems.join('\n'));
     });
   });
 }
