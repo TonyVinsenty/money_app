@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/app/database_gate.dart';
@@ -15,6 +16,10 @@ class MoneyApp extends StatelessWidget {
     super.key,
   });
 
+  /// Настройки нужны выше `MaterialApp` (тема), а тема должна работать уже
+  /// до открытия базы: на экране загрузки и на экране ошибки. Поэтому
+  /// контроллер создаётся снаружи и живёт выше `AppScope`; тот же экземпляр
+  /// потом передаётся и в `AppScope`, чтобы экраны видели те же настройки.
   final AppSettingsController settings;
 
   /// Открывает базу данных. Вызывается внутри приложения (см. [DatabaseGate]),
@@ -50,9 +55,14 @@ class MoneyApp extends StatelessWidget {
           localizationsDelegates: localizationsDelegates,
           home: DatabaseGate(
             open: openDatabase,
-            // База пока нигде не используется: её подхватит AppScope на
-            // шаге 2.15.
-            builder: (context, database) => AppShell(tabs: defaultAppTabs),
+            // AppScope появляется только когда база открыта: до этого
+            // показан индикатор или экран ошибки, а зависимостям без базы
+            // взяться неоткуда. Тот же экземпляр settings попадает и в scope.
+            builder: (context, database) => AppScopeHost(
+              database: database,
+              settings: settings,
+              child: AppShell(tabs: defaultAppTabs),
+            ),
           ),
         );
       },

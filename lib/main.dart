@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app.dart';
+import 'package:money_app/app/open_and_seed_database.dart';
 import 'package:money_app/core/database/open_app_database.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
@@ -14,5 +15,12 @@ Future<void> main() async {
   // не получится, runApp всё равно вызван и пользователь увидит экран ошибки.
   // Живёт всё время работы приложения, поэтому dispose не нужен.
   final settings = AppSettingsController();
-  runApp(MoneyApp(settings: settings, openDatabase: openAppDatabase));
+  runApp(
+    MoneyApp(
+      settings: settings,
+      // Открываем базу и сразу засеваем категории по умолчанию. Если засев
+      // упадёт, база закроется, а пользователь увидит экран ошибки.
+      openDatabase: () => openAndSeedDatabase(openAppDatabase),
+    ),
+  );
 }
