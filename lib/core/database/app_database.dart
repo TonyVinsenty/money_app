@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:money_app/core/database/tables/app_settings.dart';
+import 'package:money_app/core/database/tables/categories.dart';
 
 part 'app_database.g.dart';
 
@@ -7,7 +8,7 @@ part 'app_database.g.dart';
 ///
 /// Исполнитель запросов ([QueryExecutor]) приходит параметром: в приложении
 /// это будет файловая база, в тестах — `NativeDatabase.memory()`.
-@DriftDatabase(tables: [AppSettings])
+@DriftDatabase(tables: [AppSettings, Categories])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
