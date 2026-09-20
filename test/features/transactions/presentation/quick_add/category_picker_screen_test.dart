@@ -13,6 +13,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/category_picker_screen.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 
 import '../../../../support/fakes.dart';
 
@@ -48,6 +49,7 @@ class _Harness {
   final source = StreamController<List<Category>>();
   late final StreamCategoriesRepository repository;
   final selected = <Category>[];
+  final notes = <String?>[];
 
   Widget app({
     TransactionType type = TransactionType.expense,
@@ -69,7 +71,10 @@ class _Harness {
         amount: Money.fromMinor(123450, 'RUB'),
         day: DateOnly(2026, 9, 20),
         categories: repository,
-        onCategorySelected: selected.add,
+        onCategorySelected: (category, note) {
+          selected.add(category);
+          notes.add(note);
+        },
       ),
     );
   }
@@ -287,6 +292,176 @@ void main() {
       final bigHeight = tester.getSize(find.byType(InkWell)).height;
 
       expect(bigHeight, greaterThan(normalHeight));
+    });
+  });
+
+  group('комментарий', () {
+    final field = find.byType(TextField);
+
+    bool hasFocus(WidgetTester tester) => tester
+        .widget<EditableText>(find.byType(EditableText))
+        .focusNode
+        .hasFocus;
+
+    /// Составной эмодзи «семья»: 5 кодовых точек (три эмодзи и два соединителя),
+    /// 8 единиц UTF-16. Собран из кодов, чтобы в исходнике не было невидимого.
+    final family = String.fromCharCodes([
+      0x1F468,
+      0x200D,
+      0x1F469,
+      0x200D,
+      0x1F467,
+    ]);
+
+    testWidgets('подпись и подсказка видны при пустом и заполненном поле', (
+      tester,
+    ) async {
+      await pump(tester);
+      expect(find.text(NoteField.label), findsOneWidget);
+      expect(find.text('Комментарий (необязательно)'), findsOneWidget);
+      expect(find.text(NoteField.hint), findsOneWidget);
+      expect(find.text('0/200'), findsOneWidget);
+
+      await tester.enterText(field, 'Молоко');
+      await tester.pump();
+
+      expect(find.text('Комментарий (необязательно)'), findsOneWidget);
+      expect(find.text(NoteField.hint), findsOneWidget);
+      expect(find.text('6/200'), findsOneWidget);
+    });
+
+    testWidgets('клавиатура сама не открывается, открывается по тапу, '
+        '«Готово» её закрывает', (tester) async {
+      await pump(tester);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(hasFocus(tester), isFalse);
+      expect(tester.testTextInput.isVisible, isFalse);
+
+      await tester.tap(field);
+      await tester.pump();
+      expect(hasFocus(tester), isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+      expect(hasFocus(tester), isFalse);
+      expect(tester.testTextInput.isVisible, isFalse);
+    });
+
+    testWidgets('201-й символ не печатается, счётчик 200/200', (tester) async {
+      await pump(tester);
+      final text200 = List.filled(200, 'я').join();
+
+      await tester.enterText(field, text200);
+      await tester.pump();
+      expect(find.text('200/200'), findsOneWidget);
+
+      await tester.enterText(field, '$text200я');
+      await tester.pump();
+      expect(find.text('200/200'), findsOneWidget);
+      expect(tester.widget<TextField>(field).controller!.text, text200);
+    });
+
+    testWidgets('составной эмодзи считается по кодовым точкам, как в domain', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      await tester.enterText(field, family);
+      await tester.pump();
+      expect(find.text('5/200'), findsOneWidget);
+
+      // 40 «семей» = ровно 200 кодовых точек; 41-я не помещается.
+      final forty = List.filled(40, family).join();
+      await tester.enterText(field, forty);
+      await tester.pump();
+      expect(find.text('200/200'), findsOneWidget);
+      await tester.enterText(field, '$forty$family');
+      await tester.pump();
+      expect(find.text('200/200'), findsOneWidget);
+      expect(tester.widget<TextField>(field).controller!.text, forty);
+    });
+
+    testWidgets('без комментария в колбэк уходит null', (tester) async {
+      final harness = await pump(tester);
+      harness.source.add([_category('a', 'Кафе')]);
+      await tester.pump();
+
+      await tester.tap(find.text('Кафе'));
+      await tester.pump();
+
+      expect(harness.notes, [null]);
+    });
+
+    testWidgets('строка из одних пробелов — «нет комментария» (null)', (
+      tester,
+    ) async {
+      final harness = await pump(tester);
+      harness.source.add([_category('a', 'Кафе')]);
+      await tester.pump();
+
+      await tester.enterText(field, '   ');
+      await tester.pump();
+      await tester.tap(find.text('Кафе'));
+      await tester.pump();
+
+      expect(harness.notes, [null]);
+    });
+
+    testWidgets(
+      'пробелы по краям обрезаются, комментарий уходит с категорией',
+      (tester) async {
+        final harness = await pump(tester);
+        final cafe = _category('a', 'Кафе');
+        harness.source.add([cafe]);
+        await tester.pump();
+
+        await tester.tap(field);
+        await tester.enterText(field, '  Обед с  коллегой ');
+        await tester.pump();
+        await tester.tap(find.text('Кафе'));
+        await tester.pump();
+
+        expect(harness.selected, [cafe]);
+        expect(harness.notes, ['Обед с  коллегой']);
+        // Тап по категории снимает фокус: клавиатура закрыта.
+        expect(hasFocus(tester), isFalse);
+      },
+    );
+
+    testWidgets('при масштабе 200 % нет overflow, в том числе с текстом', (
+      tester,
+    ) async {
+      final harness = await pump(tester, textScale: 2);
+      harness.source.add([
+        _category('a', 'Развлечения'),
+        _category('b', 'Продукты', order: 1),
+      ]);
+      await tester.enterText(field, List.filled(200, 'ы').join());
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Комментарий (необязательно)'), findsOneWidget);
+    });
+
+    testWidgets('с клавиатурой поле остаётся видимым, сетка прокручивается', (
+      tester,
+    ) async {
+      final harness = await pump(tester);
+      harness.source.add([
+        for (var i = 0; i < 12; i++) _category('c$i', 'Кат$i', order: i),
+      ]);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(field).bottom, lessThanOrEqualTo(640 - 300));
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
     });
   });
 

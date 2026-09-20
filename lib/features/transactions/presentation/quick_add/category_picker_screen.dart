@@ -8,7 +8,9 @@ import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
+import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 
 /// Экран выбора категории: второй шаг быстрого ввода.
 ///
@@ -16,8 +18,10 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// сетка плиток «иконка + название» из живых категорий верхнего уровня нужного
 /// вида. Порядок плиток — порядок репозитория (`sortOrder`).
 ///
-/// Тап по плитке вызывает [onCategorySelected]. Сохранение операции подключает
-/// шаг 2.25; пока колбэк не задан, тап ничего не делает.
+/// Между суммой и сеткой — необязательная строка комментария ([NoteField]).
+/// Тап по плитке вызывает [onCategorySelected] с категорией и комментарием.
+/// Сохранение операции подключает шаг 2.25; пока колбэк не задан, тап ничего
+/// не делает.
 class CategoryPickerScreen extends StatefulWidget {
   const CategoryPickerScreen({
     required this.type,
@@ -37,7 +41,10 @@ class CategoryPickerScreen extends StatefulWidget {
 
   final CategoriesRepository categories;
 
-  final ValueChanged<Category>? onCategorySelected;
+  /// Вызывается при тапе по плитке: выбранная категория и комментарий в том
+  /// виде, в каком его хранит `domain` (без пробелов по краям; `null`, если
+  /// комментария нет).
+  final void Function(Category category, String? note)? onCategorySelected;
 
   static const expenseTitle = 'Категория расхода';
   static const incomeTitle = 'Категория дохода';
@@ -59,10 +66,30 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
   /// подписывалась бы заново и экран мигал бы.
   late final Stream<List<Category>> _stream;
 
+  /// Текст комментария. Живёт в состоянии экрана, поэтому не теряется, пока
+  /// сетка перерисовывается.
+  final _note = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _stream = widget.categories.watchTopLevel(widget.type.categoryKind);
+  }
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  void _select(Category category) {
+    // Снимаем фокус: клавиатура закрывается и не «возвращается» сама, когда
+    // человек вернётся на этот экран.
+    FocusScope.of(context).unfocus();
+    widget.onCategorySelected?.call(
+      category,
+      normalizeTransactionNote(_note.text),
+    );
   }
 
   @override
@@ -90,10 +117,9 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
                     color: accent,
                   ),
                 ),
-                // Здесь появятся умная подсказка категории (этап 6) и строка
-                // комментария (шаг 2.24). Место зарезервировано, чтобы сетка
-                // потом не «прыгала».
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                // Строка комментария. Ниже, в этом же месте, позже появится
+                // умная подсказка категории (этап 6).
+                SliverToBoxAdapter(child: NoteField(controller: _note)),
                 ..._contentSlivers(snapshot),
               ],
             );
@@ -140,7 +166,7 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
             final category = categories[index];
             return _CategoryTile(
               category: category,
-              onTap: () => widget.onCategorySelected?.call(category),
+              onTap: () => _select(category),
             );
           }, childCount: categories.length),
         ),
