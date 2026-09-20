@@ -81,6 +81,22 @@ class _AppShellState extends State<AppShell> {
       _selectedIndex,
       () => widget.tabs[_selectedIndex].builder(context),
     );
+    // «Назад» на Android: пока выбрана не «Главная», перехватываем его и
+    // возвращаем на первую вкладку; на «Главной» пропускаем как обычно
+    // (приложение уходит на задний план). Если поверх каркаса открыт другой
+    // экран, «Назад» сначала закроет его: PopScope работает, только пока
+    // каркас — верхний маршрут.
+    return PopScope(
+      canPop: _selectedIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        setState(() => _selectedIndex = 0);
+      },
+      child: _buildScaffold(),
+    );
+  }
+
+  Widget _buildScaffold() {
     return Scaffold(
       // Верхней панели (AppBar) нет, поэтому без SafeArea содержимое уехало бы
       // под системную строку состояния. Низ не защищаем: этим занимается сама

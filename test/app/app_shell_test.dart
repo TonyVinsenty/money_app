@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app_shell.dart';
 
@@ -307,6 +310,159 @@ void main() {
       await tester.pump();
 
       expect(calls, [1, 1, 0]);
+    });
+  });
+
+  group('системная кнопка «Назад»', () {
+    // Сколько раз приложение попыталось закрыться (SystemNavigator.pop).
+    late int exitCalls;
+
+    setUp(() {
+      exitCalls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'SystemNavigator.pop') exitCalls++;
+            return null;
+          });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    int selectedIndex(WidgetTester tester) =>
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
+
+    Future<void> pressBack(WidgetTester tester) async {
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('с другой вкладки возвращает на первую и не закрывает', (
+      tester,
+    ) async {
+      await _pumpShell(tester, _testTabs());
+      for (final label in ['Вторая', 'Третья']) {
+        await tester.tap(find.text(label));
+        await tester.pump();
+        expect(selectedIndex(tester), isNot(0));
+
+        await pressBack(tester);
+
+        expect(selectedIndex(tester), 0);
+        expect(find.text('Счёт: 0'), findsOneWidget);
+        expect(exitCalls, 0);
+      }
+    });
+
+    testWidgets('на первой вкладке «Назад» закрывает приложение', (
+      tester,
+    ) async {
+      await _pumpShell(tester, _testTabs());
+
+      await pressBack(tester);
+
+      expect(exitCalls, 1);
+      expect(selectedIndex(tester), 0);
+    });
+
+    testWidgets('с пятой вкладки: первое «Назад» на первую, второе — выход', (
+      tester,
+    ) async {
+      await _pumpShell(tester, _countingTabs([0, 0, 0, 0, 0], count: 5));
+      await tester.tap(find.text('Вкладка 4 подпись'));
+      await tester.pump();
+      expect(selectedIndex(tester), 4);
+
+      await pressBack(tester);
+      expect(selectedIndex(tester), 0);
+      expect(find.text('Вкладка 0'), findsOneWidget);
+      expect(exitCalls, 0);
+
+      await pressBack(tester);
+      expect(exitCalls, 1);
+    });
+
+    testWidgets('открытый поверх экран «Назад» закрывает первым', (
+      tester,
+    ) async {
+      await _pumpShell(tester, _testTabs());
+      await tester.tap(find.text('Третья'));
+      await tester.pump();
+
+      unawaited(
+        tester
+            .state<NavigatorState>(find.byType(Navigator))
+            .push(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Поверх каркаса')),
+              ),
+            ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Поверх каркаса'), findsOneWidget);
+
+      await pressBack(tester);
+
+      // Экран закрыт, вкладка прежняя, приложение не закрыто.
+      expect(find.text('Поверх каркаса'), findsNothing);
+      expect(selectedIndex(tester), 2);
+      expect(find.text('Содержимое третьей'), findsOneWidget);
+      expect(exitCalls, 0);
+
+      // Следующее «Назад» уже работает как обычно: на «Главную».
+      await pressBack(tester);
+      expect(selectedIndex(tester), 0);
+      expect(exitCalls, 0);
+    });
+
+    testWidgets('экран поверх первой вкладки: «Назад» закрывает экран, '
+        'а не приложение', (tester) async {
+      await _pumpShell(tester, _testTabs());
+
+      unawaited(
+        tester
+            .state<NavigatorState>(find.byType(Navigator))
+            .push(
+              MaterialPageRoute<void>(
+                builder: (_) => const Scaffold(body: Text('Поверх каркаса')),
+              ),
+            ),
+      );
+      await tester.pumpAndSettle();
+
+      await pressBack(tester);
+
+      expect(find.text('Поверх каркаса'), findsNothing);
+      expect(find.text('Счёт: 0'), findsOneWidget);
+      expect(exitCalls, 0);
+    });
+
+    testWidgets('состояние других вкладок после возврата на первую живо', (
+      tester,
+    ) async {
+      final tabs = [
+        _tab('Первая', (_) => const Text('Главная')),
+        _tab('Счётчик', (_) => const _CounterTab()),
+        _tab('Третья', (_) => const Text('Содержимое третьей')),
+      ];
+      await _pumpShell(tester, tabs);
+
+      await tester.tap(find.text('Счётчик'));
+      await tester.pump();
+      await tester.tap(find.text('+1'));
+      await tester.tap(find.text('+1'));
+      await tester.pump();
+      expect(find.text('Счёт: 2'), findsOneWidget);
+
+      await pressBack(tester);
+      expect(selectedIndex(tester), 0);
+      expect(find.text('Главная'), findsOneWidget);
+
+      await tester.tap(find.text('Счётчик'));
+      await tester.pump();
+      expect(find.text('Счёт: 2'), findsOneWidget);
     });
   });
 
