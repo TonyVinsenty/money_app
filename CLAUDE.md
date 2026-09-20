@@ -45,7 +45,7 @@ MoneyAPP — мобильное приложение для учёта личн�
 
 Сеть: разработчик работает через VPN, из-за него загрузки с серверов Google (`storage.googleapis.com`, `dl.google.com`) очень медленные (~150 КБ/с), и Gradle падает по таймауту. Поэтому: (1) для эмулятора собираем `flutter build apk --debug --target-platform android-x64` (качается меньше), (2) шаги, которым нужно докачать что-то новое (новый пакет, новая версия Flutter/NDK), могут потребовать от разработчика запустить сборку самому с выключенным VPN — предупреждай об этом заранее, (3) не запускай долгие сборки в фоне без нужды и не жди зависшую загрузку дольше нескольких минут.
 
-Корень репозитория = корень Flutter-приложения (без вложенной папки). Проект создан командой `flutter create --org com.tonyvinsenty --project-name money_app --platforms=android,ios .`, идентификатор приложения затем исправлен на `com.tonyvinsenty.moneyapp` (Android и iOS); имя Dart-пакета — `money_app`.
+Корень репозитория = корень Flutter-приложения (без вложенной папки). Проект создан командой `flutter create --org com.tonyvinsenty --project-name money_app --platforms=android,ios .`, идентификатор приложения затем изменён на `com.tonyvinsenty.zuno` (Android и iOS; видимое имя приложения — Zuno); имя Dart-пакета — `money_app`.
 
 Ежедневные команды:
 
