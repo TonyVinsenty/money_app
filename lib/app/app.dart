@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:money_app/app/app_shell.dart';
+import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
-/// Корневой виджет приложения. Пока это заглушка.
+/// Корневой виджет приложения: тема, язык и каркас с нижней навигацией.
 class MoneyApp extends StatelessWidget {
   const MoneyApp({required this.settings, super.key});
 
@@ -35,12 +37,7 @@ class MoneyApp extends StatelessWidget {
           locale: appLocale,
           supportedLocales: supportedLocales,
           localizationsDelegates: localizationsDelegates,
-          home: Scaffold(
-            appBar: AppBar(title: const Text('Zuno')),
-            body: const Center(
-              child: Text('Здесь скоро появятся ваши расходы'),
-            ),
-          ),
+          home: AppShell(tabs: defaultAppTabs),
         );
       },
     );

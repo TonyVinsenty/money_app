@@ -4,14 +4,31 @@ import 'package:money_app/app/app.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
 void main() {
-  testWidgets('MoneyApp показывает заголовок и заглушку', (tester) async {
+  testWidgets('MoneyApp показывает пять вкладок и содержимое «Главной»', (
+    tester,
+  ) async {
     final settings = AppSettingsController();
     addTearDown(settings.dispose);
 
     await tester.pumpWidget(MoneyApp(settings: settings));
 
-    expect(find.text('Zuno'), findsOneWidget);
-    expect(find.text('Здесь скоро появятся ваши расходы'), findsOneWidget);
+    final bar = find.byType(NavigationBar);
+    for (final label in [
+      'Главная',
+      'История',
+      'Аналитика',
+      'Баланс',
+      'Настройки',
+    ]) {
+      expect(
+        find.descendant(of: bar, matching: find.text(label)),
+        findsOneWidget,
+      );
+    }
+    expect(
+      find.text('Здесь будут кнопки «+» и «−» и диаграмма расходов за месяц'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('смена themeMode у контроллера меняет яркость темы', (
