@@ -1,4 +1,4 @@
-package com.tonyvinsenty.moneyapp
+package com.tonyvinsenty.zuno
 
 import io.flutter.embedding.android.FlutterActivity
 
