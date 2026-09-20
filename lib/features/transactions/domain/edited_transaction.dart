@@ -4,10 +4,17 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/occurrence.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
+import 'package:money_app/features/transactions/domain/transaction_rules.dart';
+import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Собирает обновлённую операцию для экрана правки.
 ///
-/// Не меняются: `id`, тип и подкатегория (пока категория та же). Остальное:
+/// Не меняется `id`; подкатегория остаётся, пока категория та же. Остальное:
+/// - [newType]: `null` или тот же тип — ничего не сбрасывается. Другой тип:
+///   категория и подкатегория сбрасываются, обязателен [newCategory] нового
+///   вида; без него — [TransactionRuleException] с
+///   [TransactionRule.emptyCategoryId], с категорией другого вида —
+///   [TransactionRule.typeKindMismatch] (проверяет [Transaction.withCategory]);
 /// - [amount] и [note] берутся из полей (комментарий нормализует сама
 ///   [Transaction]: пробелы по краям, пустой становится `null`);
 /// - [day]: если он равен дню операции, день и момент остаются как были
@@ -27,7 +34,14 @@ Transaction buildEditedTransaction({
   required Clock clock,
   required String? note,
   Category? newCategory,
+  TransactionType? newType,
 }) {
+  final typeChanged = newType != null && newType != original.type;
+  if (typeChanged && newCategory == null) {
+    // У доходов и расходов разные наборы категорий: старая категория не
+    // подходит, а «тихо» оставить её или пустую нельзя.
+    throw TransactionRuleException(TransactionRule.emptyCategoryId);
+  }
   var result = original.copyWith(amount: amount);
   if (day != original.occurredOn) {
     final occurrence = Occurrence.onDay(day, clock: clock);
@@ -36,7 +50,10 @@ Transaction buildEditedTransaction({
       occurredAt: occurrence.occurredAt,
     );
   }
-  if (newCategory != null && newCategory.id != original.categoryId) {
+  if (typeChanged) {
+    // Тип и категория меняются вместе; подкатегория сбрасывается.
+    result = result.withCategory(type: newType, category: newCategory!);
+  } else if (newCategory != null && newCategory.id != original.categoryId) {
     result = result.withCategory(type: original.type, category: newCategory);
   }
   return result.withNote(note);

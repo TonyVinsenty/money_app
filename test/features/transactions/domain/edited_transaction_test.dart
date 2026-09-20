@@ -37,6 +37,7 @@ Transaction _build({
   DateOnly? day,
   String? note = 'старое',
   Category? newCategory,
+  TransactionType? newType,
 }) => buildEditedTransaction(
   original: _original,
   amount: amount ?? _original.amount,
@@ -44,6 +45,11 @@ Transaction _build({
   clock: _clock,
   note: note,
   newCategory: newCategory,
+  newType: newType,
+);
+
+Matcher _rule(TransactionRule rule) => throwsA(
+  isA<TransactionRuleException>().having((e) => e.rule, 'rule', rule),
 );
 
 void main() {
@@ -115,5 +121,60 @@ void main() {
         ),
       ),
     );
+  });
+
+  group('смена типа', () {
+    final salary = _top('salary', kind: CategoryKind.income);
+
+    test('тип и категория меняются вместе, подкатегория сбрасывается', () {
+      final result = _build(
+        newType: TransactionType.income,
+        newCategory: salary,
+      );
+      expect(result.type, TransactionType.income);
+      expect(result.categoryId, 'salary');
+      expect(result.subcategoryId, isNull);
+    });
+
+    test('сумма, день, момент и комментарий остаются', () {
+      final result = _build(
+        newType: TransactionType.income,
+        newCategory: salary,
+      );
+      expect(result.amount, _original.amount);
+      expect(result.occurredOn, _original.occurredOn);
+      expect(result.occurredAt, _original.occurredAt);
+      expect(result.note, 'старое');
+      expect(result.id, 'tx');
+    });
+
+    test('без новой категории собрать нельзя: emptyCategoryId', () {
+      expect(
+        () => _build(newType: TransactionType.income),
+        _rule(TransactionRule.emptyCategoryId),
+      );
+    });
+
+    test('категория прежнего вида при новом типе: typeKindMismatch', () {
+      expect(
+        () =>
+            _build(newType: TransactionType.income, newCategory: _top('food')),
+        _rule(TransactionRule.typeKindMismatch),
+      );
+    });
+
+    test('категория другого вида при прежнем типе: typeKindMismatch', () {
+      expect(
+        () => _build(newType: TransactionType.expense, newCategory: salary),
+        _rule(TransactionRule.typeKindMismatch),
+      );
+    });
+
+    test('тот же тип ничего не сбрасывает', () {
+      final result = _build(newType: TransactionType.expense);
+      expect(result, _original);
+      expect(result.categoryId, 'food');
+      expect(result.subcategoryId, 'food-sub');
+    });
   });
 }

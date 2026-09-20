@@ -289,6 +289,58 @@ void main() {
     await _finish(tester);
   });
 
+  testWidgets('расход -> доход с новой категорией: всё доходит до базы', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    final before = await _row();
+    final food = await _categoryId('Продукты');
+    _clock.advance(const Duration(minutes: 5));
+    await _openEdit(tester);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SegmentedButton<TransactionType>),
+        matching: find.text('Доход'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Правка дохода'), findsOneWidget);
+    expect(find.text('Продукты'), findsNothing);
+
+    await tester.tap(find.text('Категория'));
+    await tester.pumpAndSettle();
+    expect(find.text('Категория дохода'), findsOneWidget);
+    await tester.tap(find.text('Зарплата'));
+    await tester.pumpAndSettle();
+    expect(find.text('Зарплата'), findsOneWidget);
+    expect(find.text('Продукты'), findsNothing);
+    await _save(tester);
+
+    final after = await _row();
+    expect(after.type, TransactionType.income);
+    expect(after.categoryId, await _categoryId('Зарплата', kind: 'income'));
+    expect(after.categoryId, isNot(food));
+    expect(after.subcategoryId, isNull);
+    expect(after.amountMinor, 35000);
+    expect(after.occurredOn, before.occurredOn);
+    expect(after.occurredAt, before.occurredAt);
+    expect(after.note, 'молоко');
+    expect(after.createdAt, before.createdAt);
+    expect(after.updatedAt, greaterThan(before.updatedAt));
+
+    // «История»: строка сама сменила знак на «+».
+    expect(find.byType(EditTransactionScreen), findsNothing);
+    expect(find.text('Изменения сохранены'), findsOneWidget);
+    final shown = '+${formatMoney(Money.fromMinor(35000, 'RUB'))}';
+    expect(find.text(shown), findsOneWidget);
+    expect(
+      find.text('$_minus${formatMoney(Money.fromMinor(35000, 'RUB'))}'),
+      findsNothing,
+    );
+    await _finish(tester);
+  });
+
   testWidgets('комментарий: новый доходит до базы, пустой даёт null', (
     tester,
   ) async {

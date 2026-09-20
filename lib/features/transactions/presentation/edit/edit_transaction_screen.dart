@@ -23,9 +23,11 @@ import 'package:money_app/features/transactions/presentation/quick_add/note_fiel
 
 /// Экран правки операции (открывается тапом по строке «Истории»).
 ///
-/// Меняются сумма, дата, категория и комментарий. Тип операции виден тремя
-/// способами, как в быстром вводе (слово в заголовке, цвет, знак), но менять
-/// его здесь пока нельзя. Выход без сохранения («Назад») ничего не меняет и
+/// Меняются тип (доход/расход), сумма, дата, категория и комментарий. Тип
+/// виден тремя способами, как в быстром вводе (слово в заголовке, цвет, знак).
+/// При смене типа категория сбрасывается (у доходов и расходов разные наборы),
+/// и без выбора новой сохранить нельзя; если вернуть исходный тип, исходная
+/// категория возвращается. Выход без сохранения («Назад») ничего не меняет и
 /// подтверждения не просит.
 class EditTransactionScreen extends StatefulWidget {
   const EditTransactionScreen({
@@ -52,6 +54,9 @@ class EditTransactionScreen extends StatefulWidget {
   static const categoryLabel = 'Категория';
   static const categoryLoadingLabel = 'Загрузка…';
   static const goneText = 'Эта операция уже удалена, сохранить нечего';
+  static const typeLabel = 'Тип операции';
+  static const expenseLabel = 'Расход';
+  static const incomeLabel = 'Доход';
 
   @override
   State<EditTransactionScreen> createState() => _EditTransactionScreenState();
@@ -72,8 +77,15 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   Category? _currentSubcategory;
   bool _loaded = false;
 
-  /// Категория, выбранная в правке; `null` — не меняли.
+  /// Тип операции в правке (может отличаться от исходного).
+  late TransactionType _type;
+
+  /// Категория, выбранная в правке; `null` — не меняли (или сбросили сменой
+  /// типа).
   Category? _picked;
+
+  /// Подсветить поле категории: человек нажал «Сохранить» без категории.
+  bool _categoryError = false;
 
   /// Текст ошибки сохранения. Показывается над кнопкой, а не в SnackBar: он
   /// перекрыл бы саму кнопку «Сохранить».
@@ -85,6 +97,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     final t = widget.transaction;
     _today = widget.clock.today();
     _day = t.occurredOn;
+    _type = t.type;
     _amount.text.text = formatMoney(t.amount, withCurrencySymbol: false);
     _note = TextEditingController(text: t.note);
     unawaited(_loadCategories());
@@ -123,14 +136,33 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     });
   }
 
+  bool get _typeChanged => _type != widget.transaction.type;
+
   bool get _categoryChanged =>
       _picked != null && _picked!.id != widget.transaction.categoryId;
+
+  /// Категория для показа: при смене типа старая не годится, остаётся только
+  /// выбранная заново (или ничего).
+  Category? get _shownCategory =>
+      _typeChanged ? _picked : (_picked ?? _currentCategory);
+
+  void _setType(TransactionType type) {
+    if (type == _type) return;
+    setState(() {
+      _type = type;
+      // Выбор относился к другому виду категорий. Возврат к исходному типу
+      // снова показывает исходную категорию (она хранится в `_currentCategory`).
+      _picked = null;
+      _categoryError = false;
+      _error = null;
+    });
+  }
 
   Future<void> _pickCategory() async {
     final picked = await Navigator.of(context).push<Category>(
       MaterialPageRoute<Category>(
         builder: (_) => EditCategoryPickerScreen(
-          type: widget.transaction.type,
+          type: _type,
           categories: widget.categories,
         ),
       ),
@@ -138,6 +170,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     if (picked == null || !mounted) return;
     setState(() {
       _picked = picked;
+      _categoryError = false;
       _error = null;
     });
   }
@@ -150,13 +183,25 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     if (_saving) return;
     // Пустая или неразобранная сумма: ошибка под полем, ничего не пишем.
     final amount = _amount.submit();
+    final type = _type;
+    // Тип сменили, а категорию не выбрали: сохранять нельзя. Кнопка остаётся
+    // активной, чтобы причина была видна и слышна (текст под ошибкой).
+    if (_typeChanged && _picked == null) {
+      setState(() {
+        _categoryError = true;
+        _error = transactionRuleMessage(
+          TransactionRule.emptyCategoryId,
+          type: type,
+        );
+      });
+      return;
+    }
     if (amount == null) return;
     _saving = true;
     // Навигатор и messenger берём до первого await: после закрытия экрана
     // его context использовать нельзя.
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    final type = widget.transaction.type;
     setState(() => _error = null);
     try {
       final edited = buildEditedTransaction(
@@ -166,6 +211,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         clock: widget.clock,
         note: _note.text,
         newCategory: _picked,
+        newType: type,
       );
       // Операцию могли удалить, пока экран был открыт: репозиторий на такое
       // отвечает общей ArgumentError, а человеку нужно объяснение.
@@ -198,6 +244,10 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   }
 
   String get _categoryTitle {
+    if (_typeChanged) {
+      return _picked?.name ??
+          transactionRuleMessage(TransactionRule.emptyCategoryId, type: _type);
+    }
     if (!_loaded) return EditTransactionScreen.categoryLoadingLabel;
     final category = _picked ?? _currentCategory;
     if (category == null) return noCategoryLabel;
@@ -209,14 +259,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isIncome = widget.transaction.type == TransactionType.income;
+    final isIncome = _type == TransactionType.income;
     final accent = isIncome
         ? context.appColors.income
         : context.appColors.expense;
     final title = isIncome
         ? EditTransactionScreen.incomeTitle
         : EditTransactionScreen.expenseTitle;
-    final category = _picked ?? _currentCategory;
+    final category = _shownCategory;
     final error = _error;
 
     return Scaffold(
@@ -247,6 +297,37 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                 child: Column(
                   children: [
                     Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Semantics(
+                        container: true,
+                        label: EditTransactionScreen.typeLabel,
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: SegmentedButton<TransactionType>(
+                            showSelectedIcon: false,
+                            style: const ButtonStyle(
+                              minimumSize: WidgetStatePropertyAll(Size(48, 48)),
+                            ),
+                            segments: const [
+                              ButtonSegment(
+                                value: TransactionType.expense,
+                                icon: Icon(Icons.remove),
+                                label: Text(EditTransactionScreen.expenseLabel),
+                              ),
+                              ButtonSegment(
+                                value: TransactionType.income,
+                                icon: Icon(Icons.add),
+                                label: Text(EditTransactionScreen.incomeLabel),
+                              ),
+                            ],
+                            selected: {_type},
+                            onSelectionChanged: (s) => _setType(s.first),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: AmountField(
                         controller: _amount,
@@ -267,7 +348,15 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                       ),
                       child: Material(
                         color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: _categoryError
+                              ? BorderSide(
+                                  color: theme.colorScheme.error,
+                                  width: 2,
+                                )
+                              : BorderSide.none,
+                        ),
                         clipBehavior: Clip.antiAlias,
                         child: ListTile(
                           leading: Icon(
@@ -276,7 +365,12 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                                 : categoryIconFor(category.iconKey),
                             color: theme.colorScheme.primary,
                           ),
-                          title: Text(_categoryTitle),
+                          title: Text(
+                            _categoryTitle,
+                            style: _categoryError
+                                ? TextStyle(color: theme.colorScheme.error)
+                                : null,
+                          ),
                           subtitle: const Text(
                             EditTransactionScreen.categoryLabel,
                           ),

@@ -279,6 +279,167 @@ void main() {
     expect(find.byType(EditTransactionScreen), findsOneWidget);
   });
 
+  group('смена типа', () {
+    Finder segment(String label) => find.descendant(
+      of: find.byType(SegmentedButton<TransactionType>),
+      matching: find.text(label),
+    );
+
+    Future<void> switchTo(WidgetTester tester, String label) async {
+      await tester.tap(segment(label));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> pick(WidgetTester tester, String name) async {
+      await tester.tap(find.text('Категория'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(name));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('переключатель: слова, знаки, зона не меньше 48 dp', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(_Transactions()));
+      await _open(tester);
+
+      final button = find.byType(SegmentedButton<TransactionType>);
+      expect(segment('Расход'), findsOneWidget);
+      expect(segment('Доход'), findsOneWidget);
+      expect(
+        find.descendant(of: button, matching: find.byIcon(Icons.remove)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: button, matching: find.byIcon(Icons.add)),
+        findsOneWidget,
+      );
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+      expect(find.bySemanticsLabel('Тип операции'), findsOneWidget);
+    });
+
+    testWidgets('расход -> доход: заголовок, знак, цвет, категория сброшена', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(_Transactions()));
+      await _open(tester);
+      expect(find.text('Продукты'), findsOneWidget);
+
+      await switchTo(tester, 'Доход');
+
+      final title = find.text('Правка дохода');
+      expect(title, findsOneWidget);
+      expect(find.text('Правка расхода'), findsNothing);
+      final colors = tester
+          .element(find.byType(EditTransactionScreen))
+          .appColors;
+      expect(tester.widget<Text>(title).style?.color, colors.income);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.add),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<AmountField>(find.byType(AmountField)).isIncome,
+        isTrue,
+      );
+      // Старая категория исчезла, поле просит выбрать новую (без красного,
+      // пока не нажали «Сохранить»).
+      expect(find.text('Продукты'), findsNothing);
+      expect(find.text('Выберите категорию'), findsOneWidget);
+      // Сумма и комментарий как были.
+      expect(
+        tester.widget<TextField>(_amountInput).controller!.text,
+        isNotEmpty,
+      );
+      expect(find.text('молоко'), findsOneWidget);
+    });
+
+    testWidgets('выбор категории идёт по новому типу', (tester) async {
+      await tester.pumpWidget(_app(_Transactions()));
+      await _open(tester);
+      await switchTo(tester, 'Доход');
+
+      await tester.tap(find.text('Категория'));
+      await tester.pumpAndSettle();
+      expect(find.text('Категория дохода'), findsOneWidget);
+      expect(find.text('Зарплата'), findsOneWidget);
+      expect(find.text('Кафе'), findsNothing);
+      expect(find.text('Продукты'), findsNothing);
+    });
+
+    testWidgets('«Сохранить» без категории не сохраняет и объясняет', (
+      tester,
+    ) async {
+      final repo = _Transactions();
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await switchTo(tester, 'Доход');
+
+      await tester.tap(_saveButton);
+      await tester.pumpAndSettle();
+
+      expect(repo.updateCalls, 0);
+      expect(find.byType(EditTransactionScreen), findsOneWidget);
+      // Текст ошибки под полем и сама подсказка в поле категории.
+      expect(find.text('Выберите категорию'), findsNWidgets(2));
+
+      // После выбора категории ошибка уходит и сохранение проходит.
+      await pick(tester, 'Зарплата');
+      expect(find.text('Выберите категорию'), findsNothing);
+      await tester.tap(_saveButton);
+      await tester.pumpAndSettle();
+      expect(repo.updated, hasLength(1));
+      final saved = repo.updated.single;
+      expect(saved.type, TransactionType.income);
+      expect(saved.categoryId, 'salary');
+      expect(saved.subcategoryId, isNull);
+      expect(saved.amount, _original.amount);
+      expect(saved.note, 'молоко');
+      expect(saved.occurredOn, _original.occurredOn);
+      expect(find.text('Изменения сохранены'), findsOneWidget);
+    });
+
+    testWidgets('возврат исходного типа восстанавливает исходную категорию', (
+      tester,
+    ) async {
+      final repo = _Transactions();
+      await tester.pumpWidget(_app(repo));
+      await _open(tester);
+      await switchTo(tester, 'Доход');
+      await pick(tester, 'Зарплата');
+      expect(find.text('Зарплата'), findsOneWidget);
+
+      await switchTo(tester, 'Расход');
+
+      expect(find.text('Правка расхода'), findsOneWidget);
+      expect(find.text('Продукты'), findsOneWidget);
+      expect(find.text('Зарплата'), findsNothing);
+      // Сохранение идёт как обычная правка без смены типа.
+      await tester.tap(_saveButton);
+      await tester.pumpAndSettle();
+      final saved = repo.updated.single;
+      expect(saved.type, TransactionType.expense);
+      expect(saved.categoryId, 'food');
+    });
+
+    testWidgets('масштаб 200 % после смены типа: без overflow', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app(_Transactions(), textScale: 2));
+      await _open(tester);
+      await switchTo(tester, 'Доход');
+      await tester.tap(_saveButton);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Выберите категорию'), findsNWidgets(2));
+    });
+  });
+
   testWidgets('масштаб 200 %, клавиатура: без overflow, «Сохранить» видна', (
     tester,
   ) async {
