@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tabs.dart';
@@ -53,6 +54,7 @@ class MoneyApp extends StatelessWidget {
           locale: appLocale,
           supportedLocales: supportedLocales,
           localizationsDelegates: localizationsDelegates,
+          onGenerateRoute: onGenerateAppRoute,
           home: DatabaseGate(
             open: openDatabase,
             // AppScope появляется только когда база открыта: до этого

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_shell.dart';
+import 'package:money_app/features/home/presentation/home_screen.dart';
 
 /// Вкладки приложения в порядке слева направо. Пока внутри только заглушки.
 /// Список неизменяемый: случайно добавить или убрать вкладку нельзя.
@@ -8,9 +10,7 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
     label: 'Главная',
     icon: Icons.home_outlined,
     selectedIcon: Icons.home,
-    builder: (_) => const TabPlaceholder(
-      'Здесь будут кнопки «+» и «−» и диаграмма расходов за месяц',
-    ),
+    builder: (_) => const HomeTab(),
   ),
   AppTab(
     label: 'История',
@@ -44,6 +44,20 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
     ),
   ),
 ]);
+
+/// Вкладка «Главная»: связывает экран фичи `home` с маршрутами приложения.
+/// Сам `HomeScreen` маршрутов не знает: ему передаётся только функция.
+class HomeTab extends StatelessWidget {
+  const HomeTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return HomeScreen(
+      onAddTransaction: (type) =>
+          Navigator.of(context).pushNamed(AppRoutes.quickAdd, arguments: type),
+    );
+  }
+}
 
 /// Заглушка вкладки: текст по центру.
 class TabPlaceholder extends StatelessWidget {

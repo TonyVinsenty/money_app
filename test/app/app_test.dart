@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/app/app_tabs.dart';
+import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
 import '../support/in_memory_database.dart';
@@ -47,10 +48,10 @@ void main() {
         findsOneWidget,
       );
     }
-    expect(
-      find.text('Здесь будут кнопки «+» и «−» и диаграмма расходов за месяц'),
-      findsOneWidget,
-    );
+    // На «Главной» видны обе кнопки добавления операции.
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Доход'), findsOneWidget);
+    expect(find.text('Расход'), findsOneWidget);
   });
 
   testWidgets('смена themeMode у контроллера меняет яркость темы', (
