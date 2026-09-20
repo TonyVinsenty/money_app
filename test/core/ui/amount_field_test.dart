@@ -1,0 +1,218 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/money/parse_amount.dart';
+import 'package:money_app/core/ui/amount_failure_text.dart';
+import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_theme.dart';
+
+final String _minus = String.fromCharCode(0x2212);
+final String _nbsp = String.fromCharCode(0x00A0);
+
+Widget _host(
+  AmountFieldController controller, {
+  bool isIncome = false,
+  ValueChanged<Money>? onSubmitted,
+  double textScale = 1,
+}) {
+  return MaterialApp(
+    theme: AppTheme.light(),
+    home: MediaQuery(
+      data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+      child: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Center(
+            child: AmountField(
+              controller: controller,
+              isIncome: isIncome,
+              onSubmitted: onSubmitted,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+void main() {
+  late AmountFieldController controller;
+
+  setUp(() => controller = AmountFieldController());
+  tearDown(() => controller.dispose());
+
+  testWidgets('буква не печатается, цифры группируются', (tester) async {
+    await tester.pumpWidget(_host(controller));
+
+    await tester.enterText(find.byType(TextField), 'abc');
+    expect(controller.text.text, '');
+
+    await tester.enterText(find.byType(TextField), '1234,5');
+    expect(controller.text.text, '1${_nbsp}234,5');
+  });
+
+  testWidgets('«0» ошибкой не считается', (tester) async {
+    await tester.pumpWidget(_host(controller));
+
+    await tester.enterText(find.byType(TextField), '0');
+    await tester.pump();
+    controller.submit();
+    await tester.pump();
+
+    expect(controller.visibleFailure, isNull);
+    expect(
+      find.text(amountFailureMessage(AmountParseFailure.empty)),
+      findsNothing,
+    );
+    final result = controller.result;
+    expect(result, isA<AmountParsed>());
+    expect((result as AmountParsed).amount, Money.zero(rubCurrencyCode));
+  });
+
+  testWidgets('«Введите сумму» появляется только после попытки продолжить', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(controller));
+    final message = amountFailureMessage(AmountParseFailure.empty);
+
+    // Пока не пробовали продолжить, ошибки нет.
+    expect(find.text(message), findsNothing);
+
+    // Попытка, как кнопка «Далее» снаружи виджета.
+    expect(controller.submit(), isNull);
+    await tester.pump();
+    expect(find.text(message), findsOneWidget);
+
+    // После ввода суммы ошибка пропадает.
+    await tester.enterText(find.byType(TextField), '5');
+    await tester.pump();
+    expect(find.text(message), findsNothing);
+  });
+
+  testWidgets('клавиша «Далее» на клавиатуре тоже считается попыткой', (
+    tester,
+  ) async {
+    final submitted = <Money>[];
+    await tester.pumpWidget(_host(controller, onSubmitted: submitted.add));
+
+    await tester.tap(find.byType(TextField));
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+
+    expect(
+      find.text(amountFailureMessage(AmountParseFailure.empty)),
+      findsOneWidget,
+    );
+    expect(submitted, isEmpty);
+
+    await tester.enterText(find.byType(TextField), '12,5');
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pump();
+
+    expect(submitted, [Money.fromMinor(1250, rubCurrencyCode)]);
+  });
+
+  testWidgets('слишком большая сумма показывает ошибку сразу, без попытки', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(controller));
+
+    await tester.enterText(find.byType(TextField), '1000000000001');
+    await tester.pump();
+
+    expect(
+      find.text(amountFailureMessage(AmountParseFailure.tooLarge)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('на клавиатуре есть десятичный разделитель', (tester) async {
+    await tester.pumpWidget(_host(controller));
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.keyboardType.decimal, isTrue);
+    expect(field.inputFormatters?.single, isA<TextInputFormatter>());
+  });
+
+  testWidgets(
+    'системный шрифт 200 % не ломает верстку даже с огромной суммой',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(_host(controller, textScale: 2));
+      await tester.enterText(find.byType(TextField), '999999999999,99');
+      await tester.pump();
+      // Заодно ошибка под полем при таком шрифте.
+      controller.text.text = '9999999999999,99';
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      final fieldBox = tester.getRect(find.byType(TextField));
+      expect(fieldBox.right, lessThanOrEqualTo(360));
+      expect(fieldBox.left, greaterThanOrEqualTo(0));
+    },
+  );
+
+  group('знак и подпись для скринридера', () {
+    testWidgets('расход: знак «−» виден, «+» нет', (tester) async {
+      await tester.pumpWidget(_host(controller));
+
+      expect(find.text(_minus), findsOneWidget);
+      expect(find.text('+'), findsNothing);
+      final colors = tester.element(find.byType(AmountField)).appColors;
+      expect(
+        tester.widget<Text>(find.text(_minus)).style?.color,
+        colors.expense,
+      );
+    });
+
+    testWidgets('доход: знак «+» виден, «−» нет', (tester) async {
+      await tester.pumpWidget(_host(controller, isIncome: true));
+
+      expect(find.text('+'), findsOneWidget);
+      expect(find.text(_minus), findsNothing);
+      final colors = tester.element(find.byType(AmountField)).appColors;
+      expect(tester.widget<Text>(find.text('+')).style?.color, colors.income);
+    });
+
+    testWidgets('расход читается прописью', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_host(controller));
+
+      // Пусто: только название поля.
+      expect(find.bySemanticsLabel('Сумма расхода'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '1234,5');
+      await tester.pump();
+      expect(
+        find.bySemanticsLabel('Расход 1234 рубля 50 копеек'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('доход читается прописью, ошибка не озвучивается мусором', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_host(controller, isIncome: true));
+
+      expect(find.bySemanticsLabel('Сумма дохода'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), '5');
+      await tester.pump();
+      expect(find.bySemanticsLabel('Доход 5 рублей'), findsOneWidget);
+
+      // Слишком большая сумма: снова только название поля.
+      await tester.enterText(find.byType(TextField), '1000000000001');
+      await tester.pump();
+      expect(find.bySemanticsLabel('Сумма дохода'), findsOneWidget);
+      semantics.dispose();
+    });
+  });
+}

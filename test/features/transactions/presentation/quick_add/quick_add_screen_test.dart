@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/money/parse_amount.dart';
+import 'package:money_app/core/ui/amount_failure_text.dart';
+import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -68,5 +71,30 @@ void main() {
     await tester.pumpWidget(_app(TransactionType.income, ThemeMode.light));
 
     expect(find.text('Здесь появится ввод суммы'), findsOneWidget);
+  });
+
+  testWidgets('есть поле суммы со знаком типа операции', (tester) async {
+    await tester.pumpWidget(_app(TransactionType.income, ThemeMode.light));
+    expect(find.byType(AmountField), findsOneWidget);
+    expect(find.text('+'), findsOneWidget);
+
+    await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+    expect(find.text(String.fromCharCode(0x2212)), findsOneWidget);
+  });
+
+  testWidgets('кнопка «Далее» видна и по нажатию просит ввести сумму', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+    final message = amountFailureMessage(AmountParseFailure.empty);
+    expect(find.text(message), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+    await tester.pump();
+    expect(find.text(message), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '350');
+    await tester.pump();
+    expect(find.text(message), findsNothing);
   });
 }
