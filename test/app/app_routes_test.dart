@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/app/app_routes.dart';
+import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
@@ -48,6 +51,50 @@ void main() {
       );
       expect(route, isA<MaterialPageRoute<void>>());
       expect(route!.settings.name, AppRoutes.quickAdd);
+    });
+
+    test('маршрут правки: имя, страница и понятная ArgumentError', () {
+      expect(AppRoutes.editTransaction, '/edit-transaction');
+      final route = onGenerateAppRoute(
+        RouteSettings(
+          name: AppRoutes.editTransaction,
+          arguments: EditTransactionRouteArguments(
+            transaction: Transaction(
+              id: 'tx',
+              type: TransactionType.expense,
+              amount: Money.fromMinor(100, 'RUB'),
+              occurredOn: DateOnly(2026, 9, 20),
+              occurredAt: DateTime.utc(2026, 9, 20, 12),
+              categoryId: 'c',
+            ),
+            clock: FixedClock(DateTime(2026, 9, 20)),
+            categories: FakeCategoriesRepository(),
+            transactions: FakeTransactionsRepository(),
+          ),
+        ),
+      );
+      expect(route, isA<MaterialPageRoute<void>>());
+      expect(route!.settings.name, AppRoutes.editTransaction);
+      for (final arguments in <Object?>[null, 'tx', 42]) {
+        expect(
+          () => onGenerateAppRoute(
+            RouteSettings(
+              name: AppRoutes.editTransaction,
+              arguments: arguments,
+            ),
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.toString(),
+              'сообщение',
+              allOf(
+                contains('/edit-transaction'),
+                contains('EditTransactionRouteArguments'),
+              ),
+            ),
+          ),
+        );
+      }
     });
 
     test('без аргумента или с чужим аргументом — понятная ArgumentError', () {

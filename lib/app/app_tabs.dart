@@ -163,12 +163,21 @@ class _HistoryTabState extends State<HistoryTab> {
 
   @override
   Widget build(BuildContext context) {
+    // Сервисы берём здесь, под AppScope: открытый маршрут AppScope не видит.
+    final services = AppScope.of(context);
     return HistoryScreen(
       transactions: _transactions,
       categories: _categories,
       today: _today,
-      // Шаг 2.28 подключит здесь правку операции.
-      onTransactionTap: (_) {},
+      onTransactionTap: (transaction) => Navigator.of(context).pushNamed(
+        AppRoutes.editTransaction,
+        arguments: EditTransactionRouteArguments(
+          transaction: transaction,
+          clock: services.clock,
+          categories: services.categories,
+          transactions: services.transactions,
+        ),
+      ),
     );
   }
 }

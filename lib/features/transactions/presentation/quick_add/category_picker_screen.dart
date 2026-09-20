@@ -5,13 +5,13 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
-import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/category_grid.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 
 /// Экран выбора категории: второй шаг быстрого ввода.
@@ -177,29 +177,7 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
   ];
 
   List<Widget> _gridSlivers(BuildContext context, List<Category> data) {
-    final categories = _visible(data);
-    return [
-      SliverPadding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        sliver: SliverGrid(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            // Высота плитки растёт с системным шрифтом: считаем её из
-            // масштаба текста, а не задаём числом.
-            mainAxisExtent: _CategoryTile.extentFor(context),
-          ),
-          delegate: SliverChildBuilderDelegate((context, index) {
-            final category = categories[index];
-            return _CategoryTile(
-              category: category,
-              onTap: () => _select(category),
-            );
-          }, childCount: categories.length),
-        ),
-      ),
-    ];
+    return [CategoryGrid(categories: _visible(data), onSelected: _select)];
   }
 }
 
@@ -249,80 +227,6 @@ class _AmountHeader extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.category, required this.onTap});
-
-  final Category category;
-  final VoidCallback onTap;
-
-  static const _iconSize = 32.0;
-  static const _verticalPadding = 12.0;
-  static const _gap = 8.0;
-  static const _lines = 2;
-
-  /// Стиль названия. Общий для плитки и для расчёта её высоты.
-  static TextStyle? _labelStyle(BuildContext context) =>
-      Theme.of(context).textTheme.labelLarge;
-
-  /// Высота плитки: иконка + две строки названия с учётом системного масштаба
-  /// текста. Не меньше 96 dp, поэтому зона нажатия всегда больше 48 dp.
-  static double extentFor(BuildContext context) {
-    final style = _labelStyle(context);
-    final scaler = MediaQuery.textScalerOf(context);
-    final lineHeight =
-        scaler.scale(style?.fontSize ?? 14) * (style?.height ?? 1.4);
-    final extent =
-        _verticalPadding * 2 + _iconSize + _gap + lineHeight * _lines;
-    return extent < 96 ? 96 : extent;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      label: category.name,
-      excludeSemantics: true,
-      // Тап задан явно: excludeSemantics убирает и действия InkWell внутри.
-      onTap: onTap,
-      child: Material(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 4,
-              vertical: _verticalPadding,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ExcludeSemantics(
-                  child: Icon(
-                    categoryIconFor(category.iconKey),
-                    size: _iconSize,
-                    color: scheme.primary,
-                  ),
-                ),
-                const SizedBox(height: _gap),
-                Text(
-                  category.name,
-                  maxLines: _lines,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: _labelStyle(context),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

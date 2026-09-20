@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
+import 'package:money_app/features/transactions/presentation/edit/edit_transaction_screen.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
 /// Имена маршрутов приложения. Живут в `lib/app/`, потому что только
@@ -11,6 +13,9 @@ import 'package:money_app/features/transactions/presentation/quick_add/quick_add
 abstract final class AppRoutes {
   /// Экран быстрого ввода. Аргумент маршрута — [QuickAddRouteArguments].
   static const quickAdd = '/quick-add';
+
+  /// Экран правки операции. Аргумент маршрута — [EditTransactionRouteArguments].
+  static const editTransaction = '/edit-transaction';
 }
 
 /// Аргументы маршрута [AppRoutes.quickAdd].
@@ -35,6 +40,22 @@ final class QuickAddRouteArguments {
   /// Вместе с [idGenerator] нужен шагу 2.25 (сохранение операции).
   final TransactionsRepository transactions;
   final IdGenerator idGenerator;
+}
+
+/// Аргументы маршрута [AppRoutes.editTransaction]: те же соображения, что у
+/// [QuickAddRouteArguments] (сервисы достаёт тот, кто открывает маршрут).
+final class EditTransactionRouteArguments {
+  const EditTransactionRouteArguments({
+    required this.transaction,
+    required this.clock,
+    required this.categories,
+    required this.transactions,
+  });
+
+  final Transaction transaction;
+  final Clock clock;
+  final CategoriesRepository categories;
+  final TransactionsRepository transactions;
 }
 
 /// Собирает маршрут по имени: подключается как `MaterialApp.onGenerateRoute`.
@@ -62,6 +83,25 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           categories: arguments.categories,
           transactions: arguments.transactions,
           idGenerator: arguments.idGenerator,
+        ),
+      );
+    case AppRoutes.editTransaction:
+      final arguments = settings.arguments;
+      if (arguments is! EditTransactionRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.editTransaction} ожидает аргумент '
+              'EditTransactionRouteArguments (операция Transaction и сервисы)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => EditTransactionScreen(
+          transaction: arguments.transaction,
+          clock: arguments.clock,
+          categories: arguments.categories,
+          transactions: arguments.transactions,
         ),
       );
   }

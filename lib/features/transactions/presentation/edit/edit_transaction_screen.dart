@@ -1,0 +1,322 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/category_icons.dart';
+import 'package:money_app/core/ui/date_chip.dart';
+import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/transaction_rule_text.dart';
+import 'package:money_app/features/categories/domain/categories_repository.dart';
+import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/transactions/domain/edited_transaction.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
+import 'package:money_app/features/transactions/domain/transaction_rules.dart';
+import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
+import 'package:money_app/features/transactions/presentation/edit/edit_category_picker_screen.dart';
+import 'package:money_app/features/transactions/presentation/history/history_screen.dart'
+    show noCategoryLabel;
+import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
+
+/// Экран правки операции (открывается тапом по строке «Истории»).
+///
+/// Меняются сумма, дата, категория и комментарий. Тип операции виден тремя
+/// способами, как в быстром вводе (слово в заголовке, цвет, знак), но менять
+/// его здесь пока нельзя. Выход без сохранения («Назад») ничего не меняет и
+/// подтверждения не просит.
+class EditTransactionScreen extends StatefulWidget {
+  const EditTransactionScreen({
+    required this.transaction,
+    required this.clock,
+    required this.categories,
+    required this.transactions,
+    super.key,
+  });
+
+  /// Операция в том виде, в каком её показывала «История».
+  final Transaction transaction;
+
+  /// Источник «сегодня» для плашки даты и момента при смене дня.
+  final Clock clock;
+  final CategoriesRepository categories;
+  final TransactionsRepository transactions;
+
+  static const expenseTitle = 'Правка расхода';
+  static const incomeTitle = 'Правка дохода';
+  static const saveLabel = 'Сохранить';
+  static const savedText = 'Изменения сохранены';
+  static const savedDuration = Duration(seconds: 4);
+  static const categoryLabel = 'Категория';
+  static const categoryLoadingLabel = 'Загрузка…';
+  static const goneText = 'Эта операция уже удалена, сохранить нечего';
+
+  @override
+  State<EditTransactionScreen> createState() => _EditTransactionScreenState();
+}
+
+class _EditTransactionScreenState extends State<EditTransactionScreen> {
+  final _amount = AmountFieldController();
+  late final TextEditingController _note;
+
+  /// «Сегодня» на момент открытия (как в быстром вводе: через полночь не
+  /// обновляется).
+  late final DateOnly _today;
+  late DateOnly _day;
+
+  /// Текущая категория и подкатегория операции для показа (в том числе
+  /// архивные: `findById` их отдаёт). Пока грузятся, [_loaded] равно `false`.
+  Category? _currentCategory;
+  Category? _currentSubcategory;
+  bool _loaded = false;
+
+  /// Категория, выбранная в правке; `null` — не меняли.
+  Category? _picked;
+
+  /// Текст ошибки сохранения. Показывается над кнопкой, а не в SnackBar: он
+  /// перекрыл бы саму кнопку «Сохранить».
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.transaction;
+    _today = widget.clock.today();
+    _day = t.occurredOn;
+    _amount.text.text = formatMoney(t.amount, withCurrencySymbol: false);
+    _note = TextEditingController(text: t.note);
+    unawaited(_loadCategories());
+    // Сообщение «Изменения сохранены» от прошлой правки закрыло бы кнопку
+    // «Сохранить» на этом экране. `context` для messenger в `initState` брать
+    // нельзя, поэтому после первого кадра (как в быстром вводе).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    });
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCategories() async {
+    final t = widget.transaction;
+    Category? category;
+    Category? subcategory;
+    try {
+      category = await widget.categories.findById(t.categoryId);
+      final subId = t.subcategoryId;
+      if (subId != null) subcategory = await widget.categories.findById(subId);
+    } on Object {
+      // Название не загрузилось: показываем запасной текст, сохранение при
+      // этом работает (ему нужен только id категории).
+    }
+    if (!mounted) return;
+    setState(() {
+      _currentCategory = category;
+      _currentSubcategory = subcategory;
+      _loaded = true;
+    });
+  }
+
+  bool get _categoryChanged =>
+      _picked != null && _picked!.id != widget.transaction.categoryId;
+
+  Future<void> _pickCategory() async {
+    final picked = await Navigator.of(context).push<Category>(
+      MaterialPageRoute<Category>(
+        builder: (_) => EditCategoryPickerScreen(
+          type: widget.transaction.type,
+          categories: widget.categories,
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _picked = picked;
+      _error = null;
+    });
+  }
+
+  /// Идёт сохранение (или оно уже удалось): повторные тапы игнорируются. После
+  /// успеха флаг не сбрасывается, экран закрывается; при ошибке — сбрасывается.
+  bool _saving = false;
+
+  Future<void> _save() async {
+    if (_saving) return;
+    // Пустая или неразобранная сумма: ошибка под полем, ничего не пишем.
+    final amount = _amount.submit();
+    if (amount == null) return;
+    _saving = true;
+    // Навигатор и messenger берём до первого await: после закрытия экрана
+    // его context использовать нельзя.
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final type = widget.transaction.type;
+    setState(() => _error = null);
+    try {
+      final edited = buildEditedTransaction(
+        original: widget.transaction,
+        amount: amount,
+        day: _day,
+        clock: widget.clock,
+        note: _note.text,
+        newCategory: _picked,
+      );
+      // Операцию могли удалить, пока экран был открыт: репозиторий на такое
+      // отвечает общей ArgumentError, а человеку нужно объяснение.
+      if (await widget.transactions.findById(edited.id) == null) {
+        _fail(EditTransactionScreen.goneText);
+        return;
+      }
+      await widget.transactions.update(edited);
+      navigator.pop();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(EditTransactionScreen.savedText),
+            duration: EditTransactionScreen.savedDuration,
+          ),
+        );
+    } on TransactionRuleException catch (error) {
+      _fail(transactionRuleMessage(error.rule, type: type));
+    } on Object {
+      // Ошибки базы, ArgumentError и всё прочее: пользователь их исправить не
+      // может. Экран остаётся открытым, введённое не теряется.
+      _fail(transactionSaveFailedText);
+    }
+  }
+
+  void _fail(String text) {
+    _saving = false;
+    if (mounted) setState(() => _error = text);
+  }
+
+  String get _categoryTitle {
+    if (!_loaded) return EditTransactionScreen.categoryLoadingLabel;
+    final category = _picked ?? _currentCategory;
+    if (category == null) return noCategoryLabel;
+    // Подкатегория остаётся, пока категорию не сменили.
+    final sub = _categoryChanged ? null : _currentSubcategory;
+    return sub == null ? category.name : '${category.name} · ${sub.name}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isIncome = widget.transaction.type == TransactionType.income;
+    final accent = isIncome
+        ? context.appColors.income
+        : context.appColors.expense;
+    final title = isIncome
+        ? EditTransactionScreen.incomeTitle
+        : EditTransactionScreen.expenseTitle;
+    final category = _picked ?? _currentCategory;
+    final error = _error;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ExcludeSemantics(
+              child: Icon(isIncome ? Icons.add : Icons.remove, color: accent),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(color: accent, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+      // Тело сжимается под клавиатуру, поэтому «Сохранить» всегда прямо над ней.
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: AmountField(
+                        controller: _amount,
+                        isIncome: isIncome,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DateChip(
+                      value: _day,
+                      today: _today,
+                      onChanged: (day) => setState(() => _day = day),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Material(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          leading: Icon(
+                            category == null
+                                ? fallbackCategoryIcon
+                                : categoryIconFor(category.iconKey),
+                            color: theme.colorScheme.primary,
+                          ),
+                          title: Text(_categoryTitle),
+                          subtitle: const Text(
+                            EditTransactionScreen.categoryLabel,
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => unawaited(_pickCategory()),
+                        ),
+                      ),
+                    ),
+                    NoteField(controller: _note),
+                  ],
+                ),
+              ),
+            ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    error,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => unawaited(_save()),
+                  child: const Text(EditTransactionScreen.saveLabel),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
