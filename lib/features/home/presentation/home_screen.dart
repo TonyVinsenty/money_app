@@ -4,6 +4,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -106,27 +107,22 @@ class _MonthExpenses extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.headlineSmall;
-    return StreamBuilder<Money>(
+    // Пока первого значения нет, AsyncView не показывает ничего (не «расходов
+    // нет»): пустое состояние означает «спросили базу, и там ноль».
+    return AsyncView<Money>(
       stream: stream,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Text(
-            'Не удалось посчитать расходы за месяц',
-            textAlign: TextAlign.center,
-            style: style,
-          );
-        }
-        final total = snapshot.data;
-        // Первого значения ещё нет: не показываем ничего, а не «расходов нет».
-        // Пустое состояние означает «спросили базу, и там ноль».
-        if (total == null) return const SizedBox.shrink();
-        if (total.minorUnits == 0) {
-          return Text(
-            'В этом месяце расходов ещё нет',
-            textAlign: TextAlign.center,
-            style: style,
-          );
-        }
+      errorBuilder: (context, error) => Text(
+        'Не удалось посчитать расходы за месяц',
+        textAlign: TextAlign.center,
+        style: style,
+      ),
+      isEmpty: (total) => total.minorUnits == 0,
+      emptyBuilder: (context) => Text(
+        'В этом месяце расходов ещё нет',
+        textAlign: TextAlign.center,
+        style: style,
+      ),
+      dataBuilder: (context, total) {
         final name = formatMonthName(month);
         // Скринридеру суммы читаем словами, а не «12 345,00 ₽» с символом.
         return Semantics(

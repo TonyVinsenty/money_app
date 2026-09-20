@@ -4,6 +4,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -111,53 +112,72 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: SafeArea(
-        child: StreamBuilder<List<Category>>(
+        // Сумма и комментарий видны всегда, поэтому в каждом состоянии
+        // AsyncView строится один и тот же `CustomScrollView`, меняется только
+        // нижняя часть. Пока ответа нет, нижней части нет: не мигает
+        // «Категорий нет».
+        child: AsyncView<List<Category>>(
           stream: _stream,
-          builder: (context, snapshot) {
-            return CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _AmountHeader(
-                    amount: widget.amount,
-                    day: widget.day,
-                    today: widget.today,
-                    isIncome: isIncome,
-                    color: accent,
+          loadingBuilder: (context) =>
+              _scrollView(context, isIncome, accent, const []),
+          errorBuilder: (context, error) =>
+              _scrollView(context, isIncome, accent, const [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: _CenteredMessage(
+                    text: CategoryPickerScreen.loadErrorText,
                   ),
                 ),
-                // Строка комментария. Ниже, в этом же месте, позже появится
-                // умная подсказка категории (этап 6).
-                SliverToBoxAdapter(child: NoteField(controller: _note)),
-                ..._contentSlivers(snapshot),
-              ],
-            );
-          },
+              ]),
+          isEmpty: (data) => _visible(data).isEmpty,
+          emptyBuilder: (context) => _scrollView(context, isIncome, accent, [
+            SliverFillRemaining(hasScrollBody: false, child: _EmptyState()),
+          ]),
+          dataBuilder: (context, data) => _scrollView(
+            context,
+            isIncome,
+            accent,
+            _gridSlivers(context, data),
+          ),
         ),
       ),
     );
   }
 
-  List<Widget> _contentSlivers(AsyncSnapshot<List<Category>> snapshot) {
-    if (snapshot.hasError) {
-      return const [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: _CenteredMessage(text: CategoryPickerScreen.loadErrorText),
+  Widget _scrollView(
+    BuildContext context,
+    bool isIncome,
+    Color accent,
+    List<Widget> content,
+  ) {
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: _AmountHeader(
+            amount: widget.amount,
+            day: widget.day,
+            today: widget.today,
+            isIncome: isIncome,
+            color: accent,
+          ),
         ),
-      ];
-    }
-    final data = snapshot.data;
-    // Ответа ещё нет: не показываем ничего, чтобы не мигало «Категорий нет».
-    if (data == null) return const [];
-    // Репозиторий уже отдаёт только живые категории верхнего уровня;
-    // проверка здесь страхует экран от чужого потока.
-    final categories = [
-      for (final c in data)
-        if (c.isTopLevel && !c.isArchived) c,
-    ];
-    if (categories.isEmpty) {
-      return [SliverFillRemaining(hasScrollBody: false, child: _EmptyState())];
-    }
+        // Строка комментария. Ниже, в этом же месте, позже появится
+        // умная подсказка категории (этап 6).
+        SliverToBoxAdapter(child: NoteField(controller: _note)),
+        ...content,
+      ],
+    );
+  }
+
+  /// Репозиторий уже отдаёт только живые категории верхнего уровня; проверка
+  /// здесь страхует экран от чужого потока.
+  List<Category> _visible(List<Category> data) => [
+    for (final c in data)
+      if (c.isTopLevel && !c.isArchived) c,
+  ];
+
+  List<Widget> _gridSlivers(BuildContext context, List<Category> data) {
+    final categories = _visible(data);
     return [
       SliverPadding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
