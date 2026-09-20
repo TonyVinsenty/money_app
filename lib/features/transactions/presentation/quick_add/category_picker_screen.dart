@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
@@ -27,6 +28,7 @@ class CategoryPickerScreen extends StatefulWidget {
     required this.type,
     required this.amount,
     required this.day,
+    required this.today,
     required this.categories,
     this.onCategorySelected,
     super.key,
@@ -35,9 +37,13 @@ class CategoryPickerScreen extends StatefulWidget {
   final TransactionType type;
   final Money amount;
 
-  /// Выбранный на предыдущем экране день. Сам экран его не
-  /// использует: операция собирается на `QuickAddScreen`.
+  /// Выбранный на предыдущем экране день. Экран только показывает его под
+  /// суммой: операция собирается на `QuickAddScreen`.
   final DateOnly day;
+
+  /// «Сегодня» с предыдущего экрана: нужно, чтобы подписать день словом
+  /// («Сегодня»/«Вчера») и не читать часы второй раз.
+  final DateOnly today;
 
   final CategoriesRepository categories;
 
@@ -113,6 +119,8 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
                 SliverToBoxAdapter(
                   child: _AmountHeader(
                     amount: widget.amount,
+                    day: widget.day,
+                    today: widget.today,
                     isIncome: isIncome,
                     color: accent,
                   ),
@@ -179,11 +187,15 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
 class _AmountHeader extends StatelessWidget {
   const _AmountHeader({
     required this.amount,
+    required this.day,
+    required this.today,
     required this.isIncome,
     required this.color,
   });
 
   final Money amount;
+  final DateOnly day;
+  final DateOnly today;
   final bool isIncome;
   final Color color;
 
@@ -195,14 +207,28 @@ class _AmountHeader extends StatelessWidget {
     final word = isIncome ? 'Доход' : 'Расход';
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      child: Semantics(
-        label: '$word ${spokenMoney(amount)}',
-        child: ExcludeSemantics(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text('$sign${formatMoney(amount)}', style: style),
+      child: Column(
+        children: [
+          Semantics(
+            label: '$word ${spokenMoney(amount)}',
+            child: ExcludeSemantics(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('$sign${formatMoney(amount)}', style: style),
+              ),
+            ),
           ),
-        ),
+          // День операции: «Сегодня», «Вчера» или дата. Скринридер читает его
+          // отдельной строкой.
+          const SizedBox(height: 4),
+          Text(
+            dayLabel(day, today: today),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }

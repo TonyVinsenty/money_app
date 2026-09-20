@@ -100,18 +100,29 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     if (amount != null) _openCategoryPicker(amount);
   }
 
+  /// Экран категорий уже открыт (или открывается). Двойной тап по «Далее» иначе
+  /// положил бы в стек два таких экрана. Флаг снимается, когда экран закрыт.
+  bool _pickerOpen = false;
+
   void _openCategoryPicker(Money amount) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => CategoryPickerScreen(
-          type: widget.type,
-          amount: amount,
-          day: _day,
-          categories: widget.categories,
-          onCategorySelected: (category, note) =>
-              unawaited(_save(amount, category, note)),
-        ),
-      ),
+    if (_pickerOpen) return;
+    _pickerOpen = true;
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => CategoryPickerScreen(
+                type: widget.type,
+                amount: amount,
+                day: _day,
+                today: _today,
+                categories: widget.categories,
+                onCategorySelected: (category, note) =>
+                    unawaited(_save(amount, category, note)),
+              ),
+            ),
+          )
+          .whenComplete(() => _pickerOpen = false),
     );
   }
 
@@ -255,9 +266,6 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                       today: _today,
                       onChanged: (day) => setState(() => _day = day),
                     ),
-                    // Шаги 2.23-2.25: здесь появятся категория и комментарий.
-                    const SizedBox(height: 24),
-                    const Text('Здесь появится ввод суммы'),
                   ],
                 ),
               ),

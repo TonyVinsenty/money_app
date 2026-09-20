@@ -1,3 +1,4 @@
+import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 
 /// Сумма словами для скринридера: «1234 рубля 50 копеек».
@@ -18,7 +19,7 @@ import 'package:money_app/core/money/money.dart';
 /// для них бросается [ArgumentError]. Считается целыми числами, без дробных.
 /// Только для показа и озвучки в UI (ADR 0004).
 String spokenMoney(Money money) {
-  if (money.currency != 'RUB') {
+  if (money.currency != rubCurrencyCode) {
     throw ArgumentError.value(
       money.currency,
       'money.currency',

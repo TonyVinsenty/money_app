@@ -1,6 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:money_app/core/format/money_spoken.dart';
-import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/ui/amount_failure_text.dart';
@@ -23,20 +25,25 @@ const String _currencySymbol = '₽';
 ///
 /// Экран, который владеет контроллером, обязан вызвать [dispose].
 class AmountFieldController extends ChangeNotifier {
-  AmountFieldController({this.currency = rubCurrencyCode}) {
+  AmountFieldController() {
     text.addListener(notifyListeners);
   }
 
-  final String currency;
+  // Пока везде рубль ([rubCurrencyCode]). Мультивалютность — позже: тогда
+  // здесь снова появится код валюты, а вместо «₽» — его символ.
 
   /// Текстовое поле внутри. Наружу отдано, чтобы можно было задать начальное
   /// значение (правка операции) или очистить поле.
   final TextEditingController text = TextEditingController();
 
+  /// Фокус текстового поля. Нужен, чтобы тап по знаку или по «₽» тоже открывал
+  /// клавиатуру (см. [AmountField]).
+  final FocusNode focusNode = FocusNode();
+
   bool _attempted = false;
 
   /// Результат разбора текущего текста (без «мягкой» логики показа ошибок).
-  AmountParseResult get result => parseAmount(text.text, currency: currency);
+  AmountParseResult get result => parseAmount(text.text);
 
   /// Что показать под полем прямо сейчас: `null` — ничего.
   ///
@@ -64,6 +71,7 @@ class AmountFieldController extends ChangeNotifier {
   void dispose() {
     text.removeListener(notifyListeners);
     text.dispose();
+    focusNode.dispose();
     super.dispose();
   }
 }
@@ -125,6 +133,15 @@ class AmountField extends StatelessWidget {
     return width;
   }
 
+  /// Тап по любой части строки суммы (знак, число, «₽», пустое место): ставит
+  /// фокус в поле и снова показывает клавиатуру. Второе нужно, когда клавиатуру
+  /// закрыли жестом «Назад»: фокус остался, и просто `requestFocus()` ничего бы
+  /// не показал.
+  void _focusField() {
+    controller.focusNode.requestFocus();
+    unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.show'));
+  }
+
   void _handleEditingComplete() {
     final amount = controller.submit();
     if (amount != null) onSubmitted?.call(amount);
@@ -154,60 +171,83 @@ class AmountField extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Знак и валюта — для глаз; скринридер читает подпись поля.
-                  ExcludeSemantics(
-                    child: Text(isIncome ? '+' : _minusSign, style: style),
-                  ),
-                  SizedBox(
-                    width: fieldWidth,
-                    child: Stack(
-                      alignment: Alignment.centerLeft,
+            // Область нажатия вокруг всей строки суммы, не ниже 48 dp. Свой
+            // тап-обработчик не попадает в дерево семантики: скринридер видит
+            // только само поле.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTap: _focusField,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Серый «0» пока пусто. Нарисован сам, а не через
-                        // hintText: подсказка поля попала бы в подпись для
-                        // скринридера.
-                        if (text.isEmpty)
-                          ExcludeSemantics(
-                            child: IgnorePointer(
-                              child: Text(
-                                '0',
-                                style: style.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                        // Знак и валюта — для глаз; скринридер читает подпись поля.
+                        ExcludeSemantics(
+                          child: Text(
+                            isIncome ? '+' : _minusSign,
+                            style: style,
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: Stack(
+                            alignment: Alignment.centerLeft,
+                            children: [
+                              // Серый «0» пока пусто. Нарисован сам, а не через
+                              // hintText: подсказка поля попала бы в подпись для
+                              // скринридера.
+                              if (text.isEmpty)
+                                ExcludeSemantics(
+                                  child: IgnorePointer(
+                                    child: Text(
+                                      '0',
+                                      style: style.copyWith(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              Semantics(
+                                label: _semanticLabel(controller.result),
+                                child: TextField(
+                                  controller: controller.text,
+                                  focusNode: controller.focusNode,
+                                  autofocus: autofocus,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: const [
+                                    AmountInputFormatter(),
+                                  ],
+                                  // Свой обработчик вместо стандартного: клавиатура
+                                  // остаётся открытой, если сумма не прошла проверку.
+                                  onEditingComplete: _handleEditingComplete,
+                                  maxLines: 1,
+                                  style: style,
+                                  cursorColor: accent,
+                                  decoration: const InputDecoration.collapsed(
+                                    hintText: null,
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                        Semantics(
-                          label: _semanticLabel(controller.result),
-                          child: TextField(
-                            controller: controller.text,
-                            autofocus: autofocus,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            textInputAction: TextInputAction.next,
-                            inputFormatters: const [AmountInputFormatter()],
-                            // Свой обработчик вместо стандартного: клавиатура
-                            // остаётся открытой, если сумма не прошла проверку.
-                            onEditingComplete: _handleEditingComplete,
-                            maxLines: 1,
-                            style: style,
-                            cursorColor: accent,
-                            decoration: const InputDecoration.collapsed(
-                              hintText: null,
-                            ),
-                          ),
+                        ),
+                        ExcludeSemantics(
+                          child: Text(_currencySymbol, style: style),
                         ),
                       ],
                     ),
                   ),
-                  ExcludeSemantics(child: Text(_currencySymbol, style: style)),
-                ],
+                ),
               ),
             ),
             if (failure != null)

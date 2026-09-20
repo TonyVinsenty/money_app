@@ -34,15 +34,20 @@ Widget _app(TransactionType type, ThemeMode mode) {
       type: type,
       clock: _clock,
       categories: StreamCategoriesRepository(
-        Stream.value([
-          Category.topLevel(
-            id: 'a',
-            kind: CategoryKind.expense,
-            name: 'Продукты',
-            iconKey: 'shopping_cart',
-            sortOrder: 0,
-          ),
-        ]),
+        // Многократный поток: экран категорий можно открыть не один раз.
+        Stream<List<Category>>.multi((controller) {
+          controller
+            ..add([
+              Category.topLevel(
+                id: 'a',
+                kind: CategoryKind.expense,
+                name: 'Продукты',
+                iconKey: 'shopping_cart',
+                sortOrder: 0,
+              ),
+            ])
+            ..close();
+        }),
       ),
       transactions: FakeTransactionsRepository(),
       idGenerator: FakeIdGenerator(),
@@ -108,10 +113,10 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('в теле пока временный текст', (tester) async {
+  testWidgets('текста-заглушки в теле нет', (tester) async {
     await tester.pumpWidget(_app(TransactionType.income, ThemeMode.light));
 
-    expect(find.text('Здесь появится ввод суммы'), findsOneWidget);
+    expect(find.text('Здесь появится ввод суммы'), findsNothing);
   });
 
   testWidgets('есть поле суммы со знаком типа операции', (tester) async {
@@ -233,6 +238,49 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(CategoryPickerScreen), findsNothing);
       expect(find.byType(QuickAddScreen), findsOneWidget);
+    });
+
+    testWidgets('двойной тап по «Далее» открывает один экран категорий', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(TransactionType.expense, ThemeMode.light));
+
+      await tester.enterText(find.byType(TextField), '350');
+      final next = find.widgetWithText(FilledButton, 'Далее');
+      await tester.tap(next);
+      await tester.tap(next, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CategoryPickerScreen), findsOneWidget);
+
+      // «Назад» — и повторное «Далее» снова работает, и снова один экран.
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(CategoryPickerScreen), findsNothing);
+
+      await tester.tap(next);
+      await tester.tap(next, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byType(CategoryPickerScreen), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(CategoryPickerScreen), findsNothing);
+    });
+
+    testWidgets('двойная клавиша «Далее» открывает один экран категорий', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(TransactionType.income, ThemeMode.light));
+
+      await tester.enterText(find.byType(TextField), '10');
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.testTextInput.receiveAction(TextInputAction.next);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CategoryPickerScreen), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(CategoryPickerScreen), findsNothing);
     });
 
     testWidgets('клавиша «Далее» на клавиатуре ведёт туда же', (tester) async {

@@ -20,6 +20,8 @@ import '../../../../support/fakes.dart';
 /// Сумма в тестах, как её показывает formatMoney (без невидимых символов в коде).
 final _formatted = formatMoney(Money.fromMinor(123450, 'RUB'));
 
+final _today = DateOnly(2026, 9, 20);
+
 Category _category(
   String id,
   String name, {
@@ -54,6 +56,7 @@ class _Harness {
   Widget app({
     TransactionType type = TransactionType.expense,
     double textScale = 1,
+    DateOnly? day,
   }) {
     return MaterialApp(
       theme: AppTheme.light(),
@@ -69,7 +72,8 @@ class _Harness {
       home: CategoryPickerScreen(
         type: type,
         amount: Money.fromMinor(123450, 'RUB'),
-        day: DateOnly(2026, 9, 20),
+        day: day ?? _today,
+        today: _today,
         categories: repository,
         onCategorySelected: (category, note) {
           selected.add(category);
@@ -85,14 +89,30 @@ void main() {
     WidgetTester tester, {
     TransactionType type = TransactionType.expense,
     double textScale = 1,
+    DateOnly? day,
   }) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final harness = _Harness();
-    await tester.pumpWidget(harness.app(type: type, textScale: textScale));
+    await tester.pumpWidget(
+      harness.app(type: type, textScale: textScale, day: day),
+    );
     return harness;
   }
+
+  testWidgets('под суммой видно выбранный день: «Сегодня» и «Вчера»', (
+    tester,
+  ) async {
+    await pump(tester);
+    expect(find.text('Сегодня'), findsOneWidget);
+    expect(find.text('Вчера'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await pump(tester, day: _today.addDays(-1));
+    expect(find.text('Вчера'), findsOneWidget);
+    expect(find.text('Сегодня'), findsNothing);
+  });
 
   testWidgets(
     'до первого значения потока нет ни плиток, ни пустого состояния',

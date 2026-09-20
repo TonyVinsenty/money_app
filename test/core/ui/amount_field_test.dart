@@ -44,6 +44,9 @@ void main() {
   setUp(() => controller = AmountFieldController());
   tearDown(() => controller.dispose());
 
+  Future<void> pumpHost(WidgetTester tester) =>
+      tester.pumpWidget(_host(controller));
+
   testWidgets('буква не печатается, цифры группируются', (tester) async {
     await tester.pumpWidget(_host(controller));
 
@@ -113,6 +116,67 @@ void main() {
     await tester.pump();
 
     expect(submitted, [Money.fromMinor(1250, rubCurrencyCode)]);
+  });
+
+  group('зона нажатия', () {
+    testWidgets('тап по знаку ставит фокус в поле', (tester) async {
+      await pumpHost(tester);
+      expect(controller.focusNode.hasFocus, isFalse);
+
+      await tester.tap(find.text(_minus));
+      await tester.pump();
+
+      expect(controller.focusNode.hasFocus, isTrue);
+      expect(tester.testTextInput.isVisible, isTrue);
+    });
+
+    testWidgets('тап по «₽» тоже, и клавиатура возвращается после «Назад»', (
+      tester,
+    ) async {
+      await pumpHost(tester);
+      await tester.tap(find.text('₽'));
+      await tester.pump();
+      expect(controller.focusNode.hasFocus, isTrue);
+
+      // Клавиатуру закрыли жестом «Назад»: фокус остался, клавиатуры нет.
+      tester.testTextInput.hide();
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isFalse);
+
+      await tester.tap(find.text(_minus));
+      await tester.pump();
+      expect(tester.testTextInput.isVisible, isTrue);
+    });
+
+    testWidgets('область нажатия не ниже 48 dp и охватывает всю строку', (
+      tester,
+    ) async {
+      await pumpHost(tester);
+
+      final area = tester.getRect(
+        find.ancestor(
+          of: find.text(_minus),
+          matching: find.byType(GestureDetector),
+        ),
+      );
+      expect(area.height, greaterThanOrEqualTo(48));
+      expect(
+        area.left,
+        lessThanOrEqualTo(tester.getRect(find.text(_minus)).left),
+      );
+      expect(
+        area.right,
+        greaterThanOrEqualTo(tester.getRect(find.text('₽')).right),
+      );
+    });
+
+    testWidgets('семантика поля не задвоилась', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpHost(tester);
+
+      expect(find.bySemanticsLabel('Сумма расхода'), findsOneWidget);
+      semantics.dispose();
+    });
   });
 
   testWidgets('слишком большая сумма показывает ошибку сразу, без попытки', (
