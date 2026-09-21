@@ -21,6 +21,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import '../support/fake_id_generator.dart';
 import '../support/fixed_clock.dart';
 import '../support/in_memory_database.dart';
+import '../support/settle_database.dart';
 
 /// Итог расходов месяца на «Главной» на настоящей базе в памяти: поток из
 /// репозитория, границы месяца, доходы и чужие месяцы, обновление без
@@ -317,7 +318,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Зарплата'));
-      await tester.pumpAndSettle();
+      await settleDatabase(tester);
 
       expect(find.text(income('сентябрь', 150050)), findsOneWidget);
       expect(emptyIncome, findsNothing);
@@ -346,7 +347,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Продукты'));
-      await tester.pumpAndSettle();
+      await settleDatabase(tester);
     }
 
     await addExpense('350');

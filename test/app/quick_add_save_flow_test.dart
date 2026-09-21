@@ -23,6 +23,7 @@ import 'package:money_app/features/transactions/presentation/quick_add/note_fiel
 import '../support/fake_id_generator.dart';
 import '../support/fixed_clock.dart';
 import '../support/in_memory_database.dart';
+import '../support/settle_database.dart';
 
 /// Сквозной путь сохранения на настоящей базе в памяти: «Главная» -> «Расход»
 /// -> сумма -> категория -> запись в таблице и сообщение с «Отменить».
@@ -75,7 +76,7 @@ Future<void> _enterAmount(
 
 Future<void> _pickCategory(WidgetTester tester, String name) async {
   await tester.tap(find.text(name));
-  await tester.pumpAndSettle();
+  await settleDatabase(tester);
 }
 
 /// Первое значение живого потока последних операций (то, что увидит

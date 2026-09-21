@@ -12,7 +12,15 @@ import 'fixed_clock.dart';
 
 /// Пустой фейк репозитория категорий: методы не реализованы, любой вызов
 /// бросит ошибку. Годится, когда тесту нужен лишь сам объект («тот же ли он»).
-class FakeCategoriesRepository extends Fake implements CategoriesRepository {}
+///
+/// Исключение — `watchSubcategories`: быстрый ввод спрашивает подкатегории
+/// после каждого тапа по категории, и по умолчанию их нет. Тесты, которым нужны
+/// подкатегории, переопределяют метод.
+class FakeCategoriesRepository extends Fake implements CategoriesRepository {
+  @override
+  Stream<List<Category>> watchSubcategories(String parentId) =>
+      Stream.value(const []);
+}
 
 /// Фейк репозитория категорий, у которого работает только `watchTopLevel`:
 /// отдаёт то, что тест кладёт в [source], оставляя, как и настоящий репозиторий,

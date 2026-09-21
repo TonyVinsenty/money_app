@@ -22,6 +22,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import '../support/fake_id_generator.dart';
 import '../support/fixed_clock.dart';
 import '../support/in_memory_database.dart';
+import '../support/settle_database.dart';
 
 /// Вкладка «История» на настоящей базе в памяти: собрана так же, как
 /// `MoneyApp`, только с фиксированными часами (сегодня 20 сентября 2026).
@@ -112,7 +113,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Продукты'));
-      await tester.pumpAndSettle();
+      await settleDatabase(tester);
 
       // Вкладка уже открывалась: список обновился сам, без «обновить».
       await _openTab(tester, 'История');
@@ -146,7 +147,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Продукты'));
-    await tester.pumpAndSettle();
+    await settleDatabase(tester);
 
     final zero = formatMoney(Money.zero('RUB'));
     expect(find.text('Сохранено: расход $zero · Продукты'), findsOneWidget);

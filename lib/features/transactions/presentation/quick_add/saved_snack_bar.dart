@@ -14,12 +14,15 @@ abstract final class SavedSnackBar {
 
   /// «Сохранено: расход 350,00 ₽ · Продукты». Сумма называется всегда, и
   /// нулевая тоже («Сохранено: расход 0,00 ₽ · ...»).
+  /// С подкатегорией — «... · Продукты · Овощи».
   static String text({
     required TransactionType type,
     required Money amount,
     required String categoryName,
+    String? subcategoryName,
   }) {
-    return 'Сохранено: ${_word(type)} ${formatMoney(amount)} · $categoryName';
+    return 'Сохранено: ${_word(type)} ${formatMoney(amount)} · $categoryName'
+        '${_sub(subcategoryName)}';
   }
 
   /// То же для скринридера: сумма словами («Сохранено: расход 350 рублей · ...»).
@@ -27,9 +30,13 @@ abstract final class SavedSnackBar {
     required TransactionType type,
     required Money amount,
     required String categoryName,
+    String? subcategoryName,
   }) {
-    return 'Сохранено: ${_word(type)} ${spokenMoney(amount)} · $categoryName';
+    return 'Сохранено: ${_word(type)} ${spokenMoney(amount)} · $categoryName'
+        '${_sub(subcategoryName)}';
   }
+
+  static String _sub(String? name) => name == null ? '' : ' · $name';
 
   static String _word(TransactionType type) =>
       type == TransactionType.income ? 'доход' : 'расход';

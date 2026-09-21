@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:money_app/core/format/day_label.dart';
-import 'package:money_app/core/format/money_format.dart';
-import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
@@ -12,6 +9,7 @@ import 'package:money_app/features/transactions/domain/category_kind_mapping.dar
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/category_grid.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/amount_header.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 
 /// Экран выбора категории: второй шаг быстрого ввода.
@@ -164,7 +162,7 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: _AmountHeader(
+          child: AmountHeader(
             amount: widget.amount,
             day: widget.day,
             today: widget.today,
@@ -189,57 +187,6 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
 
   List<Widget> _gridSlivers(BuildContext context, List<Category> data) {
     return [CategoryGrid(categories: _visible(data), onSelected: _select)];
-  }
-}
-
-/// Введённая сумма крупно: знак, число, валюта.
-class _AmountHeader extends StatelessWidget {
-  const _AmountHeader({
-    required this.amount,
-    required this.day,
-    required this.today,
-    required this.isIncome,
-    required this.color,
-  });
-
-  final Money amount;
-  final DateOnly day;
-  final DateOnly today;
-  final bool isIncome;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final sign = isIncome ? '+' : String.fromCharCode(0x2212);
-    final style = Theme.of(context).textTheme.displaySmall
-        ?.copyWith(color: color, fontWeight: FontWeight.w600);
-    final word = isIncome ? 'Доход' : 'Расход';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-      child: Column(
-        children: [
-          Semantics(
-            label: '$word ${spokenMoney(amount)}',
-            child: ExcludeSemantics(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text('$sign${formatMoney(amount)}', style: style),
-              ),
-            ),
-          ),
-          // День операции: «Сегодня», «Вчера» или дата. Скринридер читает его
-          // отдельной строкой.
-          const SizedBox(height: 4),
-          Text(
-            dayLabel(day, today: today),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

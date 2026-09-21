@@ -18,6 +18,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/category_picker_screen.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/subcategory_picker_screen.dart';
 
 /// Экран быстрого ввода операции.
 ///
@@ -125,11 +126,67 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                 categories: widget.categories,
                 onCreateCategory: widget.onCreateCategory,
                 onCategorySelected: (category, note) =>
-                    unawaited(_save(amount, category, note)),
+                    unawaited(_onCategory(amount, category, note)),
               ),
             ),
           )
           .whenComplete(() => _pickerOpen = false),
+    );
+  }
+
+  /// Тап по категории уже обрабатывается (читаем подкатегории) или сетка
+  /// подкатегорий открыта. Двойной тап иначе открыл бы два таких экрана.
+  bool _subcategoriesBusy = false;
+
+  /// Тап по плитке категории: если у неё есть живые подкатегории, открываем их
+  /// сетку, иначе сохраняем сразу. Комментарий [note] уже прочитан на экране
+  /// категорий и остаётся в замыкании, сам тот экран лежит под сеткой.
+  Future<void> _onCategory(
+    Money amount,
+    Category category,
+    String? note,
+  ) async {
+    if (_saving || _subcategoriesBusy) return;
+    _subcategoriesBusy = true;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    List<Category> subcategories;
+    try {
+      subcategories = [
+        for (final s
+            in await widget.categories.watchSubcategories(category.id).first)
+          if (!s.isArchived) s,
+      ];
+    } on Object {
+      // Не смогли узнать, есть ли подкатегории: молча сохранить без них
+      // нельзя. Остаёмся на выборе категории, можно повторить.
+      _subcategoriesBusy = false;
+      _showError(messenger, transactionSaveFailedText);
+      return;
+    }
+    if (subcategories.isEmpty) {
+      _subcategoriesBusy = false;
+      await _save(amount, category, null, note);
+      return;
+    }
+    if (!mounted) return;
+    unawaited(
+      navigator
+          .push(
+            MaterialPageRoute<void>(
+              builder: (_) => SubcategoryPickerScreen(
+                type: widget.type,
+                amount: amount,
+                day: _day,
+                today: _today,
+                parent: category,
+                categories: widget.categories,
+                onSelected: (subcategory) =>
+                    unawaited(_save(amount, category, subcategory, note)),
+              ),
+            ),
+          )
+          .whenComplete(() => _subcategoriesBusy = false),
     );
   }
 
@@ -144,7 +201,12 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   /// `ScaffoldMessenger` и `Navigator` берутся ДО первого `await`: после
   /// закрытия экрана его `context` уже нельзя использовать, а сообщение
   /// принадлежит корневому messenger приложения и переживает закрытие.
-  Future<void> _save(Money amount, Category category, String? note) async {
+  Future<void> _save(
+    Money amount,
+    Category category,
+    Category? subcategory,
+    String? note,
+  ) async {
     if (_saving) return;
     _saving = true;
     final messenger = ScaffoldMessenger.of(context);
@@ -161,6 +223,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         occurredOn: occurrence.occurredOn,
         occurredAt: occurrence.occurredAt,
         category: category,
+        subcategory: subcategory,
         note: note,
       );
       // Тексты собираем до записи: если они не соберутся, ничего не сохранено.
@@ -168,11 +231,13 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         type: type,
         amount: amount,
         categoryName: category.name,
+        subcategoryName: subcategory?.name,
       );
       final spokenText = SavedSnackBar.spokenText(
         type: type,
         amount: amount,
         categoryName: category.name,
+        subcategoryName: subcategory?.name,
       );
       await transactions.add(transaction);
 
