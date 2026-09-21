@@ -20,6 +20,12 @@ const categoriesIncomeTab = 'Доходы';
 const categoriesArchiveAction = 'В архив';
 const categoriesRestoreAction = 'Вернуть из архива';
 
+/// Кнопка создания новой категории.
+const categoriesAddAction = 'Добавить категорию';
+
+/// Подпись кнопки-карандаша у строки: имя нужно скринридеру и подсказке.
+String categoriesRenameLabel(String name) => 'Переименовать: $name';
+
 /// Пока в виде нет ни одной живой категории.
 const categoriesEmptyText = 'Категорий пока нет';
 
@@ -39,10 +45,21 @@ String categoriesRestoreLabel(String name) => '$categoriesRestoreAction: $name';
 /// Два вида, «Расходы» и «Доходы»; в каждом живые категории верхнего уровня в
 /// порядке репозитория (`sortOrder`) и свёрнутый раздел «Архив (N)». Архив
 /// обратим, поэтому подтверждения нет. Подкатегории здесь пока не показываются.
+///
+/// Форма создания и переименования лежит на другом маршруте: её открывают
+/// колбэки [onCreate] (с видом открытой вкладки) и [onRename], их даёт
+/// приложение.
 class CategoriesScreen extends StatefulWidget {
-  const CategoriesScreen({required this.categories, super.key});
+  const CategoriesScreen({
+    required this.categories,
+    required this.onCreate,
+    required this.onRename,
+    super.key,
+  });
 
   final CategoriesRepository categories;
+  final void Function(CategoryKind kind) onCreate;
+  final void Function(Category category) onRename;
 
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
@@ -101,6 +118,20 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ],
           ),
         ),
+        // Builder: вид открытой вкладки читаем из DefaultTabController, а он
+        // виден только ниже по дереву.
+        floatingActionButton: Builder(
+          builder: (context) => FloatingActionButton.extended(
+            onPressed: () {
+              final index = DefaultTabController.of(context).index;
+              widget.onCreate(
+                index == 0 ? CategoryKind.expense : CategoryKind.income,
+              );
+            },
+            icon: const Icon(Icons.add),
+            label: const Text(categoriesAddAction),
+          ),
+        ),
         body: SafeArea(
           child: AsyncView<List<Category>>(
             stream: _stream,
@@ -122,6 +153,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       unawaited(_change(c, widget.categories.archive)),
                   onRestore: (c) =>
                       unawaited(_change(c, widget.categories.restore)),
+                  onRename: widget.onRename,
                 ),
                 _KindList(
                   categories: data,
@@ -130,6 +162,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       unawaited(_change(c, widget.categories.archive)),
                   onRestore: (c) =>
                       unawaited(_change(c, widget.categories.restore)),
+                  onRename: widget.onRename,
                 ),
               ],
             ),
@@ -147,12 +180,14 @@ class _KindList extends StatelessWidget {
     required this.kind,
     required this.onArchive,
     required this.onRestore,
+    required this.onRename,
   });
 
   final List<Category> categories;
   final CategoryKind kind;
   final void Function(Category category) onArchive;
   final void Function(Category category) onRestore;
+  final void Function(Category category) onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -171,6 +206,9 @@ class _KindList extends StatelessWidget {
         if (c.isArchived) c,
     ];
     return ListView(
+      // Снизу запас под кнопку «Добавить категорию»: она не закрывает
+      // последнюю строку.
+      padding: const EdgeInsets.only(bottom: 96),
       children: [
         if (live.isEmpty)
           const Padding(
@@ -184,6 +222,7 @@ class _KindList extends StatelessWidget {
             actionText: categoriesArchiveAction,
             actionLabel: categoriesArchiveLabel(c.name),
             onPressed: () => onArchive(c),
+            onRename: () => onRename(c),
           ),
         if (archived.isNotEmpty)
           ExpansionTile(
@@ -214,6 +253,7 @@ class _CategoryRow extends StatelessWidget {
     required this.actionText,
     required this.actionLabel,
     required this.onPressed,
+    this.onRename,
     super.key,
   });
 
@@ -221,6 +261,9 @@ class _CategoryRow extends StatelessWidget {
   final String actionText;
   final String actionLabel;
   final VoidCallback onPressed;
+
+  /// Переименование; только у живых категорий (у архивных `null`).
+  final VoidCallback? onRename;
 
   @override
   Widget build(BuildContext context) {
@@ -255,6 +298,15 @@ class _CategoryRow extends StatelessWidget {
               ],
             ),
           ),
+          // Карандаш справа: узкая кнопка не отнимает у имени места и при
+          // крупном шрифте (её размер не растёт вместе с текстом).
+          if (onRename != null)
+            IconButton(
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: categoriesRenameLabel(category.name),
+              onPressed: onRename,
+            ),
         ],
       ),
     );

@@ -71,7 +71,10 @@ class SettingsTab extends StatelessWidget {
       // Репозиторий берём здесь, под AppScope: открытый маршрут его не видит.
       onOpenCategories: () => Navigator.of(context).pushNamed(
         AppRoutes.categories,
-        arguments: CategoriesRouteArguments(categories: services.categories),
+        arguments: CategoriesRouteArguments(
+          categories: services.categories,
+          idGenerator: services.idGenerator,
+        ),
       ),
     );
   }

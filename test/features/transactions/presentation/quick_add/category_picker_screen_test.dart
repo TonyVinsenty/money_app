@@ -53,10 +53,14 @@ class _Harness {
   final selected = <Category>[];
   final notes = <String?>[];
 
+  /// Сколько раз нажали «Создать категорию».
+  int created = 0;
+
   Widget app({
     TransactionType type = TransactionType.expense,
     double textScale = 1,
     DateOnly? day,
+    bool withCreate = true,
   }) {
     return MaterialApp(
       theme: AppTheme.light(),
@@ -75,6 +79,7 @@ class _Harness {
         day: day ?? _today,
         today: _today,
         categories: repository,
+        onCreateCategory: withCreate ? () => created++ : null,
         onCategorySelected: (category, note) {
           selected.add(category);
           notes.add(note);
@@ -90,13 +95,19 @@ void main() {
     TransactionType type = TransactionType.expense,
     double textScale = 1,
     DateOnly? day,
+    bool withCreate = true,
   }) async {
     tester.view.physicalSize = const Size(360, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final harness = _Harness();
     await tester.pumpWidget(
-      harness.app(type: type, textScale: textScale, day: day),
+      harness.app(
+        type: type,
+        textScale: textScale,
+        day: day,
+        withCreate: withCreate,
+      ),
     );
     return harness;
   }
@@ -199,7 +210,18 @@ void main() {
 
     await tester.tap(button);
     await tester.pump();
-    expect(find.text(CategoryPickerScreen.createSoonMessage), findsOneWidget);
+    expect(harness.created, 1);
+  });
+
+  testWidgets('пустое состояние без колбэка: кнопки «Создать» нет', (
+    tester,
+  ) async {
+    final harness = await pump(tester, withCreate: false);
+    harness.source.add(const []);
+    await tester.pump();
+
+    expect(find.text(CategoryPickerScreen.emptyText), findsOneWidget);
+    expect(find.text(CategoryPickerScreen.createLabel), findsNothing);
   });
 
   testWidgets('только архивные категории — тоже пустое состояние', (

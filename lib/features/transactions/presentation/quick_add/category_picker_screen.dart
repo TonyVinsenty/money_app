@@ -32,8 +32,13 @@ class CategoryPickerScreen extends StatefulWidget {
     required this.today,
     required this.categories,
     this.onCategorySelected,
+    this.onCreateCategory,
     super.key,
   });
+
+  /// Открывает форму новой категории; кнопка «Создать категорию» в пустом
+  /// состоянии показывается, только если колбэк задан.
+  final VoidCallback? onCreateCategory;
 
   final TransactionType type;
   final Money amount;
@@ -59,9 +64,6 @@ class CategoryPickerScreen extends StatefulWidget {
   static const emptyHint =
       'Создайте первую категорию, чтобы записывать операции';
   static const createLabel = 'Создать категорию';
-
-  /// Экран категорий появится в вехе 2E; пока кнопка честно об этом говорит.
-  static const createSoonMessage = 'Создание категорий — скоро';
   static const loadErrorText = 'Не удалось загрузить категории';
 
   @override
@@ -131,7 +133,10 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
               ]),
           isEmpty: (data) => _visible(data).isEmpty,
           emptyBuilder: (context) => _scrollView(context, isIncome, accent, [
-            SliverFillRemaining(hasScrollBody: false, child: _EmptyState()),
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _EmptyState(onCreate: widget.onCreateCategory),
+            ),
           ]),
           dataBuilder: (context, data) => _scrollView(
             context,
@@ -233,6 +238,10 @@ class _AmountHeader extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.onCreate});
+
+  final VoidCallback? onCreate;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -253,19 +262,13 @@ class _EmptyState extends StatelessWidget {
               style: theme.textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
-            // Экран категорий — веха 2E. Пока кнопка не притворяется рабочей:
-            // она объясняет, что создание категорий ещё впереди.
-            FilledButton.tonal(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(CategoryPickerScreen.createSoonMessage),
-                  ),
-                );
-              },
-              child: const Text(CategoryPickerScreen.createLabel),
-            ),
+            if (onCreate != null) ...[
+              const SizedBox(height: 16),
+              FilledButton.tonal(
+                onPressed: onCreate,
+                child: const Text(CategoryPickerScreen.createLabel),
+              ),
+            ],
           ],
         ),
       ),

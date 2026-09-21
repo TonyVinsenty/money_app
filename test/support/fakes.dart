@@ -35,21 +35,58 @@ class StreamCategoriesRepository extends FakeCategoriesRepository {
   }
 }
 
-/// Фейк репозитория категорий «в памяти» для экрана «Категории»: работают
-/// `watchAll`, `archive` и `restore` (с проверкой дубля имени, как у
-/// настоящего). Остальные методы бросают ошибку.
+/// Фейк репозитория категорий «в памяти» для экранов «Категории» и формы
+/// категории: работают `watchAll`, `create`, `rename`, `archive` и `restore` (с
+/// проверкой дубля имени, как у настоящего). Остальные методы бросают ошибку.
 class InMemoryCategoriesRepository extends FakeCategoriesRepository {
   InMemoryCategoriesRepository(List<Category> initial)
     : _state = ValueNotifier<List<Category>>(List.of(initial));
 
   final ValueNotifier<List<Category>> _state;
 
-  /// Сколько раз вызвали `archive` и `restore` (для проверки «один тап — одна
-  /// запись»).
+  /// Сколько раз вызвали `create`, `rename`, `archive` и `restore` (для проверки
+  /// «один тап — одна запись»).
   int writes = 0;
 
-  /// Если задан, `archive` и `restore` бросают его (сбой базы).
+  /// Если задан, все записи бросают его (сбой базы).
   Exception? failWith;
+
+  /// Текущее содержимое «базы».
+  List<Category> get all => List.unmodifiable(_state.value);
+
+  @override
+  Future<void> create(Category category) async {
+    writes++;
+    final error = failWith;
+    if (error != null) throw error;
+    Category.checkUniqueName(
+      name: category.name,
+      kind: category.kind,
+      parentId: category.parentId,
+      existing: _state.value,
+    );
+    _state.value = [..._state.value, category];
+  }
+
+  @override
+  Future<void> rename(String id, String newName) async {
+    writes++;
+    final error = failWith;
+    if (error != null) throw error;
+    final name = Category.checkedName(newName);
+    final target = _state.value.firstWhere((c) => c.id == id);
+    Category.checkUniqueName(
+      name: name,
+      kind: target.kind,
+      parentId: target.parentId,
+      existing: _state.value,
+      selfId: id,
+    );
+    _state.value = [
+      for (final c in _state.value)
+        if (c.id == id) c.copyWith(name: name) else c,
+    ];
+  }
 
   void dispose() => _state.dispose();
 

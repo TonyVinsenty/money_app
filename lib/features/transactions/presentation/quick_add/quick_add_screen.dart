@@ -31,10 +31,16 @@ class QuickAddScreen extends StatefulWidget {
     required this.categories,
     required this.transactions,
     required this.idGenerator,
+    this.onCreateCategory,
     super.key,
   });
 
   final TransactionType type;
+
+  /// Открывает форму новой категории (кнопка в пустом выборе категории). Даёт
+  /// приложение: маршрут формы чужой фичи знает только оно. Если `null`,
+  /// кнопки нет.
+  final VoidCallback? onCreateCategory;
 
   /// Источник «сегодня» для плашки даты. Приходит из `AppServices.clock` через
   /// маршрут (`lib/app`): фича не знает про `AppScope`, а в тестах сюда
@@ -117,6 +123,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                 day: _day,
                 today: _today,
                 categories: widget.categories,
+                onCreateCategory: widget.onCreateCategory,
                 onCategorySelected: (category, note) =>
                     unawaited(_save(amount, category, note)),
               ),

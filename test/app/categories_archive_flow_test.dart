@@ -13,6 +13,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
+import 'package:money_app/features/categories/presentation/category_form_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -63,6 +64,16 @@ Future<void> _openTab(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+/// Форма ждёт первое значение потока drift (порядок новой категории): в
+/// фейковом времени виджет-теста оно не приходит, поэтому даём базе немного
+/// настоящего времени.
+Future<void> _waitForDatabase(WidgetTester tester) async {
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 200)),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<String> _expenseCategoryId(String name) async {
   final row = await (_db.select(
     _db.categories,
@@ -78,6 +89,49 @@ void main() {
 
   tearDownAll(() {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = false;
+  });
+
+  testWidgets('создание и переименование категории на настоящей базе', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    Future<void> scrollTo(Finder target) => tester.scrollUntilVisible(
+      target,
+      200,
+      scrollable: find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      ),
+    );
+
+    await _openTab(tester, 'Настройки');
+    await tester.tap(find.text(categoriesScreenTitle));
+    await tester.pumpAndSettle();
+
+    // Создание: форма открывается по именованному маршруту, id из генератора.
+    await tester.tap(find.text(categoriesAddAction));
+    await tester.pumpAndSettle();
+    expect(find.text(categoryFormCreateTitle), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Тренажёрка');
+    await tester.tap(find.text(categoryFormSaveLabel));
+    await _waitForDatabase(tester);
+    expect(find.text(categoryFormCreateTitle), findsNothing);
+    await scrollTo(find.text('Тренажёрка'));
+    expect(find.text('Тренажёрка'), findsOneWidget);
+
+    // Переименование.
+    await tester.tap(find.byTooltip(categoriesRenameLabel('Тренажёрка')));
+    await tester.pumpAndSettle();
+    expect(find.text(categoryFormRenameTitle), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Бассейн');
+    await tester.tap(find.text(categoryFormSaveLabel));
+    await _waitForDatabase(tester);
+    await scrollTo(find.text('Бассейн'));
+    expect(find.text('Бассейн'), findsOneWidget);
+    expect(find.text('Тренажёрка'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    await _db.close();
   });
 
   testWidgets(

@@ -70,11 +70,22 @@ Future<void> _pumpWith(
             .copyWith(textScaler: TextScaler.linear(textScale)),
         child: child!,
       ),
-      home: CategoriesScreen(categories: repository),
+      home: CategoriesScreen(
+        categories: repository,
+        onCreate: created.add,
+        onRename: renamed.add,
+      ),
     ),
   );
   await tester.pumpAndSettle();
 }
+
+/// Что попросил открыть экран: виды для создания и категории для
+/// переименования.
+final created = <CategoryKind>[];
+final renamed = <Category>[];
+
+String _nameOf(String id) => _fixture().firstWhere((c) => c.id == id).name;
 
 /// Кнопка в строке категории с id [id].
 Finder _button(String id) => find.descendant(
@@ -93,6 +104,65 @@ class _BrokenRepository extends FakeCategoriesRepository {
 }
 
 void main() {
+  setUp(() {
+    created.clear();
+    renamed.clear();
+  });
+
+  testWidgets('кнопка «Добавить категорию» передаёт вид открытой вкладки', (
+    tester,
+  ) async {
+    await _pump(tester, _fixture());
+
+    await tester.tap(find.text(categoriesAddAction));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(categoriesIncomeTab));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(categoriesAddAction));
+    await tester.pumpAndSettle();
+
+    expect(created, [CategoryKind.expense, CategoryKind.income]);
+  });
+
+  testWidgets('«Переименовать» есть у живых категорий, у архивных нет', (
+    tester,
+  ) async {
+    await _pump(tester, _fixture());
+
+    Finder rename(String id) => find.descendant(
+      of: find.byKey(ValueKey<String>(id)),
+      matching: find.byTooltip(categoriesRenameLabel(_nameOf(id))),
+    );
+    expect(rename('cafe'), findsOneWidget);
+    expect(tester.getSize(rename('cafe')).width, greaterThanOrEqualTo(48));
+    expect(tester.getSize(rename('cafe')).height, greaterThanOrEqualTo(48));
+
+    await tester.tap(rename('cafe'));
+    await tester.pumpAndSettle();
+    expect(renamed.map((c) => c.id), ['cafe']);
+
+    await _openArchive(tester);
+    expect(rename('clothes'), findsNothing);
+  });
+
+  testWidgets('последняя строка не закрыта кнопкой «Добавить категорию»', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pump(tester, [
+      for (var i = 0; i < 14; i++) _c('c$i', 'Категория $i', i),
+    ]);
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+
+    final lastRow = tester.getRect(find.byKey(const ValueKey<String>('c13')));
+    final fab = tester.getRect(find.byType(FloatingActionButton));
+    expect(lastRow.bottom, lessThanOrEqualTo(fab.top));
+  });
+
   testWidgets('расходы первой: живые категории по порядку, подкатегорий нет', (
     tester,
   ) async {

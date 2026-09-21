@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
+import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
+import 'package:money_app/features/categories/presentation/category_form_screen.dart';
+import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
@@ -21,14 +27,40 @@ abstract final class AppRoutes {
   /// Экран управления категориями. Аргумент маршрута —
   /// [CategoriesRouteArguments].
   static const categories = '/categories';
+
+  /// Форма категории (создание или переименование). Аргумент маршрута —
+  /// [CategoryFormRouteArguments].
+  static const categoryForm = '/category-form';
 }
 
-/// Аргументы маршрута [AppRoutes.categories]: репозиторий достаёт тот, кто
-/// открывает маршрут (см. [QuickAddRouteArguments]).
+/// Аргументы маршрута [AppRoutes.categories]: репозиторий и генератор id
+/// достаёт тот, кто открывает маршрут (см. [QuickAddRouteArguments]).
 final class CategoriesRouteArguments {
-  const CategoriesRouteArguments({required this.categories});
+  const CategoriesRouteArguments({
+    required this.categories,
+    required this.idGenerator,
+  });
 
   final CategoriesRepository categories;
+
+  /// Нужен форме новой категории, которую открывает экран категорий.
+  final IdGenerator idGenerator;
+}
+
+/// Аргументы маршрута [AppRoutes.categoryForm]. Если [renaming] задана,
+/// форма переименовывает её, иначе создаёт новую категорию вида [kind].
+final class CategoryFormRouteArguments {
+  const CategoryFormRouteArguments({
+    required this.categories,
+    required this.idGenerator,
+    required this.kind,
+    this.renaming,
+  });
+
+  final CategoriesRepository categories;
+  final IdGenerator idGenerator;
+  final CategoryKind kind;
+  final Category? renaming;
 }
 
 /// Аргументы маршрута [AppRoutes.quickAdd].
@@ -90,12 +122,23 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
       }
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) => QuickAddScreen(
+        builder: (context) => QuickAddScreen(
           type: arguments.type,
           clock: arguments.clock,
           categories: arguments.categories,
           transactions: arguments.transactions,
           idGenerator: arguments.idGenerator,
+          // «Создать категорию» в пустом выборе категории: форма нужного вида.
+          onCreateCategory: () => unawaited(
+            Navigator.of(context).pushNamed(
+              AppRoutes.categoryForm,
+              arguments: CategoryFormRouteArguments(
+                categories: arguments.categories,
+                idGenerator: arguments.idGenerator,
+                kind: arguments.type.categoryKind,
+              ),
+            ),
+          ),
         ),
       );
     case AppRoutes.editTransaction:
@@ -129,7 +172,51 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
       }
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) => CategoriesScreen(categories: arguments.categories),
+        // Форму открывают из этого экрана, но только приложение знает её
+        // маршрут (фичи друг друга не импортируют).
+        builder: (context) => CategoriesScreen(
+          categories: arguments.categories,
+          onCreate: (kind) => unawaited(
+            Navigator.of(context).pushNamed(
+              AppRoutes.categoryForm,
+              arguments: CategoryFormRouteArguments(
+                categories: arguments.categories,
+                idGenerator: arguments.idGenerator,
+                kind: kind,
+              ),
+            ),
+          ),
+          onRename: (category) => unawaited(
+            Navigator.of(context).pushNamed(
+              AppRoutes.categoryForm,
+              arguments: CategoryFormRouteArguments(
+                categories: arguments.categories,
+                idGenerator: arguments.idGenerator,
+                kind: category.kind,
+                renaming: category,
+              ),
+            ),
+          ),
+        ),
+      );
+    case AppRoutes.categoryForm:
+      final arguments = settings.arguments;
+      if (arguments is! CategoryFormRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.categoryForm} ожидает аргумент '
+              'CategoryFormRouteArguments (репозиторий, генератор id и вид)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => CategoryFormScreen(
+          categories: arguments.categories,
+          idGenerator: arguments.idGenerator,
+          initialKind: arguments.kind,
+          renaming: arguments.renaming,
+        ),
       );
   }
   return null;

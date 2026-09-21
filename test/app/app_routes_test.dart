@@ -5,6 +5,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -104,6 +105,7 @@ void main() {
           name: AppRoutes.categories,
           arguments: CategoriesRouteArguments(
             categories: FakeCategoriesRepository(),
+            idGenerator: FakeIdGenerator(),
           ),
         ),
       );
@@ -121,6 +123,39 @@ void main() {
               allOf(
                 contains('/categories'),
                 contains('CategoriesRouteArguments'),
+              ),
+            ),
+          ),
+        );
+      }
+    });
+
+    test('маршрут формы категории: имя, страница и понятная ArgumentError', () {
+      expect(AppRoutes.categoryForm, '/category-form');
+      final route = onGenerateAppRoute(
+        RouteSettings(
+          name: AppRoutes.categoryForm,
+          arguments: CategoryFormRouteArguments(
+            categories: FakeCategoriesRepository(),
+            idGenerator: FakeIdGenerator(),
+            kind: CategoryKind.income,
+          ),
+        ),
+      );
+      expect(route, isA<MaterialPageRoute<void>>());
+      expect(route!.settings.name, AppRoutes.categoryForm);
+      for (final arguments in <Object?>[null, 'income']) {
+        expect(
+          () => onGenerateAppRoute(
+            RouteSettings(name: AppRoutes.categoryForm, arguments: arguments),
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.toString(),
+              'сообщение',
+              allOf(
+                contains('/category-form'),
+                contains('CategoryFormRouteArguments'),
               ),
             ),
           ),
