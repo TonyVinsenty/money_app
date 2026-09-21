@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/time/clock.dart';
@@ -19,17 +20,23 @@ import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/edit/edit_category_picker_screen.dart';
+import 'package:money_app/features/transactions/presentation/edit/edit_subcategory_picker_screen.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/subcategory_picker_screen.dart';
 
 /// Экран правки операции (открывается тапом по строке «Истории»).
 ///
-/// Меняются тип (доход/расход), сумма, дата, категория и комментарий. Тип
-/// виден тремя способами, как в быстром вводе (слово в заголовке, цвет, знак).
-/// При смене типа категория сбрасывается (у доходов и расходов разные наборы),
-/// и без выбора новой сохранить нельзя; если вернуть исходный тип, исходная
-/// категория возвращается. Выход без сохранения («Назад») ничего не меняет и
-/// подтверждения не просит.
+/// Меняются тип (доход/расход), сумма, дата, категория, подкатегория и
+/// комментарий. Тип виден тремя способами, как в быстром вводе (слово в
+/// заголовке, цвет, знак). При смене типа категория и подкатегория сбрасываются
+/// (у доходов и расходов разные наборы), и без выбора новой категории сохранить
+/// нельзя; если вернуть исходный тип, исходные категория и подкатегория
+/// возвращаются. Смена категории сбрасывает подкатегорию, повторный выбор той
+/// же категории её не трогает. Строка «Подкатегория» видна, если у категории
+/// есть живые подкатегории или подкатегория у операции уже есть (в том числе
+/// архивная: её можно оставить или снять, но выбрать заново нельзя). Выход без
+/// сохранения («Назад») ничего не меняет и подтверждения не просит.
 class EditTransactionScreen extends StatefulWidget {
   const EditTransactionScreen({
     required this.transaction,
@@ -54,6 +61,9 @@ class EditTransactionScreen extends StatefulWidget {
   static const savedDuration = Duration(seconds: 4);
   static const categoryLabel = 'Категория';
   static const categoryLoadingLabel = 'Загрузка…';
+  static const subcategoryLabel = 'Подкатегория';
+  static const subcategoryNoneText = 'Не выбрана';
+  static const subcategoryResetAnnouncement = 'Подкатегория сброшена';
   static const deleteTooltip = 'Удалить';
   static const deleteSemanticLabel = 'Удалить операцию';
   static const deletedText = 'Операция удалена';
@@ -107,6 +117,18 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   /// типа).
   Category? _picked;
 
+  /// Подкатегория, выбранная в правке, действует только при [_subOverridden]
+  /// (`true`); `null` при `_subOverridden == true` значит «без подкатегории».
+  /// Пока [_subOverridden] равно `false`, подкатегория исходная (если тип и
+  /// категория не менялись).
+  Category? _pickedSub;
+  bool _subOverridden = false;
+
+  /// Есть ли живые подкатегории у категории (по её id); заполняется по мере
+  /// того, как категории показываются. Не прочитали (ошибка) — записи нет, и
+  /// строка «Подкатегория» без уже выбранной подкатегории скрыта.
+  final _hasSubcategories = <String, bool>{};
+
   /// Подсветить поле категории: человек нажал «Сохранить» без категории.
   bool _categoryError = false;
 
@@ -129,6 +151,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     _note.addListener(_onNoteTextChanged);
     _amount.focusNode.addListener(_onAmountFocusChanged);
     _categoriesLoaded = _loadCategories();
+    unawaited(_rememberSubcategories(t.categoryId));
     // Сообщение «Изменения сохранены» от прошлой правки закрыло бы кнопку
     // «Сохранить» на этом экране. `context` для messenger в `initState` брать
     // нельзя, поэтому после первого кадра (как в быстром вводе).
@@ -213,6 +236,26 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     }
   }
 
+  /// Живые подкатегории категории [parentId] (архивные не в счёте).
+  Future<List<Category>> _liveSubcategories(String parentId) async => [
+    for (final s in await widget.categories.watchSubcategories(parentId).first)
+      if (!s.isArchived) s,
+  ];
+
+  /// Узнаёт, есть ли у категории живые подкатегории, чтобы показать строку
+  /// «Подкатегория». Ошибку чтения глотаем: строка просто не появится.
+  Future<void> _rememberSubcategories(String categoryId) async {
+    if (_hasSubcategories.containsKey(categoryId)) return;
+    try {
+      final subs = await _liveSubcategories(categoryId);
+      if (!mounted) return;
+      final has = subs.isNotEmpty;
+      setState(() => _hasSubcategories[categoryId] = has);
+    } on Object {
+      // Не узнали: считаем, что подкатегорий нет.
+    }
+  }
+
   bool get _typeChanged => _type != widget.transaction.type;
 
   bool get _categoryChanged =>
@@ -223,16 +266,38 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   Category? get _shownCategory =>
       _typeChanged ? _picked : (_picked ?? _currentCategory);
 
+  /// Подкатегория для показа: выбранная в правке, а без выбора — исходная, но
+  /// только пока не сменились тип и категория (тогда её нет).
+  Category? get _shownSubcategory => _subOverridden
+      ? _pickedSub
+      : (_typeChanged || _categoryChanged ? null : _currentSubcategory);
+
+  /// Скринридеру сообщаем о сбросе подкатегории: иначе он прошёл бы молча.
+  void _announceSubcategoryReset() {
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        EditTransactionScreen.subcategoryResetAnnouncement,
+        Directionality.of(context),
+      ),
+    );
+  }
+
   void _setType(TransactionType type) {
     if (type == _type) return;
+    final hadSubcategory = _shownSubcategory != null;
     setState(() {
       _type = type;
       // Выбор относился к другому виду категорий. Возврат к исходному типу
-      // снова показывает исходную категорию (она хранится в `_currentCategory`).
+      // снова показывает исходную категорию (она хранится в `_currentCategory`)
+      // и подкатегорию.
       _picked = null;
+      _pickedSub = null;
+      _subOverridden = false;
       _categoryError = false;
       _error = null;
     });
+    if (hadSubcategory) _announceSubcategoryReset();
   }
 
   Future<void> _pickCategory() async {
@@ -245,11 +310,58 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
       ),
     );
     if (picked == null || !mounted) return;
+    // Та же категория, что уже выбрана, подкатегорию не сбрасывает.
+    final sameCategory = _shownCategory?.id == picked.id;
+    final hadSubcategory = _shownSubcategory != null;
     setState(() {
       _picked = picked;
+      if (!sameCategory) {
+        _pickedSub = null;
+        _subOverridden = true;
+      }
       _categoryError = false;
       _error = null;
     });
+    unawaited(_rememberSubcategories(picked.id));
+    if (!sameCategory && hadSubcategory) _announceSubcategoryReset();
+  }
+
+  /// Идёт чтение подкатегорий или открыта их сетка: повторный тап игнорируется.
+  bool _subcategoriesBusy = false;
+
+  Future<void> _pickSubcategory() async {
+    final parent = _shownCategory;
+    if (parent == null || _subcategoriesBusy) return;
+    _subcategoriesBusy = true;
+    try {
+      final List<Category> subcategories;
+      try {
+        subcategories = await _liveSubcategories(parent.id);
+      } on Object {
+        // Список не прочитался: сетку не открываем, состояние правки цело.
+        if (mounted) {
+          setState(() => _error = SubcategoryPickerScreen.loadErrorText);
+        }
+        return;
+      }
+      if (!mounted) return;
+      final choice = await Navigator.of(context).push<SubcategoryChoice>(
+        MaterialPageRoute<SubcategoryChoice>(
+          builder: (_) => EditSubcategoryPickerScreen(
+            parent: parent,
+            subcategories: subcategories,
+          ),
+        ),
+      );
+      if (choice == null || !mounted) return;
+      setState(() {
+        _pickedSub = choice.subcategory;
+        _subOverridden = true;
+        _error = null;
+      });
+    } finally {
+      _subcategoriesBusy = false;
+    }
   }
 
   /// Идёт сохранение (или оно уже удалось): повторные тапы игнорируются. После
@@ -289,6 +401,8 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         note: _note.text,
         newCategory: _picked,
         newType: type,
+        newSubcategory: _pickedSub,
+        clearSubcategory: _subOverridden && _pickedSub == null,
       );
       // Операцию могли удалить, пока экран был открыт: репозиторий на такое
       // отвечает общей ArgumentError, а человеку нужно объяснение.
@@ -412,11 +526,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
           transactionRuleMessage(TransactionRule.emptyCategoryId, type: _type);
     }
     if (!_loaded) return EditTransactionScreen.categoryLoadingLabel;
-    final category = _picked ?? _currentCategory;
-    if (category == null) return noCategoryLabel;
-    // Подкатегория остаётся, пока категорию не сменили.
-    final sub = _categoryChanged ? null : _currentSubcategory;
-    return sub == null ? category.name : '${category.name} · ${sub.name}';
+    return (_picked ?? _currentCategory)?.name ?? noCategoryLabel;
   }
 
   @override
@@ -430,6 +540,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         ? EditTransactionScreen.incomeTitle
         : EditTransactionScreen.expenseTitle;
     final category = _shownCategory;
+    final subcategory = _shownSubcategory;
     final error = _error;
 
     return Scaffold(
@@ -564,6 +675,13 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         ),
                       ),
                     ),
+                    if (category != null &&
+                        (_hasSubcategories[category.id] == true ||
+                            subcategory != null))
+                      _SubcategoryRow(
+                        subcategory: subcategory,
+                        onTap: () => unawaited(_pickSubcategory()),
+                      ),
                     NoteField(controller: _note, focusNode: _noteFocus),
                   ],
                 ),
@@ -595,6 +713,47 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
             ),
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Строка «Подкатегория» под полем категории: в том же стиле. Скринридер
+/// читает «Подкатегория: Овощи» или «Подкатегория: не выбрана» как кнопку.
+class _SubcategoryRow extends StatelessWidget {
+  const _SubcategoryRow({required this.subcategory, required this.onTap});
+
+  final Category? subcategory;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sub = subcategory;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Semantics(
+        button: true,
+        label:
+            '${EditTransactionScreen.subcategoryLabel}: '
+            '${sub?.name ?? 'не выбрана'}',
+        onTap: onTap,
+        excludeSemantics: true,
+        child: Material(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            leading: Icon(
+              sub == null ? fallbackCategoryIcon : categoryIconFor(sub.iconKey),
+              color: theme.colorScheme.primary,
+            ),
+            title: Text(sub?.name ?? EditTransactionScreen.subcategoryNoneText),
+            subtitle: const Text(EditTransactionScreen.subcategoryLabel),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: onTap,
+          ),
         ),
       ),
     );

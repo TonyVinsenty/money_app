@@ -123,6 +123,91 @@ void main() {
     );
   });
 
+  group('подкатегория', () {
+    final food = _top('food');
+    final cafe = _top('cafe');
+    Category sub(String id, Category parent) => Category.subcategoryOf(
+      id: id,
+      parent: parent,
+      name: id,
+      iconKey: 'shopping_cart',
+      sortOrder: 0,
+    );
+
+    Transaction build({
+      Category? newCategory,
+      TransactionType? newType,
+      Category? newSubcategory,
+      bool clearSubcategory = false,
+    }) => buildEditedTransaction(
+      original: _original,
+      amount: _original.amount,
+      day: _original.occurredOn,
+      clock: _clock,
+      note: 'старое',
+      newCategory: newCategory,
+      newType: newType,
+      newSubcategory: newSubcategory,
+      clearSubcategory: clearSubcategory,
+    );
+
+    test('другая подкатегория той же категории заменяет прежнюю', () {
+      final result = build(newSubcategory: sub('food-other', food));
+      expect(result.categoryId, 'food');
+      expect(result.subcategoryId, 'food-other');
+    });
+
+    test('clearSubcategory снимает подкатегорию', () {
+      final result = build(clearSubcategory: true);
+      expect(result.categoryId, 'food');
+      expect(result.subcategoryId, isNull);
+    });
+
+    test('новая категория вместе с её подкатегорией', () {
+      final result = build(newCategory: cafe, newSubcategory: sub('c1', cafe));
+      expect(result.categoryId, 'cafe');
+      expect(result.subcategoryId, 'c1');
+    });
+
+    test('подкатегория чужой категории: subcategoryNotOfCategory', () {
+      expect(
+        () => build(newSubcategory: sub('c1', cafe)),
+        _rule(TransactionRule.subcategoryNotOfCategory),
+      );
+      // Категорию сменили, а подкатегория осталась от старой.
+      expect(
+        () => build(newCategory: cafe, newSubcategory: sub('f1', food)),
+        _rule(TransactionRule.subcategoryNotOfCategory),
+      );
+    });
+
+    test('при смене типа подкатегория новой категории проходит', () {
+      final salary = _top('salary', kind: CategoryKind.income);
+      final result = build(
+        newType: TransactionType.income,
+        newCategory: salary,
+        newSubcategory: sub('s1', salary),
+      );
+      expect(result.subcategoryId, 's1');
+    });
+
+    test('Transaction.withSubcategory: вид подкатегории должен подходить', () {
+      // Родитель совпадает по id, но вид не тот, что у типа операции.
+      final wrongKind = Category(
+        id: 'x',
+        kind: CategoryKind.income,
+        name: 'x',
+        iconKey: 'shopping_cart',
+        parentId: 'food',
+        sortOrder: 0,
+      );
+      expect(
+        () => _original.withSubcategory(wrongKind),
+        _rule(TransactionRule.typeKindMismatch),
+      );
+    });
+  });
+
   group('смена типа', () {
     final salary = _top('salary', kind: CategoryKind.income);
 

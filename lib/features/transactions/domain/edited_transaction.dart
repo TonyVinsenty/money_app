@@ -24,7 +24,12 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// - [newCategory]: `null` или та же категория — категория и подкатегория
 ///   остаются; другая — подкатегория сбрасывается в `null` (старая
 ///   подкатегория принадлежит старой категории). Связь категории с типом
-///   проверяет [Transaction.withCategory].
+///   проверяет [Transaction.withCategory];
+/// - [newSubcategory] применяется последней, к уже итоговой категории: её
+///   родитель обязан быть равен категории операции, иначе
+///   [TransactionRule.subcategoryNotOfCategory] ([Transaction.withSubcategory]);
+/// - [clearSubcategory]: `true` снимает подкатегорию («Без подкатегории»).
+///   Если задана и [newSubcategory], побеждает [newSubcategory].
 ///
 /// `createdAt` и `updatedAt` тут не участвуют: их ведёт репозиторий.
 Transaction buildEditedTransaction({
@@ -35,6 +40,8 @@ Transaction buildEditedTransaction({
   required String? note,
   Category? newCategory,
   TransactionType? newType,
+  Category? newSubcategory,
+  bool clearSubcategory = false,
 }) {
   final typeChanged = newType != null && newType != original.type;
   if (typeChanged && newCategory == null) {
@@ -55,6 +62,11 @@ Transaction buildEditedTransaction({
     result = result.withCategory(type: newType, category: newCategory!);
   } else if (newCategory != null && newCategory.id != original.categoryId) {
     result = result.withCategory(type: original.type, category: newCategory);
+  }
+  if (newSubcategory != null) {
+    result = result.withSubcategory(newSubcategory);
+  } else if (clearSubcategory) {
+    result = result.withSubcategory(null);
   }
   return result.withNote(note);
 }

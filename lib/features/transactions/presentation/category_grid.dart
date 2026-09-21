@@ -16,6 +16,7 @@ class CategoryGrid extends StatelessWidget {
     required this.categories,
     required this.onSelected,
     this.onSkip,
+    this.skipText = skipLabel,
     super.key,
   });
 
@@ -24,6 +25,9 @@ class CategoryGrid extends StatelessWidget {
 
   /// Тап по плитке «Пропустить»; без него такой плитки нет.
   final VoidCallback? onSkip;
+
+  /// Подпись плитки пропуска: в правке операции это «Без подкатегории».
+  final String skipText;
 
   static const skipLabel = 'Пропустить';
 
@@ -45,7 +49,7 @@ class CategoryGrid extends StatelessWidget {
         delegate: SliverChildBuilderDelegate((context, index) {
           if (skip != null && index == 0) {
             return _CategoryTile(
-              label: skipLabel,
+              label: skipText,
               icon: Icons.arrow_forward,
               onTap: skip,
             );

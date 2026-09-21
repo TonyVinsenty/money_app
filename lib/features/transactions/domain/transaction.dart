@@ -130,6 +130,36 @@ final class Transaction {
     );
   }
 
+  /// Копия с другой подкатегорией (или без неё, если [subcategory] равна
+  /// `null`); категория и тип остаются.
+  ///
+  /// Проверяет связь [subcategory] с операцией: родитель равен
+  /// [categoryId] ([TransactionRule.subcategoryNotOfCategory]), вид
+  /// соответствует [type] ([TransactionRule.typeKindMismatch]). Архивность
+  /// здесь не проверяется (это делает репозиторий).
+  Transaction withSubcategory(Category? subcategory) {
+    if (subcategory != null) {
+      if (subcategory.parentId != categoryId) {
+        throw TransactionRuleException(
+          TransactionRule.subcategoryNotOfCategory,
+        );
+      }
+      if (subcategory.kind.transactionType != type) {
+        throw TransactionRuleException(TransactionRule.typeKindMismatch);
+      }
+    }
+    return Transaction(
+      id: id,
+      type: type,
+      amount: amount,
+      occurredOn: occurredOn,
+      occurredAt: occurredAt,
+      categoryId: categoryId,
+      subcategoryId: subcategory?.id,
+      note: note,
+    );
+  }
+
   /// Копия с новым типом и/или категорией.
   ///
   /// Так реализована «смена типа в правке со сбросом категории»: вызывающий
