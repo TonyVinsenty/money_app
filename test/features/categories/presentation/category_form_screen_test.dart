@@ -60,6 +60,7 @@ Future<void> _openForm(
   InMemoryCategoriesRepository repository, {
   CategoryKind kind = CategoryKind.expense,
   Category? renaming,
+  Category? parent,
   double textScale = 1,
 }) async {
   tester.view.physicalSize = const Size(360, 740);
@@ -85,6 +86,7 @@ Future<void> _openForm(
                       idGenerator: FakeIdGenerator(),
                       initialKind: kind,
                       renaming: renaming,
+                      parent: parent,
                     ),
                   ),
                 ),
@@ -144,6 +146,186 @@ void main() {
     expect(created.isTopLevel, isTrue);
     // Расходы: 0, 1 и архивная 5, значит, следующая — 6; доход (9) не мешает.
     expect(created.sortOrder, 6);
+  });
+
+  group('подкатегория', () {
+    Category sub(String id, String name, int order, {bool archived = false}) {
+      final parent = _c('food', 'Продукты', 0);
+      final category = Category.subcategoryOf(
+        id: id,
+        parent: parent,
+        name: name,
+        iconKey: 'restaurant',
+        sortOrder: order,
+      );
+      return archived ? category.archived(DateTime.utc(2026, 9, 1)) : category;
+    }
+
+    setUp(() {
+      repository = _repo([
+        ..._fixture(),
+        sub('milk', 'Молоко', 0),
+        sub('old', 'Старое', 4, archived: true),
+        // Подкатегория другого родителя: порядок она не сдвигает.
+        Category.subcategoryOf(
+          id: 'tea',
+          parent: _c('cafe', 'Кафе', 1),
+          name: 'Чай',
+          iconKey: 'restaurant',
+          sortOrder: 20,
+        ),
+      ]);
+      addTearDown(repository.dispose);
+    });
+
+    testWidgets('создание: только имя, вид и иконка от родителя, порядок '
+        'в конец (архивные считаются)', (tester) async {
+      final parent = _c(
+        'salary',
+        'Зарплата',
+        9,
+        kind: CategoryKind.income,
+        iconKey: 'payments',
+      );
+      repository = _repo([
+        parent,
+        Category.subcategoryOf(
+          id: 'bonus',
+          parent: parent,
+          name: 'Бонус',
+          iconKey: 'payments',
+          sortOrder: 0,
+        ),
+      ]);
+      addTearDown(repository.dispose);
+      await _openForm(tester, repository, kind: parent.kind, parent: parent);
+
+      expect(find.text(subcategoryFormCreateTitle), findsOneWidget);
+      expect(find.text(categoryFormCreateTitle), findsNothing);
+      expect(find.text(categoryFormKindTitle), findsNothing);
+      expect(find.text(categoryFormIconTitle), findsNothing);
+      expect(find.byType(SegmentedButton<CategoryKind>), findsNothing);
+      expect(find.textContaining('Тип:'), findsNothing);
+      // Автофокус, как в форме категории.
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).autofocus,
+        isTrue,
+      );
+
+      await _type(tester, '  Премия ');
+      await _save(tester);
+
+      expect(_formIsOpen(), isFalse);
+      final created = repository.all.last;
+      expect(created.name, 'Премия');
+      expect(created.parentId, 'salary');
+      expect(created.kind, CategoryKind.income);
+      expect(created.iconKey, 'payments');
+      expect(created.sortOrder, 1);
+    });
+
+    testWidgets('порядок: после самой большой подкатегории родителя, включая '
+        'архивную', (tester) async {
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(tester, repository, kind: parent.kind, parent: parent);
+
+      await _type(tester, 'Хлеб');
+      await _save(tester);
+
+      expect(repository.all.last.parentId, 'food');
+      expect(repository.all.last.sortOrder, 5);
+    });
+
+    testWidgets('переименование: свой заголовок, имя подставлено, без типа', (
+      tester,
+    ) async {
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(
+        tester,
+        repository,
+        kind: parent.kind,
+        parent: parent,
+        renaming: sub('milk', 'Молоко', 0),
+      );
+
+      expect(find.text(subcategoryFormRenameTitle), findsOneWidget);
+      expect(find.textContaining('Тип:'), findsNothing);
+      expect(find.text('Молоко'), findsOneWidget);
+
+      await _type(tester, 'Кефир');
+      await _save(tester);
+
+      expect(_formIsOpen(), isFalse);
+      expect(repository.all.firstWhere((c) => c.id == 'milk').name, 'Кефир');
+    });
+
+    testWidgets('дубль имени внутри родителя: тот же текст под полем; такое '
+        'же имя у другого родителя допустимо', (tester) async {
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(tester, repository, kind: parent.kind, parent: parent);
+
+      await _type(tester, 'молоко');
+      await _save(tester);
+      expect(
+        find.text(categoryRuleMessage(CategoryRule.duplicateName)),
+        findsOneWidget,
+      );
+      expect(_formIsOpen(), isTrue);
+
+      await _type(tester, 'Чай');
+      await _save(tester);
+      expect(_formIsOpen(), isFalse);
+      expect(repository.all.last.name, 'Чай');
+    });
+
+    testWidgets('пустое имя: текст под полем, ничего не записано', (
+      tester,
+    ) async {
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(tester, repository, kind: parent.kind, parent: parent);
+
+      await _type(tester, '  ');
+      await _save(tester);
+
+      expect(
+        find.text(categoryRuleMessage(CategoryRule.emptyName)),
+        findsOneWidget,
+      );
+      expect(_formIsOpen(), isTrue);
+    });
+
+    testWidgets('двойной тап по «Сохранить» пишет одну подкатегорию', (
+      tester,
+    ) async {
+      final slow = _SlowRepository(_fixture());
+      addTearDown(slow.dispose);
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(tester, slow, kind: parent.kind, parent: parent);
+      await _type(tester, 'Молоко');
+
+      await tester.tap(find.text(categoryFormSaveLabel));
+      await tester.pump();
+      await tester.tap(find.text(categoryFormSaveLabel), warnIfMissed: false);
+      await tester.pump();
+      slow.gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(slow.started, 1);
+      expect(slow.all.where((c) => c.parentId == 'food'), hasLength(1));
+    });
+
+    testWidgets('масштаб 200 %: без переполнения', (tester) async {
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(
+        tester,
+        repository,
+        kind: parent.kind,
+        parent: parent,
+        textScale: 2,
+      );
+
+      expect(tester.takeException(), isNull);
+    });
   });
 
   testWidgets('доходная категория: вид открытой вкладки предвыбран, можно '

@@ -1144,6 +1144,37 @@ void main() {
 
         expect(await repo.nextSortOrder(CategoryKind.expense), 7);
       });
+
+      test(
+        'with parentId: max + 1 over that parent\'s subcategories, '
+        'archived included, other parents and deleted rows ignored',
+        () async {
+          await repo.create(top('p1', sortOrder: 40));
+          await repo.create(top('p2', sortOrder: 41));
+          await repo.create(top('p3'));
+          await repo.create(child('a', 'p1'));
+          await repo.create(child('b', 'p1', sortOrder: 3));
+          await repo.archive('b');
+          await repo.create(child('other', 'p2', sortOrder: 20));
+          await rawInsert('gone', parentId: 'p1', sortOrder: 50, deletedAt: 5);
+
+          expect(
+            await repo.nextSortOrder(CategoryKind.expense, parentId: 'p1'),
+            4,
+          );
+          expect(
+            await repo.nextSortOrder(CategoryKind.expense, parentId: 'p2'),
+            21,
+          );
+          // Родитель без подкатегорий: с нуля, а не по номерам категорий.
+          expect(
+            await repo.nextSortOrder(CategoryKind.expense, parentId: 'p3'),
+            0,
+          );
+          // Без parentId номера подкатегорий не мешают.
+          expect(await repo.nextSortOrder(CategoryKind.expense), 42);
+        },
+      );
     });
 
     group('corrupted data', () {

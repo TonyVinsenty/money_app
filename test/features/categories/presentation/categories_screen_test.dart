@@ -42,7 +42,7 @@ List<Category> _fixture() => [
   _c('clothes', 'Одежда', 3, archived: true),
   _c('salary', 'Зарплата', 0, kind: CategoryKind.income, iconKey: 'payments'),
   _c('gift', 'Подарки', 1, kind: CategoryKind.income),
-  // Подкатегория в этом шаге не показывается.
+  // Подкатегории в списке категорий не показываются.
   Category.subcategoryOf(
     id: 'milk',
     parent: _c('food', 'Продукты', 0),
@@ -89,16 +89,21 @@ Future<void> _pumpWith(
           renamed.add(category);
           await formGate;
         },
+        onOpenSubcategories: (category) async {
+          openedSubcategories.add(category);
+          await formGate;
+        },
       ),
     ),
   );
   await tester.pumpAndSettle();
 }
 
-/// Что попросил открыть экран: виды для создания и категории для
-/// переименования.
+/// Что попросил открыть экран: виды для создания, категории для
+/// переименования и категории, чьи подкатегории открывают.
 final created = <CategoryKind>[];
 final renamed = <Category>[];
+final openedSubcategories = <Category>[];
 
 /// Пока не завершён, «форма» считается открытой (колбэки ждут его).
 Future<void>? formGate;
@@ -137,7 +142,153 @@ void main() {
   setUp(() {
     created.clear();
     renamed.clear();
+    openedSubcategories.clear();
     formGate = null;
+  });
+
+  group('подкатегории в строке', () {
+    /// Кнопка перехода к подкатегориям в строке категории [id].
+    Finder subButton(String id) => find.descendant(
+      of: find.byKey(ValueKey<String>(id)),
+      matching: find.byTooltip(categoriesSubcategoriesLabel(_nameOf(id))),
+    );
+
+    testWidgets('у живой категории есть кнопка от 48 dp между карандашом и '
+        'ручкой; тап открывает подкатегории этой категории', (tester) async {
+      await _pump(tester, _fixture());
+
+      expect(subButton('cafe'), findsOneWidget);
+      final size = tester.getSize(subButton('cafe'));
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
+      final pencilX = tester
+          .getCenter(
+            find.descendant(
+              of: find.byKey(const ValueKey<String>('cafe')),
+              matching: find.byTooltip(categoriesRenameLabel('Кафе')),
+            ),
+          )
+          .dx;
+      final handleX = tester
+          .getCenter(
+            find.descendant(
+              of: find.byKey(const ValueKey<String>('cafe')),
+              matching: find.byIcon(Icons.drag_handle),
+            ),
+          )
+          .dx;
+      expect(tester.getCenter(subButton('cafe')).dx, greaterThan(pencilX));
+      expect(tester.getCenter(subButton('cafe')).dx, lessThan(handleX));
+
+      await tester.tap(subButton('cafe'));
+      await tester.pumpAndSettle();
+      expect(openedSubcategories.map((c) => c.id), ['cafe']);
+    });
+
+    testWidgets('подпись «Подкатегории: имя» доступна скринридеру', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _fixture());
+
+      expect(
+        tester.getSemantics(subButton('cafe')),
+        isSemantics(
+          tooltip: categoriesSubcategoriesLabel('Кафе'),
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      handle.dispose();
+    });
+
+    testWidgets('счётчик «Подкатегорий: N» только у категорий с живыми '
+        'подкатегориями', (tester) async {
+      final food = _c('food', 'Продукты', 0);
+      await _pump(tester, [
+        food,
+        _c('cafe', 'Кафе', 1),
+        Category.subcategoryOf(
+          id: 'milk',
+          parent: food,
+          name: 'Молоко',
+          iconKey: 'shopping_cart',
+          sortOrder: 0,
+        ),
+        Category.subcategoryOf(
+          id: 'bread',
+          parent: food,
+          name: 'Хлеб',
+          iconKey: 'shopping_cart',
+          sortOrder: 1,
+        ),
+        Category.subcategoryOf(
+          id: 'old',
+          parent: food,
+          name: 'Старое',
+          iconKey: 'shopping_cart',
+          sortOrder: 2,
+        ).archived(DateTime.utc(2026, 9, 1)),
+      ]);
+
+      // Архивная подкатегория не считается.
+      expect(find.text(categoriesSubcategoryCount(2)), findsOneWidget);
+      expect(find.textContaining('Подкатегорий:'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('food')),
+          matching: find.text('Подкатегорий: 2'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('у архивной категории кнопки подкатегорий нет', (tester) async {
+      await _pump(tester, _fixture());
+      await _openArchive(tester);
+
+      expect(find.text('Одежда'), findsOneWidget);
+      expect(subButton('clothes'), findsNothing);
+      expect(subButton('food'), findsOneWidget);
+    });
+
+    testWidgets('двойной тап по кнопке открывает один экран подкатегорий', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      formGate = gate.future;
+      await _pump(tester, _fixture());
+
+      await tester.tap(subButton('cafe'));
+      await tester.pump();
+      await tester.tap(subButton('cafe'));
+      await tester.pump();
+      expect(openedSubcategories.map((c) => c.id), ['cafe']);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('масштаб 200 %: строка с четырьмя элементами без '
+        'переполнения', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final parent = _c('long', 'Очень длинное название категории', 0);
+      await _pump(tester, [
+        parent,
+        Category.subcategoryOf(
+          id: 'sub',
+          parent: parent,
+          name: 'Подкатегория',
+          iconKey: 'shopping_cart',
+          sortOrder: 0,
+        ),
+      ], textScale: 2);
+
+      expect(find.text(categoriesSubcategoryCount(1)), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   testWidgets('кнопка «Добавить категорию» передаёт вид открытой вкладки', (
@@ -255,6 +406,7 @@ void main() {
                     categories: repository,
                     onCreate: (_) async {},
                     onRename: (_) async {},
+                    onOpenSubcategories: (_) async {},
                   ),
                 ),
               ),
@@ -523,6 +675,10 @@ void main() {
       ),
     ], textScale: 2);
 
+    // Название переносится на много строк: раздел архива уходит вниз, к нему
+    // прокручиваем список (иначе его закрывает кнопка «Добавить»).
+    await tester.drag(find.byType(ReorderableListView), const Offset(0, -300));
+    await tester.pumpAndSettle();
     await _openArchive(tester);
     expect(find.text(categoriesRestoreAction), findsOneWidget);
     expect(find.text(categoriesArchiveAction), findsOneWidget);

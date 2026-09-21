@@ -5,6 +5,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -156,6 +157,45 @@ void main() {
               allOf(
                 contains('/category-form'),
                 contains('CategoryFormRouteArguments'),
+              ),
+            ),
+          ),
+        );
+      }
+    });
+
+    test('маршрут подкатегорий: имя, страница и понятная ArgumentError', () {
+      expect(AppRoutes.subcategories, '/subcategories');
+      final route = onGenerateAppRoute(
+        RouteSettings(
+          name: AppRoutes.subcategories,
+          arguments: SubcategoriesRouteArguments(
+            parent: Category.topLevel(
+              id: 'food',
+              kind: CategoryKind.expense,
+              name: 'Продукты',
+              iconKey: 'shopping_cart',
+              sortOrder: 0,
+            ),
+            categories: FakeCategoriesRepository(),
+            idGenerator: FakeIdGenerator(),
+          ),
+        ),
+      );
+      expect(route, isA<MaterialPageRoute<void>>());
+      expect(route!.settings.name, AppRoutes.subcategories);
+      for (final arguments in <Object?>[null, 'food']) {
+        expect(
+          () => onGenerateAppRoute(
+            RouteSettings(name: AppRoutes.subcategories, arguments: arguments),
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.toString(),
+              'сообщение',
+              allOf(
+                contains('/subcategories'),
+                contains('SubcategoriesRouteArguments'),
               ),
             ),
           ),

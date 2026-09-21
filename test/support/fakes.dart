@@ -69,12 +69,16 @@ class InMemoryCategoriesRepository extends FakeCategoriesRepository {
   }
 
   /// Как настоящий: на единицу больше максимума среди категорий верхнего
-  /// уровня вида (архивные считаются), для пустого вида 0.
+  /// уровня вида (или подкатегорий [parentId]); архивные считаются, для
+  /// пустого списка 0.
   @override
-  Future<int> nextSortOrder(CategoryKind kind) async {
+  Future<int> nextSortOrder(CategoryKind kind, {String? parentId}) async {
     var next = 0;
     for (final c in _state.value) {
-      if (c.isTopLevel && c.kind == kind && c.sortOrder >= next) {
+      final sibling = parentId == null
+          ? c.isTopLevel && c.kind == kind
+          : c.parentId == parentId;
+      if (sibling && c.sortOrder >= next) {
         next = c.sortOrder + 1;
       }
     }

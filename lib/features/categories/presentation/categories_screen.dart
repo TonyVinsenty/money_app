@@ -1,14 +1,27 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:money_app/core/ui/async_view.dart';
-import 'package:money_app/core/ui/category_icons.dart';
-import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
-import 'package:money_app/features/categories/domain/category_rules.dart';
+import 'package:money_app/features/categories/presentation/category_actions.dart';
+import 'package:money_app/features/categories/presentation/category_list.dart';
+
+// Тексты, общие с экраном подкатегорий, лежат рядом со списком.
+export 'package:money_app/features/categories/presentation/category_list.dart'
+    show
+        categoriesArchiveAction,
+        categoriesArchiveLabel,
+        categoriesArchiveTitle,
+        categoriesArchivedDuration,
+        categoriesMovedAnnouncement,
+        categoriesRenameLabel,
+        categoriesRestoreAction,
+        categoriesRestoreLabel,
+        categoriesSubcategoriesLabel,
+        categoriesSubcategoryCount,
+        categoriesUndoAction;
 
 /// Заголовок экрана управления категориями.
 const categoriesScreenTitle = 'Категории';
@@ -17,27 +30,14 @@ const categoriesScreenTitle = 'Категории';
 const categoriesExpenseTab = 'Расходы';
 const categoriesIncomeTab = 'Доходы';
 
-/// Кнопки у строки категории.
-const categoriesArchiveAction = 'В архив';
-const categoriesRestoreAction = 'Вернуть из архива';
-
 /// Кнопка создания новой категории.
 const categoriesAddAction = 'Добавить категорию';
 
-/// Сообщение после отправки в архив и кнопка отмены в нём.
+/// Сообщение после отправки в архив.
 String categoriesArchivedMessage(String name) => 'Категория «$name» в архиве';
-const categoriesUndoAction = 'Вернуть';
-
-/// Сколько сообщение об архиве висит на экране: столько же, сколько сообщение
-/// об операции с «Отменить» (`SavedSnackBar.duration`). Само значение сюда
-/// скопировано: фича не импортирует чужой `presentation` (ADR 0002).
-const categoriesArchivedDuration = Duration(seconds: 6);
 
 /// Пояснение первой строкой в развёрнутом архиве.
 const categoriesArchiveNote = 'Старые операции по этим категориям сохранены';
-
-/// Подпись кнопки-карандаша у строки: имя нужно скринридеру и подсказке.
-String categoriesRenameLabel(String name) => 'Переименовать: $name';
 
 /// Пока в виде нет ни одной живой категории.
 const categoriesEmptyText = 'Категорий пока нет';
@@ -45,55 +45,47 @@ const categoriesEmptyText = 'Категорий пока нет';
 /// Ошибка чтения списка из базы.
 const categoriesLoadErrorText = 'Не удалось загрузить категории';
 
-/// Заголовок свёрнутого раздела архива: «Архив (3)».
-String categoriesArchiveTitle(int count) => 'Архив ($count)';
-
-/// Объявление скринридеру после перемещения: «Кафе: позиция 2 из 5».
-String categoriesMovedAnnouncement(String name, int position, int total) =>
-    '$name: позиция $position из $total';
-
-/// Подпись кнопки для скринридера: к слову-действию добавляется имя, иначе
-/// все кнопки в списке звучат одинаково.
-String categoriesArchiveLabel(String name) => '$categoriesArchiveAction: $name';
-String categoriesRestoreLabel(String name) => '$categoriesRestoreAction: $name';
-
 /// Экран «Категории» (открывается из «Настроек» по именованному маршруту).
 ///
 /// Два вида, «Расходы» и «Доходы»; в каждом живые категории верхнего уровня в
 /// порядке репозитория (`sortOrder`) и свёрнутый раздел «Архив (N)». Архив
-/// обратим, поэтому подтверждения нет. Подкатегории здесь пока не показываются.
+/// обратим, поэтому подтверждения нет. У живой категории есть кнопка перехода
+/// к её подкатегориям; сами подкатегории на этом экране не показываются.
 ///
-/// Форма создания и переименования лежит на другом маршруте: её открывают
-/// колбэки [onCreate] (с видом открытой вкладки) и [onRename], их даёт
-/// приложение. Колбэк возвращает Future, который завершается, когда форму
-/// закрыли: пока она открыта, повторный тап (двойной) второй формы не открывает.
+/// Форма создания и переименования и экран подкатегорий лежат на других
+/// маршрутах: их открывают колбэки [onCreate] (с видом открытой вкладки),
+/// [onRename] и [onOpenSubcategories], их даёт приложение. Колбэк возвращает
+/// Future, который завершается, когда экран закрыли: пока он открыт, повторный
+/// тап (двойной) второго экрана не открывает.
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({
     required this.categories,
     required this.onCreate,
     required this.onRename,
+    required this.onOpenSubcategories,
     super.key,
   });
 
   final CategoriesRepository categories;
   final Future<void> Function(CategoryKind kind) onCreate;
   final Future<void> Function(Category category) onRename;
+  final Future<void> Function(Category category) onOpenSubcategories;
 
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
 }
 
-class _CategoriesScreenState extends State<CategoriesScreen> {
+class _CategoriesScreenState extends State<CategoriesScreen>
+    with CategoryActions<CategoriesScreen> {
   /// Поток создаём один раз: в `build` каждая перерисовка подписывалась бы
   /// заново.
   late final Stream<List<Category>> _stream;
 
-  /// Категории, по которым сейчас идёт запись: второй тап игнорируется.
-  final _pending = <String>{};
+  @override
+  CategoriesRepository get categoriesRepository => widget.categories;
 
-  /// Форма создания или переименования уже открыта (до возврата с маршрута):
-  /// быстрый двойной тап не открывает вторую.
-  bool _formOpen = false;
+  @override
+  String archivedMessage(String name) => categoriesArchivedMessage(name);
 
   @override
   void initState() {
@@ -101,100 +93,35 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _stream = widget.categories.watchAll();
   }
 
-  Future<void> _openForm(Future<void> Function() open) async {
-    if (_formOpen) return;
-    _formOpen = true;
-    try {
-      await open();
-    } finally {
-      _formOpen = false;
+  /// Сколько живых подкатегорий у каждой категории (по id родителя).
+  Map<String, int> _subcategoryCounts(List<Category> all) {
+    final counts = <String, int>{};
+    for (final c in all) {
+      final parentId = c.parentId;
+      if (parentId != null && !c.isArchived) {
+        counts[parentId] = (counts[parentId] ?? 0) + 1;
+      }
     }
+    return counts;
   }
 
-  /// True, если запись удалась; иначе показано сообщение об ошибке (если экран
-  /// ещё на месте).
-  /// [messenger] берётся заранее, пока экран смонтирован: кнопка «Вернуть» в
-  /// сообщении живёт и после ухода с экрана, а к уничтоженному контексту
-  /// обращаться нельзя.
-  /// [restoring]: отказ из-за дубля имени при возврате из архива объясняется
-  /// отдельным текстом.
-  Future<bool> _change(
-    Category category,
-    Future<void> Function(String id) action,
-    ScaffoldMessengerState messenger, {
-    bool restoring = false,
-  }) async {
-    if (!_pending.add(category.id)) return false;
-    try {
-      await action(category.id);
-      return true;
-    } on CategoryRuleException catch (error) {
-      _showError(
-        messenger,
-        restoring && error.rule == CategoryRule.duplicateName
-            ? categoryRestoreDuplicateText
-            : categoryRuleMessage(error.rule),
-      );
-    } on Object {
-      // Сбой базы и всё прочее: человек исправить не может.
-      _showError(messenger, categorySaveFailedText);
-    } finally {
-      _pending.remove(category.id);
-    }
-    return false;
-  }
-
-  /// [messenger] передаёт «Вернуть» из сообщения (экрана к тому времени может
-  /// уже не быть); из строки списка его берём из контекста.
-  Future<void> _restore(
-    Category category, [
-    ScaffoldMessengerState? messenger,
-  ]) => _change(
-    category,
-    widget.categories.restore,
-    messenger ?? ScaffoldMessenger.of(context),
-    restoring: true,
-  );
-
-  Future<void> _archive(Category category) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final ok = await _change(category, widget.categories.archive, messenger);
-    if (!ok || !mounted) return;
-    // Прежнее сообщение скрываем: при быстрых нажатиях они не копятся.
-    // `persist: false`: у сообщения с кнопкой иначе время не отсчитывается.
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(categoriesArchivedMessage(category.name)),
-          duration: categoriesArchivedDuration,
-          persist: false,
-          action: SnackBarAction(
-            label: categoriesUndoAction,
-            onPressed: () => unawaited(_restore(category, messenger)),
-          ),
-        ),
-      );
-  }
-
-  /// Записывает новый порядок живых категорий вида. `false` при любой ошибке
-  /// (сообщение показано).
-  Future<bool> _reorder(List<String> orderedIds) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await widget.categories.reorder(orderedIds);
-      return true;
-    } on Object {
-      _showError(messenger, categorySaveFailedText);
-      return false;
-    }
-  }
-
-  void _showError(ScaffoldMessengerState messenger, String text) {
-    if (!mounted) return;
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+  /// watchAll отдаёт и подкатегории, и архивные: в списке вида оставляем
+  /// верхний уровень своего вида.
+  Widget _kindList(List<Category> data, CategoryKind kind) {
+    return CategoryList(
+      categories: data,
+      belongs: (c) => c.isTopLevel && c.kind == kind,
+      archiveKey: 'archive-${kind.name}',
+      archiveNote: categoriesArchiveNote,
+      emptyText: categoriesEmptyText,
+      subcategoryCounts: _subcategoryCounts(data),
+      onOpenSubcategories: (c) =>
+          unawaited(openOnce(() => widget.onOpenSubcategories(c))),
+      onArchive: (c) => unawaited(archiveCategory(c)),
+      onRestore: (c) => unawaited(restoreCategory(c)),
+      onRename: (c) => unawaited(openOnce(() => widget.onRename(c))),
+      onReorder: reorderCategories,
+    );
   }
 
   @override
@@ -218,7 +145,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             onPressed: () {
               final index = DefaultTabController.of(context).index;
               unawaited(
-                _openForm(
+                openOnce(
                   () => widget.onCreate(
                     index == 0 ? CategoryKind.expense : CategoryKind.income,
                   ),
@@ -243,300 +170,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ),
             dataBuilder: (context, data) => TabBarView(
               children: [
-                _KindList(
-                  categories: data,
-                  kind: CategoryKind.expense,
-                  onArchive: (c) => unawaited(_archive(c)),
-                  onRestore: (c) => unawaited(_restore(c)),
-                  onRename: (c) =>
-                      unawaited(_openForm(() => widget.onRename(c))),
-                  onReorder: _reorder,
-                ),
-                _KindList(
-                  categories: data,
-                  kind: CategoryKind.income,
-                  onArchive: (c) => unawaited(_archive(c)),
-                  onRestore: (c) => unawaited(_restore(c)),
-                  onRename: (c) =>
-                      unawaited(_openForm(() => widget.onRename(c))),
-                  onReorder: _reorder,
-                ),
+                _kindList(data, CategoryKind.expense),
+                _kindList(data, CategoryKind.income),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Список одного вида: живые категории (их можно переставлять) и раздел
-/// архива внизу.
-///
-/// Перестановка: пока идёт запись, показываем порядок, который человек только
-/// что задал ([_localOrder]), иначе список на миг «отскочил» бы на старый
-/// порядок, пока база не ответила. Порядок из потока снова главный, когда
-/// пришёл новый список или запись не удалась.
-class _KindList extends StatefulWidget {
-  const _KindList({
-    required this.categories,
-    required this.kind,
-    required this.onArchive,
-    required this.onRestore,
-    required this.onRename,
-    required this.onReorder,
-  });
-
-  final List<Category> categories;
-  final CategoryKind kind;
-  final void Function(Category category) onArchive;
-  final void Function(Category category) onRestore;
-  final void Function(Category category) onRename;
-
-  /// Записывает порядок живых категорий; `true`, если запись удалась (при
-  /// ошибке сообщение уже показано).
-  final Future<bool> Function(List<String> orderedIds) onReorder;
-
-  @override
-  State<_KindList> createState() => _KindListState();
-}
-
-class _KindListState extends State<_KindList> {
-  /// Порядок id, заданный человеком и ещё не подтверждённый потоком.
-  List<String>? _localOrder;
-
-  /// Идёт запись порядка: новую перестановку в это время не принимаем.
-  bool _saving = false;
-
-  /// watchAll отдаёт и подкатегории, и архивные: оставляем верхний уровень
-  /// своего вида. Порядок — как отдал репозиторий (`sortOrder`).
-  List<Category> _own() => [
-    for (final c in widget.categories)
-      if (c.isTopLevel && c.kind == widget.kind) c,
-  ];
-
-  List<Category> _streamLive() => [
-    for (final c in _own())
-      if (!c.isArchived) c,
-  ];
-
-  /// Живые категории в порядке, который видит человек.
-  List<Category> _shownLive() {
-    final live = _streamLive();
-    final order = _localOrder;
-    if (order == null) return live;
-    final known = {for (var i = 0; i < order.length; i++) order[i]: i};
-    return [
-      ...[
-        for (final c in live)
-          if (known.containsKey(c.id)) c,
-      ]..sort((a, b) => known[a.id]!.compareTo(known[b.id]!)),
-      for (final c in live)
-        if (!known.containsKey(c.id)) c,
-    ];
-  }
-
-  @override
-  void didUpdateWidget(_KindList oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Пришёл новый список из базы: он и есть правда.
-    if (!_saving && !identical(oldWidget.categories, widget.categories)) {
-      _localOrder = null;
-    }
-  }
-
-  /// [target] уже итоговый индекс (`onReorderItem` сам учитывает сдвиг).
-  Future<void> _handleReorder(int oldIndex, int target) async {
-    if (_saving) return;
-    if (target == oldIndex) return;
-    final live = _shownLive();
-    final moved = live.removeAt(oldIndex);
-    live.insert(target, moved);
-    final ids = [for (final c in live) c.id];
-    setState(() {
-      _localOrder = ids;
-      _saving = true;
-    });
-    final ok = await widget.onReorder(ids);
-    if (!mounted) return;
-    final streamIds = [for (final c in _streamLive()) c.id];
-    setState(() {
-      _saving = false;
-      // Ошибка или поток уже показывает то же самое: локальный порядок не нужен.
-      if (!ok || _sameIds(streamIds, ids)) _localOrder = null;
-    });
-    if (ok) {
-      unawaited(
-        SemanticsService.sendAnnouncement(
-          View.of(context),
-          categoriesMovedAnnouncement(moved.name, target + 1, ids.length),
-          Directionality.of(context),
-        ),
-      );
-    }
-  }
-
-  static bool _sameIds(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final live = _shownLive();
-    final archived = [
-      for (final c in _own())
-        if (c.isArchived) c,
-    ];
-    // Кнопок «Переместить вверх/вниз/в начало/в конец» для скринридера отдельно
-    // делать не нужно: ReorderableListView сам вешает их на каждую строку (без
-    // недоступных у крайних) и озвучивает по-русски.
-    return ReorderableListView(
-      // Свои ручки: по умолчанию на телефоне тянуть пришлось бы долгим
-      // нажатием по всей строке, а ручки не было бы видно.
-      buildDefaultDragHandles: false,
-      // Снизу запас под кнопку «Добавить категорию»: она не закрывает
-      // последнюю строку.
-      padding: const EdgeInsets.only(bottom: 96),
-      onReorderItem: (oldIndex, newIndex) =>
-          unawaited(_handleReorder(oldIndex, newIndex)),
-      header: live.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text(categoriesEmptyText, textAlign: TextAlign.center),
-            )
-          : null,
-      // Архив не переставляется и остаётся внизу.
-      footer: archived.isEmpty
-          ? null
-          : ExpansionTile(
-              key: ValueKey<String>('archive-${widget.kind.name}'),
-              title: Text(categoriesArchiveTitle(archived.length)),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Text(
-                      categoriesArchiveNote,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-                for (final c in archived)
-                  _CategoryRow(
-                    key: ValueKey<String>(c.id),
-                    category: c,
-                    actionText: categoriesRestoreAction,
-                    actionLabel: categoriesRestoreLabel(c.name),
-                    onPressed: () => widget.onRestore(c),
-                    onRename: () => widget.onRename(c),
-                  ),
-              ],
-            ),
-      children: [
-        for (var i = 0; i < live.length; i++)
-          _CategoryRow(
-            key: ValueKey<String>(live[i].id),
-            category: live[i],
-            actionText: categoriesArchiveAction,
-            actionLabel: categoriesArchiveLabel(live[i].name),
-            onPressed: () => widget.onArchive(live[i]),
-            onRename: () => widget.onRename(live[i]),
-            dragIndex: i,
-          ),
-      ],
-    );
-  }
-}
-
-/// Строка категории: иконка, имя и под ним кнопка. Кнопка стоит под именем, а
-/// не сбоку: при крупном шрифте длинное имя и длинная подпись не теснят друг
-/// друга.
-class _CategoryRow extends StatelessWidget {
-  const _CategoryRow({
-    required this.category,
-    required this.actionText,
-    required this.actionLabel,
-    required this.onPressed,
-    this.onRename,
-    this.dragIndex,
-    super.key,
-  });
-
-  final Category category;
-  final String actionText;
-  final String actionLabel;
-  final VoidCallback onPressed;
-
-  /// Переименование (карандаш справа).
-  final VoidCallback? onRename;
-
-  /// Место строки в переставляемом списке; ручка перетаскивания есть только у
-  /// живых категорий (у архивных `null`).
-  final int? dragIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Icon(categoryIconFor(category.iconKey)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  category.name,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(48, 48),
-                    padding: EdgeInsets.zero,
-                    alignment: Alignment.centerLeft,
-                  ),
-                  onPressed: onPressed,
-                  // Скринридер читает действие вместе с именем категории.
-                  child: Semantics(
-                    label: actionLabel,
-                    excludeSemantics: true,
-                    child: Text(actionText),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Карандаш справа: узкая кнопка не отнимает у имени места и при
-          // крупном шрифте (её размер не растёт вместе с текстом).
-          if (onRename != null)
-            IconButton(
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: categoriesRenameLabel(category.name),
-              onPressed: onRename,
-            ),
-          // Ручка: тянуть можно только за неё, чтобы не мешать прокрутке.
-          // Скринридеру ручка не нужна: у строки есть действия «Переместить».
-          if (dragIndex != null)
-            ExcludeSemantics(
-              child: ReorderableDragStartListener(
-                index: dragIndex!,
-                child: const SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Icon(Icons.drag_handle),
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

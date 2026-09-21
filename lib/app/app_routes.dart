@@ -8,6 +8,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
 import 'package:money_app/features/categories/presentation/category_form_screen.dart';
+import 'package:money_app/features/categories/presentation/subcategories_screen.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -31,6 +32,10 @@ abstract final class AppRoutes {
   /// Форма категории (создание или переименование). Аргумент маршрута —
   /// [CategoryFormRouteArguments].
   static const categoryForm = '/category-form';
+
+  /// Экран подкатегорий одной категории. Аргумент маршрута —
+  /// [SubcategoriesRouteArguments].
+  static const subcategories = '/subcategories';
 }
 
 /// Аргументы маршрута [AppRoutes.categories]: репозиторий и генератор id
@@ -48,19 +53,36 @@ final class CategoriesRouteArguments {
 }
 
 /// Аргументы маршрута [AppRoutes.categoryForm]. Если [renaming] задана,
-/// форма переименовывает её, иначе создаёт новую категорию вида [kind].
+/// форма переименовывает её, иначе создаёт новую категорию вида [kind]. Если
+/// задан [parent], форма работает с подкатегорией этого родителя.
 final class CategoryFormRouteArguments {
   const CategoryFormRouteArguments({
     required this.categories,
     required this.idGenerator,
     required this.kind,
     this.renaming,
+    this.parent,
   });
 
   final CategoriesRepository categories;
   final IdGenerator idGenerator;
   final CategoryKind kind;
   final Category? renaming;
+  final Category? parent;
+}
+
+/// Аргументы маршрута [AppRoutes.subcategories]: категория-родитель и те же
+/// сервисы, что у [CategoriesRouteArguments] (нужны форме подкатегории).
+final class SubcategoriesRouteArguments {
+  const SubcategoriesRouteArguments({
+    required this.parent,
+    required this.categories,
+    required this.idGenerator,
+  });
+
+  final Category parent;
+  final CategoriesRepository categories;
+  final IdGenerator idGenerator;
 }
 
 /// Аргументы маршрута [AppRoutes.quickAdd].
@@ -195,6 +217,52 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
               renaming: category,
             ),
           ),
+          onOpenSubcategories: (parent) =>
+              Navigator.of(context).pushNamed<void>(
+                AppRoutes.subcategories,
+                arguments: SubcategoriesRouteArguments(
+                  parent: parent,
+                  categories: arguments.categories,
+                  idGenerator: arguments.idGenerator,
+                ),
+              ),
+        ),
+      );
+    case AppRoutes.subcategories:
+      final arguments = settings.arguments;
+      if (arguments is! SubcategoriesRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.subcategories} ожидает аргумент '
+              'SubcategoriesRouteArguments (родитель, репозиторий и '
+              'генератор id)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (context) => SubcategoriesScreen(
+          parent: arguments.parent,
+          categories: arguments.categories,
+          onCreate: () => Navigator.of(context).pushNamed<void>(
+            AppRoutes.categoryForm,
+            arguments: CategoryFormRouteArguments(
+              categories: arguments.categories,
+              idGenerator: arguments.idGenerator,
+              kind: arguments.parent.kind,
+              parent: arguments.parent,
+            ),
+          ),
+          onRename: (subcategory) => Navigator.of(context).pushNamed<void>(
+            AppRoutes.categoryForm,
+            arguments: CategoryFormRouteArguments(
+              categories: arguments.categories,
+              idGenerator: arguments.idGenerator,
+              kind: arguments.parent.kind,
+              renaming: subcategory,
+              parent: arguments.parent,
+            ),
+          ),
         ),
       );
     case AppRoutes.categoryForm:
@@ -214,6 +282,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           idGenerator: arguments.idGenerator,
           initialKind: arguments.kind,
           renaming: arguments.renaming,
+          parent: arguments.parent,
         ),
       );
   }

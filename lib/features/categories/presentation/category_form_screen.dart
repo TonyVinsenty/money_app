@@ -13,6 +13,8 @@ import 'package:money_app/features/categories/domain/category_rules.dart';
 /// Заголовки экрана формы.
 const categoryFormCreateTitle = 'Новая категория';
 const categoryFormRenameTitle = 'Переименовать категорию';
+const subcategoryFormCreateTitle = 'Новая подкатегория';
+const subcategoryFormRenameTitle = 'Переименовать подкатегорию';
 
 /// Подписи полей и кнопок формы.
 const categoryFormNameLabel = 'Название';
@@ -37,6 +39,10 @@ String categoryFormIconLabel(String iconName, {required bool selected}) =>
 /// При переименовании ([renaming] задана) есть только имя: тип показан строкой
 /// «Тип: Расход» без выбора, вид и иконку репозиторий не меняет.
 ///
+/// Если задан [parent], форма работает с подкатегорией этой категории: есть
+/// только поле имени (вид и иконка наследуются от родителя, порядок — в конец
+/// списка подкатегорий родителя).
+///
 /// Правила проверяет `domain` и репозиторий (пустое или длинное имя, дубль);
 /// форма только показывает их текстом под полем. Успех закрывает экран, ошибка
 /// оставляет его открытым.
@@ -46,6 +52,7 @@ class CategoryFormScreen extends StatefulWidget {
     required this.idGenerator,
     required this.initialKind,
     this.renaming,
+    this.parent,
     super.key,
   });
 
@@ -59,6 +66,9 @@ class CategoryFormScreen extends StatefulWidget {
 
   /// Категория, которую переименовываем; `null` — создаём новую.
   final Category? renaming;
+
+  /// Родитель, если это форма подкатегории; `null` — форма категории.
+  final Category? parent;
 
   @override
   State<CategoryFormScreen> createState() => _CategoryFormScreenState();
@@ -82,6 +92,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
   String? _saveError;
 
   bool get _isRename => widget.renaming != null;
+  bool get _isSubcategory => widget.parent != null;
 
   @override
   void initState() {
@@ -108,8 +119,23 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     final navigator = Navigator.of(context);
     try {
       final renaming = widget.renaming;
+      final parent = widget.parent;
       if (renaming != null) {
         await widget.categories.rename(renaming.id, _name.text);
+      } else if (parent != null) {
+        final sortOrder = await widget.categories.nextSortOrder(
+          parent.kind,
+          parentId: parent.id,
+        );
+        await widget.categories.create(
+          Category.subcategoryOf(
+            id: widget.idGenerator.newId(),
+            parent: parent,
+            name: _name.text,
+            iconKey: parent.iconKey,
+            sortOrder: sortOrder,
+          ),
+        );
       } else {
         final sortOrder = await widget.categories.nextSortOrder(_kind);
         await widget.categories.create(
@@ -160,7 +186,11 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _isRename ? categoryFormRenameTitle : categoryFormCreateTitle,
+          _isSubcategory
+              ? (_isRename
+                    ? subcategoryFormRenameTitle
+                    : subcategoryFormCreateTitle)
+              : (_isRename ? categoryFormRenameTitle : categoryFormCreateTitle),
         ),
       ),
       body: SafeArea(
@@ -191,13 +221,14 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                       onChanged: (_) => setState(() => _nameError = null),
                       onSubmitted: (_) => unawaited(_save()),
                     ),
-                    if (_isRename) ...[
+                    // У подкатегории только имя: вид и иконка от родителя.
+                    if (_isRename && !_isSubcategory) ...[
                       const SizedBox(height: 16),
                       Text(
                         categoryFormKindReadOnly(_kind),
                         style: theme.textTheme.bodyLarge,
                       ),
-                    ] else ...[
+                    ] else if (!_isRename && !_isSubcategory) ...[
                       const SizedBox(height: 16),
                       Text(
                         categoryFormKindTitle,

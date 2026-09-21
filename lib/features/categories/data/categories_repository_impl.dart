@@ -66,15 +66,17 @@ class DriftCategoriesRepository implements CategoriesRepository {
   }
 
   @override
-  Future<int> nextSortOrder(CategoryKind kind) async {
+  Future<int> nextSortOrder(CategoryKind kind, {String? parentId}) async {
     // Сырые строки без превращения в Category: испорченный сосед не мешает.
     // Архивные считаются, удалённые нет (как в reorder).
     final rows =
         await (_db.select(_db.categories)..where(
               (c) =>
                   c.deletedAt.isNull() &
-                  c.parentId.isNull() &
-                  c.kind.equals(categoryKindToDb(kind)),
+                  (parentId == null
+                      ? c.parentId.isNull() &
+                            c.kind.equals(categoryKindToDb(kind))
+                      : c.parentId.equals(parentId)),
             ))
             .get();
     var next = 0;
