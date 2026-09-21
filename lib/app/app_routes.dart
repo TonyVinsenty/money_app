@@ -18,8 +18,17 @@ abstract final class AppRoutes {
   /// Экран правки операции. Аргумент маршрута — [EditTransactionRouteArguments].
   static const editTransaction = '/edit-transaction';
 
-  /// Экран управления категориями (без аргументов).
+  /// Экран управления категориями. Аргумент маршрута —
+  /// [CategoriesRouteArguments].
   static const categories = '/categories';
+}
+
+/// Аргументы маршрута [AppRoutes.categories]: репозиторий достаёт тот, кто
+/// открывает маршрут (см. [QuickAddRouteArguments]).
+final class CategoriesRouteArguments {
+  const CategoriesRouteArguments({required this.categories});
+
+  final CategoriesRepository categories;
 }
 
 /// Аргументы маршрута [AppRoutes.quickAdd].
@@ -109,9 +118,18 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
         ),
       );
     case AppRoutes.categories:
+      final arguments = settings.arguments;
+      if (arguments is! CategoriesRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.categories} ожидает аргумент '
+              'CategoriesRouteArguments (репозиторий категорий)',
+        );
+      }
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) => const CategoriesScreen(),
+        builder: (_) => CategoriesScreen(categories: arguments.categories),
       );
   }
   return null;

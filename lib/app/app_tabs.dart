@@ -63,12 +63,16 @@ class SettingsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     // AppScope.of подписывает вкладку на настройки: выбранная тема в списке
     // обновляется сразу после нажатия.
-    final settings = AppScope.of(context).settings;
+    final services = AppScope.of(context);
+    final settings = services.settings;
     return SettingsScreen(
       themeMode: settings.themeMode,
       onThemeModeChanged: settings.setThemeMode,
-      onOpenCategories: () =>
-          Navigator.of(context).pushNamed(AppRoutes.categories),
+      // Репозиторий берём здесь, под AppScope: открытый маршрут его не видит.
+      onOpenCategories: () => Navigator.of(context).pushNamed(
+        AppRoutes.categories,
+        arguments: CategoriesRouteArguments(categories: services.categories),
+      ),
     );
   }
 }

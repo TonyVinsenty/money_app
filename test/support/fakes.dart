@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app_services.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -31,6 +32,60 @@ class StreamCategoriesRepository extends FakeCategoriesRepository {
           if (c.kind == kind && c.isTopLevel && !c.isArchived) c,
       ],
     );
+  }
+}
+
+/// Фейк репозитория категорий «в памяти» для экрана «Категории»: работают
+/// `watchAll`, `archive` и `restore` (с проверкой дубля имени, как у
+/// настоящего). Остальные методы бросают ошибку.
+class InMemoryCategoriesRepository extends FakeCategoriesRepository {
+  InMemoryCategoriesRepository(List<Category> initial)
+    : _state = ValueNotifier<List<Category>>(List.of(initial));
+
+  final ValueNotifier<List<Category>> _state;
+
+  /// Сколько раз вызвали `archive` и `restore` (для проверки «один тап — одна
+  /// запись»).
+  int writes = 0;
+
+  /// Если задан, `archive` и `restore` бросают его (сбой базы).
+  Exception? failWith;
+
+  void dispose() => _state.dispose();
+
+  @override
+  Stream<List<Category>> watchAll() => Stream.multi((controller) {
+    void push() => controller.add(List.of(_state.value));
+    push();
+    _state.addListener(push);
+    controller.onCancel = () => _state.removeListener(push);
+  });
+
+  Future<void> _replace(String id, Category Function(Category) change) async {
+    writes++;
+    final error = failWith;
+    if (error != null) throw error;
+    _state.value = [
+      for (final c in _state.value)
+        if (c.id == id) change(c) else c,
+    ];
+  }
+
+  @override
+  Future<void> archive(String id) =>
+      _replace(id, (c) => c.archived(DateTime.utc(2026, 9, 20)));
+
+  @override
+  Future<void> restore(String id) async {
+    final target = _state.value.firstWhere((c) => c.id == id);
+    Category.checkUniqueName(
+      name: target.name,
+      kind: target.kind,
+      parentId: target.parentId,
+      existing: _state.value,
+      selfId: id,
+    );
+    await _replace(id, (c) => c.restored());
   }
 }
 

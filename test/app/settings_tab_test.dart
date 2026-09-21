@@ -30,6 +30,9 @@ class _TotalsOnlyRepository extends FakeTransactionsRepository {
 Future<AppSettingsController> _pump(WidgetTester tester) async {
   final settings = AppSettingsController();
   addTearDown(settings.dispose);
+  // Экран «Категории» читает список сразу при открытии.
+  final categories = InMemoryCategoriesRepository(const []);
+  addTearDown(categories.dispose);
   await tester.pumpWidget(
     ListenableBuilder(
       listenable: settings,
@@ -41,6 +44,7 @@ Future<AppSettingsController> _pump(WidgetTester tester) async {
         home: AppScope(
           services: fakeAppServices(
             settings: settings,
+            categories: categories,
             transactions: _TotalsOnlyRepository(),
           ),
           child: AppShell(tabs: defaultAppTabs),

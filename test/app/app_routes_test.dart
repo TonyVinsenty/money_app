@@ -97,6 +97,37 @@ void main() {
       }
     });
 
+    test('маршрут категорий: имя, страница и понятная ArgumentError', () {
+      expect(AppRoutes.categories, '/categories');
+      final route = onGenerateAppRoute(
+        RouteSettings(
+          name: AppRoutes.categories,
+          arguments: CategoriesRouteArguments(
+            categories: FakeCategoriesRepository(),
+          ),
+        ),
+      );
+      expect(route, isA<MaterialPageRoute<void>>());
+      expect(route!.settings.name, AppRoutes.categories);
+      for (final arguments in <Object?>[null, 'categories']) {
+        expect(
+          () => onGenerateAppRoute(
+            RouteSettings(name: AppRoutes.categories, arguments: arguments),
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.toString(),
+              'сообщение',
+              allOf(
+                contains('/categories'),
+                contains('CategoriesRouteArguments'),
+              ),
+            ),
+          ),
+        );
+      }
+    });
+
     test('без аргумента или с чужим аргументом — понятная ArgumentError', () {
       for (final arguments in <Object?>[
         null,
