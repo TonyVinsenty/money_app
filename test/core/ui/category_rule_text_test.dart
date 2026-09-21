@@ -27,6 +27,34 @@ void main() {
     expect(categoryRuleMessage(CategoryRule.emptyIconKey), 'Выберите иконку');
   });
 
+  test('для подкатегории тексты про имя говорят «подкатегория»', () {
+    expect(
+      categoryRuleMessage(CategoryRule.emptyName, subcategory: true),
+      'Введите название подкатегории',
+    );
+    expect(
+      categoryRuleMessage(CategoryRule.duplicateName, subcategory: true),
+      'Такая подкатегория уже есть. Выберите другое название',
+    );
+    // Остальные тексты общие для обоих вариантов.
+    for (final rule in [
+      CategoryRule.nameTooLong,
+      CategoryRule.emptyIconKey,
+      CategoryRule.negativeSortOrder,
+    ]) {
+      expect(
+        categoryRuleMessage(rule, subcategory: true),
+        categoryRuleMessage(rule),
+        reason: '$rule',
+      );
+    }
+    expect(
+      subcategoryRestoreDuplicateText,
+      'В списке уже есть подкатегория с таким названием. Переименуйте её или '
+      'оставьте эту в архиве',
+    );
+  });
+
   test('правила «не должно случаться» дают общий текст', () {
     for (final rule in [
       CategoryRule.negativeSortOrder,

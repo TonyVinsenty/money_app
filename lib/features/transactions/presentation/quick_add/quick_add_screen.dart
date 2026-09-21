@@ -150,44 +150,50 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     _subcategoriesBusy = true;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
-    List<Category> subcategories;
+    // Флаг сбрасывается в `finally` на любом выходе; кроме случая, когда сетку
+    // открыли: тогда его сбросит закрытие сетки.
+    var gridOpened = false;
     try {
-      subcategories = [
-        for (final s
-            in await widget.categories.watchSubcategories(category.id).first)
-          if (!s.isArchived) s,
-      ];
-    } on Object {
-      // Не смогли узнать, есть ли подкатегории: молча сохранить без них
-      // нельзя. Остаёмся на выборе категории, можно повторить.
-      _subcategoriesBusy = false;
-      _showError(messenger, transactionSaveFailedText);
-      return;
-    }
-    if (subcategories.isEmpty) {
-      _subcategoriesBusy = false;
-      await _save(amount, category, null, note);
-      return;
-    }
-    if (!mounted) return;
-    unawaited(
-      navigator
-          .push(
-            MaterialPageRoute<void>(
-              builder: (_) => SubcategoryPickerScreen(
-                type: widget.type,
-                amount: amount,
-                day: _day,
-                today: _today,
-                parent: category,
-                categories: widget.categories,
-                onSelected: (subcategory) =>
-                    unawaited(_save(amount, category, subcategory, note)),
+      List<Category> subcategories;
+      try {
+        subcategories = [
+          for (final s
+              in await widget.categories.watchSubcategories(category.id).first)
+            if (!s.isArchived) s,
+        ];
+      } on Object {
+        // Не смогли узнать, есть ли подкатегории: молча сохранить без них
+        // нельзя. Остаёмся на выборе категории, можно повторить.
+        _showError(messenger, transactionSaveFailedText);
+        return;
+      }
+      if (subcategories.isEmpty) {
+        await _save(amount, category, null, note);
+        return;
+      }
+      if (!mounted) return;
+      gridOpened = true;
+      unawaited(
+        navigator
+            .push(
+              MaterialPageRoute<void>(
+                builder: (_) => SubcategoryPickerScreen(
+                  type: widget.type,
+                  amount: amount,
+                  day: _day,
+                  today: _today,
+                  parent: category,
+                  categories: widget.categories,
+                  onSelected: (subcategory) =>
+                      unawaited(_save(amount, category, subcategory, note)),
+                ),
               ),
-            ),
-          )
-          .whenComplete(() => _subcategoriesBusy = false),
-    );
+            )
+            .whenComplete(() => _subcategoriesBusy = false),
+      );
+    } finally {
+      if (!gridOpened) _subcategoriesBusy = false;
+    }
   }
 
   /// Идёт сохранение (или оно уже удалось): повторные тапы по плиткам

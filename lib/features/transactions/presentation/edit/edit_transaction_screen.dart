@@ -9,6 +9,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
@@ -23,7 +24,6 @@ import 'package:money_app/features/transactions/presentation/edit/edit_category_
 import 'package:money_app/features/transactions/presentation/edit/edit_subcategory_picker_screen.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
-import 'package:money_app/features/transactions/presentation/quick_add/subcategory_picker_screen.dart';
 
 /// Экран правки операции (открывается тапом по строке «Истории»).
 ///
@@ -311,7 +311,12 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     );
     if (picked == null || !mounted) return;
     // Та же категория, что уже выбрана, подкатегорию не сбрасывает.
-    final sameCategory = _shownCategory?.id == picked.id;
+    // Сравниваем по id, а не по загруженному объекту: `_currentCategory` может
+    // быть пуст (категории ещё грузятся или не загрузились).
+    final shownCategoryId = _typeChanged
+        ? _picked?.id
+        : (_picked?.id ?? widget.transaction.categoryId);
+    final sameCategory = shownCategoryId == picked.id;
     final hadSubcategory = _shownSubcategory != null;
     setState(() {
       _picked = picked;
@@ -340,7 +345,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
       } on Object {
         // Список не прочитался: сетку не открываем, состояние правки цело.
         if (mounted) {
-          setState(() => _error = SubcategoryPickerScreen.loadErrorText);
+          setState(() => _error = subcategoriesLoadErrorText);
         }
         return;
       }
@@ -737,7 +742,7 @@ class _SubcategoryRow extends StatelessWidget {
         button: true,
         label:
             '${EditTransactionScreen.subcategoryLabel}: '
-            '${sub?.name ?? 'не выбрана'}',
+            '${sub?.name ?? EditTransactionScreen.subcategoryNoneText.toLowerCase()}',
         onTap: onTap,
         excludeSemantics: true,
         child: Material(

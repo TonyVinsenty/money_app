@@ -267,8 +267,12 @@ void main() {
       await _type(tester, 'молоко');
       await _save(tester);
       expect(
-        find.text(categoryRuleMessage(CategoryRule.duplicateName)),
+        find.text('Такая подкатегория уже есть. Выберите другое название'),
         findsOneWidget,
+      );
+      expect(
+        find.text(categoryRuleMessage(CategoryRule.duplicateName)),
+        findsNothing,
       );
       expect(_formIsOpen(), isTrue);
 
@@ -287,11 +291,30 @@ void main() {
       await _type(tester, '  ');
       await _save(tester);
 
+      expect(find.text('Введите название подкатегории'), findsOneWidget);
       expect(
         find.text(categoryRuleMessage(CategoryRule.emptyName)),
-        findsOneWidget,
+        findsNothing,
       );
       expect(_formIsOpen(), isTrue);
+    });
+
+    testWidgets('переименование с пустым именем: текст про подкатегорию', (
+      tester,
+    ) async {
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(
+        tester,
+        repository,
+        kind: parent.kind,
+        parent: parent,
+        renaming: sub('milk', 'Молоко', 0),
+      );
+
+      await _type(tester, '');
+      await _save(tester);
+
+      expect(find.text('Введите название подкатегории'), findsOneWidget);
     });
 
     testWidgets('двойной тап по «Сохранить» пишет одну подкатегорию', (

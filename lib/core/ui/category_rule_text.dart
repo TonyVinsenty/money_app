@@ -13,17 +13,22 @@ const String categorySaveFailedText =
 /// [CategoryRule.kindMismatch]) получают запасной [categorySaveFailedText].
 /// `switch` без ветки по умолчанию: при новом правиле компилятор потребует
 /// добавить текст.
-String categoryRuleMessage(CategoryRule rule) {
+/// [subcategory]: тексты про имя говорят «подкатегория», а не «категория».
+String categoryRuleMessage(CategoryRule rule, {bool subcategory = false}) {
   switch (rule) {
     case CategoryRule.emptyName:
-      return 'Введите название категории';
+      return subcategory
+          ? 'Введите название подкатегории'
+          : 'Введите название категории';
     case CategoryRule.nameTooLong:
       return 'Название слишком длинное: не больше $categoryNameMaxLength '
           'символов';
     case CategoryRule.emptyIconKey:
       return 'Выберите иконку';
     case CategoryRule.duplicateName:
-      return 'Такая категория уже есть. Выберите другое название';
+      return subcategory
+          ? 'Такая подкатегория уже есть. Выберите другое название'
+          : 'Такая категория уже есть. Выберите другое название';
     case CategoryRule.negativeSortOrder:
     case CategoryRule.parentMustBeTopLevel:
     case CategoryRule.kindMismatch:
@@ -37,3 +42,12 @@ String categoryRuleMessage(CategoryRule rule) {
 const String categoryRestoreDuplicateText =
     'В списке уже есть категория с таким названием. Переименуйте её или '
     'оставьте эту в архиве';
+
+/// То же для подкатегории.
+const String subcategoryRestoreDuplicateText =
+    'В списке уже есть подкатегория с таким названием. Переименуйте её или '
+    'оставьте эту в архиве';
+
+/// Не удалось загрузить подкатегории: общий текст экрана «Подкатегории»,
+/// сетки выбора и правки операции.
+const String subcategoriesLoadErrorText = 'Не удалось загрузить подкатегории';

@@ -11,6 +11,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/edit/edit_subcategory_picker_screen.dart';
 import 'package:money_app/features/transactions/presentation/edit/edit_transaction_screen.dart';
 
 import '../../../../support/fakes.dart';
@@ -39,8 +40,12 @@ class _Categories extends FakeCategoriesRepository {
   /// Если `true`, чтение подкатегорий падает.
   bool subsFail = false;
 
+  /// Если `true`, чтение категории по id падает (названия не загрузились).
+  bool findFails = false;
+
   @override
   Future<Category?> findById(String id) async {
+    if (findFails) throw StateError('db');
     for (final c in all) {
       if (c.id == id) return c;
     }
@@ -317,6 +322,21 @@ void main() {
       expect(saved.note, 'молоко');
     });
 
+    testWidgets('двойной тап по строке открывает одну сетку', (tester) async {
+      await _open(tester, _tx());
+
+      await tester.tap(_subRow);
+      await tester.tap(_subRow, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EditSubcategoryPickerScreen), findsOneWidget);
+      // Одно «Назад» возвращает на правку: второй сетки под первой нет.
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(EditSubcategoryPickerScreen), findsNothing);
+      expect(find.byType(EditTransactionScreen), findsOneWidget);
+    });
+
     testWidgets('снятие: «Без подкатегории» сохраняется как null', (
       tester,
     ) async {
@@ -425,6 +445,22 @@ void main() {
       final saved = await _saveAndGet(tester, repo);
       expect(saved.subcategoryId, 'veg');
       semantics.dispose();
+    });
+
+    testWidgets('та же категория, пока названия не загрузились: подкатегория '
+        'не сбрасывается', (tester) async {
+      final categories = _catalog()..findFails = true;
+      final repo = await _open(
+        tester,
+        _tx(subcategoryId: 'veg'),
+        categories: categories,
+      );
+
+      await _pickCategory(tester, 'Продукты');
+
+      final saved = await _saveAndGet(tester, repo);
+      expect(saved.categoryId, 'food');
+      expect(saved.subcategoryId, 'veg');
     });
 
     testWidgets('выбранная заново подкатегория переживает повторный выбор '

@@ -321,12 +321,78 @@ void main() {
     await tester.tap(_button('milk-old'));
     await tester.pumpAndSettle();
 
-    expect(find.text(categoryRestoreDuplicateText), findsOneWidget);
+    expect(find.text(subcategoryRestoreDuplicateText), findsOneWidget);
+    expect(find.text(categoryRestoreDuplicateText), findsNothing);
     expect(
       repository.all.firstWhere((c) => c.id == 'milk-old').isArchived,
       isTrue,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  group('«Вернуть» после ухода с экрана', () {
+    Future<InMemoryCategoriesRepository> archiveAndLeave(
+      WidgetTester tester,
+    ) async {
+      final repository = InMemoryCategoriesRepository(_fixture());
+      addTearDown(repository.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          locale: MoneyApp.appLocale,
+          supportedLocales: MoneyApp.supportedLocales,
+          localizationsDelegates: MoneyApp.localizationsDelegates,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => SubcategoriesScreen(
+                      parent: _parent,
+                      categories: repository,
+                      onCreate: () async {},
+                      onRename: (_) async {},
+                    ),
+                  ),
+                ),
+                child: const Text('открыть'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('открыть'));
+      await tester.pumpAndSettle();
+      await tester.tap(_button('bread'));
+      await tester.pumpAndSettle();
+      // Уходим с экрана; сообщение с «Вернуть» остаётся на корневом messenger.
+      tester.state<NavigatorState>(find.byType(Navigator)).pop();
+      await tester.pumpAndSettle();
+      expect(find.byType(SubcategoriesScreen), findsNothing);
+      return repository;
+    }
+
+    testWidgets('занятое имя: объяснение про подкатегорию', (tester) async {
+      final repository = await archiveAndLeave(tester);
+      await repository.create(_s('bread2', 'Хлеб', 9));
+
+      await tester.tap(find.text(categoriesUndoAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(subcategoryRestoreDuplicateText), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('сбой базы: общее сообщение', (tester) async {
+      final repository = await archiveAndLeave(tester);
+      repository.failWith = Exception('disk');
+
+      await tester.tap(find.text(categoriesUndoAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(categorySaveFailedText), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   testWidgets('сбой записи при архивации: общее сообщение', (tester) async {

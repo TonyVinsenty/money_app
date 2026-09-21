@@ -140,7 +140,7 @@ void main() {
     }
 
     expect(
-      find.text('Такая категория уже есть. Выберите другое название'),
+      find.text('Такая подкатегория уже есть. Выберите другое название'),
       findsOneWidget,
     );
     expect(find.text(categoryFormSaveLabel), findsOneWidget);

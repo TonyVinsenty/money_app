@@ -34,8 +34,7 @@ mixin CategoryActions<T extends StatefulWidget> on State<T> {
     }
   }
 
-  /// True, если запись удалась; иначе показано сообщение об ошибке (если экран
-  /// ещё на месте).
+  /// True, если запись удалась; иначе показано сообщение об ошибке.
   /// [messenger] берётся заранее, пока экран смонтирован: кнопка «Вернуть» в
   /// сообщении живёт и после ухода с экрана, а к уничтоженному контексту
   /// обращаться нельзя.
@@ -52,11 +51,14 @@ mixin CategoryActions<T extends StatefulWidget> on State<T> {
       await action(category.id);
       return true;
     } on CategoryRuleException catch (error) {
+      final subcategory = category.parentId != null;
       _showError(
         messenger,
         restoring && error.rule == CategoryRule.duplicateName
-            ? categoryRestoreDuplicateText
-            : categoryRuleMessage(error.rule),
+            ? (subcategory
+                  ? subcategoryRestoreDuplicateText
+                  : categoryRestoreDuplicateText)
+            : categoryRuleMessage(error.rule, subcategory: subcategory),
       );
     } on Object {
       // Сбой базы и всё прочее: человек исправить не может.
@@ -113,8 +115,9 @@ mixin CategoryActions<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// Без проверки `mounted`: [messenger] корневой и живёт после ухода с экрана,
+  /// а ошибка «Вернуть» должна быть видна и тогда.
   void _showError(ScaffoldMessengerState messenger, String text) {
-    if (!mounted) return;
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(text)));

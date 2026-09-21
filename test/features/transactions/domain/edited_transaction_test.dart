@@ -163,6 +163,14 @@ void main() {
       expect(result.subcategoryId, isNull);
     });
 
+    test('newSubcategory побеждает clearSubcategory', () {
+      final result = build(
+        newSubcategory: sub('food-other', food),
+        clearSubcategory: true,
+      );
+      expect(result.subcategoryId, 'food-other');
+    });
+
     test('новая категория вместе с её подкатегорией', () {
       final result = build(newCategory: cafe, newSubcategory: sub('c1', cafe));
       expect(result.categoryId, 'cafe');

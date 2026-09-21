@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/presentation/category_actions.dart';
@@ -24,9 +25,6 @@ const subcategoriesArchiveNote =
 
 /// Пока у категории нет ни одной живой подкатегории.
 const subcategoriesEmptyText = 'Подкатегорий пока нет';
-
-/// Ошибка чтения списка из базы.
-const subcategoriesLoadErrorText = 'Не удалось загрузить подкатегории';
 
 /// Экран «Подкатегории» одной категории [parent] (открывается со строки
 /// категории на экране «Категории»).

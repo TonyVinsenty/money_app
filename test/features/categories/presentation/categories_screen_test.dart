@@ -485,6 +485,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('«Вернуть» после ухода с экрана: отказ всё равно виден', (
+    tester,
+  ) async {
+    final repository = InMemoryCategoriesRepository(_fixture());
+    addTearDown(repository.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        locale: MoneyApp.appLocale,
+        supportedLocales: MoneyApp.supportedLocales,
+        localizationsDelegates: MoneyApp.localizationsDelegates,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CategoriesScreen(
+                    categories: repository,
+                    onCreate: (_) async {},
+                    onRename: (_) async {},
+                    onOpenSubcategories: (_) async {},
+                  ),
+                ),
+              ),
+              child: const Text('открыть'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('открыть'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(_button('cafe'));
+    await tester.pumpAndSettle();
+    // Уходим с экрана; сообщение с «Вернуть» остаётся на корневом messenger.
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(CategoriesScreen), findsNothing);
+    await repository.create(_c('cafe2', 'Кафе', 9));
+
+    await tester.tap(find.text('Вернуть'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(categoryRestoreDuplicateText), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('в развёрнутом архиве первой строкой пояснение', (tester) async {
     await _pump(tester, _fixture());
     const noteText = 'Старые операции по этим категориям сохранены';

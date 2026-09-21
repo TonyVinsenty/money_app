@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -42,8 +43,6 @@ class SubcategoryPickerScreen extends StatefulWidget {
   final CategoriesRepository categories;
 
   final void Function(Category? subcategory) onSelected;
-
-  static const loadErrorText = 'Не удалось загрузить подкатегории';
 
   @override
   State<SubcategoryPickerScreen> createState() =>
@@ -112,7 +111,7 @@ class _SubcategoryPickerScreenState extends State<SubcategoryPickerScreen> {
               child: Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(
-                  SubcategoryPickerScreen.loadErrorText,
+                  subcategoriesLoadErrorText,
                   textAlign: TextAlign.center,
                 ),
               ),

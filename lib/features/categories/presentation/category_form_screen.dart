@@ -94,6 +94,11 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
   bool get _isRename => widget.renaming != null;
   bool get _isSubcategory => widget.parent != null;
 
+  /// Форма подкатегории: создание (есть parent) или переименование строки с
+  /// родителем.
+  bool get _isSubcategoryForm =>
+      _isSubcategory || widget.renaming?.parentId != null;
+
   @override
   void initState() {
     super.initState();
@@ -155,7 +160,10 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
       return;
     } on CategoryRuleException catch (error) {
       if (!mounted) return;
-      final text = categoryRuleMessage(error.rule);
+      final text = categoryRuleMessage(
+        error.rule,
+        subcategory: _isSubcategoryForm,
+      );
       setState(() {
         _saving = false;
         switch (error.rule) {
