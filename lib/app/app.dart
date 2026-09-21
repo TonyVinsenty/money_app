@@ -7,6 +7,7 @@ import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/app/database_gate.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/settings/data/settings_repository_impl.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
 /// Корневой виджет приложения: тема, язык и каркас с нижней навигацией.
@@ -45,6 +46,15 @@ class MoneyApp extends StatelessWidget {
     GlobalCupertinoLocalizations.delegate,
   ];
 
+  /// Открывает базу и до показа основного экрана применяет сохранённую тему:
+  /// шлюз пускает дальше только после этого, поэтому экран сразу появляется
+  /// в нужной теме, без вспышки другой. Ошибки чтения `attach` глотает сама.
+  Future<AppDatabase> _openAndLoadSettings() async {
+    final database = await openDatabase();
+    await settings.attach(DriftSettingsRepository(database));
+    return database;
+  }
+
   @override
   Widget build(BuildContext context) {
     // ListenableBuilder перестраивает MaterialApp, когда настройки меняются.
@@ -61,7 +71,7 @@ class MoneyApp extends StatelessWidget {
           localizationsDelegates: localizationsDelegates,
           onGenerateRoute: onGenerateAppRoute,
           home: DatabaseGate(
-            open: openDatabase,
+            open: _openAndLoadSettings,
             onStartOver: startOverDatabase,
             // AppScope появляется только когда база открыта: до этого
             // показан индикатор или экран ошибки, а зависимостям без базы
