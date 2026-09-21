@@ -68,6 +68,19 @@ class InMemoryCategoriesRepository extends FakeCategoriesRepository {
     _state.value = [..._state.value, category];
   }
 
+  /// Как настоящий: на единицу больше максимума среди категорий верхнего
+  /// уровня вида (архивные считаются), для пустого вида 0.
+  @override
+  Future<int> nextSortOrder(CategoryKind kind) async {
+    var next = 0;
+    for (final c in _state.value) {
+      if (c.isTopLevel && c.kind == kind && c.sortOrder >= next) {
+        next = c.sortOrder + 1;
+      }
+    }
+    return next;
+  }
+
   @override
   Future<void> rename(String id, String newName) async {
     writes++;

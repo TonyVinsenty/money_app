@@ -128,7 +128,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           categories: arguments.categories,
           transactions: arguments.transactions,
           idGenerator: arguments.idGenerator,
-          // «Создать категорию» в пустом выборе категории: форма нужного вида.
+          // «Добавить категорию» в пустом выборе категории: форма нужного вида.
           onCreateCategory: () => unawaited(
             Navigator.of(context).pushNamed(
               AppRoutes.categoryForm,
@@ -176,25 +176,23 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
         // маршрут (фичи друг друга не импортируют).
         builder: (context) => CategoriesScreen(
           categories: arguments.categories,
-          onCreate: (kind) => unawaited(
-            Navigator.of(context).pushNamed(
-              AppRoutes.categoryForm,
-              arguments: CategoryFormRouteArguments(
-                categories: arguments.categories,
-                idGenerator: arguments.idGenerator,
-                kind: kind,
-              ),
+          // Future завершается, когда форму закрыли: экран «Категории» не
+          // даёт открыть вторую форму, пока первая на экране.
+          onCreate: (kind) => Navigator.of(context).pushNamed<void>(
+            AppRoutes.categoryForm,
+            arguments: CategoryFormRouteArguments(
+              categories: arguments.categories,
+              idGenerator: arguments.idGenerator,
+              kind: kind,
             ),
           ),
-          onRename: (category) => unawaited(
-            Navigator.of(context).pushNamed(
-              AppRoutes.categoryForm,
-              arguments: CategoryFormRouteArguments(
-                categories: arguments.categories,
-                idGenerator: arguments.idGenerator,
-                kind: category.kind,
-                renaming: category,
-              ),
+          onRename: (category) => Navigator.of(context).pushNamed<void>(
+            AppRoutes.categoryForm,
+            arguments: CategoryFormRouteArguments(
+              categories: arguments.categories,
+              idGenerator: arguments.idGenerator,
+              kind: category.kind,
+              renaming: category,
             ),
           ),
         ),

@@ -24,6 +24,18 @@ const categoriesRestoreAction = 'Вернуть из архива';
 /// Кнопка создания новой категории.
 const categoriesAddAction = 'Добавить категорию';
 
+/// Сообщение после отправки в архив и кнопка отмены в нём.
+String categoriesArchivedMessage(String name) => 'Категория «$name» в архиве';
+const categoriesUndoAction = 'Вернуть';
+
+/// Сколько сообщение об архиве висит на экране: столько же, сколько сообщение
+/// об операции с «Отменить» (`SavedSnackBar.duration`). Само значение сюда
+/// скопировано: фича не импортирует чужой `presentation` (ADR 0002).
+const categoriesArchivedDuration = Duration(seconds: 6);
+
+/// Пояснение первой строкой в развёрнутом архиве.
+const categoriesArchiveNote = 'Старые операции по этим категориям сохранены';
+
 /// Подпись кнопки-карандаша у строки: имя нужно скринридеру и подсказке.
 String categoriesRenameLabel(String name) => 'Переименовать: $name';
 
@@ -53,7 +65,8 @@ String categoriesRestoreLabel(String name) => '$categoriesRestoreAction: $name';
 ///
 /// Форма создания и переименования лежит на другом маршруте: её открывают
 /// колбэки [onCreate] (с видом открытой вкладки) и [onRename], их даёт
-/// приложение.
+/// приложение. Колбэк возвращает Future, который завершается, когда форму
+/// закрыли: пока она открыта, повторный тап (двойной) второй формы не открывает.
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({
     required this.categories,
@@ -63,8 +76,8 @@ class CategoriesScreen extends StatefulWidget {
   });
 
   final CategoriesRepository categories;
-  final void Function(CategoryKind kind) onCreate;
-  final void Function(Category category) onRename;
+  final Future<void> Function(CategoryKind kind) onCreate;
+  final Future<void> Function(Category category) onRename;
 
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
@@ -78,28 +91,90 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   /// Категории, по которым сейчас идёт запись: второй тап игнорируется.
   final _pending = <String>{};
 
+  /// Форма создания или переименования уже открыта (до возврата с маршрута):
+  /// быстрый двойной тап не открывает вторую.
+  bool _formOpen = false;
+
   @override
   void initState() {
     super.initState();
     _stream = widget.categories.watchAll();
   }
 
-  Future<void> _change(
+  Future<void> _openForm(Future<void> Function() open) async {
+    if (_formOpen) return;
+    _formOpen = true;
+    try {
+      await open();
+    } finally {
+      _formOpen = false;
+    }
+  }
+
+  /// True, если запись удалась; иначе показано сообщение об ошибке (если экран
+  /// ещё на месте).
+  /// [messenger] берётся заранее, пока экран смонтирован: кнопка «Вернуть» в
+  /// сообщении живёт и после ухода с экрана, а к уничтоженному контексту
+  /// обращаться нельзя.
+  /// [restoring]: отказ из-за дубля имени при возврате из архива объясняется
+  /// отдельным текстом.
+  Future<bool> _change(
     Category category,
     Future<void> Function(String id) action,
-  ) async {
-    if (!_pending.add(category.id)) return;
-    final messenger = ScaffoldMessenger.of(context);
+    ScaffoldMessengerState messenger, {
+    bool restoring = false,
+  }) async {
+    if (!_pending.add(category.id)) return false;
     try {
       await action(category.id);
+      return true;
     } on CategoryRuleException catch (error) {
-      _showError(messenger, categoryRuleMessage(error.rule));
+      _showError(
+        messenger,
+        restoring && error.rule == CategoryRule.duplicateName
+            ? categoryRestoreDuplicateText
+            : categoryRuleMessage(error.rule),
+      );
     } on Object {
       // Сбой базы и всё прочее: человек исправить не может.
       _showError(messenger, categorySaveFailedText);
     } finally {
       _pending.remove(category.id);
     }
+    return false;
+  }
+
+  /// [messenger] передаёт «Вернуть» из сообщения (экрана к тому времени может
+  /// уже не быть); из строки списка его берём из контекста.
+  Future<void> _restore(
+    Category category, [
+    ScaffoldMessengerState? messenger,
+  ]) => _change(
+    category,
+    widget.categories.restore,
+    messenger ?? ScaffoldMessenger.of(context),
+    restoring: true,
+  );
+
+  Future<void> _archive(Category category) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await _change(category, widget.categories.archive, messenger);
+    if (!ok || !mounted) return;
+    // Прежнее сообщение скрываем: при быстрых нажатиях они не копятся.
+    // `persist: false`: у сообщения с кнопкой иначе время не отсчитывается.
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(categoriesArchivedMessage(category.name)),
+          duration: categoriesArchivedDuration,
+          persist: false,
+          action: SnackBarAction(
+            label: categoriesUndoAction,
+            onPressed: () => unawaited(_restore(category, messenger)),
+          ),
+        ),
+      );
   }
 
   /// Записывает новый порядок живых категорий вида. `false` при любой ошибке
@@ -142,8 +217,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           builder: (context) => FloatingActionButton.extended(
             onPressed: () {
               final index = DefaultTabController.of(context).index;
-              widget.onCreate(
-                index == 0 ? CategoryKind.expense : CategoryKind.income,
+              unawaited(
+                _openForm(
+                  () => widget.onCreate(
+                    index == 0 ? CategoryKind.expense : CategoryKind.income,
+                  ),
+                ),
               );
             },
             icon: const Icon(Icons.add),
@@ -167,21 +246,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 _KindList(
                   categories: data,
                   kind: CategoryKind.expense,
-                  onArchive: (c) =>
-                      unawaited(_change(c, widget.categories.archive)),
-                  onRestore: (c) =>
-                      unawaited(_change(c, widget.categories.restore)),
-                  onRename: widget.onRename,
+                  onArchive: (c) => unawaited(_archive(c)),
+                  onRestore: (c) => unawaited(_restore(c)),
+                  onRename: (c) =>
+                      unawaited(_openForm(() => widget.onRename(c))),
                   onReorder: _reorder,
                 ),
                 _KindList(
                   categories: data,
                   kind: CategoryKind.income,
-                  onArchive: (c) =>
-                      unawaited(_change(c, widget.categories.archive)),
-                  onRestore: (c) =>
-                      unawaited(_change(c, widget.categories.restore)),
-                  onRename: widget.onRename,
+                  onArchive: (c) => unawaited(_archive(c)),
+                  onRestore: (c) => unawaited(_restore(c)),
+                  onRename: (c) =>
+                      unawaited(_openForm(() => widget.onRename(c))),
                   onReorder: _reorder,
                 ),
               ],
@@ -339,6 +416,18 @@ class _KindListState extends State<_KindList> {
               key: ValueKey<String>('archive-${widget.kind.name}'),
               title: Text(categoriesArchiveTitle(archived.length)),
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      categoriesArchiveNote,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
                 for (final c in archived)
                   _CategoryRow(
                     key: ValueKey<String>(c.id),
@@ -346,6 +435,7 @@ class _KindListState extends State<_KindList> {
                     actionText: categoriesRestoreAction,
                     actionLabel: categoriesRestoreLabel(c.name),
                     onPressed: () => widget.onRestore(c),
+                    onRename: () => widget.onRename(c),
                   ),
               ],
             ),
@@ -384,7 +474,7 @@ class _CategoryRow extends StatelessWidget {
   final String actionLabel;
   final VoidCallback onPressed;
 
-  /// Переименование; только у живых категорий (у архивных `null`).
+  /// Переименование (карандаш справа).
   final VoidCallback? onRename;
 
   /// Место строки в переставляемом списке; ручка перетаскивания есть только у

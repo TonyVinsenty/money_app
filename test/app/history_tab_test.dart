@@ -132,6 +132,36 @@ void main() {
     },
   );
 
+  testWidgets('расход с нулевой суммой сохраняется, виден в «Истории» и не '
+      'входит в итог «Главной»', (tester) async {
+    await _pumpApp(tester);
+    await tester.pumpAndSettle();
+    final emptyExpenses = find.text('В этом месяце расходов ещё нет');
+    expect(emptyExpenses, findsOneWidget);
+
+    // «Главная» -> «Расход» -> сумма 0 -> категория.
+    await tester.tap(find.text('Расход'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '0');
+    await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Продукты'));
+    await tester.pumpAndSettle();
+
+    final zero = formatMoney(Money.zero('RUB'));
+    expect(find.text('Сохранено: расход $zero · Продукты'), findsOneWidget);
+    // Ноль в итог месяца не входит: строка расходов остаётся пустой.
+    expect(emptyExpenses, findsOneWidget);
+    expect(find.textContaining('Расходы за'), findsNothing);
+
+    // В «Истории» операция есть, с нулевой суммой.
+    await _openTab(tester, 'История');
+    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Продукты'), findsOneWidget);
+    expect(find.text('$_minus$zero'), findsOneWidget);
+    await _finish(tester);
+  });
+
   testWidgets('архивная категория показывает своё имя, новые сверху', (
     tester,
   ) async {

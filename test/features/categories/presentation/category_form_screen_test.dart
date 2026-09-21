@@ -254,6 +254,8 @@ void main() {
     expect(find.text('Кафе'), findsOneWidget);
     expect(find.byType(SegmentedButton<CategoryKind>), findsNothing);
     expect(_icon('movie'), findsNothing);
+    // Тип виден, но только для чтения.
+    expect(find.text('Тип: Расход'), findsOneWidget);
 
     await _type(tester, 'Ресторан');
     await _save(tester);
@@ -265,6 +267,44 @@ void main() {
     expect(renamed.kind, CategoryKind.expense);
     expect(renamed.sortOrder, 1);
     expect(repository.all, hasLength(4));
+  });
+
+  testWidgets('переименование доходной категории: «Тип: Доход»', (
+    tester,
+  ) async {
+    final salary = repository.all.firstWhere((c) => c.id == 'salary');
+    await _openForm(tester, repository, renaming: salary);
+
+    expect(find.text('Тип: Доход'), findsOneWidget);
+    expect(find.text('Тип: Расход'), findsNothing);
+  });
+
+  testWidgets('при создании подпись выбора называется «Тип»', (tester) async {
+    await _openForm(tester, repository);
+
+    expect(find.text('Тип'), findsOneWidget);
+    expect(find.text('Вид'), findsNothing);
+    expect(find.byType(SegmentedButton<CategoryKind>), findsOneWidget);
+  });
+
+  testWidgets('поле названия сразу в фокусе: при создании и переименовании', (
+    tester,
+  ) async {
+    bool nameHasFocus() =>
+        tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus ??
+        tester
+            .state<EditableTextState>(find.byType(EditableText))
+            .widget
+            .focusNode
+            .hasFocus;
+
+    await _openForm(tester, repository);
+    expect(nameHasFocus(), isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+    final cafe = repository.all.firstWhere((c) => c.id == 'cafe');
+    await _openForm(tester, repository, renaming: cafe);
+    expect(nameHasFocus(), isTrue);
   });
 
   testWidgets('переименование в занятое имя: сообщение о дубле', (

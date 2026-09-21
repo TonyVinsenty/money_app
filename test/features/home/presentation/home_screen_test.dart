@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +11,8 @@ import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
+
+import '../../../support/contrast.dart';
 
 Widget _app({
   required void Function(TransactionType) onAdd,
@@ -49,12 +50,7 @@ Finder _button(String label) => find.ancestor(
 ButtonStyle _styleOf(WidgetTester tester, String label) =>
     tester.widget<FilledButton>(_button(label)).style!;
 
-/// Отношение контрастности двух цветов (WCAG).
-double _contrast(Color a, Color b) {
-  final l1 = a.computeLuminance();
-  final l2 = b.computeLuminance();
-  return (math.max(l1, l2) + 0.05) / (math.min(l1, l2) + 0.05);
-}
+double _contrast(Color a, Color b) => contrastRatio(a, b);
 
 void main() {
   testWidgets('две кнопки с подписями словом и знаками', (tester) async {
@@ -388,19 +384,149 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(
-        _app(
-          onAdd: (_) {},
-          textScale: 2,
-          expenses: Stream.value(Money.fromMinor(123456789, 'RUB')),
-          income: Stream.value(Money.fromMinor(987654321, 'RUB')),
-        ),
-      );
-      await tester.pump();
+      for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+        await tester.pumpWidget(
+          _app(
+            onAdd: (_) {},
+            mode: mode,
+            textScale: 2,
+            expenses: Stream.value(Money.fromMinor(123456789, 'RUB')),
+            income: Stream.value(Money.fromMinor(987654321, 'RUB')),
+          ),
+        );
+        // Смена темы плавная: ждём конца анимации, иначе тёмная тема не
+        // успеет примениться.
+        await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(find.textContaining('Доходы за'), findsOneWidget);
-      expect(find.text('Расход'), findsOneWidget);
+        expect(
+          Theme.of(tester.element(find.byType(HomeScreen))).brightness,
+          mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
+        );
+        expect(tester.takeException(), isNull, reason: '$mode');
+        expect(
+          find.textContaining('Расходы за'),
+          findsOneWidget,
+          reason: '$mode',
+        );
+        expect(
+          find.textContaining('Доходы за'),
+          findsOneWidget,
+          reason: '$mode',
+        );
+        expect(find.text('Расход'), findsOneWidget, reason: '$mode');
+      }
+    });
+  });
+
+  group('цвет и выравнивание строк итогов (сумма, пусто, ошибка)', () {
+    setUpAll(() async {
+      await initializeDateFormatting('ru');
+    });
+
+    final money = formatMoney(Money.fromMinor(1234500, 'RUB'));
+    final states = <String, Stream<Money> Function()>{
+      'сумма': () => Stream.value(Money.fromMinor(1234500, 'RUB')),
+      'пусто': () => Stream.value(Money.zero('RUB')),
+      'ошибка': () => Stream.error(StateError('boom')),
+    };
+    // Тексты каждой строки в трёх состояниях.
+    final expenseTexts = {
+      'сумма': 'Расходы за сентябрь: $money',
+      'пусто': 'В этом месяце расходов ещё нет',
+      'ошибка': 'Не удалось посчитать расходы за месяц',
+    };
+    final incomeTexts = {
+      'сумма': 'Доходы за сентябрь: +$money',
+      'пусто': 'В этом месяце доходов ещё нет',
+      'ошибка': 'Не удалось посчитать доходы за месяц',
+    };
+
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      for (final state in states.keys) {
+        testWidgets('расходы и доходы: цвет из темы, по левому краю '
+            '($mode, $state)', (tester) async {
+          await tester.pumpWidget(
+            _app(
+              onAdd: (_) {},
+              mode: mode,
+              expenses: states[state]!(),
+              income: states[state]!(),
+            ),
+          );
+          await tester.pump();
+
+          final context = tester.element(find.byType(HomeScreen));
+          final colors = context.appColors;
+          final surface = Theme.of(context).colorScheme.surface;
+          final expenseFinder = find.text(expenseTexts[state]!);
+          final incomeFinder = find.text(incomeTexts[state]!);
+          expect(expenseFinder, findsOneWidget);
+          expect(incomeFinder, findsOneWidget);
+
+          final expense = tester.widget<Text>(expenseFinder);
+          final income = tester.widget<Text>(incomeFinder);
+          // Расходы всегда цветом расхода, доходы всегда цветом дохода.
+          expect(expense.style!.color, colors.expense);
+          expect(income.style!.color, colors.income);
+          expect(expense.textAlign, TextAlign.start);
+          expect(income.textAlign, TextAlign.start);
+          // Обе строки начинаются у левого края (отступ экрана 16 dp).
+          expect(tester.getTopLeft(expenseFinder).dx, 16);
+          expect(tester.getTopLeft(incomeFinder).dx, 16);
+
+          // Контраст красного и зелёного с фоном темы.
+          expect(
+            _contrast(colors.expense, surface),
+            greaterThanOrEqualTo(4.5),
+            reason: 'расход, $mode',
+          );
+          expect(
+            _contrast(colors.income, surface),
+            greaterThanOrEqualTo(4.5),
+            reason: 'доход, $mode',
+          );
+        });
+      }
+    }
+
+    testWidgets('шрифт 200% на узком экране, три состояния: без переполнения', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(240, 480);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+        for (final state in states.keys) {
+          await tester.pumpWidget(
+            _app(
+              onAdd: (_) {},
+              mode: mode,
+              textScale: 2,
+              expenses: states[state]!(),
+              income: states[state]!(),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final reason = '$mode, $state';
+          expect(
+            Theme.of(tester.element(find.byType(HomeScreen))).brightness,
+            mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
+            reason: reason,
+          );
+          expect(tester.takeException(), isNull, reason: reason);
+          expect(
+            find.text(expenseTexts[state]!),
+            findsOneWidget,
+            reason: reason,
+          );
+          expect(
+            find.text(incomeTexts[state]!),
+            findsOneWidget,
+            reason: reason,
+          );
+        }
+      }
     });
   });
 

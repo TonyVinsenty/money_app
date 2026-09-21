@@ -39,6 +39,14 @@ void main() {
     expect(names.toSet().length, names.length);
   });
 
+  test('утверждённые названия иконок, у которых название было неточным', () {
+    expect(categoryIconName('more_horiz'), 'Другое');
+    expect(categoryIconName('card_giftcard'), 'Карта');
+    expect(categoryIconName('shopping_bag'), 'Сумка');
+    expect(categoryIconName('build'), 'Инструменты');
+    expect(categoryIconName('trending_up'), 'График');
+  });
+
   test('список ключей нельзя изменить', () {
     expect(() => categoryIconKeys.add('x'), throwsUnsupportedError);
   });

@@ -9,6 +9,8 @@ import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 
+import '../../support/contrast.dart';
+
 final String _minus = String.fromCharCode(0x2212);
 final String _nbsp = String.fromCharCode(0x00A0);
 
@@ -17,9 +19,12 @@ Widget _host(
   bool isIncome = false,
   ValueChanged<Money>? onSubmitted,
   double textScale = 1,
+  ThemeMode mode = ThemeMode.light,
 }) {
   return MaterialApp(
     theme: AppTheme.light(),
+    darkTheme: AppTheme.dark(),
+    themeMode: mode,
     home: MediaQuery(
       data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
       child: Scaffold(
@@ -73,6 +78,67 @@ void main() {
     final result = controller.result;
     expect(result, isA<AmountParsed>());
     expect((result as AmountParsed).amount, Money.zero(rubCurrencyCode));
+  });
+
+  testWidgets('пустое поле: «0» бледный и не похож на введённое значение', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(controller));
+
+    final hint = tester.widget<Text>(find.text('0'));
+    final entered = tester.widget<EditableText>(find.byType(EditableText));
+    expect(hint.style!.color, isNot(entered.style.color));
+    expect(hint.style!.color!.a, lessThan(1));
+
+    // После ввода подсказки нет: остаётся только введённый текст.
+    await tester.enterText(find.byType(TextField), '5');
+    await tester.pump();
+    expect(find.text('0'), findsNothing);
+  });
+
+  testWidgets('введён именно «0»: подсказки нет, в поле настоящий «0»', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(controller));
+    final hint = find.byWidgetPredicate((w) => w is Text && w.data == '0');
+    expect(hint, findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '0');
+    await tester.pump();
+
+    expect(hint, findsNothing);
+    expect(controller.text.text, '0');
+    // Единственный «0» на экране — текст самого поля.
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      '0',
+    );
+  });
+
+  testWidgets('подсказка «0» заметна в обеих темах, но бледнее цифр', (
+    tester,
+  ) async {
+    for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+      await tester.pumpWidget(_host(controller, mode: mode));
+      // Смена темы плавная: ждём конца анимации.
+      await tester.pumpAndSettle();
+
+      final surface = Theme.of(tester.element(find.byType(AmountField)))
+          .colorScheme
+          .surface;
+      final hint = tester.widget<Text>(find.text('0')).style!.color!;
+      final entered = tester
+          .widget<EditableText>(find.byType(EditableText))
+          .style
+          .color!;
+
+      final hintContrast = contrastRatio(hint, surface);
+      final enteredContrast = contrastRatio(entered, surface);
+      // Для отчёта: фактические числа.
+      debugPrint('contrast $mode: hint $hintContrast, digits $enteredContrast');
+      expect(hintContrast, greaterThanOrEqualTo(2), reason: '$mode');
+      expect(hintContrast, lessThan(enteredContrast - 1), reason: '$mode');
+    }
   });
 
   testWidgets('«Введите сумму» появляется только после попытки продолжить', (

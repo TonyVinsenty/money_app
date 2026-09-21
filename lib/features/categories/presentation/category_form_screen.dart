@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
@@ -17,11 +16,15 @@ const categoryFormRenameTitle = 'Переименовать категорию';
 
 /// Подписи полей и кнопок формы.
 const categoryFormNameLabel = 'Название';
-const categoryFormKindTitle = 'Вид';
+const categoryFormKindTitle = 'Тип';
 const categoryFormKindExpense = 'Расход';
 const categoryFormKindIncome = 'Доход';
 const categoryFormIconTitle = 'Иконка';
 const categoryFormSaveLabel = 'Сохранить';
+
+/// Строка только для чтения при переименовании: «Тип: Расход».
+String categoryFormKindReadOnly(CategoryKind kind) =>
+    '$categoryFormKindTitle: ${kind == CategoryKind.income ? categoryFormKindIncome : categoryFormKindExpense}';
 
 /// Подпись иконки в сетке для скринридера: «Иконка: Кофе, выбрана».
 String categoryFormIconLabel(String iconName, {required bool selected}) =>
@@ -31,8 +34,8 @@ String categoryFormIconLabel(String iconName, {required bool selected}) =>
 ///
 /// При создании человек вводит имя, выбирает вид («Расход» / «Доход»; сначала
 /// стоит вид открытой вкладки [initialKind]) и иконку из фиксированного набора.
-/// При переименовании ([renaming] задана) есть только имя: вид и иконку
-/// репозиторий не меняет.
+/// При переименовании ([renaming] задана) есть только имя: тип показан строкой
+/// «Тип: Расход» без выбора, вид и иконку репозиторий не меняет.
 ///
 /// Правила проверяет `domain` и репозиторий (пустое или длинное имя, дубль);
 /// форма только показывает их текстом под полем. Успех закрывает экран, ошибка
@@ -93,19 +96,6 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     super.dispose();
   }
 
-  /// Порядок новой категории: в конец своего вида, после всех, включая
-  /// архивные (номера не должны повторяться).
-  Future<int> _nextSortOrder() async {
-    final all = await widget.categories.watchAll().first;
-    var next = 0;
-    for (final c in all) {
-      if (c.isTopLevel && c.kind == _kind) {
-        next = math.max(next, c.sortOrder + 1);
-      }
-    }
-    return next;
-  }
-
   Future<void> _save() async {
     if (_saving) return;
     setState(() {
@@ -121,7 +111,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
       if (renaming != null) {
         await widget.categories.rename(renaming.id, _name.text);
       } else {
-        final sortOrder = await _nextSortOrder();
+        final sortOrder = await widget.categories.nextSortOrder(_kind);
         await widget.categories.create(
           Category.topLevel(
             id: widget.idGenerator.newId(),
@@ -184,6 +174,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                   children: [
                     TextField(
                       controller: _name,
+                      autofocus: true,
                       textCapitalization: TextCapitalization.sentences,
                       textInputAction: TextInputAction.done,
                       inputFormatters: const [
@@ -200,7 +191,13 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                       onChanged: (_) => setState(() => _nameError = null),
                       onSubmitted: (_) => unawaited(_save()),
                     ),
-                    if (!_isRename) ...[
+                    if (_isRename) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        categoryFormKindReadOnly(_kind),
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                    ] else ...[
                       const SizedBox(height: 16),
                       Text(
                         categoryFormKindTitle,

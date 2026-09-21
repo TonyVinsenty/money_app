@@ -60,19 +60,26 @@ class HomeScreen extends StatelessWidget {
       // Снизу отступа нет: его роль играет запас под SnackBar.
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(
+        // Растягиваем на всю ширину: иначе блок итогов сжимается по тексту и
+        // встаёт по центру, а строки не прижимаются к левому краю.
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Верхняя часть прокручивается: при крупном шрифте на маленьком
           // экране она уступает место кнопкам, а не вызывает переполнение.
           Expanded(
             child: SingleChildScrollView(
               child: Column(
+                // Обе строки прижаты к левому краю во всех состояниях.
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Расходы всегда цветом расхода, доходы — цветом дохода.
                   _MonthTotal(
                     stream: monthExpenses,
                     month: month,
                     title: 'Расходы',
                     emptyText: 'В этом месяце расходов ещё нет',
                     errorText: 'Не удалось посчитать расходы за месяц',
+                    color: colors.expense,
                   ),
                   const SizedBox(height: 8),
                   // Знак «+» и цвет дохода: смысл не передаётся одним цветом.
@@ -127,8 +134,8 @@ class _MonthTotal extends StatelessWidget {
     required this.title,
     required this.emptyText,
     required this.errorText,
+    required this.color,
     this.sign = '',
-    this.color,
   });
 
   final Stream<Money> stream;
@@ -142,21 +149,22 @@ class _MonthTotal extends StatelessWidget {
   /// Знак перед суммой («+» у доходов), у расходов пусто.
   final String sign;
 
-  /// Цвет строки; `null` — обычный цвет текста темы.
-  final Color? color;
+  /// Цвет строки во всех состояниях (сумма, пусто, ошибка).
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.headlineSmall;
+    final style = Theme.of(context).textTheme.headlineSmall
+        ?.copyWith(color: color);
     // Пока первого значения нет, AsyncView не показывает ничего (не «расходов
     // нет»): пустое состояние означает «спросили базу, и там ноль».
     return AsyncView<Money>(
       stream: stream,
       errorBuilder: (context, error) =>
-          Text(errorText, textAlign: TextAlign.center, style: style),
+          Text(errorText, textAlign: TextAlign.start, style: style),
       isEmpty: (total) => total.minorUnits == 0,
       emptyBuilder: (context) =>
-          Text(emptyText, textAlign: TextAlign.center, style: style),
+          Text(emptyText, textAlign: TextAlign.start, style: style),
       dataBuilder: (context, total) {
         final name = formatMonthName(month);
         // Скринридеру суммы читаем словами, а не «12 345,00 ₽» с символом.
@@ -165,8 +173,8 @@ class _MonthTotal extends StatelessWidget {
           excludeSemantics: true,
           child: Text(
             '$title за $name: $sign${formatMoney(total)}',
-            textAlign: TextAlign.center,
-            style: style?.copyWith(color: color),
+            textAlign: TextAlign.start,
+            style: style,
           ),
         );
       },

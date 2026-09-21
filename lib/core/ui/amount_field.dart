@@ -198,17 +198,20 @@ class AmountField extends StatelessWidget {
                           child: Stack(
                             alignment: Alignment.centerLeft,
                             children: [
-                              // Серый «0» пока пусто. Нарисован сам, а не через
+                              // Бледный «0» пока пусто. Нарисован сам, а не через
                               // hintText: подсказка поля попала бы в подпись для
-                              // скринридера.
+                              // скринридера. Прозрачность 0,4, чтобы «0» не
+                              // выглядел как введённое значение.
                               if (text.isEmpty)
                                 ExcludeSemantics(
                                   child: IgnorePointer(
                                     child: Text(
                                       '0',
                                       style: style.copyWith(
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
+                                        color: theme
+                                            .colorScheme
+                                            .onSurfaceVariant
+                                            .withValues(alpha: 0.4),
                                       ),
                                     ),
                                   ),

@@ -21,7 +21,8 @@ class EditCategoryPickerScreen extends StatefulWidget {
 
   static const expenseTitle = 'Категория расхода';
   static const incomeTitle = 'Категория дохода';
-  static const emptyText = 'Категорий пока нет';
+  static const emptyExpenseText = 'Нет категорий для расходов';
+  static const emptyIncomeText = 'Нет категорий для доходов';
   static const loadErrorText = 'Не удалось загрузить категории';
 
   @override
@@ -60,8 +61,11 @@ class _EditCategoryPickerScreenState extends State<EditCategoryPickerScreen> {
           errorBuilder: (context, error) =>
               const _Message(EditCategoryPickerScreen.loadErrorText),
           isEmpty: (data) => _visible(data).isEmpty,
-          emptyBuilder: (context) =>
-              const _Message(EditCategoryPickerScreen.emptyText),
+          emptyBuilder: (context) => _Message(
+            widget.type == TransactionType.income
+                ? EditCategoryPickerScreen.emptyIncomeText
+                : EditCategoryPickerScreen.emptyExpenseText,
+          ),
           dataBuilder: (context, data) => CustomScrollView(
             slivers: [
               const SliverPadding(padding: EdgeInsets.only(top: 16)),

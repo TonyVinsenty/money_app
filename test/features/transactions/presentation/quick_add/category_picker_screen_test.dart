@@ -53,7 +53,7 @@ class _Harness {
   final selected = <Category>[];
   final notes = <String?>[];
 
-  /// Сколько раз нажали «Создать категорию».
+  /// Сколько раз нажали «Добавить категорию».
   int created = 0;
 
   Widget app({
@@ -132,7 +132,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       expect(find.byType(InkWell), findsNothing);
-      expect(find.text(CategoryPickerScreen.emptyText), findsNothing);
+      expect(find.text(CategoryPickerScreen.emptyExpenseText), findsNothing);
       expect(find.text(CategoryPickerScreen.createLabel), findsNothing);
       // Сумма при этом уже видна.
       expect(find.textContaining(_formatted), findsOneWidget);
@@ -194,23 +194,40 @@ void main() {
     expect(find.text('Продукты'), findsNothing);
   });
 
-  testWidgets('пустое состояние: текст и кнопка «Создать категорию»', (
+  testWidgets(
+    'пустое состояние расходов: текст и кнопка «Добавить категорию»',
+    (tester) async {
+      final harness = await pump(tester);
+      harness.source.add(const []);
+      await tester.pump();
+
+      expect(find.text('Нет категорий для расходов'), findsOneWidget);
+      final button = find.widgetWithText(
+        FilledButton,
+        CategoryPickerScreen.createLabel,
+      );
+      expect(button, findsOneWidget);
+
+      await tester.tap(button);
+      await tester.pump();
+      expect(harness.created, 1);
+    },
+  );
+
+  testWidgets('пустое состояние доходов: свой текст и та же кнопка', (
     tester,
   ) async {
-    final harness = await pump(tester);
+    final harness = await pump(tester, type: TransactionType.income);
     harness.source.add(const []);
     await tester.pump();
 
-    expect(find.text(CategoryPickerScreen.emptyText), findsOneWidget);
-    final button = find.widgetWithText(
-      FilledButton,
-      CategoryPickerScreen.createLabel,
+    expect(find.text('Нет категорий для доходов'), findsOneWidget);
+    expect(find.text('Нет категорий для расходов'), findsNothing);
+    expect(find.text(CategoryPickerScreen.emptyHint), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Добавить категорию'),
+      findsOneWidget,
     );
-    expect(button, findsOneWidget);
-
-    await tester.tap(button);
-    await tester.pump();
-    expect(harness.created, 1);
   });
 
   testWidgets('пустое состояние без колбэка: кнопки «Создать» нет', (
@@ -220,7 +237,7 @@ void main() {
     harness.source.add(const []);
     await tester.pump();
 
-    expect(find.text(CategoryPickerScreen.emptyText), findsOneWidget);
+    expect(find.text(CategoryPickerScreen.emptyExpenseText), findsOneWidget);
     expect(find.text(CategoryPickerScreen.createLabel), findsNothing);
   });
 
@@ -233,7 +250,7 @@ void main() {
     ]);
     await tester.pump();
 
-    expect(find.text(CategoryPickerScreen.emptyText), findsOneWidget);
+    expect(find.text(CategoryPickerScreen.emptyExpenseText), findsOneWidget);
   });
 
   testWidgets('ошибка потока показывается текстом', (tester) async {

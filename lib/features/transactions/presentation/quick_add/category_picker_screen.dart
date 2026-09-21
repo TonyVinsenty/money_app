@@ -36,7 +36,7 @@ class CategoryPickerScreen extends StatefulWidget {
     super.key,
   });
 
-  /// Открывает форму новой категории; кнопка «Создать категорию» в пустом
+  /// Открывает форму новой категории; кнопка «Добавить категорию» в пустом
   /// состоянии показывается, только если колбэк задан.
   final VoidCallback? onCreateCategory;
 
@@ -60,10 +60,11 @@ class CategoryPickerScreen extends StatefulWidget {
 
   static const expenseTitle = 'Категория расхода';
   static const incomeTitle = 'Категория дохода';
-  static const emptyText = 'Категорий пока нет';
+  static const emptyExpenseText = 'Нет категорий для расходов';
+  static const emptyIncomeText = 'Нет категорий для доходов';
   static const emptyHint =
       'Создайте первую категорию, чтобы записывать операции';
-  static const createLabel = 'Создать категорию';
+  static const createLabel = 'Добавить категорию';
   static const loadErrorText = 'Не удалось загрузить категории';
 
   @override
@@ -135,7 +136,12 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
           emptyBuilder: (context) => _scrollView(context, isIncome, accent, [
             SliverFillRemaining(
               hasScrollBody: false,
-              child: _EmptyState(onCreate: widget.onCreateCategory),
+              child: _EmptyState(
+                text: isIncome
+                    ? CategoryPickerScreen.emptyIncomeText
+                    : CategoryPickerScreen.emptyExpenseText,
+                onCreate: widget.onCreateCategory,
+              ),
             ),
           ]),
           dataBuilder: (context, data) => _scrollView(
@@ -238,8 +244,9 @@ class _AmountHeader extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onCreate});
+  const _EmptyState({required this.text, required this.onCreate});
 
+  final String text;
   final VoidCallback? onCreate;
 
   @override
@@ -252,7 +259,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              CategoryPickerScreen.emptyText,
+              text,
               style: theme.textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),

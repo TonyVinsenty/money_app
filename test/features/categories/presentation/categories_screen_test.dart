@@ -81,8 +81,14 @@ Future<void> _pumpWith(
       ),
       home: CategoriesScreen(
         categories: repository,
-        onCreate: created.add,
-        onRename: renamed.add,
+        onCreate: (kind) async {
+          created.add(kind);
+          await formGate;
+        },
+        onRename: (category) async {
+          renamed.add(category);
+          await formGate;
+        },
       ),
     ),
   );
@@ -93,6 +99,9 @@ Future<void> _pumpWith(
 /// переименования.
 final created = <CategoryKind>[];
 final renamed = <Category>[];
+
+/// Пока не завершён, «форма» считается открытой (колбэки ждут его).
+Future<void>? formGate;
 
 String _nameOf(String id) => _fixture().firstWhere((c) => c.id == id).name;
 
@@ -128,6 +137,7 @@ void main() {
   setUp(() {
     created.clear();
     renamed.clear();
+    formGate = null;
   });
 
   testWidgets('кнопка «Добавить категорию» передаёт вид открытой вкладки', (
@@ -145,7 +155,7 @@ void main() {
     expect(created, [CategoryKind.expense, CategoryKind.income]);
   });
 
-  testWidgets('«Переименовать» есть у живых категорий, у архивных нет', (
+  testWidgets('«Переименовать» есть и у живых категорий, и у архивных', (
     tester,
   ) async {
     await _pump(tester, _fixture());
@@ -163,7 +173,178 @@ void main() {
     expect(renamed.map((c) => c.id), ['cafe']);
 
     await _openArchive(tester);
-    expect(rename('clothes'), findsNothing);
+    expect(rename('clothes'), findsOneWidget);
+    await tester.tap(rename('clothes'));
+    await tester.pumpAndSettle();
+    expect(renamed.map((c) => c.id), ['cafe', 'clothes']);
+  });
+
+  testWidgets('двойной тап по «Добавить категорию» открывает одну форму', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    formGate = gate.future;
+    await _pump(tester, _fixture());
+
+    await tester.tap(find.text(categoriesAddAction));
+    await tester.pump();
+    await tester.tap(find.text(categoriesAddAction));
+    await tester.pump();
+    expect(created, [CategoryKind.expense]);
+
+    // Форму закрыли: снова можно открыть.
+    gate.complete();
+    await tester.pumpAndSettle();
+    formGate = null;
+    await tester.tap(find.text(categoriesAddAction));
+    await tester.pumpAndSettle();
+    expect(created, hasLength(2));
+  });
+
+  testWidgets('двойной тап по карандашу открывает одну форму, и «Добавить» '
+      'не открывает вторую поверх', (tester) async {
+    final gate = Completer<void>();
+    formGate = gate.future;
+    await _pump(tester, _fixture());
+    final pencil = find.byTooltip(categoriesRenameLabel('Кафе'));
+
+    await tester.tap(pencil);
+    await tester.pump();
+    await tester.tap(pencil);
+    await tester.pump();
+    await tester.tap(find.text(categoriesAddAction));
+    await tester.pump();
+
+    expect(renamed.map((c) => c.id), ['cafe']);
+    expect(created, isEmpty);
+    gate.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('в архив: сообщение с именем и «Вернуть» возвращает категорию', (
+    tester,
+  ) async {
+    await _pump(tester, _fixture());
+
+    await tester.tap(_button('cafe'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Категория «Кафе» в архиве'), findsOneWidget);
+    expect(find.text('Вернуть'), findsOneWidget);
+    expect(find.text('Кафе'), findsNothing);
+
+    await tester.tap(find.text('Вернуть'));
+    await tester.pumpAndSettle();
+    expect(find.text('Кафе'), findsOneWidget);
+    expect(find.text(categoriesArchiveTitle(1)), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('«Вернуть» работает и после ухода с экрана', (tester) async {
+    final repository = InMemoryCategoriesRepository(_fixture());
+    addTearDown(repository.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => CategoriesScreen(
+                    categories: repository,
+                    onCreate: (_) async {},
+                    onRename: (_) async {},
+                  ),
+                ),
+              ),
+              child: const Text('Открыть'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Открыть'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(_button('cafe'));
+    await tester.pumpAndSettle();
+    expect(find.text('Категория «Кафе» в архиве'), findsOneWidget);
+    expect(repository.all.firstWhere((c) => c.id == 'cafe').isArchived, isTrue);
+
+    // Ушли с экрана категорий; сообщение осталось в корневом мессенджере.
+    Navigator.of(tester.element(find.byType(CategoriesScreen))).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(CategoriesScreen), findsNothing);
+    expect(find.text('Вернуть'), findsOneWidget);
+
+    await tester.tap(find.text('Вернуть'));
+    await tester.pumpAndSettle();
+
+    expect(
+      repository.all.firstWhere((c) => c.id == 'cafe').isArchived,
+      isFalse,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('сообщение об архиве исчезает само через положенное время', (
+    tester,
+  ) async {
+    await _pump(tester, _fixture());
+
+    await tester.tap(_button('cafe'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsOneWidget);
+
+    await tester.pump(categoriesArchivedDuration + const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('второе «В архив» заменяет прежнее сообщение', (tester) async {
+    await _pump(tester, _fixture());
+
+    await tester.tap(_button('cafe'));
+    await tester.pumpAndSettle();
+    await tester.tap(_button('food'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('Категория «Продукты» в архиве'), findsOneWidget);
+    expect(find.text('Категория «Кафе» в архиве'), findsNothing);
+  });
+
+  testWidgets('«Вернуть» при занятом имени: объяснение вместо возврата', (
+    tester,
+  ) async {
+    final repository = await _pump(tester, _fixture());
+
+    await tester.tap(_button('cafe'));
+    await tester.pumpAndSettle();
+    // Пока лежала в архиве, имя заняли.
+    await repository.create(_c('cafe2', 'Кафе', 9));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Вернуть'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(categoryRestoreDuplicateText), findsOneWidget);
+    expect(find.text('Категория «Кафе» в архиве'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('в развёрнутом архиве первой строкой пояснение', (tester) async {
+    await _pump(tester, _fixture());
+    const noteText = 'Старые операции по этим категориям сохранены';
+    expect(find.text(noteText), findsNothing);
+
+    await _openArchive(tester);
+
+    expect(find.text(noteText), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text(noteText)).dy,
+      lessThan(tester.getTopLeft(find.text('Одежда')).dy),
+    );
   });
 
   testWidgets('последняя строка не закрыта кнопкой «Добавить категорию»', (
@@ -276,8 +457,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text(categoryRuleMessage(CategoryRule.duplicateName)),
+      find.text(
+        'В списке уже есть категория с таким названием. Переименуйте её или '
+        'оставьте эту в архиве',
+      ),
       findsOneWidget,
+    );
+    expect(
+      find.text(categoryRuleMessage(CategoryRule.duplicateName)),
+      findsNothing,
     );
     expect(find.text(categoriesArchiveTitle(1)), findsOneWidget);
     expect(find.text('кафе'), findsOneWidget);

@@ -1118,6 +1118,34 @@ void main() {
       });
     });
 
+    group('nextSortOrder', () {
+      test('an empty kind gives 0', () async {
+        await repo.create(top('inc', kind: CategoryKind.income, sortOrder: 7));
+        expect(await repo.nextSortOrder(CategoryKind.expense), 0);
+      });
+
+      test('is max + 1 over top-level rows of the kind, archived included, '
+          'subcategories and deleted rows ignored', () async {
+        await repo.create(top('a'));
+        await repo.create(top('b', sortOrder: 4));
+        await repo.create(top('c', sortOrder: 2));
+        await repo.archive('b');
+        await repo.create(child('sub', 'a', sortOrder: 30));
+        await rawInsert('gone', name: 'Gone', sortOrder: 50, deletedAt: 5);
+        await repo.create(top('inc', kind: CategoryKind.income, sortOrder: 9));
+
+        expect(await repo.nextSortOrder(CategoryKind.expense), 5);
+        expect(await repo.nextSortOrder(CategoryKind.income), 10);
+      });
+
+      test('a corrupted neighbour row does not get in the way', () async {
+        await repo.create(top('a', sortOrder: 3));
+        await rawInsert('bad', name: '', sortOrder: 6);
+
+        expect(await repo.nextSortOrder(CategoryKind.expense), 7);
+      });
+    });
+
     group('corrupted data', () {
       final variants = <String, Future<void> Function(String id)>{};
 

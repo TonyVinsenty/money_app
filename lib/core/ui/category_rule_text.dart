@@ -30,3 +30,10 @@ String categoryRuleMessage(CategoryRule rule) {
       return categorySaveFailedText;
   }
 }
+
+/// Отказ вернуть категорию из архива, когда её имя за это время занято другой
+/// категорией (правило `duplicateName`). Текст под полем при создании и
+/// переименовании остаётся прежним ([categoryRuleMessage]).
+const String categoryRestoreDuplicateText =
+    'В списке уже есть категория с таким названием. Переименуйте её или '
+    'оставьте эту в архиве';

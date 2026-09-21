@@ -25,8 +25,8 @@ const Map<String, _IconEntry> _categoryIcons = <String, _IconEntry>{
   'checkroom': (icon: Icons.checkroom, name: 'Одежда'),
   'sports_esports': (icon: Icons.sports_esports, name: 'Игры'),
   'phone_android': (icon: Icons.phone_android, name: 'Телефон'),
-  'card_giftcard': (icon: Icons.card_giftcard, name: 'Подарочная карта'),
-  'more_horiz': (icon: Icons.more_horiz, name: 'Многоточие'),
+  'card_giftcard': (icon: Icons.card_giftcard, name: 'Карта'),
+  'more_horiz': (icon: Icons.more_horiz, name: 'Другое'),
   'payments': (icon: Icons.payments, name: 'Деньги'),
   'work': (icon: Icons.work, name: 'Работа'),
   'redeem': (icon: Icons.redeem, name: 'Подарок'),
@@ -41,12 +41,12 @@ const Map<String, _IconEntry> _categoryIcons = <String, _IconEntry>{
   'movie': (icon: Icons.movie, name: 'Кино'),
   'savings': (icon: Icons.savings, name: 'Копилка'),
   'account_balance': (icon: Icons.account_balance, name: 'Банк'),
-  'trending_up': (icon: Icons.trending_up, name: 'Рост'),
+  'trending_up': (icon: Icons.trending_up, name: 'График'),
   'wifi': (icon: Icons.wifi, name: 'Интернет'),
-  'build': (icon: Icons.build, name: 'Ремонт'),
+  'build': (icon: Icons.build, name: 'Инструменты'),
   'spa': (icon: Icons.spa, name: 'Красота'),
   'local_pharmacy': (icon: Icons.local_pharmacy, name: 'Аптека'),
-  'shopping_bag': (icon: Icons.shopping_bag, name: 'Покупки'),
+  'shopping_bag': (icon: Icons.shopping_bag, name: 'Сумка'),
 };
 
 /// Ключи иконок для выбора, в порядке показа. Первый — иконка по умолчанию.
