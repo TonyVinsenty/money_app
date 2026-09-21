@@ -88,6 +88,37 @@ class InMemoryCategoriesRepository extends FakeCategoriesRepository {
     ];
   }
 
+  /// Аргументы всех вызовов `reorder` (в том числе неудачных).
+  final reorderCalls = <List<String>>[];
+
+  /// Если задан, `reorder` ждёт его, прежде чем записать (запись «в пути»).
+  Future<void>? reorderGate;
+
+  /// Как настоящий: переданные категории получают номера `0..n-1`, остальные
+  /// «братья» (архивные) следуют за ними в прежнем порядке. `sortOrder` не
+  /// хранится отдельно от порядка списка, поэтому переписываем сам список.
+  @override
+  Future<void> reorder(List<String> orderedIds) async {
+    reorderCalls.add(List.of(orderedIds));
+    await reorderGate;
+    final error = failWith;
+    if (error != null) throw error;
+    final byId = {for (final c in _state.value) c.id: c};
+    final first = byId[orderedIds.first]!;
+    bool sibling(Category c) =>
+        c.kind == first.kind && c.parentId == first.parentId;
+    final ordered = [for (final id in orderedIds) byId[id]!];
+    final rest = [
+      for (final c in _state.value)
+        if (sibling(c) && !orderedIds.contains(c.id)) c,
+    ];
+    final others = [
+      for (final c in _state.value)
+        if (!sibling(c)) c,
+    ];
+    _state.value = [...ordered, ...rest, ...others];
+  }
+
   void dispose() => _state.dispose();
 
   @override

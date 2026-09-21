@@ -1,5 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart'
+    show CustomSemanticsAction, SemanticsAction;
+import 'package:flutter/services.dart' show SystemChannels;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/app/app.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -65,6 +71,9 @@ Future<void> _pumpWith(
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light(),
+      locale: MoneyApp.appLocale,
+      supportedLocales: MoneyApp.supportedLocales,
+      localizationsDelegates: MoneyApp.localizationsDelegates,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -95,6 +104,18 @@ Finder _button(String id) => find.descendant(
 
 Future<void> _openArchive(WidgetTester tester) async {
   await tester.tap(find.textContaining('Архив ('));
+  await tester.pumpAndSettle();
+}
+
+/// Тянет ручку на [dy] пикселей по вертикали: сначала небольшой сдвиг (жест
+/// начинается), затем остальной путь, и лишь потом палец отпускается.
+Future<void> dragHandle(WidgetTester tester, Finder handle, double dy) async {
+  final gesture = await tester.startGesture(tester.getCenter(handle));
+  await gesture.moveBy(Offset(0, dy.sign * 20));
+  await tester.pump();
+  await gesture.moveBy(Offset(0, dy - dy.sign * 20));
+  await tester.pump();
+  await gesture.up();
   await tester.pumpAndSettle();
 }
 
@@ -151,11 +172,12 @@ void main() {
     tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await _pump(tester, [
-      for (var i = 0; i < 14; i++) _c('c$i', 'Категория $i', i),
-    ]);
+    await _pump(tester, [for (var i = 0; i < 14; i++) _c('c$i', 'Кат $i', i)]);
 
-    await tester.drag(find.byType(ListView).first, const Offset(0, -2000));
+    await tester.drag(
+      find.byType(ReorderableListView).first,
+      const Offset(0, -2000),
+    );
     await tester.pumpAndSettle();
 
     final lastRow = tester.getRect(find.byKey(const ValueKey<String>('c13')));
@@ -353,5 +375,257 @@ void main() {
       ),
     );
     handle.dispose();
+  });
+
+  group('порядок перетаскиванием', () {
+    /// Ручка перетаскивания в строке категории [id].
+    Finder handleOf(String id) => find.descendant(
+      of: find.byKey(ValueKey<String>(id)),
+      matching: find.byIcon(Icons.drag_handle),
+    );
+
+    /// Названия живых строк сверху вниз.
+    List<String> shownOrder(WidgetTester tester, List<String> names) {
+      final sorted = [...names]
+        ..sort(
+          (a, b) => tester
+              .getTopLeft(find.text(a))
+              .dy
+              .compareTo(tester.getTopLeft(find.text(b)).dy),
+        );
+      return sorted;
+    }
+
+    const expenseNames = ['Продукты', 'Кафе', 'Транспорт'];
+
+    testWidgets('перетаскивание за ручку меняет порядок и пишет его целиком', (
+      tester,
+    ) async {
+      final repository = await _pump(tester, _fixture());
+
+      await dragHandle(tester, handleOf('food'), 60);
+      await tester.pumpAndSettle();
+
+      expect(repository.reorderCalls, [
+        ['cafe', 'food', 'transport'],
+      ]);
+      expect(shownOrder(tester, expenseNames), [
+        'Кафе',
+        'Продукты',
+        'Транспорт',
+      ]);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('ручка не меньше 48 dp; у архивных её нет; архив внизу', (
+      tester,
+    ) async {
+      await _pump(tester, _fixture());
+
+      for (final id in ['food', 'cafe', 'transport']) {
+        final size = tester.getSize(handleOf(id).first);
+        expect(size.width, greaterThanOrEqualTo(24), reason: id);
+        final zone = tester.getSize(
+          find
+              .ancestor(
+                of: handleOf(id),
+                matching: find.byType(ReorderableDragStartListener),
+              )
+              .first,
+        );
+        expect(zone.width, greaterThanOrEqualTo(48), reason: id);
+        expect(zone.height, greaterThanOrEqualTo(48), reason: id);
+      }
+      expect(find.byIcon(Icons.drag_handle), findsNWidgets(3));
+
+      await _openArchive(tester);
+      expect(find.byIcon(Icons.drag_handle), findsNWidgets(3));
+      expect(
+        tester.getTopLeft(find.text('Одежда')).dy,
+        greaterThan(tester.getTopLeft(find.text('Транспорт')).dy),
+      );
+    });
+
+    testWidgets('порядок доходов не затрагивает расходы', (tester) async {
+      final repository = await _pump(tester, _fixture());
+
+      await tester.tap(find.text(categoriesIncomeTab));
+      await tester.pumpAndSettle();
+      await dragHandle(tester, handleOf('salary'), 60);
+      await tester.pumpAndSettle();
+
+      expect(repository.reorderCalls, [
+        ['gift', 'salary'],
+      ]);
+      expect(shownOrder(tester, ['Зарплата', 'Подарки']), [
+        'Подарки',
+        'Зарплата',
+      ]);
+
+      await tester.tap(find.text(categoriesExpenseTab));
+      await tester.pumpAndSettle();
+      expect(shownOrder(tester, expenseNames), expenseNames);
+    });
+
+    testWidgets(
+      'запись идёт: порядок не отскакивает, потом совпадает с базой',
+      (tester) async {
+        final repository = await _pump(tester, _fixture());
+        final gate = Completer<void>();
+        repository.reorderGate = gate.future;
+
+        await dragHandle(tester, handleOf('food'), 60);
+        await tester.pumpAndSettle();
+        // База ещё не ответила, а на экране уже новый порядок.
+        expect(shownOrder(tester, expenseNames), [
+          'Кафе',
+          'Продукты',
+          'Транспорт',
+        ]);
+
+        // Вторую перестановку, пока идёт запись, не принимаем.
+        await dragHandle(tester, handleOf('transport'), -60);
+        await tester.pumpAndSettle();
+        expect(repository.reorderCalls.length, 1);
+        expect(shownOrder(tester, expenseNames), [
+          'Кафе',
+          'Продукты',
+          'Транспорт',
+        ]);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(shownOrder(tester, expenseNames), [
+          'Кафе',
+          'Продукты',
+          'Транспорт',
+        ]);
+        expect(find.byType(SnackBar), findsNothing);
+      },
+    );
+
+    testWidgets('ошибка записи: сообщение и возврат к порядку из базы', (
+      tester,
+    ) async {
+      final repository = await _pump(tester, _fixture());
+      repository.failWith = Exception('disk');
+
+      await dragHandle(tester, handleOf('food'), 60);
+      await tester.pumpAndSettle();
+
+      expect(find.text(categorySaveFailedText), findsOneWidget);
+      expect(shownOrder(tester, expenseNames), expenseNames);
+      expect(tester.takeException(), isNull);
+
+      // После сбоя перестановка снова работает.
+      repository.failWith = null;
+      await dragHandle(tester, handleOf('food'), 60);
+      await tester.pumpAndSettle();
+      expect(shownOrder(tester, expenseNames), [
+        'Кафе',
+        'Продукты',
+        'Транспорт',
+      ]);
+    });
+
+    /// Подписи действий, которые скринридер видит у строки [id].
+    Map<String, int> actionsOf(WidgetTester tester, String id) {
+      final data = tester
+          .getSemantics(find.byKey(ValueKey<String>(id)))
+          .getSemanticsData();
+      return {
+        for (final actionId in data.customSemanticsActionIds ?? <int>[])
+          CustomSemanticsAction.getAction(actionId)!.label!: actionId,
+      };
+    }
+
+    void perform(WidgetTester tester, String id, String label) {
+      final node = tester.getSemantics(find.byKey(ValueKey<String>(id)));
+      node.owner!.performAction(
+        node.id,
+        SemanticsAction.customAction,
+        actionsOf(tester, id)[label],
+      );
+    }
+
+    testWidgets('скринридер: действия «вверх/вниз» по-русски, у крайних без '
+        'недоступных', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _pump(tester, _fixture());
+
+      expect(actionsOf(tester, 'food').keys, {
+        'Переместить вниз',
+        'Переместить в конец',
+      });
+      expect(actionsOf(tester, 'cafe').keys, {
+        'Переместить в начало',
+        'Переместить вверх',
+        'Переместить вниз',
+        'Переместить в конец',
+      });
+      expect(actionsOf(tester, 'transport').keys, {
+        'Переместить в начало',
+        'Переместить вверх',
+      });
+      semantics.dispose();
+    });
+
+    testWidgets('скринридер: «вниз» переставляет и объявляет позицию', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final announcements = <String>[];
+      tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+            message,
+          ) async {
+            final map = message as Map<Object?, Object?>;
+            if (map['type'] == 'announce') {
+              final data = map['data']! as Map<Object?, Object?>;
+              announcements.add(data['message']! as String);
+            }
+            return null;
+          });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger
+            .setMockDecodedMessageHandler<dynamic>(
+              SystemChannels.accessibility,
+              null,
+            ),
+      );
+      final repository = await _pump(tester, _fixture());
+
+      perform(tester, 'food', 'Переместить вниз');
+      await tester.pumpAndSettle();
+
+      expect(repository.reorderCalls, [
+        ['cafe', 'food', 'transport'],
+      ]);
+      expect(announcements, [categoriesMovedAnnouncement('Продукты', 2, 3)]);
+      expect(announcements.single, 'Продукты: позиция 2 из 3');
+
+      perform(tester, 'transport', 'Переместить в начало');
+      await tester.pumpAndSettle();
+      expect(repository.reorderCalls.last, ['transport', 'cafe', 'food']);
+      expect(announcements.last, 'Транспорт: позиция 1 из 3');
+
+      perform(tester, 'transport', 'Переместить вниз');
+      await tester.pumpAndSettle();
+      expect(repository.reorderCalls.last, ['cafe', 'transport', 'food']);
+      semantics.dispose();
+    });
+
+    testWidgets('масштаб 200 %: ручка есть, переполнения нет', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await _pump(tester, [
+        _c('long', 'Очень длинное название категории', 0),
+        _c('long2', 'Ещё одно очень длинное название', 1),
+      ], textScale: 2);
+
+      expect(find.byIcon(Icons.drag_handle), findsNWidgets(2));
+      expect(tester.takeException(), isNull);
+    });
   });
 }

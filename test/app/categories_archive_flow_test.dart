@@ -99,7 +99,7 @@ void main() {
       target,
       200,
       scrollable: find.descendant(
-        of: find.byType(ListView),
+        of: find.byType(ReorderableListView),
         matching: find.byType(Scrollable),
       ),
     );
@@ -135,6 +135,63 @@ void main() {
   });
 
   testWidgets(
+    'порядок, заданный перетаскиванием, виден в сетке быстрого ввода',
+    (tester) async {
+      await _pumpApp(tester);
+      final food = await _expenseCategoryId('Продукты');
+
+      await _openTab(tester, 'Настройки');
+      await tester.tap(find.text(categoriesScreenTitle));
+      await tester.pumpAndSettle();
+
+      // Ручку «Продуктов» тянем на строку вниз: «Кафе» становится первой.
+      final handle = find.descendant(
+        of: find.byKey(ValueKey<String>(food)),
+        matching: find.byIcon(Icons.drag_handle),
+      );
+      final gesture = await tester.startGesture(tester.getCenter(handle));
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+      await _waitForDatabase(tester);
+      expect(
+        tester.getTopLeft(find.text('Кафе')).dy,
+        lessThan(tester.getTopLeft(find.text('Продукты')).dy),
+      );
+
+      // Записано в базу: порядок в самой таблице тоже новый.
+      final rows =
+          await (_db.select(_db.categories)
+                ..where((c) => c.kind.equals('expense') & c.parentId.isNull())
+                ..orderBy([(c) => OrderingTerm.asc(c.sortOrder)]))
+              .get();
+      expect(rows.take(2).map((c) => c.name), ['Кафе', 'Продукты']);
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await _openTab(tester, 'Главная');
+      await tester.tap(find.text('Расход'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '350');
+      await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CategoryPickerScreen), findsOneWidget);
+
+      // Плитки идут слева направо, затем вниз: «Кафе» левее «Продуктов».
+      final cafe = tester.getTopLeft(find.text('Кафе'));
+      final products = tester.getTopLeft(find.text('Продукты'));
+      expect(cafe.dy, products.dy);
+      expect(cafe.dx, lessThan(products.dx));
+
+      await tester.pumpWidget(const SizedBox());
+      await _db.close();
+    },
+  );
+
+  testWidgets(
     'архивная категория пропадает из сетки, но остаётся в «Истории»',
     (tester) async {
       await _pumpApp(tester);
@@ -168,7 +225,7 @@ void main() {
         find.text(categoriesArchiveTitle(1)),
         200,
         scrollable: find.descendant(
-          of: find.byType(ListView),
+          of: find.byType(ReorderableListView),
           matching: find.byType(Scrollable),
         ),
       );
