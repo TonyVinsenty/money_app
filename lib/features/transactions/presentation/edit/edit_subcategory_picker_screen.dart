@@ -28,8 +28,6 @@ class EditSubcategoryPickerScreen extends StatelessWidget {
   final Category parent;
   final List<Category> subcategories;
 
-  static const noSubcategoryLabel = 'Без подкатегории';
-
   @override
   Widget build(BuildContext context) {
     void choose(Category? subcategory) =>
@@ -48,7 +46,6 @@ class EditSubcategoryPickerScreen extends StatelessWidget {
               ],
               onSelected: choose,
               onSkip: () => choose(null),
-              skipText: noSubcategoryLabel,
             ),
           ],
         ),

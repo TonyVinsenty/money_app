@@ -9,8 +9,8 @@ import 'package:money_app/features/categories/domain/category.dart';
 /// вводе и в правке операции. Список [categories] уже отфильтрован и упорядочен
 /// вызывающим; тап по плитке вызывает [onSelected].
 ///
-/// Если задан [onSkip], первой плиткой идёт «Пропустить» (без категории):
-/// так выбор подкатегории необязателен.
+/// Если задан [onSkip], первой плиткой идёт «Без подкатегории»: так выбор
+/// подкатегории необязателен.
 class CategoryGrid extends StatelessWidget {
   const CategoryGrid({
     required this.categories,
@@ -23,13 +23,13 @@ class CategoryGrid extends StatelessWidget {
   final List<Category> categories;
   final ValueChanged<Category> onSelected;
 
-  /// Тап по плитке «Пропустить»; без него такой плитки нет.
+  /// Тап по плитке «Без подкатегории»; без него такой плитки нет.
   final VoidCallback? onSkip;
 
-  /// Подпись плитки пропуска: в правке операции это «Без подкатегории».
+  /// Подпись плитки пропуска; по умолчанию — [skipLabel].
   final String skipText;
 
-  static const skipLabel = 'Пропустить';
+  static const skipLabel = 'Без подкатегории';
 
   @override
   Widget build(BuildContext context) {
@@ -50,8 +50,9 @@ class CategoryGrid extends StatelessWidget {
           if (skip != null && index == 0) {
             return _CategoryTile(
               label: skipText,
-              icon: Icons.arrow_forward,
+              icon: Icons.remove_circle_outline,
               onTap: skip,
+              isSkip: true,
             );
           }
           final category = categories[index - offset];
@@ -71,11 +72,16 @@ class _CategoryTile extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.isSkip = false,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+
+  /// Плитка «Без подкатегории»: контурная, а не залитая, чтобы не выглядеть
+  /// как обычная подкатегория.
+  final bool isSkip;
 
   static const _iconSize = 32.0;
   static const _verticalPadding = 12.0;
@@ -108,12 +114,22 @@ class _CategoryTile extends StatelessWidget {
       // Тап задан явно: excludeSemantics убирает и действия InkWell внутри.
       onTap: onTap,
       child: Material(
-        color: scheme.surfaceContainerHighest,
+        color: isSkip ? Colors.transparent : scheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
+          child: Container(
+            // foregroundDecoration, а не decoration: рамка рисуется поверх
+            // содержимого и не отнимает у него места (в отличие от
+            // decoration, где Container сам добавляет ширину рамки к
+            // отступам — тогда двум строкам названия не хватало бы высоты).
+            foregroundDecoration: isSkip
+                ? BoxDecoration(
+                    border: Border.all(color: scheme.outline),
+                    borderRadius: BorderRadius.circular(16),
+                  )
+                : null,
             padding: const EdgeInsets.symmetric(
               horizontal: 4,
               vertical: _verticalPadding,
@@ -122,7 +138,11 @@ class _CategoryTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ExcludeSemantics(
-                  child: Icon(icon, size: _iconSize, color: scheme.primary),
+                  child: Icon(
+                    icon,
+                    size: _iconSize,
+                    color: isSkip ? scheme.onSurfaceVariant : scheme.primary,
+                  ),
                 ),
                 const SizedBox(height: _gap),
                 Text(

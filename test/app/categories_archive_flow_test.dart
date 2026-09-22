@@ -213,10 +213,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Кафе'), findsOneWidget);
       await tester.tap(
-        find.descendant(
-          of: find.byKey(ValueKey<String>(cafe)),
-          matching: find.byType(TextButton),
-        ),
+        find
+            .descendant(
+              of: find.byKey(ValueKey<String>(cafe)),
+              matching: find.byType(TextButton),
+            )
+            // Первая текстовая кнопка строки — «В архив»; вторая —
+            // «Подкатегории».
+            .first,
       );
       await tester.pumpAndSettle();
       expect(find.text('Кафе'), findsNothing);

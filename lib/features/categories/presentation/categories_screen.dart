@@ -19,6 +19,7 @@ export 'package:money_app/features/categories/presentation/category_list.dart'
         categoriesRenameLabel,
         categoriesRestoreAction,
         categoriesRestoreLabel,
+        categoriesSubcategoriesAction,
         categoriesSubcategoriesLabel,
         categoriesSubcategoryCount,
         categoriesUndoAction;

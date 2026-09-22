@@ -8,6 +8,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 /// Кнопки у строки категории (и подкатегории).
 const categoriesArchiveAction = 'В архив';
 const categoriesRestoreAction = 'Вернуть из архива';
+const categoriesSubcategoriesAction = 'Подкатегории';
 
 /// Кнопка отмены в сообщении об архиве.
 const categoriesUndoAction = 'Вернуть';
@@ -312,19 +313,41 @@ class _CategoryRow extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(48, 48),
-                    padding: EdgeInsets.zero,
-                    alignment: Alignment.centerLeft,
-                  ),
-                  onPressed: onPressed,
-                  // Скринридер читает действие вместе с именем категории.
-                  child: Semantics(
-                    label: actionLabel,
-                    excludeSemantics: true,
-                    child: Text(actionText),
-                  ),
+                // Wrap, а не Row: при крупном шрифте или длинном имени вторая
+                // кнопка переносится на следующую строку, а не вылезает
+                // за край экрана.
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                        padding: EdgeInsets.zero,
+                        alignment: Alignment.centerLeft,
+                      ),
+                      onPressed: onPressed,
+                      // Скринридер читает действие вместе с именем категории.
+                      child: Semantics(
+                        label: actionLabel,
+                        excludeSemantics: true,
+                        child: Text(actionText),
+                      ),
+                    ),
+                    if (onOpenSubcategories != null)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                          padding: EdgeInsets.zero,
+                          alignment: Alignment.centerLeft,
+                        ),
+                        onPressed: onOpenSubcategories,
+                        child: Semantics(
+                          label: categoriesSubcategoriesLabel(category.name),
+                          excludeSemantics: true,
+                          child: const Text(categoriesSubcategoriesAction),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -337,13 +360,6 @@ class _CategoryRow extends StatelessWidget {
               icon: const Icon(Icons.edit_outlined),
               tooltip: categoriesRenameLabel(category.name),
               onPressed: onRename,
-            ),
-          if (onOpenSubcategories != null)
-            IconButton(
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              icon: const Icon(Icons.subdirectory_arrow_right),
-              tooltip: categoriesSubcategoriesLabel(category.name),
-              onPressed: onOpenSubcategories,
             ),
           // Ручка: тянуть можно только за неё, чтобы не мешать прокрутке.
           // Скринридеру ручка не нужна: у строки есть действия «Переместить».

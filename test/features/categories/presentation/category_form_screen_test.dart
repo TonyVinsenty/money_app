@@ -200,7 +200,10 @@ void main() {
       addTearDown(repository.dispose);
       await _openForm(tester, repository, kind: parent.kind, parent: parent);
 
-      expect(find.text(subcategoryFormCreateTitle), findsOneWidget);
+      expect(
+        find.text(subcategoryFormCreateTitle(parent.name)),
+        findsOneWidget,
+      );
       expect(find.text(categoryFormCreateTitle), findsNothing);
       expect(find.text(categoryFormKindTitle), findsNothing);
       expect(find.text(categoryFormIconTitle), findsNothing);

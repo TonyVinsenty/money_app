@@ -66,7 +66,9 @@ Future<InMemoryCategoriesRepository> _pumpCategories(
 }
 
 Future<void> _openSubcategories(WidgetTester tester, String name) async {
-  await tester.tap(find.byTooltip(categoriesSubcategoriesLabel(name)));
+  // Кнопка «Подкатегории» теперь текстовая (не иконка с tooltip): ищем её по
+  // подписи для скринридера, она включает имя категории.
+  await tester.tap(find.bySemanticsLabel(categoriesSubcategoriesLabel(name)));
   await tester.pumpAndSettle();
 }
 
@@ -75,6 +77,7 @@ void main() {
       'репозитория с видом и иконкой родителя и порядком в конец', (
     tester,
   ) async {
+    final semantics = tester.ensureSemantics();
     final repository = await _pumpCategories(tester, [
       _top('food', 'Продукты', 0, iconKey: 'restaurant'),
       _top('cafe', 'Кафе', 1),
@@ -88,7 +91,7 @@ void main() {
     // Первая подкатегория.
     await tester.tap(find.text(subcategoriesAddAction));
     await tester.pumpAndSettle();
-    expect(find.text(subcategoryFormCreateTitle), findsOneWidget);
+    expect(find.text(subcategoryFormCreateTitle('Продукты')), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Молоко');
     await tester.tap(find.text(categoryFormSaveLabel));
     await tester.pumpAndSettle();
@@ -124,10 +127,12 @@ void main() {
     expect(find.byType(CategoriesScreen), findsOneWidget);
     expect(find.text(categoriesSubcategoryCount(2)), findsOneWidget);
     expect(find.textContaining('Подкатегорий:'), findsOneWidget);
+    semantics.dispose();
   });
 
   testWidgets('дубль имени в форме подкатегории: текст под полем, форма '
       'остаётся открытой', (tester) async {
+    final semantics = tester.ensureSemantics();
     await _pumpCategories(tester, [_top('food', 'Продукты', 0)]);
     await _openSubcategories(tester, 'Продукты');
 
@@ -144,5 +149,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.text(categoryFormSaveLabel), findsOneWidget);
+    semantics.dispose();
   });
 }

@@ -110,11 +110,14 @@ Future<void>? formGate;
 
 String _nameOf(String id) => _fixture().firstWhere((c) => c.id == id).name;
 
-/// Кнопка в строке категории с id [id].
-Finder _button(String id) => find.descendant(
-  of: find.byKey(ValueKey<String>(id)),
-  matching: find.byType(TextButton),
-);
+/// Кнопка «В архив»/«Вернуть» в строке категории с id [id]: первая из
+/// текстовых кнопок строки, вторая (если есть) — «Подкатегории».
+Finder _button(String id) => find
+    .descendant(
+      of: find.byKey(ValueKey<String>(id)),
+      matching: find.byType(TextButton),
+    )
+    .first;
 
 Future<void> _openArchive(WidgetTester tester) async {
   await tester.tap(find.textContaining('Архив ('));
@@ -147,28 +150,30 @@ void main() {
   });
 
   group('подкатегории в строке', () {
-    /// Кнопка перехода к подкатегориям в строке категории [id].
+    /// Текстовая кнопка «Подкатегории» в строке категории [id].
     Finder subButton(String id) => find.descendant(
       of: find.byKey(ValueKey<String>(id)),
-      matching: find.byTooltip(categoriesSubcategoriesLabel(_nameOf(id))),
+      matching: find.widgetWithText(TextButton, categoriesSubcategoriesAction),
     );
 
-    testWidgets('у живой категории есть кнопка от 48 dp между карандашом и '
-        'ручкой; тап открывает подкатегории этой категории', (tester) async {
+    testWidgets('у живой категории есть кнопка «Подкатегории» от 48 dp, идёт '
+        'после «В архив»; тап открывает подкатегории этой категории', (
+      tester,
+    ) async {
       await _pump(tester, _fixture());
 
       expect(subButton('cafe'), findsOneWidget);
       final size = tester.getSize(subButton('cafe'));
       expect(size.width, greaterThanOrEqualTo(48));
       expect(size.height, greaterThanOrEqualTo(48));
-      final pencilX = tester
+      final archiveY = tester
           .getCenter(
             find.descendant(
               of: find.byKey(const ValueKey<String>('cafe')),
-              matching: find.byTooltip(categoriesRenameLabel('Кафе')),
+              matching: find.text(categoriesArchiveAction),
             ),
           )
-          .dx;
+          .dy;
       final handleX = tester
           .getCenter(
             find.descendant(
@@ -177,7 +182,8 @@ void main() {
             ),
           )
           .dx;
-      expect(tester.getCenter(subButton('cafe')).dx, greaterThan(pencilX));
+      // Обе текстовые кнопки идут одна за другой под именем, левее ручки.
+      expect(tester.getCenter(subButton('cafe')).dy, closeTo(archiveY, 1));
       expect(tester.getCenter(subButton('cafe')).dx, lessThan(handleX));
 
       await tester.tap(subButton('cafe'));
@@ -194,7 +200,7 @@ void main() {
       expect(
         tester.getSemantics(subButton('cafe')),
         isSemantics(
-          tooltip: categoriesSubcategoriesLabel('Кафе'),
+          label: categoriesSubcategoriesLabel('Кафе'),
           isButton: true,
           hasTapAction: true,
         ),

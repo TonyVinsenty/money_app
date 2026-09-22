@@ -183,16 +183,22 @@ void main() {
       'Мясо',
     ]);
     expect(find.text('Чай'), findsNothing);
-    // Архивная свёрнута, вкладок вида нет, кнопок подкатегорий у строк нет.
+    // Архивная свёрнута, вкладок вида нет, кнопок подкатегорий у строк нет
+    // (подкатегория второго уровня не поддерживается).
     expect(find.text('Старое'), findsNothing);
     expect(find.text(categoriesArchiveTitle(1)), findsOneWidget);
     expect(find.byType(Tab), findsNothing);
-    expect(find.byIcon(Icons.subdirectory_arrow_right), findsNothing);
+    expect(
+      find.widgetWithText(TextButton, categoriesSubcategoriesAction),
+      findsNothing,
+    );
     expect(find.textContaining('Подкатегорий:'), findsNothing);
     expect(find.text(subcategoriesAddAction), findsOneWidget);
   });
 
-  testWidgets('пустое состояние: «Подкатегорий пока нет»', (tester) async {
+  testWidgets('пустое состояние: подсказка добавить подкатегорию', (
+    tester,
+  ) async {
     await _pump(tester, [_parent]);
 
     expect(find.text(subcategoriesEmptyText), findsOneWidget);

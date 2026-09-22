@@ -211,42 +211,48 @@ void main() {
     expect(repo.added.single.subcategoryId, isNull);
   });
 
-  testWidgets('с подкатегориями: «Пропустить» первой, дальше по порядку', (
+  testWidgets(
+    'с подкатегориями: «Без подкатегории» первой, дальше по порядку',
+    (tester) async {
+      final repo = _RecordingTransactions();
+      await tester.pumpWidget(_app(repo, _categories()));
+      await _toPicker(tester);
+
+      await tester.tap(find.text('Продукты'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SubcategoryPickerScreen), findsOneWidget);
+      expect(repo.added, isEmpty);
+      // Заголовок — имя категории; сумма и день видны, комментария нет.
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('Продукты'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('−$_amountText'), findsOneWidget);
+      expect(find.text('Сегодня'), findsOneWidget);
+      expect(find.byType(NoteField), findsNothing);
+
+      final skip = tester.getTopLeft(find.text('Без подкатегории')).dx;
+      final vegetables = tester.getTopLeft(find.text('Овощи')).dx;
+      final fruits = tester.getTopLeft(find.text('Фрукты')).dx;
+      expect(skip, lessThan(vegetables));
+      expect(vegetables, lessThan(fruits));
+    },
+  );
+
+  testWidgets('«Без подкатегории» сохраняет только с категорией', (
     tester,
   ) async {
     final repo = _RecordingTransactions();
     await tester.pumpWidget(_app(repo, _categories()));
     await _toPicker(tester);
-
     await tester.tap(find.text('Продукты'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(SubcategoryPickerScreen), findsOneWidget);
-    expect(repo.added, isEmpty);
-    // Заголовок — имя категории; сумма и день видны, комментария нет.
-    expect(
-      find.descendant(of: find.byType(AppBar), matching: find.text('Продукты')),
-      findsOneWidget,
-    );
-    expect(find.text('−$_amountText'), findsOneWidget);
-    expect(find.text('Сегодня'), findsOneWidget);
-    expect(find.byType(NoteField), findsNothing);
-
-    final skip = tester.getTopLeft(find.text('Пропустить')).dx;
-    final vegetables = tester.getTopLeft(find.text('Овощи')).dx;
-    final fruits = tester.getTopLeft(find.text('Фрукты')).dx;
-    expect(skip, lessThan(vegetables));
-    expect(vegetables, lessThan(fruits));
-  });
-
-  testWidgets('«Пропустить» сохраняет только с категорией', (tester) async {
-    final repo = _RecordingTransactions();
-    await tester.pumpWidget(_app(repo, _categories()));
-    await _toPicker(tester);
-    await tester.tap(find.text('Продукты'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Пропустить'));
+    await tester.tap(find.text('Без подкатегории'));
     await tester.pumpAndSettle();
 
     expect(repo.added.single.categoryId, 'a');
@@ -304,14 +310,16 @@ void main() {
     expect(saved.occurredOn, DateOnly(2026, 9, 19));
   });
 
-  testWidgets('«Пропустить» тоже сохраняет комментарий и дату', (tester) async {
+  testWidgets('«Без подкатегории» тоже сохраняет комментарий и дату', (
+    tester,
+  ) async {
     final repo = _RecordingTransactions();
     await tester.pumpWidget(_app(repo, _categories()));
     await _toPicker(tester, yesterday: true, note: 'молоко');
     await tester.tap(find.text('Продукты'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Пропустить'));
+    await tester.tap(find.text('Без подкатегории'));
     await tester.pumpAndSettle();
 
     expect(repo.added.single.note, 'молоко');
@@ -368,7 +376,7 @@ void main() {
 
     await tester.tap(find.text('Овощи'));
     await tester.tap(find.text('Овощи'));
-    await tester.tap(find.text('Пропустить'));
+    await tester.tap(find.text('Без подкатегории'));
     await tester.pump();
     expect(repo.addCalls, 1);
 
@@ -401,24 +409,25 @@ void main() {
     expect(find.byType(SubcategoryPickerScreen), findsOneWidget);
   });
 
-  testWidgets('ошибка потока на экране подкатегорий: текст и «Пропустить»', (
-    tester,
-  ) async {
-    final repo = _RecordingTransactions();
-    // Первое чтение (тап по плитке) успешно, второе (экран) падает.
-    final categories = _categories()..failOnCalls.add(2);
-    await tester.pumpWidget(_app(repo, categories));
-    await _toPicker(tester);
-    await tester.tap(find.text('Продукты'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'ошибка потока на экране подкатегорий: текст и «Без подкатегории»',
+    (tester) async {
+      final repo = _RecordingTransactions();
+      // Первое чтение (тап по плитке) успешно, второе (экран) падает.
+      final categories = _categories()..failOnCalls.add(2);
+      await tester.pumpWidget(_app(repo, categories));
+      await _toPicker(tester);
+      await tester.tap(find.text('Продукты'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Не удалось загрузить подкатегории'), findsOneWidget);
-    await tester.tap(find.text('Пропустить'));
-    await tester.pumpAndSettle();
+      expect(find.text('Не удалось загрузить подкатегории'), findsOneWidget);
+      await tester.tap(find.text('Без подкатегории'));
+      await tester.pumpAndSettle();
 
-    expect(repo.added.single.categoryId, 'a');
-    expect(repo.added.single.subcategoryId, isNull);
-  });
+      expect(repo.added.single.categoryId, 'a');
+      expect(repo.added.single.subcategoryId, isNull);
+    },
+  );
 
   testWidgets('«Назад» возвращает на выбор категории с комментарием', (
     tester,
@@ -463,6 +472,6 @@ void main() {
 
     expect(find.byType(SubcategoryPickerScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
-    expect(find.text('Пропустить'), findsOneWidget);
+    expect(find.text('Без подкатегории'), findsOneWidget);
   });
 }

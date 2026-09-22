@@ -38,7 +38,7 @@ String transactionRuleMessage(
           'а вы вводите $entered. Выберите другую категорию';
     case TransactionRule.subcategoryNotOfCategory:
       return 'Эта подкатегория относится к другой категории. '
-          'Выберите подкатегорию заново или нажмите „Пропустить“';
+          'Выберите подкатегорию заново или нажмите «Без подкатегории»';
     case TransactionRule.categoryArchived:
       return 'Эта категория в архиве. Выберите другую';
     case TransactionRule.negativeAmount:

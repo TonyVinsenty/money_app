@@ -13,7 +13,8 @@ import 'package:money_app/features/categories/domain/category_rules.dart';
 /// Заголовки экрана формы.
 const categoryFormCreateTitle = 'Новая категория';
 const categoryFormRenameTitle = 'Переименовать категорию';
-const subcategoryFormCreateTitle = 'Новая подкатегория';
+String subcategoryFormCreateTitle(String parentName) =>
+    'Новая подкатегория · $parentName';
 const subcategoryFormRenameTitle = 'Переименовать подкатегорию';
 
 /// Подписи полей и кнопок формы.
@@ -197,7 +198,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
           _isSubcategory
               ? (_isRename
                     ? subcategoryFormRenameTitle
-                    : subcategoryFormCreateTitle)
+                    : subcategoryFormCreateTitle(widget.parent!.name))
               : (_isRename ? categoryFormRenameTitle : categoryFormCreateTitle),
         ),
       ),
