@@ -1,7 +1,29 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Ключ и пароли для подписи релизной сборки хранятся вне репозитория (ADR 0005,
+// docs/decisions/0005-android-release-signing.md). Путь к properties-файлу с
+// этими данными Gradle берёт из переменной окружения ZUNO_KEYSTORE_PROPERTIES;
+// сам файл и пароли в репозитории не появляются.
+val zunoKeystorePropertiesPath: String? = System.getenv("ZUNO_KEYSTORE_PROPERTIES")
+val zunoKeystoreProperties = Properties()
+var zunoHasKeystoreProperties = false
+if (zunoKeystorePropertiesPath != null) {
+    val propertiesFile = File(zunoKeystorePropertiesPath)
+    if (propertiesFile.exists()) {
+        try {
+            FileInputStream(propertiesFile).use { zunoKeystoreProperties.load(it) }
+            zunoHasKeystoreProperties = true
+        } catch (e: Exception) {
+            zunoHasKeystoreProperties = false
+        }
+    }
 }
 
 android {
@@ -28,12 +50,44 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (zunoHasKeystoreProperties) {
+            create("release") {
+                storeFile = file(zunoKeystoreProperties.getProperty("storeFile"))
+                storePassword = zunoKeystoreProperties.getProperty("storePassword")
+                keyAlias = zunoKeystoreProperties.getProperty("keyAlias")
+                keyPassword = zunoKeystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (zunoHasKeystoreProperties) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
+    }
+}
+
+// Релизная сборка без ключа подписи не имеет смысла (ADR 0005): обновление на
+// телефоне не встанет поверх ранее установленной версии. Поэтому сборка
+// останавливается с понятным сообщением, но только если реально запрошены
+// задачи сборки релиза (assembleRelease/bundleRelease и подобные) — отладочные
+// и профильные сборки (flutter run, flutter build apk --debug, тесты) должны
+// продолжать работать без переменной окружения ZUNO_KEYSTORE_PROPERTIES.
+gradle.taskGraph.whenReady {
+    val buildingRelease = allTasks.any { task ->
+        task.name.contains("Release") &&
+            (task.name.startsWith("assemble") ||
+                task.name.startsWith("bundle") ||
+                task.name.startsWith("package"))
+    }
+    if (buildingRelease && !zunoHasKeystoreProperties) {
+        throw GradleException(
+            "Ключ подписи не найден: задайте переменную окружения " +
+                "ZUNO_KEYSTORE_PROPERTIES, см. docs/how-to-android-release.md"
+        )
     }
 }
 
