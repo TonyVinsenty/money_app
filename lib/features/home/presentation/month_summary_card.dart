@@ -10,7 +10,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Карточка итога за месяц по одному типу операций: «Расходы» или «Доходы».
 ///
-/// Расход показываем заливкой (он главный показатель), доход — рамкой.
+/// Расход и доход — обе карточки с рамкой (`Card.outlined`), без заливки.
 /// Подписи нейтральные: цвет и знак («минус» или «+») есть только у суммы. Пустое
 /// состояние и ошибка цветом типа не окрашиваются.
 ///
@@ -96,15 +96,11 @@ class MonthSummaryCard extends StatelessWidget {
     // совпала с отступом экрана. Скругление 16 dp задаём явно (у Card — 12).
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
-      side: isExpense
-          ? BorderSide.none
-          : BorderSide(color: scheme.outlineVariant),
+      side: BorderSide(color: scheme.outlineVariant),
     );
     final content = Padding(padding: const EdgeInsets.all(16), child: body);
 
-    return isExpense
-        ? Card.filled(margin: EdgeInsets.zero, shape: shape, child: content)
-        : Card.outlined(margin: EdgeInsets.zero, shape: shape, child: content);
+    return Card.outlined(margin: EdgeInsets.zero, shape: shape, child: content);
   }
 
   /// Подпись сверху, значение под ней. Текст переносится сам: длинная сумма

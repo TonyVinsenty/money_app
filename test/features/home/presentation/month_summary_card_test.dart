@@ -62,31 +62,24 @@ void main() {
     await initializeDateFormatting('ru');
   });
 
-  testWidgets('расход — заливка, доход — рамка, радиус 16 dp, без внешнего '
-      'отступа', (tester) async {
-    await tester.pumpWidget(
-      _app(type: TransactionType.expense, total: Stream.value(_spoken)),
-    );
-    await tester.pump();
-    final scheme = Theme.of(tester.element(find.byType(MonthSummaryCard)))
-        .colorScheme;
+  testWidgets('расход и доход — обе карточки с рамкой без заливки, радиус 16 '
+      'dp, без внешнего отступа', (tester) async {
+    for (final type in TransactionType.values) {
+      await tester.pumpWidget(_app(type: type, total: Stream.value(_spoken)));
+      await tester.pump();
+      final scheme = Theme.of(tester.element(find.byType(MonthSummaryCard)))
+          .colorScheme;
 
-    final expense = tester.widget<Card>(find.byType(Card));
-    // Цвет и высота у Card берутся из темы при сборке, поэтому смотрим на
-    // фактические значения внутри карточки (Material).
-    expect(_material(tester).color, scheme.surfaceContainerHighest);
-    expect(expense.margin, EdgeInsets.zero);
-    expect(_material(tester).elevation, 0);
-
-    await tester.pumpWidget(
-      _app(type: TransactionType.income, total: Stream.value(_spoken)),
-    );
-    await tester.pump();
-    final income = tester.widget<Card>(find.byType(Card));
-    final shape = income.shape! as RoundedRectangleBorder;
-    expect(shape.borderRadius, BorderRadius.circular(16));
-    expect(shape.side.width, greaterThan(0));
-    expect(_material(tester).elevation, 0);
+      final card = tester.widget<Card>(find.byType(Card));
+      // Цвет и высота у Card берутся из темы при сборке, поэтому смотрим на
+      // фактические значения внутри карточки (Material).
+      expect(_material(tester).color, scheme.surface, reason: '$type');
+      expect(card.margin, EdgeInsets.zero, reason: '$type');
+      expect(_material(tester).elevation, 0, reason: '$type');
+      final shape = card.shape! as RoundedRectangleBorder;
+      expect(shape.borderRadius, BorderRadius.circular(16), reason: '$type');
+      expect(shape.side.width, greaterThan(0), reason: '$type');
+    }
   });
 
   testWidgets('без FittedBox: длинная сумма переносится, а не сжимается', (
@@ -219,12 +212,9 @@ void main() {
         await tester.pump();
         final context = tester.element(find.byType(MonthSummaryCard));
         final scheme = Theme.of(context).colorScheme;
-        // Расход — заливка surfaceContainerHighest, доход — фон surface.
-        final background = type == TransactionType.expense
-            ? scheme.surfaceContainerHighest
-            : scheme.surface;
+        // Обе карточки без заливки: фон у них surface.
         expect(
-          contrastRatio(scheme.onSurfaceVariant, background),
+          contrastRatio(scheme.onSurfaceVariant, scheme.surface),
           greaterThanOrEqualTo(4.5),
           reason: '$type, $mode',
         );

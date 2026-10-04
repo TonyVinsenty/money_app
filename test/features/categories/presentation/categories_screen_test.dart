@@ -149,6 +149,148 @@ void main() {
     formGate = null;
   });
 
+  testWidgets('кнопки строки: иконка и текст цветом primary, высота от 48 dp; '
+      'у архивной «Вернуть из архива» та же форма', (tester) async {
+    await _pump(tester, _fixture());
+    final primary = Theme.of(tester.element(find.byType(CategoriesScreen)))
+        .colorScheme
+        .primary;
+
+    /// Кнопка с текстом [text] в строке категории [id].
+    Finder rowButton(String id, String text) => find.descendant(
+      of: find.byKey(ValueKey<String>(id)),
+      matching: find.widgetWithText(TextButton, text),
+    );
+
+    void expectActionStyle(String id, String text, IconData icon) {
+      final button = rowButton(id, text);
+      expect(button, findsOneWidget, reason: '$id: «$text»');
+      expect(
+        tester.getSize(button).height,
+        greaterThanOrEqualTo(48),
+        reason: '$id: «$text»',
+      );
+      expect(
+        find.descendant(of: button, matching: find.byIcon(icon)),
+        findsOneWidget,
+        reason: '$id: иконка «$text»',
+      );
+      // Цвет текста кнопки — цвет темы primary.
+      final textContext = tester.element(
+        find.descendant(of: button, matching: find.text(text)),
+      );
+      expect(
+        DefaultTextStyle.of(textContext).style.color,
+        primary,
+        reason: '$id: цвет «$text»',
+      );
+    }
+
+    expectActionStyle('cafe', categoriesArchiveAction, Icons.archive_outlined);
+    expectActionStyle(
+      'cafe',
+      categoriesSubcategoriesAction,
+      Icons.account_tree_outlined,
+    );
+
+    await _openArchive(tester);
+    expectActionStyle(
+      'clothes',
+      categoriesRestoreAction,
+      Icons.unarchive_outlined,
+    );
+  });
+
+  /// Центры по вертикали: название и кнопки строки «Кафе».
+  Finder inCafe(Finder finder) => find.descendant(
+    of: find.byKey(const ValueKey<String>('cafe')),
+    matching: finder,
+  );
+
+  testWidgets('строка на 360 dp: кнопки ниже названия, без переполнения при '
+      'масштабе 1 и 2', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pump(tester, _fixture());
+
+    final nameY = tester.getCenter(inCafe(find.text('Кафе'))).dy;
+    final archiveY = tester
+        .getCenter(inCafe(find.text(categoriesArchiveAction)))
+        .dy;
+    expect(archiveY, greaterThan(nameY));
+    expect(tester.takeException(), isNull);
+
+    // При крупном шрифте строка переносится, но исключений нет.
+    await _pump(tester, [
+      _c('long', 'Очень длинное название категории', 0),
+      Category.subcategoryOf(
+        id: 'sub',
+        parent: _c('long', 'Очень длинное название категории', 0),
+        name: 'Подкатегория',
+        iconKey: 'shopping_cart',
+        sortOrder: 0,
+      ),
+    ], textScale: 2);
+    expect(find.text(categoriesSubcategoryCount(1)), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('строка: «В архив» и «Подкатегории» в одном ряду, если ширины '
+      'хватает', (tester) async {
+    // На 360 dp тестовый шрифт (Ahem: каждый символ шириной с кегль) не даёт
+    // уместить две кнопки в 288 dp, поэтому ряд проверяем на 600 dp. Проверка
+    // на 360 dp нужна с настоящим шрифтом: это решение пользователя (шрифт в
+    // docs/design-style.md), пока её нет.
+    tester.view.physicalSize = const Size(600, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pump(tester, _fixture());
+
+    final archiveY = tester
+        .getCenter(inCafe(find.text(categoriesArchiveAction)))
+        .dy;
+    final subY = tester
+        .getCenter(inCafe(find.text(categoriesSubcategoriesAction)))
+        .dy;
+    expect(archiveY, closeTo(subY, 1));
+  });
+
+  testWidgets('между строками категорий виден разделитель, отступ 40 dp и цвет '
+      'outlineVariant', (tester) async {
+    await _pump(tester, _fixture());
+
+    final divider = find.descendant(
+      of: find.byKey(const ValueKey<String>('cafe')),
+      matching: find.byType(Divider),
+    );
+    expect(divider, findsOneWidget);
+    final widget = tester.widget<Divider>(divider);
+    expect(widget.indent, 40);
+    final outline = Theme.of(tester.element(find.byType(CategoriesScreen)))
+        .colorScheme
+        .outlineVariant;
+    expect(widget.color, outline);
+    // Разделитель стоит под кнопками «Кафе» и над следующей строкой.
+    expect(
+      tester.getCenter(divider).dy,
+      greaterThan(
+        tester
+            .getCenter(
+              find.descendant(
+                of: find.byKey(const ValueKey<String>('cafe')),
+                matching: find.text(categoriesArchiveAction),
+              ),
+            )
+            .dy,
+      ),
+    );
+    expect(
+      tester.getCenter(divider).dy,
+      lessThan(tester.getCenter(find.text('Транспорт')).dy),
+    );
+  });
+
   group('подкатегории в строке', () {
     /// Текстовая кнопка «Подкатегории» в строке категории [id].
     Finder subButton(String id) => find.descendant(
@@ -331,6 +473,13 @@ void main() {
 
     await _openArchive(tester);
     expect(rename('clothes'), findsOneWidget);
+    // Строки стали выше (кнопки под именем): архивная внизу, прокручиваем до
+    // конца списка, чтобы её не закрывала кнопка «Добавить».
+    await tester.drag(
+      find.byType(ReorderableListView).first,
+      const Offset(0, -2000),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(rename('clothes'));
     await tester.pumpAndSettle();
     expect(renamed.map((c) => c.id), ['cafe', 'clothes']);

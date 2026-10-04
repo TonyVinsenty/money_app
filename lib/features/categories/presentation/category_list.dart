@@ -231,6 +231,7 @@ class _CategoryListState extends State<CategoryList> {
                     key: ValueKey<String>(c.id),
                     category: c,
                     actionText: categoriesRestoreAction,
+                    actionIcon: Icons.unarchive_outlined,
                     actionLabel: categoriesRestoreLabel(c.name),
                     onPressed: () => widget.onRestore(c),
                     onRename: () => widget.onRename(c),
@@ -243,6 +244,7 @@ class _CategoryListState extends State<CategoryList> {
             key: ValueKey<String>(live[i].id),
             category: live[i],
             actionText: categoriesArchiveAction,
+            actionIcon: Icons.archive_outlined,
             actionLabel: categoriesArchiveLabel(live[i].name),
             onPressed: () => widget.onArchive(live[i]),
             onRename: () => widget.onRename(live[i]),
@@ -264,6 +266,7 @@ class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.category,
     required this.actionText,
+    required this.actionIcon,
     required this.actionLabel,
     required this.onPressed,
     this.onRename,
@@ -275,6 +278,9 @@ class _CategoryRow extends StatelessWidget {
 
   final Category category;
   final String actionText;
+
+  /// Иконка перед текстом действия («В архив», «Вернуть из архива»).
+  final IconData actionIcon;
   final String actionLabel;
   final VoidCallback onPressed;
 
@@ -297,15 +303,57 @@ class _CategoryRow extends StatelessWidget {
     final count = subcategoryCount;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(categoryIconFor(category.iconKey)),
-          const SizedBox(width: 16),
-          Expanded(
+          // Первая строка: иконка, имя и справа карандаш с ручкой. Имя не делит
+          // ширину с кнопками, поэтому длинное название читается целиком.
+          Row(
+            children: [
+              Icon(categoryIconFor(category.iconKey)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  category.name,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              // Карандаш справа: узкая кнопка не отнимает у имени места и при
+              // крупном шрифте (её размер не растёт вместе с текстом).
+              if (onRename != null)
+                IconButton(
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: categoriesRenameLabel(category.name),
+                  onPressed: onRename,
+                ),
+              // Ручка: тянуть можно только за неё, чтобы не мешать прокрутке.
+              // Скринридеру ручка не нужна: у строки есть действия «Переместить».
+              if (dragIndex != null)
+                ExcludeSemantics(
+                  child: ReorderableDragStartListener(
+                    index: dragIndex!,
+                    child: const SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: Icon(Icons.drag_handle),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          // Вторая часть: подпись и кнопки стоят под названием (отступ 40 dp =
+          // ширина иконки и промежутка, чтобы выровняться по имени).
+          Padding(
+            padding: const EdgeInsets.only(left: 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(category.name, style: theme.textTheme.bodyLarge),
                 if (count != null && count > 0)
                   Text(
                     categoriesSubcategoryCount(count),
@@ -317,31 +365,26 @@ class _CategoryRow extends StatelessWidget {
                 // кнопка переносится на следующую строку, а не вылезает
                 // за край экрана.
                 Wrap(
-                  spacing: 8,
+                  spacing: 16,
+                  runSpacing: 0,
                   children: [
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(48, 48),
-                        padding: EdgeInsets.zero,
-                        alignment: Alignment.centerLeft,
-                      ),
+                    _action(
+                      context,
+                      icon: actionIcon,
                       onPressed: onPressed,
                       // Скринридер читает действие вместе с именем категории.
-                      child: Semantics(
+                      label: Semantics(
                         label: actionLabel,
                         excludeSemantics: true,
                         child: Text(actionText),
                       ),
                     ),
                     if (onOpenSubcategories != null)
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          minimumSize: const Size(48, 48),
-                          padding: EdgeInsets.zero,
-                          alignment: Alignment.centerLeft,
-                        ),
-                        onPressed: onOpenSubcategories,
-                        child: Semantics(
+                      _action(
+                        context,
+                        icon: Icons.account_tree_outlined,
+                        onPressed: onOpenSubcategories!,
+                        label: Semantics(
                           label: categoriesSubcategoriesLabel(category.name),
                           excludeSemantics: true,
                           child: const Text(categoriesSubcategoriesAction),
@@ -352,28 +395,45 @@ class _CategoryRow extends StatelessWidget {
               ],
             ),
           ),
-          // Карандаш справа: узкая кнопка не отнимает у имени места и при
-          // крупном шрифте (её размер не растёт вместе с текстом).
-          if (onRename != null)
-            IconButton(
-              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: categoriesRenameLabel(category.name),
-              onPressed: onRename,
-            ),
-          // Ручка: тянуть можно только за неё, чтобы не мешать прокрутке.
-          // Скринридеру ручка не нужна: у строки есть действия «Переместить».
-          if (dragIndex != null)
-            ExcludeSemantics(
-              child: ReorderableDragStartListener(
-                index: dragIndex!,
-                child: const SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Icon(Icons.drag_handle),
-                ),
-              ),
-            ),
+          // Разделитель между строками: отступ слева 40 dp плюс 16 dp полей
+          // строки даёт линию от начала имени.
+          Divider(
+            height: 1,
+            indent: 40,
+            color: theme.colorScheme.outlineVariant,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Кнопка действия в строке: иконка и текст цветом темы (`primary`), чтобы
+  /// было видно, что на них можно нажать. Высота нажатия — не меньше 48 dp.
+  Widget _action(
+    BuildContext context, {
+    required IconData icon,
+    required VoidCallback onPressed,
+    required Widget label,
+  }) {
+    return TextButton(
+      style: TextButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.primary,
+        minimumSize: const Size(48, 48),
+        padding: EdgeInsets.zero,
+        alignment: Alignment.centerLeft,
+      ),
+      onPressed: onPressed,
+      // Обычный TextButton с Row внутри, а не TextButton.icon: тот создаёт
+      // подкласс, и поиск `find.byType(TextButton)` в тестах перестаёт его видеть.
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Иконка декоративная: её смысл уже есть в тексте кнопки.
+          ExcludeSemantics(child: Icon(icon, size: 18)),
+          const SizedBox(width: 8),
+          // Flexible: при крупном шрифте длинная подпись переносится внутри
+          // кнопки, а не вылезает за её край.
+          Flexible(child: label),
         ],
       ),
     );

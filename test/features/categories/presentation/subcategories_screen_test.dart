@@ -260,6 +260,13 @@ void main() {
     expect(renamed.map((c) => c.id), ['bread']);
 
     await _openArchive(tester);
+    // Строки стали выше (кнопки под именем): архивная внизу, прокручиваем до
+    // конца списка, чтобы её не закрывала кнопка «Добавить».
+    await tester.drag(
+      find.byType(ReorderableListView).first,
+      const Offset(0, -2000),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(pencil('old', 'Старое'));
     await tester.pumpAndSettle();
     expect(renamed.map((c) => c.id), ['bread', 'old']);
