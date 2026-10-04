@@ -137,7 +137,10 @@ void main() {
       'входит в итог «Главной»', (tester) async {
     await _pumpApp(tester);
     await tester.pumpAndSettle();
-    final emptyExpenses = find.text('В этом месяце расходов ещё нет');
+    final emptyExpenses = find.descendant(
+      of: find.byKey(const ValueKey('month-summary-expense')),
+      matching: find.text('Пока нет'),
+    );
     expect(emptyExpenses, findsOneWidget);
 
     // «Главная» -> «Расход» -> сумма 0 -> категория.
@@ -153,7 +156,7 @@ void main() {
     expect(find.text('Сохранено: расход $zero · Продукты'), findsOneWidget);
     // Ноль в итог месяца не входит: строка расходов остаётся пустой.
     expect(emptyExpenses, findsOneWidget);
-    expect(find.textContaining('Расходы за'), findsNothing);
+    expect(find.text('Расходы за сентябрь'), findsOneWidget);
 
     // В «Истории» операция есть, с нулевой суммой.
     await _openTab(tester, 'История');

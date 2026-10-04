@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:money_app/core/format/date_format.dart';
-import 'package:money_app/core/format/money_format.dart';
-import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
-import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/home/presentation/month_summary_card.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Запас внизу «Главной» под сообщение SnackBar («Сохранено: расход 350,00 ₽ ·
@@ -69,28 +66,23 @@ class HomeScreen extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               child: Column(
-                // Обе строки прижаты к левому краю во всех состояниях.
-                crossAxisAlignment: CrossAxisAlignment.start,
+                // Карточки итогов растягиваем на всю ширину (как во внешней
+                // колонке), иначе они сжимаются по тексту.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Расходы всегда цветом расхода, доходы — цветом дохода.
-                  _MonthTotal(
-                    stream: monthExpenses,
+                  // Расход — заливкой (главный показатель), доход — рамкой.
+                  MonthSummaryCard(
+                    key: const ValueKey('month-summary-expense'),
+                    type: TransactionType.expense,
+                    total: monthExpenses,
                     month: month,
-                    title: 'Расходы',
-                    emptyText: 'В этом месяце расходов ещё нет',
-                    errorText: 'Не удалось посчитать расходы за месяц',
-                    color: colors.expense,
                   ),
                   const SizedBox(height: 8),
-                  // Знак «+» и цвет дохода: смысл не передаётся одним цветом.
-                  _MonthTotal(
-                    stream: monthIncome,
+                  MonthSummaryCard(
+                    key: const ValueKey('month-summary-income'),
+                    type: TransactionType.income,
+                    total: monthIncome,
                     month: month,
-                    title: 'Доходы',
-                    emptyText: 'В этом месяце доходов ещё нет',
-                    errorText: 'Не удалось посчитать доходы за месяц',
-                    sign: '+',
-                    color: colors.income,
                   ),
                   // Этап 4: сюда встанет круговая диаграмма расходов по
                   // категориям (место под неё оставлено здесь, под итогами).
@@ -121,63 +113,6 @@ class HomeScreen extends StatelessWidget {
           SizedBox(height: reserve),
         ],
       ),
-    );
-  }
-}
-
-/// Итог месяца по одному типу операций (расходы или доходы), пустое состояние
-/// или сообщение об ошибке.
-class _MonthTotal extends StatelessWidget {
-  const _MonthTotal({
-    required this.stream,
-    required this.month,
-    required this.title,
-    required this.emptyText,
-    required this.errorText,
-    required this.color,
-    this.sign = '',
-  });
-
-  final Stream<Money> stream;
-  final DateOnly month;
-
-  /// Начало строки: «Расходы» или «Доходы» (дальше «за сентябрь: сумма»).
-  final String title;
-  final String emptyText;
-  final String errorText;
-
-  /// Знак перед суммой («+» у доходов), у расходов пусто.
-  final String sign;
-
-  /// Цвет строки во всех состояниях (сумма, пусто, ошибка).
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.headlineSmall
-        ?.copyWith(color: color);
-    // Пока первого значения нет, AsyncView не показывает ничего (не «расходов
-    // нет»): пустое состояние означает «спросили базу, и там ноль».
-    return AsyncView<Money>(
-      stream: stream,
-      errorBuilder: (context, error) =>
-          Text(errorText, textAlign: TextAlign.start, style: style),
-      isEmpty: (total) => total.minorUnits == 0,
-      emptyBuilder: (context) =>
-          Text(emptyText, textAlign: TextAlign.start, style: style),
-      dataBuilder: (context, total) {
-        final name = formatMonthName(month);
-        // Скринридеру суммы читаем словами, а не «12 345,00 ₽» с символом.
-        return Semantics(
-          label: '$title за $name: ${spokenMoney(total)}',
-          excludeSemantics: true,
-          child: Text(
-            '$title за $name: $sign${formatMoney(total)}',
-            textAlign: TextAlign.start,
-            style: style,
-          ),
-        );
-      },
     );
   }
 }

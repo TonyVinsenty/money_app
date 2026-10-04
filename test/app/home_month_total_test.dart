@@ -29,10 +29,16 @@ import '../support/settle_database.dart';
 late AppDatabase _db;
 late FixedClock _clock;
 
-final _empty = find.text('В этом месяце расходов ещё нет');
+/// Пустое состояние расходов: «Пока нет» внутри карточки расходов.
+final _empty = find.descendant(
+  of: find.byKey(const ValueKey('month-summary-expense')),
+  matching: find.text('Пока нет'),
+);
 
-String _total(String month, int minor) =>
-    'Расходы за $month: ${formatMoney(Money.fromMinor(minor, 'RUB'))}';
+/// Сумма расходов со знаком «минус» (U+2212). Подпись «Расходы за месяц» стоит
+/// отдельной строкой, её проверяем отдельно.
+String _total(int minor) =>
+    '\u2212${formatMoney(Money.fromMinor(minor, 'RUB'))}';
 
 /// Собирает приложение как `MoneyApp`. [seed] выполняется после открытия базы,
 /// но до первого кадра: так «Главная» с самого начала видит данные.
@@ -118,7 +124,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_empty, findsOneWidget);
-    expect(find.textContaining('Расходы за'), findsNothing);
+    expect(find.text('Расходы за сентябрь'), findsOneWidget);
     await _finish(tester);
   });
 
@@ -135,7 +141,7 @@ void main() {
     var shown = false;
     for (var i = 0; i < 20 && !shown; i++) {
       expect(_empty, findsNothing, reason: 'кадр $i');
-      shown = find.text(_total('сентябрь', 1234500)).evaluate().isNotEmpty;
+      shown = find.text(_total(1234500)).evaluate().isNotEmpty;
       if (!shown) await tester.pump(const Duration(milliseconds: 10));
     }
     expect(shown, isTrue);
@@ -180,7 +186,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(_total('сентябрь', 35000)), findsOneWidget);
+      expect(find.text(_total(35000)), findsOneWidget);
       expect(_empty, findsNothing);
       await _finish(tester);
     },
@@ -197,7 +203,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(_total('октябрь', 900)), findsOneWidget);
+    expect(find.text('Расходы за октябрь'), findsOneWidget);
+    expect(find.text(_total(900)), findsOneWidget);
     await _finish(tester);
   });
 
@@ -214,9 +221,12 @@ void main() {
   });
 
   group('строка «Доходы за месяц»', () {
-    final emptyIncome = find.text('В этом месяце доходов ещё нет');
-    String income(String month, int minor) =>
-        'Доходы за $month: +${formatMoney(Money.fromMinor(minor, 'RUB'))}';
+    final emptyIncome = find.descendant(
+      of: find.byKey(const ValueKey('month-summary-income')),
+      matching: find.text('Пока нет'),
+    );
+    String income(int minor) =>
+        '+${formatMoney(Money.fromMinor(minor, 'RUB'))}';
 
     testWidgets('доходов нет: пустое состояние, расход в неё не входит', (
       tester,
@@ -229,8 +239,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(emptyIncome, findsOneWidget);
-      expect(find.textContaining('Доходы за'), findsNothing);
-      expect(find.text(_total('сентябрь', 999900)), findsOneWidget);
+      expect(find.text('Доходы за сентябрь'), findsOneWidget);
+      expect(find.text(_total(999900)), findsOneWidget);
       await _finish(tester);
     });
 
@@ -281,7 +291,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text(income('сентябрь', 35000)), findsOneWidget);
+        expect(find.text(income(35000)), findsOneWidget);
         expect(emptyIncome, findsNothing);
         await _finish(tester);
       },
@@ -299,7 +309,7 @@ void main() {
       var shown = false;
       for (var i = 0; i < 20 && !shown; i++) {
         expect(emptyIncome, findsNothing, reason: 'кадр $i');
-        shown = find.text(income('сентябрь', 1234500)).evaluate().isNotEmpty;
+        shown = find.text(income(1234500)).evaluate().isNotEmpty;
         if (!shown) await tester.pump(const Duration(milliseconds: 10));
       }
       expect(shown, isTrue);
@@ -320,7 +330,7 @@ void main() {
       await tester.tap(find.text('Зарплата'));
       await settleDatabase(tester);
 
-      expect(find.text(income('сентябрь', 150050)), findsOneWidget);
+      expect(find.text(income(150050)), findsOneWidget);
       expect(emptyIncome, findsNothing);
       // Расходов доход не трогает.
       expect(_empty, findsOneWidget);
@@ -351,18 +361,18 @@ void main() {
     }
 
     await addExpense('350');
-    expect(find.text(_total('сентябрь', 35000)), findsOneWidget);
+    expect(find.text(_total(35000)), findsOneWidget);
     expect(_empty, findsNothing);
 
     // Сообщение ещё на экране, а следующий расход уже вводится.
     expect(find.byType(SnackBar), findsOneWidget);
     await addExpense('150,50');
-    expect(find.text(_total('сентябрь', 50050)), findsOneWidget);
+    expect(find.text(_total(50050)), findsOneWidget);
 
     // «Отменить» относится к последней записи: итог откатывается сам.
     await tester.tap(find.text('Отменить'));
     await tester.pumpAndSettle();
-    expect(find.text(_total('сентябрь', 35000)), findsOneWidget);
+    expect(find.text(_total(35000)), findsOneWidget);
     await _finish(tester);
   });
 }

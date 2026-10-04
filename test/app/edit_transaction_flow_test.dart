@@ -139,9 +139,13 @@ Future<void> _openTab(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-final _homeEmpty = find.text('В этом месяце расходов ещё нет');
+final _homeEmpty = find.descendant(
+  of: find.byKey(const ValueKey('month-summary-expense')),
+  matching: find.text('Пока нет'),
+);
+// Сумма расходов со знаком «минус» (U+2212); подпись «Расходы за сентябрь» отдельно.
 final _homeTotal = find.text(
-  'Расходы за сентябрь: ${formatMoney(Money.fromMinor(35000, 'RUB'))}',
+  '\u2212${formatMoney(Money.fromMinor(35000, 'RUB'))}',
 );
 
 Future<void> _finish(WidgetTester tester) async {

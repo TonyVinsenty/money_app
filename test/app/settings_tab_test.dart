@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
@@ -70,6 +71,12 @@ ThemeMode _appThemeMode(WidgetTester tester) =>
     tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode!;
 
 void main() {
+  // «Главная» показывает название месяца в подписи итога, даже пока операций
+  // нет, поэтому русская локаль нужна и здесь (в приложении её ставит main).
+  setUpAll(() async {
+    await initializeDateFormatting('ru');
+  });
+
   testWidgets('«Настройки»: заглушки нет, тема «как в системе» выбрана', (
     tester,
   ) async {
