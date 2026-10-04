@@ -142,6 +142,19 @@ void main() {
       },
     );
 
+    test(
+      'first day (MIN occurred_on) uses transactions_occurred_on_at',
+      () async {
+        final text = await plan(
+          'SELECT MIN(occurred_on) AS first_day FROM transactions '
+          'WHERE deleted_at IS NULL',
+        );
+
+        expect(text, contains('INDEX transactions_occurred_on_at'));
+        expect(text, isNot(contains('SCAN transactions')));
+      },
+    );
+
     test('documentation: without "deleted_at IS NULL" the partial index is '
         'NOT used (every live-rows query must contain it)', () async {
       final text = await plan(

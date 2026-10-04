@@ -18,6 +18,9 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 
+/// Номер вкладки «История» в [defaultAppTabs].
+const historyTabIndex = 1;
+
 /// Вкладки приложения в порядке слева направо. Пока внутри только заглушки.
 /// Список неизменяемый: случайно добавить или убрать вкладку нельзя.
 final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[

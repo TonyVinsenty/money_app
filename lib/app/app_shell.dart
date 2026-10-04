@@ -49,7 +49,7 @@ class AppTab {
 class AppShell extends StatefulWidget {
   // Конструктор не const: длину списка нельзя проверить на этапе компиляции.
   // Проверка явная (не assert), чтобы работала и в релизной сборке.
-  AppShell({required this.tabs, super.key}) {
+  AppShell({required this.tabs, this.selectedTab, super.key}) {
     if (tabs.length < 3 || tabs.length > 5) {
       throw ArgumentError.value(
         tabs.length,
@@ -61,12 +61,37 @@ class AppShell extends StatefulWidget {
 
   final List<AppTab> tabs;
 
+  /// Необязательный внешний уведомитель номера вкладки: каркас берёт номер
+  /// из него и пишет в него же, так что вкладку можно переключить снаружи
+  /// (ADR 0008). Без него номер хранит сам каркас. Освобождает уведомитель
+  /// тот, кто его создал.
+  final ValueNotifier<int>? selectedTab;
+
   @override
   State<AppShell> createState() => _AppShellState();
 }
 
 class _AppShellState extends State<AppShell> {
-  int _selectedIndex = 0;
+  int _ownIndex = 0;
+
+  int get _selectedIndex => widget.selectedTab?.value ?? _ownIndex;
+
+  set _selectedIndex(int value) {
+    final external = widget.selectedTab;
+    if (external != null) {
+      external.value = value;
+    } else {
+      _ownIndex = value;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    widget.selectedTab?.addListener(_onExternalTabChanged);
+  }
+
+  void _onExternalTabChanged() => setState(() {});
 
   /// Уже построенное содержимое открытых вкладок по индексу. Ключи этой карты
   /// и есть «множество открытых вкладок»: индекса нет — вкладку ещё не
@@ -78,6 +103,10 @@ class _AppShellState extends State<AppShell> {
   @override
   void didUpdateWidget(AppShell oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedTab != widget.selectedTab) {
+      oldWidget.selectedTab?.removeListener(_onExternalTabChanged);
+      widget.selectedTab?.addListener(_onExternalTabChanged);
+    }
     // Тот же набор вкладок (даже в новом списке) кэш не сбрасывает. Другой
     // набор: старые индексы указывают уже на другие вкладки, кэш забываем.
     if (!_sameTabs(oldWidget.tabs, widget.tabs)) {
@@ -86,6 +115,12 @@ class _AppShellState extends State<AppShell> {
         _selectedIndex = widget.tabs.length - 1;
       }
     }
+  }
+
+  @override
+  void dispose() {
+    widget.selectedTab?.removeListener(_onExternalTabChanged);
+    super.dispose();
   }
 
   static bool _sameTabs(List<AppTab> a, List<AppTab> b) {

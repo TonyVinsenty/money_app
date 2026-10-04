@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app_services.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -183,8 +186,51 @@ class InMemoryCategoriesRepository extends FakeCategoriesRepository {
 }
 
 /// Пустой фейк репозитория операций (см. [FakeCategoriesRepository]).
+///
+/// Исключение — `watchFirstDay`: `BrowseHost` подписывается на него в каждом
+/// приложении. Фейк отдаёт [firstDay] (по умолчанию `null`), повторяет каждое
+/// изменение через [setFirstDay] и считает живые подписки в [firstDayListeners].
 class FakeTransactionsRepository extends Fake
-    implements TransactionsRepository {}
+    implements TransactionsRepository {
+  DateOnly? firstDay;
+
+  /// Сколько подписок на `watchFirstDay` сейчас активно.
+  int firstDayListeners = 0;
+
+  final _firstDayControllers = <StreamController<DateOnly?>>[];
+
+  /// Меняет день первой операции и сообщает всем подписчикам.
+  void setFirstDay(DateOnly? day) {
+    firstDay = day;
+    for (final controller in _firstDayControllers) {
+      controller.add(day);
+    }
+  }
+
+  /// Шлёт подписчикам ошибку (поток при этом остаётся живым).
+  void failFirstDay(Object error) {
+    for (final controller in _firstDayControllers) {
+      controller.addError(error);
+    }
+  }
+
+  @override
+  Stream<DateOnly?> watchFirstDay() {
+    late StreamController<DateOnly?> controller;
+    controller = StreamController<DateOnly?>(
+      onListen: () {
+        firstDayListeners++;
+        _firstDayControllers.add(controller);
+        controller.add(firstDay);
+      },
+      onCancel: () {
+        firstDayListeners--;
+        _firstDayControllers.remove(controller);
+      },
+    );
+    return controller.stream;
+  }
+}
 
 /// Набор сервисов из фейков: то, что тест кладёт в `AppScope`.
 ///

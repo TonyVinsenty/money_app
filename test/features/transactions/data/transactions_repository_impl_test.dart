@@ -1128,6 +1128,55 @@ void main() {
       );
     });
 
+    group('watchFirstDay', () {
+      test('no operations: null', () async {
+        expect(await repo.watchFirstDay().first, isNull);
+      });
+
+      test('earliest live day; soft-deleted are ignored', () async {
+        await repo.add(tx('mid', day: DateOnly(2026, 9, 10)));
+        await repo.add(tx('gone', day: DateOnly(2026, 3, 1)));
+        await repo.softDelete('gone');
+
+        expect(await repo.watchFirstDay().first, DateOnly(2026, 9, 10));
+      });
+
+      test('only soft-deleted operations: null', () async {
+        await repo.add(tx('gone', day: DateOnly(2026, 3, 1)));
+        await repo.softDelete('gone');
+
+        expect(await repo.watchFirstDay().first, isNull);
+      });
+
+      test('stream follows add, softDelete and restore', () async {
+        await repo.add(tx('mid', day: DateOnly(2026, 9, 10)));
+        final rec = await record(repo.watchFirstDay());
+        await rec.waitForEvents(1);
+        expect(rec.events.last, DateOnly(2026, 9, 10));
+
+        await repo.add(tx('early', day: DateOnly(2026, 2, 3)));
+        await rec.waitForEvents(2);
+        expect(rec.events.last, DateOnly(2026, 2, 3));
+
+        await repo.softDelete('early');
+        await rec.waitForEvents(3);
+        expect(rec.events.last, DateOnly(2026, 9, 10));
+
+        await repo.restore('early');
+        await rec.waitForEvents(4);
+        expect(rec.events.last, DateOnly(2026, 2, 3));
+      });
+
+      test('corrupted day is a DataCorruptedException in the stream', () async {
+        await rawInsert('bad', occurredOn: 20261332);
+
+        await expectLater(
+          repo.watchFirstDay(),
+          emitsError(isA<DataCorruptedException>()),
+        );
+      });
+    });
+
     group('watchInPeriod', () {
       final september = monthRange(DateOnly(2026, 9, 15));
 

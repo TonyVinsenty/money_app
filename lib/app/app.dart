@@ -4,6 +4,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tabs.dart';
+import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/app/database_gate.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -79,7 +80,15 @@ class MoneyApp extends StatelessWidget {
             builder: (context, database) => AppScopeHost(
               database: database,
               settings: settings,
-              child: AppShell(tabs: defaultAppTabs),
+              child: BrowseHost(
+                // Builder: контекст ниже BrowseHost, где BrowseScope виден.
+                child: Builder(
+                  builder: (context) => AppShell(
+                    tabs: defaultAppTabs,
+                    selectedTab: BrowseScope.selectedTabOf(context),
+                  ),
+                ),
+              ),
             ),
           ),
         );

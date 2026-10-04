@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:drift/drift.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/database/converters/date_only_converter.dart';
 import 'package:money_app/core/database/converters/transaction_type_converter.dart';
 import 'package:money_app/core/errors/data_corrupted_exception.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/data/transaction_mapper.dart';
@@ -196,6 +198,26 @@ class DriftTransactionsRepository implements TransactionsRepository {
         .watch()
         .map((rows) => rows.map(transactionFromRow).toList())
         .transform(_translateErrors<List<Transaction>>());
+  }
+
+  /// Самый ранний день среди «живых» операций (любой валюты). `MIN` по
+  /// частичному индексу `transactions_occurred_on_at`; нет строк — `null`.
+  @override
+  Stream<DateOnly?> watchFirstDay() {
+    return _db
+        .customSelect(
+          'SELECT MIN(occurred_on) AS first_day FROM transactions '
+          'WHERE deleted_at IS NULL',
+          readsFrom: {_db.transactions},
+        )
+        .watch()
+        .map((rows) {
+          final value = rows.single.read<int?>('first_day');
+          return value == null
+              ? null
+              : const DateOnlyConverter().fromSql(value);
+        })
+        .transform(_translateErrors<DateOnly?>());
   }
 
   /// Итог считается прямо в SQL и ТОЛЬКО в валюте [currency]: `SUM` без

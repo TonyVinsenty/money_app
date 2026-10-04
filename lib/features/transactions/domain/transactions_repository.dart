@@ -1,5 +1,6 @@
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -92,4 +93,10 @@ abstract interface class TransactionsRepository {
     DateRange period, {
     String currency = rubCurrencyCode,
   });
+
+  /// Поток самого раннего дня среди «живых» операций; `null`, если их нет.
+  ///
+  /// Нужен, чтобы знать, как далеко можно листать месяцы назад. Мягко
+  /// удалённые не учитываются. Валюта не важна.
+  Stream<DateOnly?> watchFirstDay();
 }
