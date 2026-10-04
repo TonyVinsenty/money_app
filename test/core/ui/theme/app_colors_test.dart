@@ -3,14 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 
-/// Контраст двух цветов по WCAG: (L1 + 0.05) / (L2 + 0.05), где L1 >= L2.
-double contrastRatio(Color a, Color b) {
-  final la = a.computeLuminance();
-  final lb = b.computeLuminance();
-  final lighter = la > lb ? la : lb;
-  final darker = la > lb ? lb : la;
-  return (lighter + 0.05) / (darker + 0.05);
-}
+import '../../../support/contrast.dart';
 
 void main() {
   test('светлая и тёмная темы имеют правильную яркость', () {
@@ -47,6 +40,26 @@ void main() {
     }
   });
 
+  group('текст на заливке кнопок не ниже 4.5:1 (WCAG AA)', () {
+    final themes = {'светлая': AppColors.light, 'тёмная': AppColors.dark};
+    for (final entry in themes.entries) {
+      final colors = entry.value;
+
+      test('${entry.key} тема: кнопка «Расход»', () {
+        expect(
+          contrastRatio(colors.onExpenseAction, colors.expenseAction),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+      test('${entry.key} тема: кнопка «Доход»', () {
+        expect(
+          contrastRatio(colors.onIncomeAction, colors.incomeAction),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+    }
+  });
+
   test('copyWith заменяет только переданные поля', () {
     const base = AppColors.light;
 
@@ -58,14 +71,38 @@ void main() {
     expect(base.copyWith().income, base.income);
   });
 
+  test('copyWith заменяет поля кнопок и не трогает остальные', () {
+    const base = AppColors.light;
+
+    final changed = base.copyWith(
+      expenseAction: Colors.black,
+      onIncomeAction: Colors.yellow,
+    );
+
+    expect(changed.expenseAction, Colors.black);
+    expect(changed.onIncomeAction, Colors.yellow);
+    expect(changed.onExpenseAction, base.onExpenseAction);
+    expect(changed.incomeAction, base.incomeAction);
+    expect(changed.expense, base.expense);
+    expect(changed.income, base.income);
+  });
+
   test('lerp при t=0 даёт исходные цвета, при t=1 — цвета второго набора', () {
     final atStart = AppColors.light.lerp(AppColors.dark, 0);
     final atEnd = AppColors.light.lerp(AppColors.dark, 1);
 
     expect(atStart.expense, AppColors.light.expense);
     expect(atStart.income, AppColors.light.income);
+    expect(atStart.expenseAction, AppColors.light.expenseAction);
+    expect(atStart.onExpenseAction, AppColors.light.onExpenseAction);
+    expect(atStart.incomeAction, AppColors.light.incomeAction);
+    expect(atStart.onIncomeAction, AppColors.light.onIncomeAction);
     expect(atEnd.expense, AppColors.dark.expense);
     expect(atEnd.income, AppColors.dark.income);
+    expect(atEnd.expenseAction, AppColors.dark.expenseAction);
+    expect(atEnd.onExpenseAction, AppColors.dark.onExpenseAction);
+    expect(atEnd.incomeAction, AppColors.dark.incomeAction);
+    expect(atEnd.onIncomeAction, AppColors.dark.onIncomeAction);
   });
 
   group('равенство', () {
@@ -73,21 +110,33 @@ void main() {
       const a = AppColors(
         expense: Color(0xFF112233),
         income: Color(0xFF445566),
+        expenseAction: Color(0xFF778899),
+        onExpenseAction: Color(0xFFAABBCC),
+        incomeAction: Color(0xFFDDEEFF),
+        onIncomeAction: Color(0xFF010203),
       );
       const b = AppColors(
         expense: Color(0xFF112233),
         income: Color(0xFF445566),
+        expenseAction: Color(0xFF778899),
+        onExpenseAction: Color(0xFFAABBCC),
+        incomeAction: Color(0xFFDDEEFF),
+        onIncomeAction: Color(0xFF010203),
       );
 
       expect(a, b);
       expect(a.hashCode, b.hashCode);
     });
 
-    test('copyWith с другим значением не равен исходному', () {
+    test('отличие только в поле кнопки: не равны', () {
       const base = AppColors.light;
 
       expect(base.copyWith(income: Colors.blue), isNot(base));
       expect(base.copyWith(expense: Colors.blue), isNot(base));
+      expect(base.copyWith(expenseAction: Colors.blue), isNot(base));
+      expect(base.copyWith(onExpenseAction: Colors.blue), isNot(base));
+      expect(base.copyWith(incomeAction: Colors.blue), isNot(base));
+      expect(base.copyWith(onIncomeAction: Colors.blue), isNot(base));
       expect(base.copyWith(), base);
     });
 

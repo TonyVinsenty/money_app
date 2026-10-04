@@ -8,6 +8,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/home/presentation/chart_placeholder.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
@@ -101,7 +102,7 @@ void main() {
     expect(calls, [TransactionType.income, TransactionType.expense]);
   });
 
-  testWidgets('зона нажатия каждой кнопки не меньше 48x48 (высота 56)', (
+  testWidgets('зона нажатия каждой кнопки не меньше 48x48 (высота 64)', (
     tester,
   ) async {
     await tester.pumpWidget(_app(onAdd: (_) {}));
@@ -109,7 +110,29 @@ void main() {
     for (final label in ['Доход', 'Расход']) {
       final size = tester.getSize(_button(label));
       expect(size.width, greaterThanOrEqualTo(48), reason: label);
-      expect(size.height, greaterThanOrEqualTo(56), reason: label);
+      expect(size.height, 64, reason: label);
+    }
+  });
+
+  testWidgets('кнопки в одном ряду: «Доход» слева от «Расход»', (tester) async {
+    await tester.pumpWidget(_app(onAdd: (_) {}));
+
+    final income = tester.getRect(_button('Доход'));
+    final expense = tester.getRect(_button('Расход'));
+    expect(
+      tester.getTopLeft(_button('Доход')).dy,
+      tester.getTopLeft(_button('Расход')).dy,
+    );
+    expect(income.right, lessThanOrEqualTo(expense.left));
+  });
+
+  testWidgets('кнопки со скруглением 16 dp', (tester) async {
+    await tester.pumpWidget(_app(onAdd: (_) {}));
+
+    for (final label in ['Доход', 'Расход']) {
+      final shape =
+          _styleOf(tester, label).shape!.resolve({})! as RoundedRectangleBorder;
+      expect(shape.borderRadius, BorderRadius.circular(16), reason: label);
     }
   });
 
@@ -139,23 +162,23 @@ void main() {
     ) async {
       await tester.pumpWidget(_app(onAdd: (_) {}, mode: mode));
       final colors = tester.element(find.byType(HomeScreen)).appColors;
-      final surface = Theme.of(tester.element(find.byType(HomeScreen)))
-          .colorScheme
-          .surface;
 
       final incomeStyle = _styleOf(tester, 'Доход');
       final expenseStyle = _styleOf(tester, 'Расход');
-      expect(incomeStyle.backgroundColor?.resolve({}), colors.income);
-      expect(expenseStyle.backgroundColor?.resolve({}), colors.expense);
+      expect(incomeStyle.backgroundColor?.resolve({}), colors.incomeAction);
+      expect(expenseStyle.backgroundColor?.resolve({}), colors.expenseAction);
       expect(
         colors,
         mode == ThemeMode.light ? AppColors.light : AppColors.dark,
       );
 
+      // Текст кнопки — светлый цвет из палитры, а не цвет поверхности темы.
+      expect(incomeStyle.foregroundColor?.resolve({}), colors.onIncomeAction);
+      expect(expenseStyle.foregroundColor?.resolve({}), colors.onExpenseAction);
+
       for (final style in [incomeStyle, expenseStyle]) {
         final background = style.backgroundColor!.resolve({})!;
         final foreground = style.foregroundColor!.resolve({})!;
-        expect(foreground, surface);
         expect(_contrast(foreground, background), greaterThanOrEqualTo(4.5));
       }
     });
@@ -533,5 +556,76 @@ void main() {
       expect(find.text('Доход'), findsOneWidget);
       expect(find.text('Расход'), findsOneWidget);
     });
+  });
+
+  group('заглушка под диаграмму', () {
+    const placeholderText = 'Диаграмма расходов по категориям появится позже';
+
+    testWidgets('текст есть на экране', (tester) async {
+      await tester.pumpWidget(_app(onAdd: (_) {}));
+      await tester.pump();
+
+      expect(find.text(placeholderText), findsOneWidget);
+    });
+
+    testWidgets('не нажимается: нет InkWell, InkResponse и роли кнопки', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_app(onAdd: (_) {}));
+      await tester.pump();
+
+      final text = find.text(placeholderText);
+      expect(
+        find.ancestor(
+          of: text,
+          matching: find.byWidgetPredicate(
+            (w) => w is InkWell || w is InkResponse,
+          ),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.ancestor(
+          of: text,
+          matching: find.byWidgetPredicate(
+            (w) => w is Semantics && w.properties.button == true,
+          ),
+        ),
+        findsNothing,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('занимает середину: между итогами и кнопками', (tester) async {
+      await tester.pumpWidget(_app(onAdd: (_) {}));
+      await tester.pump();
+
+      final placeholder = tester.getRect(find.byType(ChartPlaceholder));
+      final summary = tester.getRect(find.byKey(_incomeCard));
+      final buttons = tester.getRect(_button('Доход'));
+      expect(placeholder.top, greaterThanOrEqualTo(summary.bottom));
+      // Заглушка доходит до отступа 16 dp над кнопками: середина занята целиком.
+      expect(placeholder.bottom, closeTo(buttons.top - 16, 0.5));
+    });
+  });
+
+  testWidgets('шрифт 200% на 360 dp: подписи кнопок целиком внутри кнопок', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_app(onAdd: (_) {}, textScale: 2));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    for (final label in ['Доход', 'Расход']) {
+      final button = tester.getRect(_button(label));
+      final text = tester.getRect(find.text(label));
+      expect(text.left, greaterThanOrEqualTo(button.left), reason: label);
+      expect(text.right, lessThanOrEqualTo(button.right), reason: label);
+    }
   });
 }
