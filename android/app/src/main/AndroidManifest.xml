@@ -34,6 +34,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- FileProvider выдаёт другим приложениям временный доступ к файлу экспорта
+             (CSV лежит в кеше приложения; пути описаны в res/xml/file_paths.xml).
+             Authority свой, не совпадает с провайдером пакета share_plus. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.tonyvinsenty.zuno.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
