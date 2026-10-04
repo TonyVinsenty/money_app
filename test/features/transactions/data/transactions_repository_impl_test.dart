@@ -1216,6 +1216,19 @@ void main() {
         },
       );
 
+      test('the stream drops an operation after softDelete', () async {
+        await repo.add(tx('a', day: DateOnly(2026, 9, 12)));
+        await repo.add(tx('b', day: DateOnly(2026, 9, 13)));
+        final rec = await record(repo.watchInPeriod(september));
+        await rec.waitForEvents(1);
+        expect(rec.events.last.map((t) => t.id).toList(), ['a', 'b']);
+
+        await repo.softDelete('a');
+        await rec.waitForEvents(2);
+
+        expect(rec.events.last.map((t) => t.id).toList(), ['b']);
+      });
+
       test('corrupted row is a DataCorruptedException in the stream', () async {
         // 20261332 — не дата; лежит внутри периода 01.12.2026-01.01.2027.
         await rawInsert('bad', occurredOn: 20261332);

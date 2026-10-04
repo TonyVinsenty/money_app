@@ -2,6 +2,11 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/time/period.dart';
+import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
+
+import '../../support/fixed_clock.dart';
 
 /// Тексты плана зависят от версии SQLite, поэтому тесты сравнивают их по
 /// подстрокам (имя индекса), а не по всей строке.
@@ -101,19 +106,41 @@ void main() {
       expect(text, isNot(contains('USE TEMP B-TREE FOR ORDER BY')));
     });
 
-    test('analytics period list (currency + day range + sort) uses '
-        'transactions_occurred_on_at, not a full scan', () async {
-      // Тот же запрос, что в `watchInPeriod` репозитория операций.
-      final text = await plan(
-        'SELECT * FROM transactions WHERE deleted_at IS NULL '
-        'AND currency = ? AND occurred_on BETWEEN ? AND ? '
-        'ORDER BY occurred_on ASC, occurred_at ASC, id ASC',
-        [Variable<String>('RUB'), ...period],
-      );
+    test(
+      'analytics period list: the SQL drift really builds for '
+      'watchInPeriod uses transactions_occurred_on_at, no full scan',
+      () async {
+        // Ловим настоящий SELECT, который выполняет репозиторий, и его
+        // аргументы; публичный API репозитория при этом не меняется.
+        final spy = _SelectSpy();
+        final spied = AppDatabase(NativeDatabase.memory().interceptWith(spy));
+        addTearDown(spied.close);
+        await spied.customSelect('SELECT 1').get();
+        final repo = DriftTransactionsRepository(
+          spied,
+          clock: FixedClock(DateTime.utc(2026, 9, 20, 12)),
+        );
+        await repo
+            .watchInPeriod(
+              DateRange(DateOnly(2026, 1, 5), DateOnly(2026, 1, 20)),
+            )
+            .first;
 
-      expect(text, contains('USING INDEX transactions_occurred_on_at'));
-      expect(text, isNot(contains('SCAN transactions')));
-    });
+        final select = spy.selects.lastWhere(
+          (s) => s.sql.contains('FROM "transactions"'),
+        );
+        final rows = await spied
+            .customSelect(
+              'EXPLAIN QUERY PLAN ${select.sql}',
+              variables: [for (final a in select.args) Variable<Object>(a)],
+            )
+            .get();
+        final text = rows.map((r) => r.read<String>('detail')).join('\n');
+
+        expect(text, contains('USING INDEX transactions_occurred_on_at'));
+        expect(text, isNot(contains('SCAN transactions')));
+      },
+    );
 
     test('documentation: without "deleted_at IS NULL" the partial index is '
         'NOT used (every live-rows query must contain it)', () async {
@@ -128,4 +155,19 @@ void main() {
       expect(text, contains('SCAN transactions'));
     });
   });
+}
+
+/// Запоминает все SELECT-запросы, которые доходят до базы.
+class _SelectSpy extends QueryInterceptor {
+  final selects = <({String sql, List<Object?> args})>[];
+
+  @override
+  Future<List<Map<String, Object?>>> runSelect(
+    QueryExecutor executor,
+    String statement,
+    List<Object?> args,
+  ) {
+    selects.add((sql: statement, args: args));
+    return executor.runSelect(statement, args);
+  }
 }

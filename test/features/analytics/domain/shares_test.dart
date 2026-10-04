@@ -223,6 +223,50 @@ void main() {
       expect(_sum(_percents([for (final s in slices) s.share])), 100);
     });
 
+    test('9 крупных категорий: «Остальное» из двух, а не из одной', () {
+      // 9 категорий по 1000: каждая 11,1 %, мелких нет.
+      final totals = [for (var i = 1; i <= 9; i++) _total('cat-$i', 1000)];
+      final slices = chartSlices(totals);
+      final shares = percentShares([for (final t in totals) t.amount]);
+
+      final named = slices.where((s) => !s.isOther).toList();
+      final other = slices.singleWhere((s) => s.isOther);
+      expect(named, hasLength(maxNamedSlices - 1));
+      expect(other.categoryIds, ['cat-8', 'cat-9']);
+      expect(other.amount, Money.fromMinor(2000, 'RUB'));
+      expect(other.share.percent, shares[7].percent! + shares[8].percent!);
+      expect(_sum(_percents([for (final s in slices) s.share])), 100);
+    });
+
+    test('8 крупных и 1 мелкая: мелкая не остаётся одна в «Остальном»', () {
+      // Итог 10 000: восемь по 1230 (12,3 %) и одна 160 (1,6 %, мелкая).
+      final totals = [
+        for (var i = 1; i <= 8; i++) _total('cat-$i', 1230),
+        _total('cat-9', 160),
+      ];
+      final slices = chartSlices(totals);
+      final shares = percentShares([for (final t in totals) t.amount]);
+
+      final other = slices.singleWhere((s) => s.isOther);
+      expect(slices.where((s) => !s.isOther), hasLength(maxNamedSlices - 1));
+      expect(other.categoryIds, ['cat-8', 'cat-9']);
+      expect(other.amount, Money.fromMinor(1390, 'RUB'));
+      expect(other.share.percent, shares[7].percent! + shares[8].percent!);
+      expect(_sum(_percents([for (final s in slices) s.share])), 100);
+    });
+
+    test('все категории мелкие: один сектор «Остальное» на 100 %', () {
+      // 40 категорий по 2,5 % — все меньше порога 3 %.
+      final slices = chartSlices([
+        for (var i = 1; i <= 40; i++) _total('cat-$i', 100),
+      ]);
+
+      expect(slices, hasLength(1));
+      expect(slices.single.isOther, isTrue);
+      expect(slices.single.categoryIds, hasLength(40));
+      expect(slices.single.share.percent, 100);
+    });
+
     test('одна категория — один сектор на 100 %', () {
       final slices = chartSlices([_total('cat-a', 1234)]);
 
@@ -253,10 +297,20 @@ void main() {
     });
   });
 
-  test('в файле расчёта долей нет типа double (деньги только целые)', () {
-    final source = File('lib/features/analytics/domain/shares.dart')
-        .readAsStringSync();
+  test('в файлах domain аналитики нет типа double (деньги только целые)', () {
+    final files = Directory('lib/features/analytics/domain')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))
+        .toList();
 
-    expect(source, isNot(contains('double')));
+    expect(files, isNotEmpty);
+    for (final file in files) {
+      expect(
+        file.readAsStringSync(),
+        isNot(contains('double')),
+        reason: file.path,
+      );
+    }
   });
 }

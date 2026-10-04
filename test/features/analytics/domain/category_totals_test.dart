@@ -211,6 +211,30 @@ void main() {
     });
   });
 
+  group('subcategoryTotals: смешение валют', () {
+    test('операция в другой валюте — ArgumentError, даже вне периода', () {
+      final transactions = [
+        _tx(TransactionType.expense, 100, DateOnly(2026, 9, 2)),
+        _tx(
+          TransactionType.expense,
+          100,
+          DateOnly(2026, 8, 2),
+          currency: 'USD',
+        ),
+      ];
+
+      expect(
+        () => subcategoryTotals(
+          transactions,
+          _september,
+          categoryId: 'cat-test',
+          currency: 'RUB',
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('subcategoryTotals на тестовом наборе', () {
     test('подкатегории «Продуктов» в сумме дают итог категории', () {
       final subs = subcategoryTotals(

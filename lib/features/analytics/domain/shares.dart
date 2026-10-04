@@ -119,7 +119,9 @@ List<PercentShare> percentShares(List<Money> amounts) {
 /// - мелкие объединяются в «Остальное», только если их две и больше; одна
 ///   мелкая остаётся своим сектором;
 /// - именных секторов не больше [maxNamedSlices]; лишние (с конца списка)
-///   тоже уходят в «Остальное».
+///   тоже уходят в «Остальное»;
+/// - «Остальное» никогда не состоит из одной категории: если из-за предела в
+///   группу попала ровно одна, к ней добавляется последний именной сектор.
 ///
 /// Проценты считаются один раз для всего списка [totals] через
 /// [percentShares]; процент «Остального» — сумма процентов входящих.
@@ -153,6 +155,11 @@ List<ChartSlice> chartSlices(List<CategoryTotal> totals) {
   if (named.length > maxNamedSlices) {
     other.addAll(named.sublist(maxNamedSlices));
     named.removeRange(maxNamedSlices, named.length);
+    // «Остальное» из одной категории не бывает: берём в группу и последний
+    // именной сектор (7 именных + «Остальное» из двух).
+    if (other.length == 1) {
+      other.add(named.removeLast());
+    }
     other.sort();
   }
 

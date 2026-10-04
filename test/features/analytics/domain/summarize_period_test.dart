@@ -61,7 +61,8 @@ void main() {
       final summary = summarizePeriod(all, _september, currency: 'RUB');
 
       expect(summary.incomeCount + summary.expenseCount, summary.count);
-      expect(summary.count, greaterThan(0));
+      // В сентябре в тестовом наборе 109 операций (все в рублях).
+      expect(summary.count, 109);
     });
   });
 

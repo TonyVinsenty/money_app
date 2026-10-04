@@ -190,6 +190,20 @@ void main() {
       );
     });
 
+    test('сегодня понедельник: следующая неделя начинается ровно сегодня, '
+        'вперёд можно', () {
+      final monday = DateOnly(2026, 10, 5);
+      final week = currentPeriod(PeriodKind.week, DateOnly(2026, 10, 1));
+
+      expect(
+        nextPeriod(week, monday)!.range,
+        _range(DateOnly(2026, 10, 5), DateOnly(2026, 10, 11)),
+      );
+      expect(canGoForward(week, monday), isTrue);
+      // А накануне (воскресенье) следующая неделя ещё в будущем.
+      expect(canGoForward(week, DateOnly(2026, 10, 4)), isFalse);
+    });
+
     test('вперёд из декабря 2025 — январь 2026, когда сегодня в январе', () {
       final december = currentPeriod(PeriodKind.month, DateOnly(2025, 12, 5));
       final january = DateOnly(2026, 1, 20);
@@ -303,6 +317,15 @@ void main() {
         month.range,
         _range(DateOnly(2026, 10, 1), DateOnly(2026, 10, 31)),
       );
+    });
+
+    test('текущий месяц (октябрь, сегодня 04.10) → неделя 28.09-04.10: '
+        'опорный день — сегодня, а не конец месяца', () {
+      final october = currentPeriod(PeriodKind.month, _today);
+
+      final week = switchKind(october, PeriodKind.week, _today);
+
+      expect(week.range, _range(DateOnly(2026, 9, 28), DateOnly(2026, 10, 4)));
     });
 
     test('переход на свой интервал — ArgumentError', () {
