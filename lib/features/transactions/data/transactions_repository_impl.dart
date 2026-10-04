@@ -136,6 +136,16 @@ class DriftTransactionsRepository implements TransactionsRepository {
   }
 
   @override
+  Future<List<Transaction>> findAllLive() {
+    return _guard(() async {
+      final rows = await (_db.select(
+        _db.transactions,
+      )..where((t) => t.deletedAt.isNull())).get();
+      return rows.map(transactionFromRow).toList();
+    }, what: 'all transactions');
+  }
+
+  @override
   Stream<List<Transaction>> watchRecent({int limit = 50}) {
     if (limit <= 0) {
       throw ArgumentError.value(limit, 'limit', 'must be positive');

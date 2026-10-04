@@ -796,6 +796,46 @@ void main() {
       });
     });
 
+    group('findAllLive (для экспорта)', () {
+      test(
+        'возвращает все живые операции без ограничения по количеству',
+        () async {
+          for (var i = 0; i < 55; i++) {
+            await rawInsert('t$i');
+          }
+          final all = await repo.findAllLive();
+          expect(all, hasLength(55));
+        },
+      );
+
+      test('мягко удалённые операции не попадают', () async {
+        await repo.add(tx('live'));
+        await repo.add(tx('gone'));
+        await repo.softDelete('gone');
+        final all = await repo.findAllLive();
+        expect(all.map((t) => t.id), ['live']);
+      });
+
+      test('операции в архивной категории попадают', () async {
+        await repo.add(tx('kept', categoryId: 'cat2'));
+        await categories.archive('cat2');
+        final all = await repo.findAllLive();
+        expect(all.map((t) => t.id), ['kept']);
+      });
+
+      test(
+        'испорченная строка даёт DataCorruptedException, а не пропуск',
+        () async {
+          await rawInsert('bad', occurredOn: 20261332);
+          await repo.add(tx('fine'));
+          await expectLater(
+            repo.findAllLive(),
+            throwsA(isA<DataCorruptedException>()),
+          );
+        },
+      );
+    });
+
     group('watchRecent order and limit', () {
       test('newer days come first', () async {
         await repo.add(tx('d1', day: DateOnly(2026, 9, 1)));
