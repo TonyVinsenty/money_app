@@ -7,6 +7,7 @@ const _guardedFolders = <String>[
   'lib/core/money',
   'lib/core/time',
   'lib/core/id',
+  'lib/core/csv',
 ];
 
 /// Единственная папка, где разрешён пакет `uuid` (генератор идентификаторов).
