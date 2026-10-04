@@ -27,11 +27,15 @@ const int _legendRows = 4;
 /// Внутренний отступ карточки, dp, и границы размера кольца.
 const double _cardPadding = 16;
 const double _minRing = 160;
-const double _maxRing = 320;
+const double _maxRing = 360;
+
+/// Высота строки легенды, dp, и зазор между кольцом и легендой.
+const double _legendRowHeight = 28;
+const double _legendGap = 8;
 
 /// Размер кольца: как можно крупнее по ширине карточки ([viewportWidth] минус
 /// её отступы), но так, чтобы вместе с карточкой итогов, заголовком и легендой
-/// оно помещалось в [viewportHeight]. Границы 160 и 320 dp. Высоты итогов,
+/// оно помещалось в [viewportHeight]. Границы 160 и 360 dp. Высоты итогов,
 /// заголовка и легенды прикидываем по масштабу шрифта [textScale].
 double chartRingSize({
   required double viewportWidth,
@@ -39,7 +43,7 @@ double chartRingSize({
   required double textScale,
 }) {
   // Отступы карточки сверху и снизу, заголовок, зазоры и строки легенды
-  // (до двух по 48 dp; при крупном шрифте элементы встают по одному).
+  // (до двух по 28 dp; при крупном шрифте элементы встают по одному).
   final legendRows = textScale >= 1.5 ? 4 : 2;
   final summary = estimateSummaryHeight(
     viewportWidth - 2 * _cardPadding,
@@ -52,8 +56,8 @@ double chartRingSize({
       2 * _cardPadding +
       24 * textScale +
       12 +
-      12 +
-      legendRows * 48;
+      _legendGap +
+      legendRows * _legendRowHeight;
   final byWidth = viewportWidth - 2 * _cardPadding;
   final byHeight = viewportHeight - reserved;
   return (byWidth < byHeight ? byWidth : byHeight).clamp(_minRing, _maxRing);
@@ -124,11 +128,12 @@ class _MonthChartCardState extends State<MonthChartCard> {
           children: [
             Text(
               'Расходы по категориям',
+              textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 12),
-            // Кольцо с легендой по центру оставшейся высоты карточки.
-            Expanded(child: Center(child: body)),
+            // Кольцо по центру оставшейся высоты, легенда прижата к низу.
+            Expanded(child: body),
           ],
         ),
       ),
@@ -137,19 +142,21 @@ class _MonthChartCardState extends State<MonthChartCard> {
 
   Widget _error(BuildContext context, Object error) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(Icons.error_outline, color: theme.colorScheme.error),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            'Не удалось посчитать расходы по категориям',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+    return Center(
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, color: theme.colorScheme.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Не удалось посчитать расходы по категориям',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -259,11 +266,10 @@ class _MonthChartCardState extends State<MonthChartCard> {
           );
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Center(child: ring),
-        const SizedBox(height: 12),
+        Expanded(child: Center(child: ring)),
+        const SizedBox(height: _legendGap),
         legend,
       ],
     );
@@ -442,9 +448,10 @@ class _LegendItemView extends StatelessWidget {
         ],
       ),
     );
-    // Область касания не ниже 48 dp.
+    // Строки очень компактные (28 dp): ниже рекомендованных 48 dp, зато легенда
+    // не рыхлая; кольцо и сектора нажимаются тоже.
     final box = ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48),
+      constraints: const BoxConstraints(minHeight: _legendRowHeight),
       child: Center(widthFactor: 1, child: content),
     );
     return Semantics(

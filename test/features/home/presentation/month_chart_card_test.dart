@@ -147,6 +147,22 @@ void main() {
     await initializeDateFormatting('ru');
   });
 
+  testWidgets('заголовок карточки по центру', (tester) async {
+    await _pump(tester);
+    final title = tester.widget<Text>(find.text('Расходы по категориям'));
+    expect(title.textAlign, TextAlign.center);
+  });
+
+  test('chartRingSize: резерв под легенду по 28 dp', () {
+    final size = chartRingSize(
+      viewportWidth: 360,
+      viewportHeight: 520,
+      textScale: 1,
+    );
+    // Раньше (строки по 48 dp, зазор 12) здесь получалось 210 dp, потом 238.
+    expect(size, 254);
+    expect(size, greaterThan(238));
+  });
   testWidgets('пустой месяц: серое кольцо, «Всего» и ноль, текст вместо '
       'легенды', (tester) async {
     await _pump(tester);
@@ -633,6 +649,75 @@ void main() {
       _category('c', 'Кафе'),
     ];
 
+    // Как у пользователя: четыре элемента легенды в две строки.
+    final fiveCategories = [
+      for (final id in ['a', 'b', 'c', 'd', 'e']) _expense(id, 10000),
+    ];
+    final fiveNames = [
+      _category('a', 'Продукты'),
+      _category('b', 'Транспорт'),
+      _category('c', 'Кафе'),
+      _category('d', 'Дом'),
+      _category('e', 'Одежда'),
+    ];
+    for (final size in [const Size(411, 914), const Size(360, 640)]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets('«Главная» $size, шрифт $scale: без переполнения', (
+          tester,
+        ) async {
+          await pumpHome(
+            tester,
+            size,
+            scale: scale,
+            transactions: fiveCategories,
+            categories: fiveNames,
+          );
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+
+    testWidgets(
+      '«Главная» 411 x 914: кольцо крупное, легенда у низа карточки',
+      (tester) async {
+        await pumpHome(
+          tester,
+          const Size(411, 914),
+          transactions: fiveCategories,
+          categories: fiveNames,
+        );
+        expect(tester.takeException(), isNull);
+
+        final ring = tester.getRect(find.byType(DonutChart));
+        final card = tester.getRect(find.byType(MonthChartCard));
+        final legend = tester.getRect(find.byType(Wrap));
+        // Ширина карточки 379, отступы 16: кольцо упирается в 347 (раньше 315).
+        expect(ring.width, greaterThanOrEqualTo(330));
+        // Легенда прижата к низу: до края карточки только её отступ 16 dp.
+        expect(card.bottom - legend.bottom, lessThanOrEqualTo(16 + 8));
+        expect(legend.top, greaterThanOrEqualTo(ring.bottom));
+      },
+    );
+
+    testWidgets('«Главная» 411 x 700: кольцо забирает всё место по высоте', (
+      tester,
+    ) async {
+      await pumpHome(
+        tester,
+        const Size(411, 700),
+        transactions: fiveCategories,
+        categories: fiveNames,
+      );
+      final ring = tester.getRect(find.byType(DonutChart));
+      final card = tester.getRect(find.byType(MonthChartCard));
+      final title = tester.getRect(find.text('Расходы по категориям'));
+      final legend = tester.getRect(find.byType(Wrap));
+      expect(ring.width, 322);
+      // Пустоты нет: зазоры над кольцом 12 и под ним 8, отступ снизу 16.
+      expect(ring.top - title.bottom, lessThanOrEqualTo(16));
+      expect(legend.top - ring.bottom, lessThanOrEqualTo(12));
+      expect(card.bottom - legend.bottom, 16);
+    });
     for (final width in [360.0, 393.0]) {
       testWidgets('«Главная» $width x 800: кольцо не меньше 250 dp, легенда '
           'под ним', (tester) async {
@@ -645,7 +730,7 @@ void main() {
 
         final ring = tester.getRect(find.byType(DonutChart));
         expect(ring.width, greaterThanOrEqualTo(250));
-        expect(ring.width, lessThanOrEqualTo(320));
+        expect(ring.width, lessThanOrEqualTo(360));
         for (final name in ['Продукты', 'Транспорт', 'Кафе']) {
           expect(
             tester.getRect(find.text(name)).top,
@@ -653,7 +738,7 @@ void main() {
             reason: name,
           );
         }
-        // Элементы легенды: не ниже 48 dp, видимых сумм нет, проценты верные.
+        // Элементы легенды: компактные, 28 dp, видимых сумм нет, проценты верные.
         for (final pair in {
           'Продукты': 50,
           'Транспорт': 30,
@@ -673,7 +758,7 @@ void main() {
           );
           expect(
             tester.getSize(button).height,
-            greaterThanOrEqualTo(48),
+            greaterThanOrEqualTo(28),
             reason: pair.key,
           );
         }
@@ -854,7 +939,22 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('область касания строки не ниже 48 dp, шрифт 200 % без '
+    testWidgets('строка легенды высотой 28 dp', (tester) async {
+      await _pump(
+        tester,
+        transactions: Stream.value(transactions),
+        categories: Stream.value(categories),
+        cardHeight: 1400,
+        onOpen: (_) {},
+      );
+      await tester.pump();
+      final rows = find.byType(InkWell);
+      expect(rows, findsNWidgets(3));
+      for (var i = 0; i < 3; i++) {
+        expect(tester.getSize(rows.at(i)).height, 28);
+      }
+    });
+    testWidgets('строки легенды не ниже 28 dp, шрифт 200 % без '
         'переполнения', (tester) async {
       final opened = <Category>[];
       await _pump(
@@ -870,7 +970,7 @@ void main() {
       final rows = find.byType(InkWell);
       expect(rows, findsNWidgets(3));
       for (var i = 0; i < 3; i++) {
-        expect(tester.getSize(rows.at(i)).height, greaterThanOrEqualTo(48));
+        expect(tester.getSize(rows.at(i)).height, greaterThanOrEqualTo(28));
       }
       await tester.tap(find.text('Кафе'));
       expect(opened.map((c) => c.id), ['c']);
