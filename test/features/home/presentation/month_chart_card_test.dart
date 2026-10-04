@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
@@ -12,9 +13,11 @@ import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
+import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
+import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/home/presentation/month_chart_card.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -64,7 +67,8 @@ Future<void> _pump(
   Stream<List<Transaction>>? transactions,
   Stream<List<Category>>? categories,
   double textScale = 1,
-  double cardHeight = 700,
+  double cardHeight = 1000,
+  double ringSize = 280,
   ThemeMode mode = ThemeMode.light,
   ValueChanged<Category>? onOpen,
 }) async {
@@ -92,6 +96,7 @@ Future<void> _pump(
                 transactions: transactions ?? Stream.value(const []),
                 categories: categories ?? Stream.value(const []),
                 month: _month,
+                ringSize: ringSize,
                 onOpenCategory: onOpen,
               ),
             ),
@@ -134,30 +139,33 @@ String _money(int minor) => formatMoney(Money.fromMinor(minor, 'RUB'));
 Finder _inRing(String text) =>
     find.descendant(of: find.byType(DonutChart), matching: find.text(text));
 
+/// Легенда: Wrap с элементами под кольцом.
+final _legend = find.byType(Wrap);
+
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('ru');
   });
 
-  testWidgets('пустой месяц: серое кольцо, баланс нейтральный, текст вместо '
+  testWidgets('пустой месяц: серое кольцо, «Всего» и ноль, текст вместо '
       'легенды', (tester) async {
     await _pump(tester);
 
     expect(find.text('Расходы по категориям'), findsOneWidget);
     expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
-    expect(_inRing('Баланс'), findsOneWidget);
+    expect(_inRing('Всего'), findsOneWidget);
     final colors = tester.element(find.byType(MonthChartCard)).appColors;
-    // Ноль нейтральный: ни цвет расхода, ни цвет дохода.
-    final balance = tester.widget<Text>(_inRing(_money(0)));
-    expect(balance.style?.color, isNot(colors.expense));
-    expect(balance.style?.color, isNot(colors.income));
+    // Сумма нейтральная: ни цвет расхода, ни цвет дохода.
+    final total = tester.widget<Text>(_inRing(_money(0)));
+    expect(total.style?.color, isNot(colors.expense));
+    expect(total.style?.color, isNot(colors.income));
     final empty = tester.widget<Text>(
       find.text('В этом месяце расходов пока нет'),
     );
     expect(empty.style?.color, isNot(colors.expense));
   });
 
-  testWidgets('сентябрь тестового набора: баланс и проценты легенды', (
+  testWidgets('сентябрь тестового набора: всего расходов и проценты легенды', (
     tester,
   ) async {
     final data = _fixture();
@@ -170,43 +178,133 @@ void main() {
     );
     await tester.pump();
 
+    // Баланс месяца (доходы минус расходы): знак и цвет по знаку.
+    final balance = summarizePeriod(
+      data.transactions,
+      _range,
+      currency: 'RUB',
+    ).balance;
     final colors = tester.element(find.byType(MonthChartCard)).appColors;
-    final balance = tester.widget<Text>(_inRing(_money(-2508488)));
-    expect(balance.style?.color, colors.expense);
+    final shown = balance.isNegative
+        ? formatMoney(balance)
+        : '+${formatMoney(balance)}';
+    final total = tester.widget<Text>(_inRing(shown));
+    expect(
+      total.style?.color,
+      balance.isNegative ? colors.expense : colors.income,
+    );
+    expect(
+      find.descendant(of: _legend, matching: find.textContaining('₽')),
+      findsNothing,
+    );
 
-    // Три крупнейших категории: название, сумма и процент как в domain.
+    // Три крупнейших категории: название и процент как в domain.
     for (final slice in slices.take(3)) {
       final id = slice.categoryIds.single;
       expect(find.text('Кат $id'), findsOneWidget);
       expect(
-        find.text('${formatMoney(slice.amount)} · ${_pct(slice.share)}'),
+        find.descendant(
+          of: find.widgetWithText(Row, 'Кат $id'),
+          matching: find.text(_pct(slice.share)),
+        ),
         findsOneWidget,
       );
     }
-    // Остаток свернут в «Ещё N категорий».
+    // Остаток свернут в «Ещё N категорий» с суммарным процентом.
     final rest = slices.skip(3).toList();
     final count = rest.fold<int>(0, (sum, s) => sum + s.categoryIds.length);
-    final restMoney = rest.fold(Money.zero('RUB'), (sum, s) => sum + s.amount);
     final restPercent = rest.fold<int>(0, (sum, s) => sum + s.share.percent!);
     expect(count, greaterThan(1));
     expect(find.textContaining('Ещё $count '), findsOneWidget);
     expect(
-      find.text('${formatMoney(restMoney)} · $restPercent$_nbsp%'),
+      find.descendant(
+        of: find.widgetWithText(Row, 'Ещё $count категорий'),
+        matching: find.text('$restPercent$_nbsp%'),
+      ),
       findsOneWidget,
     );
   });
 
-  testWidgets('положительный баланс: плюс и цвет дохода', (tester) async {
+  group('центр: баланс месяца', () {
+    Future<Text> center(WidgetTester tester, List<Transaction> list) async {
+      await _pump(
+        tester,
+        transactions: Stream.value(list),
+        categories: Stream.value([_category('food', 'Еда')]),
+      );
+      await tester.pump();
+      expect(_inRing('Всего'), findsOneWidget);
+      return tester.widget<Text>(
+        find.descendant(
+          of: find.byType(DonutChart),
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Text &&
+                w.data != null &&
+                w.data!.contains('₽') &&
+                w.data != '',
+          ),
+        ),
+      );
+    }
+
+    testWidgets('плюс: «+», цвет дохода', (tester) async {
+      final text = await center(tester, [_income(5000), _expense('food', 100)]);
+      final colors = tester.element(find.byType(MonthChartCard)).appColors;
+      expect(text.data, '+${_money(4900)}');
+      expect(text.style?.color, colors.income);
+    });
+
+    testWidgets('минус: U+2212, цвет расхода', (tester) async {
+      final text = await center(tester, [_income(100), _expense('food', 5000)]);
+      final colors = tester.element(find.byType(MonthChartCard)).appColors;
+      expect(text.data, _money(-4900));
+      expect(text.data, startsWith('\u2212'));
+      expect(text.style?.color, colors.expense);
+    });
+
+    testWidgets('ноль: без знака, нейтрально', (tester) async {
+      final text = await center(tester, [_income(100), _expense('food', 100)]);
+      final colors = tester.element(find.byType(MonthChartCard)).appColors;
+      expect(text.data, _money(0));
+      expect(text.style?.color, isNot(colors.expense));
+      expect(text.style?.color, isNot(colors.income));
+    });
+
+    testWidgets('доход есть, расходов нет: «+», цвет дохода, текст вместо '
+        'легенды по центру', (tester) async {
+      final text = await center(tester, [_income(1234567)]);
+      final colors = tester.element(find.byType(MonthChartCard)).appColors;
+      expect(text.data, '+${_money(1234567)}');
+      expect(text.style?.color, colors.income);
+      expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
+    });
+  });
+
+  testWidgets('текст «расходов пока нет» по центру карточки', (tester) async {
+    await _pump(tester);
+    final card = tester.getRect(find.byType(MonthChartCard));
+    final text = tester.getRect(find.text('В этом месяце расходов пока нет'));
+    expect((text.center.dx - card.center.dx).abs(), lessThan(1));
+  });
+
+  testWidgets('длинная сумма при шрифте 200 % не переполняет дырку кольца', (
+    tester,
+  ) async {
     await _pump(
       tester,
-      transactions: Stream.value([_income(1234567), _expense('food', 100)]),
+      transactions: Stream.value([_expense('food', 12803388)]),
       categories: Stream.value([_category('food', 'Еда')]),
+      textScale: 2,
+      cardHeight: 1400,
     );
     await tester.pump();
-
-    final colors = tester.element(find.byType(MonthChartCard)).appColors;
-    final text = tester.widget<Text>(_inRing('+${_money(1234467)}'));
-    expect(text.style?.color, colors.income);
+    expect(tester.takeException(), isNull);
+    final ring = tester.getRect(find.byType(DonutChart));
+    final amount = tester.getRect(_inRing(_money(-12803388)));
+    expect(amount.width, lessThanOrEqualTo(ring.width * 0.66 + 0.5));
+    expect(ring.contains(amount.topLeft), isTrue);
+    expect(ring.contains(amount.bottomRight), isTrue);
   });
 
   group('строка «Ещё N категорий»', () {
@@ -283,7 +381,7 @@ void main() {
     expect(find.textContaining('Ещё'), findsNothing);
   });
 
-  testWidgets('подсветка сектора меняет центр, отпускание возвращает баланс', (
+  testWidgets('подсветка сектора меняет центр, отпускание возвращает «Всего»', (
     tester,
   ) async {
     final data = _fixture();
@@ -294,7 +392,7 @@ void main() {
       categories: Stream.value(data.categories),
     );
     await tester.pump();
-    expect(_inRing('Баланс'), findsOneWidget);
+    expect(_inRing('Всего'), findsOneWidget);
 
     // Точка на кольце сразу правее «12 часов»: там начинается первый сектор.
     final rect = tester.getRect(find.byType(DonutChart));
@@ -307,11 +405,11 @@ void main() {
     expect(_inRing('Кат ${first.categoryIds.single}'), findsOneWidget);
     expect(_inRing(formatMoney(first.amount)), findsOneWidget);
     expect(_inRing(_pct(first.share)), findsOneWidget);
-    expect(_inRing('Баланс'), findsNothing);
+    expect(_inRing('Всего'), findsNothing);
 
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(_inRing('Баланс'), findsOneWidget);
+    expect(_inRing('Всего'), findsOneWidget);
   });
 
   testWidgets('архивная категория показывается своим именем, неизвестная — '
@@ -355,7 +453,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('В этом месяце расходов пока нет'), findsNothing);
-    expect(find.text('Баланс'), findsNothing);
+    expect(find.text('Всего'), findsNothing);
     expect(find.byType(DonutChart), findsNothing);
 
     controller.add([_expense('food', 1000)]);
@@ -367,7 +465,7 @@ void main() {
   });
 
   group('скринридер', () {
-    testWidgets('подпись кольца: месяц и баланс со знаком', (tester) async {
+    testWidgets('подпись кольца: месяц и всего расходов', (tester) async {
       final semantics = tester.ensureSemantics();
       final data = _fixture();
       await _pump(
@@ -376,10 +474,16 @@ void main() {
         categories: Stream.value(data.categories),
       );
       await tester.pump();
+      final balance = summarizePeriod(
+        data.transactions,
+        _range,
+        currency: 'RUB',
+      ).balance;
+      final spoken = balance.isNegative
+          ? spokenMoney(balance)
+          : 'плюс ${spokenMoney(balance)}';
       expect(
-        find.bySemanticsLabel(
-          'Диаграмма расходов за сентябрь. Баланс: минус 25084 рубля 88 копеек',
-        ),
+        find.bySemanticsLabel('Диаграмма расходов за сентябрь. Всего: $spoken'),
         findsOneWidget,
       );
 
@@ -390,7 +494,18 @@ void main() {
       await tester.pump();
       expect(
         find.bySemanticsLabel(
-          'Диаграмма расходов за сентябрь. Баланс: плюс 12344 рубля 67 копеек',
+          'Диаграмма расходов за сентябрь. Всего: '
+          'плюс ${spokenMoney(Money.fromMinor(1234467, 'RUB'))}',
+        ),
+        findsOneWidget,
+      );
+
+      await _pump(tester, transactions: Stream.value([_expense('food', 5000)]));
+      await tester.pump();
+      expect(
+        find.bySemanticsLabel(
+          'Диаграмма расходов за сентябрь. Всего: '
+          '${spokenMoney(Money.fromMinor(-5000, 'RUB'))}',
         ),
         findsOneWidget,
       );
@@ -399,7 +514,7 @@ void main() {
       await tester.pump();
       expect(
         find.bySemanticsLabel(
-          'Диаграмма расходов за сентябрь. Баланс: 0 рублей',
+          'Диаграмма расходов за сентябрь. Всего: 0 рублей',
         ),
         findsOneWidget,
       );
@@ -469,19 +584,129 @@ void main() {
     });
   });
 
+  /// «Главная» целиком на экране [size] с данными [data] и шрифтом [scale].
+  Future<void> pumpHome(
+    WidgetTester tester,
+    Size size, {
+    double scale = 1,
+    List<Transaction>? transactions,
+    List<Category>? categories,
+  }) async {
+    final data = _fixture();
+    tester.view.physicalSize = size;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: HomeScreen(
+            monthExpenses: Stream.value(Money.fromMinor(12803388, 'RUB')),
+            monthIncome: Stream.value(Money.fromMinor(10294900, 'RUB')),
+            monthTransactions: Stream.value(transactions ?? data.transactions),
+            categories: Stream.value(categories ?? data.categories),
+            month: _month,
+            onOpenCategory: (_) {},
+          ),
+          bottomNavigationBar: HomeActionBar(onAddTransaction: (_) {}),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+  }
+
   group('раскладка', () {
-    testWidgets('обычный шрифт на 360 dp: легенда справа от кольца', (
+    final transactions = [
+      _expense('a', 5000),
+      _expense('b', 3000),
+      _expense('c', 2000),
+    ];
+    final categories = [
+      _category('a', 'Продукты'),
+      _category('b', 'Транспорт'),
+      _category('c', 'Кафе'),
+    ];
+
+    for (final width in [360.0, 393.0]) {
+      testWidgets('«Главная» $width x 800: кольцо не меньше 250 dp, легенда '
+          'под ним', (tester) async {
+        await pumpHome(
+          tester,
+          Size(width, 800),
+          transactions: transactions,
+          categories: categories,
+        );
+
+        final ring = tester.getRect(find.byType(DonutChart));
+        expect(ring.width, greaterThanOrEqualTo(250));
+        expect(ring.width, lessThanOrEqualTo(320));
+        for (final name in ['Продукты', 'Транспорт', 'Кафе']) {
+          expect(
+            tester.getRect(find.text(name)).top,
+            greaterThanOrEqualTo(ring.bottom),
+            reason: name,
+          );
+        }
+        // Элементы легенды: не ниже 48 dp, видимых сумм нет, проценты верные.
+        for (final pair in {
+          'Продукты': 50,
+          'Транспорт': 30,
+          'Кафе': 20,
+        }.entries) {
+          expect(
+            find.descendant(
+              of: find.widgetWithText(Row, pair.key),
+              matching: find.text('${pair.value}$_nbsp%'),
+            ),
+            findsOneWidget,
+            reason: pair.key,
+          );
+          final button = find.ancestor(
+            of: find.text(pair.key),
+            matching: find.byType(InkWell),
+          );
+          expect(
+            tester.getSize(button).height,
+            greaterThanOrEqualTo(48),
+            reason: pair.key,
+          );
+        }
+        expect(
+          find.descendant(of: _legend, matching: find.textContaining('₽')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('длинное название обрезается, процент цел, переполнения нет', (
       tester,
     ) async {
-      await _pump(tester, transactions: Stream.value([_expense('a', 100)]));
+      await _pump(
+        tester,
+        transactions: Stream.value([_expense('a', 100)]),
+        categories: Stream.value([
+          _category('a', 'Очень длинное название категории и ещё'),
+        ]),
+      );
       await tester.pump();
 
-      final ring = tester.getRect(find.byType(DonutChart));
-      final legend = tester.getRect(find.text('Без категории'));
-      expect(legend.left, greaterThanOrEqualTo(ring.right));
+      expect(tester.takeException(), isNull);
+      final row = find.descendant(of: _legend, matching: find.byType(Row));
+      final card = tester.getRect(find.byType(MonthChartCard));
+      expect(tester.getRect(row).right, lessThanOrEqualTo(card.right));
+      expect(find.text('100$_nbsp%'), findsOneWidget);
     });
 
-    testWidgets('шрифт 200 %: легенда под кольцом', (tester) async {
+    testWidgets('шрифт 200 %: легенда под кольцом, без переполнения', (
+      tester,
+    ) async {
       await _pump(
         tester,
         transactions: Stream.value([_expense('a', 100)]),
@@ -497,38 +722,22 @@ void main() {
     });
   });
 
-  testWidgets('«Главная» при шрифте 200 % на 360 dp: нет переполнения, '
-      'кнопки видны', (tester) async {
-    final data = _fixture();
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: const TextScaler.linear(2)),
-          child: child!,
-        ),
-        home: Scaffold(
-          body: HomeScreen(
-            onAddTransaction: (_) {},
-            monthExpenses: Stream.value(Money.fromMinor(12803388, 'RUB')),
-            monthIncome: Stream.value(Money.fromMinor(10294900, 'RUB')),
-            monthTransactions: Stream.value(data.transactions),
-            categories: Stream.value(data.categories),
-            month: _month,
-            onOpenCategory: (_) {},
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+  testWidgets('«Главная» при шрифте 200 % на 360x640: нет переполнения, '
+      'середина прокручивается, кнопки видны', (tester) async {
+    await pumpHome(tester, const Size(360, 640), scale: 2);
 
     expect(tester.takeException(), isNull);
+    final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(scrollable.position.maxScrollExtent, greaterThan(0));
+    // Карточка кольца ниже экрана: прокручиваем до конца.
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pump();
     expect(find.byType(DonutChart), findsOneWidget);
+    expect(
+      tester.getRect(find.byType(DonutChart)).width,
+      greaterThanOrEqualTo(160),
+    );
+    expect(tester.takeException(), isNull);
     for (final label in ['Доход', 'Расход']) {
       final rect = tester.getRect(find.text(label));
       expect(rect.bottom, lessThanOrEqualTo(640), reason: label);

@@ -16,6 +16,7 @@ import 'package:money_app/features/analytics/domain/category_totals.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/home/presentation/month_summary_card.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -23,23 +24,47 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// строка «Ещё N категорий».
 const int _legendRows = 4;
 
-/// Ширина «обвязки» вокруг карточки, dp: отступ экрана «Главной» (16 + 16) и
-/// внутренний отступ карточки (16 + 16).
-const double _chromeWidth = 64;
+/// Внутренний отступ карточки, dp, и границы размера кольца.
+const double _cardPadding = 16;
+const double _minRing = 160;
+const double _maxRing = 320;
 
-/// Легенда уходит под кольцо, если рядом не хватает места: кольцу нужно хотя бы
-/// [_minRing] dp, зазору [_gap], а легенде [_legendWidth] dp, умноженные на
-/// масштаб шрифта. На 360 dp при обычном шрифте легенда сбоку, при шрифте
-/// около 115 % и больше (и на экранах уже ~340 dp) — под кольцом.
-const double _minRing = 120;
-const double _gap = 16;
-const double _legendWidth = 140;
+/// Размер кольца: как можно крупнее по ширине карточки ([viewportWidth] минус
+/// её отступы), но так, чтобы вместе с карточкой итогов, заголовком и легендой
+/// оно помещалось в [viewportHeight]. Границы 160 и 320 dp. Высоты итогов,
+/// заголовка и легенды прикидываем по масштабу шрифта [textScale].
+double chartRingSize({
+  required double viewportWidth,
+  required double viewportHeight,
+  required double textScale,
+}) {
+  // Отступы карточки сверху и снизу, заголовок, зазоры и строки легенды
+  // (до двух по 48 dp; при крупном шрифте элементы встают по одному).
+  final legendRows = textScale >= 1.5 ? 4 : 2;
+  final summary = estimateSummaryHeight(
+    viewportWidth - 2 * _cardPadding,
+    textScale,
+  );
+  // Итоги и зазор 16 между карточками.
+  final reserved =
+      summary +
+      16 +
+      2 * _cardPadding +
+      24 * textScale +
+      12 +
+      12 +
+      legendRows * 48;
+  final byWidth = viewportWidth - 2 * _cardPadding;
+  final byHeight = viewportHeight - reserved;
+  return (byWidth < byHeight ? byWidth : byHeight).clamp(_minRing, _maxRing);
+}
 
-/// Карточка «Расходы по категориям» на «Главной»: кольцо с балансом месяца в
-/// центре и легенда (до 4 строк). Касание сектора показывает в центре его
-/// категорию; отпускание пальца на секторе и нажатие на строку легенды зовут
-/// [onOpenCategory] (экран категории за месяц). «Остальное», «Ещё N категорий»
-/// и неизвестная категория («Без категории») никуда не ведут.
+/// Карточка «Расходы по категориям» на «Главной»: кольцо размера [ringSize] с
+/// суммой расходов месяца в центре и легенда под ним (до 4 элементов). Касание
+/// сектора показывает в центре его категорию; отпускание пальца на секторе и
+/// нажатие на элемент легенды зовут [onOpenCategory] (экран категории за
+/// месяц). «Остальное», «Ещё N категорий» и неизвестная категория («Без
+/// категории») никуда не ведут.
 ///
 /// Потоки [transactions] (операции месяца) и [categories] (все категории,
 /// включая архивные) создаёт вызывающий и держит одними и теми же.
@@ -48,9 +73,13 @@ class MonthChartCard extends StatefulWidget {
     required this.transactions,
     required this.categories,
     required this.month,
+    required this.ringSize,
     this.onOpenCategory,
     super.key,
   });
+
+  /// Диаметр кольца, dp (см. [chartRingSize]).
+  final double ringSize;
 
   final Stream<List<Transaction>> transactions;
   final Stream<List<Category>> categories;
@@ -89,7 +118,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
         side: BorderSide(color: scheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(_cardPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -98,6 +127,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
               style: Theme.of(context).textTheme.titleSmall,
             ),
             const SizedBox(height: 12),
+            // Кольцо с легендой по центру оставшейся высоты карточки.
             Expanded(child: Center(child: body)),
           ],
         ),
@@ -171,17 +201,15 @@ class _MonthChartCardState extends State<MonthChartCard> {
         : spokenMoney(balance);
     final label =
         'Диаграмма расходов за ${formatMonthName(widget.month)}. '
-        'Баланс: $balanceSpoken';
+        'Всего: $balanceSpoken';
 
-    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    final available = MediaQuery.sizeOf(context).width - _chromeWidth;
-    final beside = available >= _minRing + _gap + _legendWidth * scale;
-    final side = beside
-        ? ((available - _gap) * 0.45).clamp(_minRing, 170.0)
-        : available.clamp(_minRing, 200.0);
+    final side = widget.ringSize;
 
-    final ring = SizedBox(
-      width: side,
+    // Квадрат с жёсткими сторонами: карточка на «Главной» тянется по
+    // intrinsic-высоте содержимого, а при одной лишь ширине кольцо мерилось бы
+    // по всей ширине карточки, и экран прокручивался бы зря.
+    final ring = SizedBox.square(
+      dimension: side,
       child: DonutChart(
         segments: [
           for (var i = 0; i < slices.length; i++)
@@ -201,23 +229,17 @@ class _MonthChartCardState extends State<MonthChartCard> {
               },
         semanticsLabel: label,
         center: SizedBox(
-          width: side * 0.6,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: SizedBox(
-              width: side * 0.6,
-              child: highlighted == null
-                  ? _balanceCenter(theme, colors, balance)
-                  : _sliceCenter(
-                      theme,
-                      slices[highlighted],
-                      slices[highlighted].isOther
-                          ? 'Остальное'
-                          : names[slices[highlighted].categoryIds.single] ??
-                                noCategoryLabel,
-                    ),
-            ),
-          ),
+          width: side * 0.66,
+          child: highlighted == null
+              ? _totalCenter(theme, colors, balance)
+              : _sliceCenter(
+                  theme,
+                  slices[highlighted],
+                  slices[highlighted].isOther
+                      ? 'Остальное'
+                      : names[slices[highlighted].categoryIds.single] ??
+                            noCategoryLabel,
+                ),
         ),
       ),
     );
@@ -225,30 +247,17 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final Widget legend = items.isEmpty
         ? Text(
             'В этом месяце расходов пока нет',
+            textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < items.length; i++) ...[
-                if (i > 0) const SizedBox(height: 8),
-                _LegendRow(item: items[i]),
-              ],
-            ],
+        : Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            children: [for (final item in items) _LegendItemView(item: item)],
           );
 
-    if (beside) {
-      return Row(
-        children: [
-          ring,
-          const SizedBox(width: _gap),
-          Expanded(child: legend),
-        ],
-      );
-    }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -260,8 +269,10 @@ class _MonthChartCardState extends State<MonthChartCard> {
     );
   }
 
-  /// Центр без подсветки: «Баланс» и сумма. Цвет и знак только у суммы.
-  Widget _balanceCenter(ThemeData theme, AppColors colors, Money balance) {
+  /// Центр без подсветки: «Всего» и баланс месяца (доходы минус расходы). Цвет и
+  /// знак только у суммы: плюс цветом дохода, минус цветом расхода, ноль
+  /// нейтрально.
+  Widget _totalCenter(ThemeData theme, AppColors colors, Money balance) {
     final color = balance.isZero
         ? null
         : balance.isNegative
@@ -273,20 +284,27 @@ class _MonthChartCardState extends State<MonthChartCard> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          'Баланс',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        _fit(
+          Text(
+            'Всего',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium?.copyWith(color: color),
+        _fit(
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(color: color),
+          ),
         ),
       ],
     );
   }
+
+  /// Строка в дырке кольца: длинная сумма уменьшается, а не вылезает.
+  Widget _fit(Widget child) => FittedBox(fit: BoxFit.scaleDown, child: child);
 
   /// Центр при подсветке сектора: название, сумма и процент, всё нейтрально.
   Widget _sliceCenter(ThemeData theme, ChartSlice slice, String name) {
@@ -298,17 +316,21 @@ class _MonthChartCardState extends State<MonthChartCard> {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall,
-        ),
-        Text(
-          formatMoney(slice.amount),
-          textAlign: TextAlign.center,
           style: theme.textTheme.titleMedium,
         ),
-        Text(
-          _percentText(slice.share),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        _fit(
+          Text(
+            formatMoney(slice.amount),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall,
+          ),
+        ),
+        _fit(
+          Text(
+            _percentText(slice.share),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -384,8 +406,8 @@ List<_LegendItem> _legendItems(
   ];
 }
 
-class _LegendRow extends StatelessWidget {
-  const _LegendRow({required this.item});
+class _LegendItemView extends StatelessWidget {
+  const _LegendItemView({required this.item});
 
   final _LegendItem item;
 
@@ -393,37 +415,40 @@ class _LegendRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onTap = item.onTap;
-    final content = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 5),
-          child: ColorDot(color: item.color),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium,
-              ),
-              Text(
-                '${formatMoney(item.amount)} · ${_percentText(item.share)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+    // Wrap даёт элементу не больше своей ширины: длинное название обрезается
+    // многоточием, процент остаётся целым.
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ColorDot(color: item.color),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 8),
+          Text(
+            _percentText(item.share),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+    // Область касания не ниже 48 dp.
+    final box = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: Center(widthFactor: 1, child: content),
     );
     return Semantics(
-      // container: каждая строка — отдельный узел, а не слитая с соседями.
+      // container: каждый элемент — отдельный узел, а не слитый с соседями.
       container: true,
       label:
           '${item.label}, ${spokenMoney(item.amount)}, '
@@ -432,15 +457,11 @@ class _LegendRow extends StatelessWidget {
       onTap: onTap,
       excludeSemantics: true,
       child: onTap == null
-          ? content
+          ? box
           : InkWell(
               onTap: onTap,
               borderRadius: BorderRadius.circular(8),
-              // Область касания не ниже 48 dp.
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
-                child: Align(alignment: Alignment.centerLeft, child: content),
-              ),
+              child: box,
             ),
     );
   }

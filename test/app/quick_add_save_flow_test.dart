@@ -34,7 +34,7 @@ final _clock = FixedClock(DateTime(2026, 9, 20, 15, 30));
 
 late AppDatabase _db;
 
-Future<void> _pumpApp(WidgetTester tester) async {
+Future<void> _pumpApp(WidgetTester tester, {double textScale = 1}) async {
   final settings = AppSettingsController();
   addTearDown(settings.dispose);
   _db = await openAndSeedDatabase(
@@ -49,6 +49,11 @@ Future<void> _pumpApp(WidgetTester tester) async {
       supportedLocales: MoneyApp.supportedLocales,
       localizationsDelegates: MoneyApp.localizationsDelegates,
       onGenerateRoute: onGenerateAppRoute,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: AppScopeHost(
         database: _db,
         settings: settings,
@@ -186,8 +191,8 @@ void main() {
       await _pickCategory(tester, 'Продукты');
       expect(find.textContaining('· Продукты'), findsOneWidget);
 
-      // Первое сообщение ещё на экране, но кнопка «Расход» выше него
-      // (на «Главной» под кнопками оставлен запас), поэтому ввод идёт как обычно.
+      // Первое сообщение ещё на экране, но кнопка «Расход» выше него (панель
+      // кнопок лежит в слоте над навигацией), поэтому ввод идёт как обычно.
       await _enterAmount(tester, button: 'Расход', amount: '0');
       await _pickCategory(tester, 'Транспорт');
 
@@ -207,6 +212,98 @@ void main() {
     },
   );
 
+  group('кнопки и сообщение «Сохранено»', () {
+    Finder button(String label) => find.widgetWithText(FilledButton, label);
+
+    void smallPhone(WidgetTester tester) {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('кнопки у нижней навигации: отступ 16 dp, не выше', (
+      tester,
+    ) async {
+      smallPhone(tester);
+      await _pumpApp(tester);
+
+      final navTop = tester.getRect(find.byType(NavigationBar)).top;
+      for (final label in ['Доход', 'Расход']) {
+        expect(
+          navTop - tester.getRect(button(label)).bottom,
+          closeTo(16, 0.5),
+          reason: label,
+        );
+      }
+
+      await tester.pumpWidget(const SizedBox());
+      await _db.close();
+    });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'шрифт ${(scale * 100).round()} %: сообщение целиком выше кнопок, '
+        'кнопки нажимаются, «Отменить» доступна 6 секунд',
+        (tester) async {
+          smallPhone(tester);
+          await _pumpApp(tester, textScale: scale);
+          await _enterAmount(tester, button: 'Расход', amount: '350');
+          await _pickCategory(tester, 'Продукты');
+
+          expect(tester.takeException(), isNull);
+          final snack = tester.getRect(find.byType(SnackBar));
+          final navTop = tester.getRect(find.byType(NavigationBar)).top;
+          for (final label in ['Доход', 'Расход']) {
+            final rect = tester.getRect(button(label));
+            // Сообщение над кнопками и не заходит на них: кнопки целы, и
+            // сообщение стоит над всей панелью, а не под ней.
+            expect(snack.bottom, lessThanOrEqualTo(rect.top), reason: label);
+            expect(rect.bottom, lessThanOrEqualTo(navTop), reason: label);
+          }
+          expect(snack.top, greaterThanOrEqualTo(0));
+
+          // «Отменить» видна и через 5 секунд.
+          await tester.pump(const Duration(seconds: 5));
+          expect(find.text('Отменить'), findsOneWidget);
+
+          // Кнопки нажимаются, пока сообщение на экране.
+          await tester.tap(button('Расход'));
+          await tester.pumpAndSettle();
+          expect(find.text('Новый расход'), findsOneWidget);
+
+          await tester.pumpWidget(const SizedBox());
+          await _db.close();
+        },
+      );
+    }
+
+    testWidgets('на другой вкладке кнопок нет, сообщение над навигацией', (
+      tester,
+    ) async {
+      smallPhone(tester);
+      await _pumpApp(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('Настройки'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(button('Расход'), findsNothing);
+      expect(button('Доход'), findsNothing);
+
+      ScaffoldMessenger.of(tester.element(find.byType(NavigationBar)))
+          .showSnackBar(const SnackBar(content: Text('Проверка')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(SnackBar)).bottom,
+        lessThanOrEqualTo(tester.getRect(find.byType(NavigationBar)).top),
+      );
+
+      await tester.pumpWidget(const SizedBox());
+      await _db.close();
+    });
+  });
   testWidgets('выбрано «Вчера»: день и момент вчерашние', (tester) async {
     await _pumpApp(tester);
     await tester.tap(find.text('Расход'));

@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
@@ -156,7 +155,7 @@ void main() {
     final log = <String>[];
     int? shown;
 
-    Widget chart({bool callbacks = true, bool scroll = false}) {
+    Widget chart({bool callbacks = true, _Scroll scroll = _Scroll.off}) {
       Widget c = StatefulBuilder(
         builder: (context, setState) => DonutChart(
           segments: segs,
@@ -171,9 +170,14 @@ void main() {
           onSelect: callbacks ? (i) => log.add('s$i') : null,
         ),
       );
-      if (scroll) {
+      if (scroll != _Scroll.off) {
         c = SingleChildScrollView(
-          child: Column(children: [c, const SizedBox(height: 1000)]),
+          child: Column(
+            children: [
+              c,
+              if (scroll == _Scroll.long) const SizedBox(height: 1000),
+            ],
+          ),
         );
       }
       return MaterialApp(
@@ -203,21 +207,41 @@ void main() {
       expect(log, ['h0', 's0', 'hnull']);
     });
 
-    testWidgets('долгое нажатие с переездом выбирает сектор отпускания', (
+    testWidgets('палец с первого касания ведёт подсветку и выбирает сектор '
+        'отпускания', (tester) async {
+      await tester.pumpWidget(chart());
+      final g = await tester.startGesture(global(tester, _at(0.1)));
+      await tester.pump();
+      expect(shown, 0);
+      await g.moveTo(global(tester, _at(0.35)));
+      await tester.pump();
+      expect(shown, 1);
+      await g.moveTo(global(tester, _at(0.8)));
+      await tester.pump();
+      expect(shown, 3);
+      await g.moveTo(global(tester, _at(0.35)));
+      await tester.pump();
+      await g.up();
+      await tester.pump();
+      expect(log, ['h0', 'h1', 'h3', 'h1', 's1', 'hnull']);
+      expect(shown, isNull);
+    });
+
+    testWidgets('дырка снимает подсветку, возврат на сектор возвращает', (
       tester,
     ) async {
       await tester.pumpWidget(chart());
       final g = await tester.startGesture(global(tester, _at(0.1)));
-      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
-      await g.moveTo(global(tester, _at(0.35)));
       await tester.pump();
-      await g.moveTo(global(tester, _at(0.8)));
+      await g.moveTo(global(tester, const Offset(100, 100)));
       await tester.pump();
+      expect(shown, isNull);
+      await g.moveTo(global(tester, _at(0.12)));
+      await tester.pump();
+      expect(shown, 0);
       await g.up();
       await tester.pump();
-      expect(log, containsAllInOrder(['h0', 'h1', 'h3', 's3', 'hnull']));
-      expect(selects(), ['s3']);
-      expect(shown, isNull);
+      expect(log, ['h0', 'hnull', 'h0', 's0', 'hnull']);
     });
 
     testWidgets('отпускание в дырке и за краем не выбирает', (tester) async {
@@ -225,9 +249,10 @@ void main() {
       for (final p in [const Offset(100, 100), const Offset(199, 1)]) {
         log.clear();
         final g = await tester.startGesture(global(tester, _at(0.1)));
-        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await tester.pump();
         await g.moveTo(global(tester, p));
         await tester.pump();
+        expect(shown, isNull);
         await g.up();
         await tester.pump();
         expect(selects(), isEmpty);
@@ -246,7 +271,7 @@ void main() {
     testWidgets('вертикальная прокрутка прокручивает и ничего не выбирает', (
       tester,
     ) async {
-      await tester.pumpWidget(chart(scroll: true));
+      await tester.pumpWidget(chart(scroll: _Scroll.long));
       final g = await tester.startGesture(global(tester, _at(0.1)));
       await tester.pump(const Duration(milliseconds: 150));
       expect(shown, 0);
@@ -254,6 +279,7 @@ void main() {
       await tester.pump();
       await g.moveBy(const Offset(0, -80));
       await tester.pump();
+      expect(shown, isNull);
       await g.up();
       await tester.pump();
       expect(shown, isNull);
@@ -262,15 +288,171 @@ void main() {
       expect(scrollable.position.pixels, greaterThan(0));
     });
 
+    testWidgets('если прокручивать нечего, движение по кольцу только '
+        'подсвечивает и выбирает', (tester) async {
+      await tester.pumpWidget(chart(scroll: _Scroll.none));
+      final g = await tester.startGesture(global(tester, _at(0.1)));
+      await tester.pump();
+      await g.moveTo(global(tester, _at(0.35)));
+      await tester.pump();
+      await g.moveTo(global(tester, _at(0.8)));
+      await tester.pump();
+      await g.moveTo(global(tester, _at(0.3)));
+      await tester.pump();
+      expect(shown, 1);
+      await g.up();
+      await tester.pump();
+      expect(selects(), ['s1']);
+      final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+      expect(scrollable.position.pixels, 0);
+    });
+
+    testWidgets('отмена указателя снимает подсветку без выбора', (
+      tester,
+    ) async {
+      await tester.pumpWidget(chart());
+      final g = await tester.startGesture(global(tester, _at(0.1)));
+      await tester.pump();
+      expect(shown, 0);
+      await g.cancel();
+      await tester.pump();
+      expect(shown, isNull);
+      expect(selects(), isEmpty);
+    });
+
+    testWidgets('второй палец игнорируется', (tester) async {
+      await tester.pumpWidget(chart());
+      final first = await tester.startGesture(global(tester, _at(0.1)));
+      await tester.pump();
+      final second = await tester.startGesture(global(tester, _at(0.8)));
+      await tester.pump();
+      expect(shown, 0);
+      await second.moveTo(global(tester, _at(0.35)));
+      await tester.pump();
+      expect(shown, 0);
+      await second.up();
+      await tester.pump();
+      expect(shown, 0);
+      expect(selects(), isEmpty);
+      await first.up();
+      await tester.pump();
+      expect(selects(), ['s0']);
+    });
+
+    testWidgets('данные обновились во время касания: подсветка на исчезнувший '
+        'сектор не падает и снимается', (tester) async {
+      final data = ValueNotifier<List<DonutSegment>>(segs);
+      addTearDown(data.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 200,
+                child: ValueListenableBuilder<List<DonutSegment>>(
+                  valueListenable: data,
+                  builder: (context, value, _) => DonutChart(
+                    segments: value,
+                    semanticsLabel: 'x',
+                    // Родитель «забыл» сбросить номер: он остаётся прежним.
+                    highlightedIndex: 3,
+                    onHighlight: (i) => log.add('h$i'),
+                    onSelect: (i) => log.add('s$i'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final g = await tester.startGesture(global(tester, _at(0.8)));
+      await tester.pump();
+      // Сектора 3 больше нет: остались два.
+      data.value = const [
+        DonutSegment(weight: 1, color: Colors.red),
+        DonutSegment(weight: 1, color: Colors.green),
+      ];
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await g.moveTo(global(tester, _at(0.3)));
+      await tester.pump();
+      await g.up();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      // Выбор считается по новым данным: 0.3 оборота это сектор 0.
+      expect(selects(), ['s0']);
+      expect(log.last, 'hnull');
+    });
+
+    testWidgets('кольцо удалено из дерева посреди жеста, затем родитель '
+        'прокручивается: без исключений', (tester) async {
+      final show = ValueNotifier<bool>(true);
+      final controller = ScrollController();
+      addTearDown(show.dispose);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 200,
+                child: SingleChildScrollView(
+                  controller: controller,
+                  child: Column(
+                    children: [
+                      ValueListenableBuilder<bool>(
+                        valueListenable: show,
+                        builder: (context, visible, _) => visible
+                            ? DonutChart(
+                                segments: segs,
+                                semanticsLabel: 'x',
+                                onHighlight: (i) => log.add('h$i'),
+                                onSelect: (i) => log.add('s$i'),
+                              )
+                            : const SizedBox(height: 200),
+                      ),
+                      const SizedBox(height: 1000),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final g = await tester.startGesture(global(tester, _at(0.1)));
+      await tester.pump();
+      show.value = false;
+      await tester.pump();
+      controller.jumpTo(300);
+      await tester.pump();
+      await g.up();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(selects(), isEmpty);
+    });
+
     testWidgets('без колбэков касания не обрабатываются', (tester) async {
       await tester.pumpWidget(chart(callbacks: false));
       await tester.tapAt(global(tester, _at(0.1)));
       await tester.pump();
       expect(log, isEmpty);
       expect(
-        tester.widget<GestureDetector>(find.byType(GestureDetector)).onTapUp,
+        tester
+            .widget<Listener>(
+              find.descendant(
+                of: find.byType(DonutChart),
+                matching: find.byType(Listener),
+              ),
+            )
+            .onPointerDown,
         isNull,
       );
     });
   });
 }
+
+/// Родитель кольца в тесте: без прокрутки, с нечего-прокручивать и с запасом.
+enum _Scroll { off, none, long }

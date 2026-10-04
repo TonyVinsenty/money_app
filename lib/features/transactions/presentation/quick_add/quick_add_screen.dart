@@ -216,6 +216,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     if (_saving) return;
     _saving = true;
     final messenger = ScaffoldMessenger.of(context);
+    // Масштаб шрифта берём до `await`: после него контекст трогать нельзя.
+    final textScaler = MediaQuery.textScalerOf(context);
     final navigator = Navigator.of(context);
     final transactions = widget.transactions;
     final type = widget.type;
@@ -256,6 +258,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
           SavedSnackBar.build(
             text: text,
             spokenText: spokenText,
+            textScaler: textScaler,
             onUndo: () =>
                 unawaited(_undo(messenger, transactions, transaction.id)),
           ),

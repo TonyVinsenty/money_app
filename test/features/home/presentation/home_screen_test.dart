@@ -8,10 +8,11 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/home/presentation/month_chart_card.dart';
+import 'package:money_app/features/home/presentation/month_summary_card.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
-import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 
 import '../../../support/contrast.dart';
 
@@ -33,7 +34,6 @@ Widget _app({
     ),
     home: Scaffold(
       body: HomeScreen(
-        onAddTransaction: onAdd,
         monthExpenses: expenses ?? Stream.value(Money.zero('RUB')),
         monthIncome: income ?? Stream.value(Money.zero('RUB')),
         monthTransactions: Stream.value(const []),
@@ -41,6 +41,8 @@ Widget _app({
         month: DateOnly(2026, 9, 20),
         onOpenCategory: (_) {},
       ),
+      // Кнопки живут не в HomeScreen, а в панели над нижней навигацией.
+      bottomNavigationBar: HomeActionBar(onAddTransaction: onAdd),
     ),
   );
 }
@@ -199,7 +201,7 @@ void main() {
     expect(find.text('Расход'), findsOneWidget);
   });
 
-  testWidgets('карточки итогов растянуты на всю ширину экрана без отступов', (
+  testWidgets('карточка итогов растянута на всю ширину экрана без отступов', (
     tester,
   ) async {
     // Пустые итоги (узкий контент): без растягивания карточка сжалась бы по
@@ -208,14 +210,22 @@ void main() {
     await tester.pump();
 
     final available = tester.getSize(find.byType(HomeScreen)).width - 32;
+    expect(find.byType(MonthSummaryCard), findsOneWidget);
     expect(
-      tester.getSize(find.byKey(_expenseCard)).width,
+      tester.getSize(find.byType(MonthSummaryCard)).width,
       closeTo(available, 0.5),
     );
-    expect(
-      tester.getSize(find.byKey(_incomeCard)).width,
-      closeTo(available, 0.5),
-    );
+  });
+
+  testWidgets('заголовок карточки: месяц и год, колонки расходов и доходов', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(onAdd: (_) {}));
+    await tester.pump();
+
+    expect(find.text('Сентябрь 2026'), findsOneWidget);
+    expect(_inCard(_expenseCard, 'Расходы'), findsOneWidget);
+    expect(_inCard(_incomeCard, 'Доходы'), findsOneWidget);
   });
 
   group('итог расходов за месяц', () {
@@ -234,7 +244,9 @@ void main() {
       await tester.pumpWidget(_app(onAdd: (_) {}, expenses: controller.stream));
       await tester.pump();
 
-      expect(find.textContaining('Расходы за'), findsNothing);
+      // Видна только подпись колонки: ни суммы, ни «Пока нет», ни ошибки.
+      expect(_inCard(_expenseCard, 'Расходы'), findsOneWidget);
+      expect(find.text(_expenseSum(1234500)), findsNothing);
       expect(emptyText, findsNothing);
       expect(errorText, findsNothing);
 
@@ -242,7 +254,7 @@ void main() {
       controller.add(Money.fromMinor(1234500, 'RUB'));
       await tester.pump();
       await tester.pump();
-      expect(find.text('Расходы за сентябрь'), findsOneWidget);
+      expect(_inCard(_expenseCard, 'Расходы'), findsOneWidget);
       expect(find.text(_expenseSum(1234500)), findsOneWidget);
       expect(emptyText, findsNothing);
     });
@@ -259,7 +271,7 @@ void main() {
       await tester.pump();
 
       // Подпись и сумма — разные строки; сумма 12 345,00 ₽ с минусом.
-      expect(find.text('Расходы за сентябрь'), findsOneWidget);
+      expect(_inCard(_expenseCard, 'Расходы'), findsOneWidget);
       expect(find.text(_expenseSum(1234500)), findsOneWidget);
       expect(emptyText, findsNothing);
     });
@@ -269,7 +281,7 @@ void main() {
       await tester.pump();
 
       expect(emptyText, findsOneWidget);
-      expect(find.text('Расходы за сентябрь'), findsOneWidget);
+      expect(_inCard(_expenseCard, 'Расходы'), findsOneWidget);
     });
 
     testWidgets('ошибка потока: короткий текст, без падения', (tester) async {
@@ -326,13 +338,13 @@ void main() {
 
       final incomeSum = find.text('+$money');
       expect(incomeSum, findsOneWidget);
-      expect(find.text('Доходы за сентябрь'), findsOneWidget);
+      expect(_inCard(_incomeCard, 'Доходы'), findsOneWidget);
       expect(emptyText, findsNothing);
-      // Раскладка: карточка «Расходов» выше карточки «Доходов».
-      expect(
-        tester.getTopLeft(find.text('Расходы за сентябрь')).dy,
-        lessThan(tester.getTopLeft(find.text('Доходы за сентябрь')).dy),
-      );
+      // Раскладка на 800x600 при 100%: «Расходы» слева от «Доходов», в ряд.
+      final expense = tester.getTopLeft(find.byKey(_expenseCard));
+      final income = tester.getTopLeft(find.byKey(_incomeCard));
+      expect(expense.dy, income.dy);
+      expect(expense.dx, lessThan(income.dx));
     });
 
     for (final mode in [ThemeMode.light, ThemeMode.dark]) {
@@ -367,7 +379,7 @@ void main() {
       await tester.pumpWidget(_app(onAdd: (_) {}, income: controller.stream));
       await tester.pump();
 
-      expect(find.textContaining('Доходы за'), findsNothing);
+      expect(find.text('+$money'), findsNothing);
       expect(emptyText, findsNothing);
       expect(errorText, findsNothing);
 
@@ -375,7 +387,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.text('+$money'), findsOneWidget);
-      expect(find.text('Доходы за сентябрь'), findsOneWidget);
+      expect(_inCard(_incomeCard, 'Доходы'), findsOneWidget);
       expect(emptyText, findsNothing);
     });
 
@@ -391,8 +403,8 @@ void main() {
       await tester.pump();
 
       expect(emptyText, findsOneWidget);
-      expect(find.text('Доходы за сентябрь'), findsOneWidget);
-      expect(find.textContaining('Расходы за сентябрь'), findsOneWidget);
+      expect(_inCard(_incomeCard, 'Доходы'), findsOneWidget);
+      expect(find.text(_expenseSum(50000)), findsOneWidget);
     });
 
     testWidgets('ошибка потока доходов: короткий текст, расходы целы', (
@@ -408,7 +420,7 @@ void main() {
       await tester.pump();
 
       expect(errorText, findsOneWidget);
-      expect(find.textContaining('Расходы за сентябрь'), findsOneWidget);
+      expect(find.text(_expenseSum(50000)), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -457,110 +469,10 @@ void main() {
           mode == ThemeMode.dark ? Brightness.dark : Brightness.light,
         );
         expect(tester.takeException(), isNull, reason: '$mode');
-        expect(
-          find.textContaining('Расходы за'),
-          findsOneWidget,
-          reason: '$mode',
-        );
-        expect(
-          find.textContaining('Доходы за'),
-          findsOneWidget,
-          reason: '$mode',
-        );
+        expect(find.text('Расходы'), findsOneWidget, reason: '$mode');
+        expect(find.text('Доходы'), findsOneWidget, reason: '$mode');
         expect(find.text('Расход'), findsOneWidget, reason: '$mode');
       }
-    });
-  });
-
-  group('место под SnackBar', () {
-    // Экран целиком: каркас, нижняя панель и сообщение после сохранения.
-    Widget appWithBar(List<TransactionType> calls, {double textScale = 1}) {
-      return MaterialApp(
-        theme: AppTheme.light(),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
-        ),
-        home: Scaffold(
-          body: SafeArea(
-            bottom: false,
-            child: HomeScreen(
-              onAddTransaction: calls.add,
-              monthExpenses: Stream.value(Money.fromMinor(35000, 'RUB')),
-              monthIncome: Stream.value(Money.fromMinor(100000, 'RUB')),
-              monthTransactions: Stream.value(const []),
-              categories: Stream.value(const []),
-              month: DateOnly(2026, 9, 20),
-              onOpenCategory: (_) {},
-            ),
-          ),
-          bottomNavigationBar: NavigationBar(
-            destinations: const [
-              NavigationDestination(icon: Icon(Icons.home), label: 'Главная'),
-              NavigationDestination(icon: Icon(Icons.list), label: 'История'),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Настоящее сообщение из быстрого ввода: тот же размер, что увидит человек.
-    Future<void> showSnackBar(WidgetTester tester) async {
-      ScaffoldMessenger.of(tester.element(find.byType(HomeScreen)))
-          .showSnackBar(
-            SavedSnackBar.build(
-              text:
-                  'Сохранено: расход '
-                  '${formatMoney(Money.fromMinor(35000, 'RUB'))} · Продукты',
-              spokenText: 'Сохранено: расход 350 рублей · Продукты',
-              onUndo: () {},
-            ),
-          );
-      await tester.pumpAndSettle();
-    }
-
-    void useSmallPhone(WidgetTester tester) {
-      tester.view.physicalSize = const Size(360, 640);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-    }
-
-    testWidgets('кнопки выше сообщения, тап проходит в кнопку', (tester) async {
-      useSmallPhone(tester);
-      final calls = <TransactionType>[];
-      await tester.pumpWidget(appWithBar(calls));
-      await tester.pump();
-      await showSnackBar(tester);
-
-      expect(find.byType(SnackBar), findsOneWidget);
-      final snackTop = tester.getRect(find.byType(SnackBar)).top;
-      for (final label in ['Доход', 'Расход']) {
-        expect(
-          tester.getRect(_button(label)).bottom,
-          lessThanOrEqualTo(snackTop),
-          reason: '$label не должна попадать под сообщение',
-        );
-      }
-
-      // Тап доходит до кнопки, а не до сообщения (иначе вызовов было бы 0).
-      await tester.tap(find.text('Расход'));
-      await tester.tap(find.text('Доход'));
-      expect(calls, [TransactionType.expense, TransactionType.income]);
-    });
-
-    testWidgets('шрифт 200% на 360x640: нет переполнения, кнопки на месте', (
-      tester,
-    ) async {
-      useSmallPhone(tester);
-      await tester.pumpWidget(appWithBar([], textScale: 2));
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      await showSnackBar(tester);
-
-      expect(tester.takeException(), isNull);
-      expect(find.text('Доход'), findsOneWidget);
-      expect(find.text('Расход'), findsOneWidget);
     });
   });
 

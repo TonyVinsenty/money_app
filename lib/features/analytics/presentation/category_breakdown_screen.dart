@@ -55,28 +55,39 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.category.name, maxLines: 1),
-            Text(
+        // Только название: двухстрочный заголовок не помещается в тулбар 56 dp
+        // при крупном шрифте. Период стоит в строке под тулбаром.
+        title: Text(
+          widget.category.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
               formatPeriodLabel(widget.period.kind, widget.period.range),
-              style: theme.textTheme.bodySmall?.copyWith(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-          ],
-        ),
-      ),
-      body: AsyncView<List<Transaction>>(
-        stream: widget.transactions,
-        errorBuilder: _error,
-        dataBuilder: (context, transactions) => AsyncView<List<Category>>(
-          stream: widget.categories,
-          errorBuilder: _error,
-          dataBuilder: (context, categories) =>
-              _content(context, transactions, categories),
-        ),
+          ),
+          Expanded(
+            child: AsyncView<List<Transaction>>(
+              stream: widget.transactions,
+              errorBuilder: _error,
+              dataBuilder: (context, transactions) => AsyncView<List<Category>>(
+                stream: widget.categories,
+                errorBuilder: _error,
+                dataBuilder: (context, categories) =>
+                    _content(context, transactions, categories),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

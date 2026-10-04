@@ -78,7 +78,7 @@ int? sectorIndexAt(Offset point, Size size, List<int> weights) {
 ///
 /// Занимает квадрат по ширине, которую дал родитель. Для скринридера вся
 /// диаграмма (вместе с [center]) читается одной подписью [semanticsLabel].
-class DonutChart extends StatelessWidget {
+class DonutChart extends StatefulWidget {
   const DonutChart({
     super.key,
     required this.segments,
@@ -102,59 +102,128 @@ class DonutChart extends StatelessWidget {
   /// родитель и возвращает её в [highlightedIndex].
   final ValueChanged<int?>? onHighlight;
 
-  /// Сектор выбран: короткое нажатие или отпускание пальца на секторе.
+  /// Сектор выбран: отпускание пальца на секторе (в том числе короткое
+  /// нажатие), даже если палец до этого переезжал между секторами.
   final ValueChanged<int>? onSelect;
 
-  int? _hit(BuildContext context, Offset point) =>
-      sectorIndexAt(point, context.size!, [for (final s in segments) s.weight]);
+  @override
+  State<DonutChart> createState() => _DonutChartState();
+}
 
-  void _highlight(int? index) {
-    if (index != highlightedIndex) onHighlight?.call(index);
+class _DonutChartState extends State<DonutChart> {
+  /// Палец, за которым следим (первый); остальные игнорируются.
+  int? _pointer;
+
+  /// Что мы последним сообщили родителю через onHighlight.
+  int? _lastHighlight;
+
+  /// Прокрутка родителя, в которой палец лежит с момента касания.
+  ScrollPosition? _position;
+  double _startPixels = 0;
+  bool _scrolled = false;
+
+  int? _hit(Offset point) {
+    final size = context.size;
+    if (size == null) return null;
+    return sectorIndexAt(point, size, [
+      for (final s in widget.segments) s.weight,
+    ]);
   }
 
-  /// Конец жеста: выбрать сектор под пальцем (если он есть) и снять подсветку.
-  void _finish(BuildContext context, Offset point) {
-    final index = _hit(context, point);
-    if (index != null) onSelect?.call(index);
-    onHighlight?.call(null);
+  void _highlight(int? index) {
+    if (index == _lastHighlight) return;
+    _lastHighlight = index;
+    widget.onHighlight?.call(index);
+  }
+
+  void _watchScroll() {
+    _position = Scrollable.maybeOf(context)?.position;
+    _startPixels = _position?.pixels ?? 0;
+    _scrolled = false;
+    _position?.addListener(_onScrolled);
+  }
+
+  void _unwatchScroll() {
+    _position?.removeListener(_onScrolled);
+    _position = null;
+  }
+
+  /// Родитель реально поехал: отдаём жест прокрутке, подсветку снимаем.
+  void _onScrolled() {
+    if (_scrolled || _pointer == null) return;
+    if (_position!.pixels == _startPixels) return;
+    _scrolled = true;
+    _highlight(null);
+  }
+
+  void _down(PointerDownEvent e) {
+    if (_pointer != null) return;
+    _pointer = e.pointer;
+    _lastHighlight = widget.highlightedIndex;
+    _watchScroll();
+    _highlight(_hit(e.localPosition));
+  }
+
+  void _move(PointerMoveEvent e) {
+    if (e.pointer != _pointer || _scrolled) return;
+    _highlight(_hit(e.localPosition));
+  }
+
+  void _up(PointerUpEvent e) {
+    if (e.pointer != _pointer) return;
+    final selected = _scrolled ? null : _hit(e.localPosition);
+    _reset();
+    if (selected != null) widget.onSelect?.call(selected);
+    _highlight(null);
+  }
+
+  void _cancel(PointerCancelEvent e) {
+    if (e.pointer != _pointer) return;
+    _reset();
+    _highlight(null);
+  }
+
+  void _reset() {
+    _unwatchScroll();
+    _pointer = null;
+  }
+
+  @override
+  void dispose() {
+    // Палец ещё может лежать на экране: его события дойдут до удалённого
+    // виджета, поэтому «следим за пальцем» тоже сбрасываем.
+    _reset();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final painter = _DonutPainter(
-      segments: segments,
-      highlightedIndex: highlightedIndex,
-      emptyColor: emptyColor ?? Theme.of(context).colorScheme.outlineVariant,
+      segments: widget.segments,
+      highlightedIndex: widget.highlightedIndex,
+      emptyColor:
+          widget.emptyColor ?? Theme.of(context).colorScheme.outlineVariant,
     );
-    final interactive = onHighlight != null || onSelect != null;
-    // Tap + long press (а не pan): вертикальная прокрутка родителя выигрывает
-    // арену жестов, пока не сработало долгое нажатие.
+    final interactive = widget.onHighlight != null || widget.onSelect != null;
+    // Listener (сырые события), а не GestureDetector: он видит палец всегда,
+    // независимо от арены жестов, и подсветка следует за ним с первого
+    // касания. Прокрутку родителя узнаём по сдвигу его позиции; если
+    // прокручивать нечего, Scrollable жест не забирает (нет распознавателей).
     return Semantics(
       container: true,
-      label: semanticsLabel,
+      label: widget.semanticsLabel,
       excludeSemantics: true,
-      child: GestureDetector(
+      child: Listener(
         behavior: HitTestBehavior.opaque,
-        onTapDown: interactive
-            ? (d) => _highlight(_hit(context, d.localPosition))
-            : null,
-        onTapUp: interactive ? (d) => _finish(context, d.localPosition) : null,
-        onTapCancel: interactive ? () => _highlight(null) : null,
-        onLongPressStart: interactive
-            ? (d) => _highlight(_hit(context, d.localPosition))
-            : null,
-        onLongPressMoveUpdate: interactive
-            ? (d) => _highlight(_hit(context, d.localPosition))
-            : null,
-        onLongPressEnd: interactive
-            ? (d) => _finish(context, d.localPosition)
-            : null,
-        onLongPressCancel: interactive ? () => _highlight(null) : null,
+        onPointerDown: interactive ? _down : null,
+        onPointerMove: interactive ? _move : null,
+        onPointerUp: interactive ? _up : null,
+        onPointerCancel: interactive ? _cancel : null,
         child: AspectRatio(
           aspectRatio: 1,
           child: CustomPaint(
             painter: painter,
-            child: Center(child: center),
+            child: Center(child: widget.center),
           ),
         ),
       ),
@@ -196,7 +265,8 @@ class _DonutPainter extends CustomPainter {
       final i = visible.single;
       paint
         ..color = segments[i].color
-        ..strokeWidth = ring.thickness + (i == highlightedIndex ? 4 : 0);
+        ..strokeWidth =
+            ring.thickness + (i == highlightedIndex ? _highlightExtraDp : 0);
       canvas.drawArc(rect, 0, _fullTurn, false, paint);
       return;
     }

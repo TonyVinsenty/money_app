@@ -1,37 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
-import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/home/presentation/month_chart_card.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
-import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
-/// Запас внизу «Главной» под сообщение SnackBar («Сохранено: расход 350,00 ₽ ·
-/// Продукты · Отменить»), dp. Сообщение на узком телефоне (360 dp) занимает
-/// около 108 dp: текст в три строки рядом с «Отменить». Кнопки лежат прямо над
-/// нижней панелью, и без запаса сообщение закрывало бы кнопку «Расход» на
-/// 6 секунд: следующий расход нельзя было бы ввести сразу.
-const double _snackBarReserve = 112;
-
-/// Минимальная высота карточки диаграммы, dp. Нужна, когда при крупном шрифте
-/// итоги занимают почти весь экран: карточка не сжимается в ноль.
-const double _chartMinHeight = 160;
-
-/// Высота кнопок «Доход» и «Расход», dp (с запасом сверх минимума 48).
-const double _buttonHeight = 64;
-
-/// Главный экран: итоги расходов и доходов за месяц, заглушка под будущую
-/// диаграмму и две крупные кнопки «Доход» и «Расход» в одном ряду.
+/// Главный экран: итоги расходов и доходов за месяц и диаграмма по категориям.
 ///
-/// Экран не знает, куда ведёт нажатие и откуда берутся суммы: об этом знает
-/// только приложение (`lib/app`), которое передаёт [onAddTransaction] и потоки
-/// [monthExpenses] и [monthIncome]. Так фича `home` не зависит от маршрутов, репозиториев и
-/// других экранов (ADR 0002).
+/// Кнопки «Доход» и «Расход» сюда не входят: они лежат в HomeActionBar над
+/// нижней панелью, которую ставит каркас приложения (иначе сообщение SnackBar
+/// закрывало бы их).
+///
+/// Экран не знает, куда ведут нажатия и откуда берутся суммы: об этом знает
+/// только приложение (`lib/app`), которое передаёт [onOpenCategory] и потоки.
+/// Так фича `home` не зависит от маршрутов, репозиториев и других экранов
+/// (ADR 0002).
 class HomeScreen extends StatelessWidget {
   const HomeScreen({
-    required this.onAddTransaction,
     required this.monthExpenses,
     required this.monthIncome,
     required this.monthTransactions,
@@ -40,8 +27,6 @@ class HomeScreen extends StatelessWidget {
     required this.onOpenCategory,
     super.key,
   });
-
-  final void Function(TransactionType type) onAddTransaction;
 
   /// Выбрана категория на диаграмме или в легенде: приложение открывает её
   /// экран за [month].
@@ -65,155 +50,47 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.appColors;
-    // Сообщение при крупном шрифте переносится на несколько строк и растёт,
-    // поэтому запас растёт вместе со шрифтом (но не бесконечно).
-    final reserve = MediaQuery.textScalerOf(context)
-        .scale(_snackBarReserve)
-        .clamp(_snackBarReserve, 160.0);
-
     return Padding(
-      // Снизу отступа нет: его роль играет запас под SnackBar.
+      // Снизу отступа нет: он есть у панели кнопок под экраном.
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        // Растягиваем на всю ширину: иначе блок итогов сжимается по тексту и
-        // встаёт по центру, а строки не прижимаются к левому краю.
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Верхняя часть прокручивается: при крупном шрифте на маленьком
-          // экране она уступает место кнопкам, а не вызывает переполнение.
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                // Минимум — высота всей области: заглушка растягивается на
-                // свободную середину. Если контент выше, он прокручивается.
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  // IntrinsicHeight даёт колонке её естественную высоту, и
-                  // Expanded внутри заполняет остаток.
-                  child: IntrinsicHeight(
-                    child: Column(
-                      // Карточки и заглушку растягиваем на всю ширину, иначе
-                      // они сжимаются по тексту.
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Расход — заливкой (главный показатель), доход — рамкой.
-                        MonthSummaryCard(
-                          key: const ValueKey('month-summary-expense'),
-                          type: TransactionType.expense,
-                          total: monthExpenses,
-                          month: month,
-                        ),
-                        const SizedBox(height: 8),
-                        MonthSummaryCard(
-                          key: const ValueKey('month-summary-income'),
-                          type: TransactionType.income,
-                          total: monthIncome,
-                          month: month,
-                        ),
-                        const SizedBox(height: 16),
-                        // Карточка диаграммы занимает всю свободную середину.
-                        Expanded(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              minHeight: _chartMinHeight,
-                            ),
-                            child: MonthChartCard(
-                              transactions: monthTransactions,
-                              categories: categories,
-                              month: month,
-                              onOpenCategory: onOpenCategory,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+      // Середина прокручивается: при крупном шрифте на маленьком экране она
+      // уступает место панели кнопок, а не вызывает переполнение.
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Кольцо как можно крупнее, но не выше видимой области (итоги выше
+          // при этом прокручиваются).
+          final ring = chartRingSize(
+            viewportWidth: constraints.maxWidth,
+            viewportHeight: constraints.maxHeight,
+            textScale: fontScaleOf(context),
+          );
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: MonthSummaryCard(
+                    expenses: monthExpenses,
+                    income: monthIncome,
+                    month: month,
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          // Кнопки в одном ряду, в зоне большого пальца: «Доход» слева,
-          // «Расход» справа (ближе к правой руке, им пользуются чаще).
-          Row(
-            children: [
-              Expanded(
-                child: _TypeButton(
-                  label: 'Доход',
-                  semanticsLabel: 'Добавить доход',
-                  icon: Icons.add,
-                  background: colors.incomeAction,
-                  foreground: colors.onIncomeAction,
-                  onPressed: () => onAddTransaction(TransactionType.income),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _TypeButton(
-                  label: 'Расход',
-                  semanticsLabel: 'Добавить расход',
-                  icon: Icons.remove,
-                  background: colors.expenseAction,
-                  foreground: colors.onExpenseAction,
-                  onPressed: () => onAddTransaction(TransactionType.expense),
+              // Карточка кольца занимает остаток высоты до панели кнопок; если
+              // содержимое выше остатка, она растёт и середина прокручивается.
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: MonthChartCard(
+                  transactions: monthTransactions,
+                  categories: categories,
+                  month: month,
+                  ringSize: ring,
+                  onOpenCategory: onOpenCategory,
                 ),
               ),
             ],
-          ),
-          // Запас под SnackBar: кнопки остаются выше сообщения.
-          SizedBox(height: reserve),
-        ],
-      ),
-    );
-  }
-}
-
-class _TypeButton extends StatelessWidget {
-  const _TypeButton({
-    required this.label,
-    required this.semanticsLabel,
-    required this.icon,
-    required this.background,
-    required this.foreground,
-    required this.onPressed,
-  });
-
-  final String label;
-  final String semanticsLabel;
-  final IconData icon;
-  final Color background;
-  final Color foreground;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    // excludeSemantics убирает из дерева для скринридера всё внутри (слово и
-    // иконку), чтобы он прочитал только «Добавить расход», а не два раза.
-    // Нажатие поэтому задано на самом узле.
-    return Semantics(
-      label: semanticsLabel,
-      button: true,
-      onTap: onPressed,
-      excludeSemantics: true,
-      child: FilledButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        // Подпись уменьшается, только если не влезает в половину ряда (очень
-        // узкий экран): при обычном шрифте и на 360 dp она не меняется.
-        label: FittedBox(fit: BoxFit.scaleDown, child: Text(label)),
-        style: FilledButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          // Высота не меньше 64 dp, при крупном шрифте кнопка растёт сама.
-          minimumSize: const Size.fromHeight(_buttonHeight),
-          // Боковой отступ меньше обычного, чтобы две кнопки помещались в ряд.
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          textStyle: Theme.of(context).textTheme.titleMedium,
-        ),
+          );
+        },
       ),
     );
   }

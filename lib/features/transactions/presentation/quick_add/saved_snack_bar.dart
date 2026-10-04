@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Подписи и сборка сообщений после сохранения операции.
@@ -41,13 +42,15 @@ abstract final class SavedSnackBar {
   static String _word(TransactionType type) =>
       type == TransactionType.income ? 'доход' : 'расход';
 
-  /// Сообщение с кнопкой «Отменить». Автоматически исчезает через [duration]:
+  /// Сообщение с кнопкой «Отменить». [textScaler] — масштаб шрифта экрана
+  /// (MediaQuery.textScalerOf). Автоматически исчезает через [duration]:
   /// `persist: false` нужно явно, иначе у сообщения с кнопкой время не
   /// отсчитывается.
   static SnackBar build({
     required String text,
     required String spokenText,
     required VoidCallback onUndo,
+    TextScaler textScaler = TextScaler.noScaling,
   }) {
     return SnackBar(
       content: Semantics(
@@ -58,9 +61,13 @@ abstract final class SavedSnackBar {
       duration: duration,
       persist: false,
       // По умолчанию «Отменить» уходит на отдельную строку, если оно шире
-      // четверти экрана; тогда сообщение вырастает до ~150 dp и не влезает в
-      // запас под ним на «Главной». Держим кнопку в одной строке с текстом.
-      actionOverflowThreshold: 1,
+      // четверти экрана; тогда сообщение при обычном шрифте лишний раз
+      // вырастает, поэтому держим кнопку в одной строке с текстом. Но при
+      // крупном шрифте (200 % на 360 dp) кнопка занимает почти всю ширину, и
+      // тексту остаётся ~40 dp: он ломается по одной букве. Тогда кнопку
+      // переносим на свою строку (порог 0). Flutter меряет ширину кнопки без
+      // учёта масштаба шрифта, поэтому решаем сами.
+      actionOverflowThreshold: fontScaleFrom(textScaler) > 1.3 ? 0 : 1,
       action: SnackBarAction(label: undoLabel, onPressed: onUndo),
     );
   }

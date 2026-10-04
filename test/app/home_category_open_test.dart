@@ -138,9 +138,44 @@ void main() {
     await _finish(tester);
   });
 
+  testWidgets('палец переезжает с сектора на сектор: открывается категория '
+      'под пальцем при отпускании', (tester) async {
+    await _pumpApp(tester);
+
+    // Точки 0.3 и 0.7 на одной высоте: движение горизонтальное, прокрутку не начинает.
+    final g = await tester.startGesture(_ringPoint(tester, 0.3));
+    await tester.pump();
+    await g.moveTo(_ringPoint(tester, 0.7));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expectBreakdown('Транспорт');
+    await _finish(tester);
+  });
+
+  testWidgets('палец унесён за кольцо: ничего не открывается', (tester) async {
+    await _pumpApp(tester);
+
+    // Точки 0.3 и 0.7 на одной высоте: движение горизонтальное, прокрутку не начинает.
+    final g = await tester.startGesture(_ringPoint(tester, 0.3));
+    await tester.pump();
+    await g.moveTo(_ringPoint(tester, 0.7));
+    await tester.pump();
+    final rect = tester.getRect(find.byType(DonutChart));
+    await g.moveTo(Offset(rect.center.dx, _ringPoint(tester, 0.7).dy));
+    await tester.pump();
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(find.byType(CategoryBreakdownScreen), findsNothing);
+    await _finish(tester);
+  });
+
   testWidgets('строка легенды открывает экран категории', (tester) async {
     await _pumpApp(tester);
 
+    // Легенда под кольцом: на низком экране до неё нужно прокрутить.
+    await tester.ensureVisible(find.text('Транспорт'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Транспорт'));
     await tester.pumpAndSettle();
     expectBreakdown('Транспорт');
@@ -153,6 +188,8 @@ void main() {
     await _pumpApp(tester);
 
     await tester.tapAt(_ringPoint(tester, 0.985));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Остальное'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Остальное'));
     await tester.pumpAndSettle();

@@ -10,6 +10,7 @@ import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
+import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -25,6 +26,7 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
     icon: Icons.home_outlined,
     selectedIcon: Icons.home,
     builder: (_) => const HomeTab(),
+    actionsBuilder: (_) => const HomeActions(),
   ),
   AppTab(
     label: 'История',
@@ -148,8 +150,6 @@ class _HomeTabState extends State<HomeTab> {
 
   @override
   Widget build(BuildContext context) {
-    // Сервисы берём здесь, под AppScope: открытый маршрут AppScope уже не видит.
-    final services = AppScope.of(context);
     return HomeScreen(
       monthExpenses: _monthExpenses,
       monthIncome: _monthIncome,
@@ -167,6 +167,21 @@ class _HomeTabState extends State<HomeTab> {
           categories: _categories,
         ),
       ),
+    );
+  }
+}
+
+/// Кнопки «Доход» и «Расход» «Главной»: каркас ставит их над нижней навигацией
+/// (см. AppTab.actionsBuilder), чтобы SnackBar не закрывал их. Связывает
+/// панель фичи home с маршрутом быстрого ввода.
+class HomeActions extends StatelessWidget {
+  const HomeActions({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Сервисы берём здесь, под AppScope: открытый маршрут AppScope не видит.
+    final services = AppScope.of(context);
+    return HomeActionBar(
       onAddTransaction: (type) => Navigator.of(context).pushNamed(
         AppRoutes.quickAdd,
         arguments: QuickAddRouteArguments(

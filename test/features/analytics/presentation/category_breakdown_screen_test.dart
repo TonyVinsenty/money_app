@@ -133,13 +133,39 @@ void main() {
       find.descendant(of: find.byType(AppBar), matching: find.text('Продукты')),
       findsOneWidget,
     );
+    // Период стоит под тулбаром, а не в нём.
+    expect(find.text('сентябрь 2026'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AppBar),
         matching: find.text('сентябрь 2026'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
+  });
+
+  testWidgets('шрифт 200 % на 360 dp, длинное название: без переполнения, '
+      'период виден', (tester) async {
+    await _pump(
+      tester,
+      category: _top('long', 'Очень длинное название категории трат'),
+      textScale: 2,
+    );
+
+    expect(tester.takeException(), isNull);
+    final period = find.text('сентябрь 2026');
+    expect(period, findsOneWidget);
+    final screen = tester.getRect(find.byType(CategoryBreakdownScreen));
+    expect(tester.getRect(period).left, greaterThanOrEqualTo(0));
+    expect(tester.getRect(period).right, lessThanOrEqualTo(screen.right));
+    final title = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.textContaining('Очень длинное'),
+      ),
+    );
+    expect(title.maxLines, 1);
+    expect(title.overflow, TextOverflow.ellipsis);
   });
 
   testWidgets('тестовый набор: строки совпадают с subcategoryTotals, '

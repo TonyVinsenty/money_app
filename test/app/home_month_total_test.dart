@@ -136,7 +136,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_empty, findsOneWidget);
-    expect(find.text('Расходы за сентябрь'), findsOneWidget);
+    expect(find.text('Сентябрь 2026'), findsOneWidget);
     await _finish(tester);
   });
 
@@ -215,7 +215,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Расходы за октябрь'), findsOneWidget);
+    expect(find.text('Октябрь 2026'), findsOneWidget);
     expect(_inExpense(_total(900)), findsOneWidget);
     await _finish(tester);
   });
@@ -251,7 +251,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(emptyIncome, findsOneWidget);
-      expect(find.text('Доходы за сентябрь'), findsOneWidget);
+      expect(find.text('Сентябрь 2026'), findsOneWidget);
       expect(_inExpense(_total(999900)), findsOneWidget);
       await _finish(tester);
     });

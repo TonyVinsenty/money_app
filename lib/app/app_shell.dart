@@ -8,6 +8,7 @@ class AppTab {
     required this.icon,
     required this.selectedIcon,
     required this.builder,
+    this.actionsBuilder,
   });
 
   final String label;
@@ -36,6 +37,12 @@ class AppTab {
   /// builder: (context) => HomeTab(services: AppScope.of(context)),
   /// ```
   final WidgetBuilder builder;
+
+  /// Необязательная панель действий над нижней навигацией, пока вкладка
+  /// выбрана (на «Главной» — кнопки «Доход» и «Расход»). Строится при каждой
+  /// перерисовке каркаса, поэтому лучше возвращать маленький виджет, который
+  /// сам читает всё нужное в своём `build`.
+  final WidgetBuilder? actionsBuilder;
 }
 
 /// Каркас приложения: содержимое выбранной вкладки и нижняя панель навигации.
@@ -129,18 +136,28 @@ class _AppShellState extends State<AppShell> {
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
-        destinations: [
-          for (final tab in widget.tabs)
-            NavigationDestination(
-              icon: Icon(tab.icon),
-              selectedIcon: Icon(tab.selectedIcon),
-              label: tab.label,
-            ),
+      // Панель действий вкладки (если есть) лежит в том же слоте, что и
+      // навигация: SnackBar Flutter ставит над слотом целиком, то есть над
+      // панелью действий, и сообщение её не закрывает.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.tabs[_selectedIndex].actionsBuilder != null)
+            widget.tabs[_selectedIndex].actionsBuilder!(context),
+          NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (index) {
+              setState(() => _selectedIndex = index);
+            },
+            destinations: [
+              for (final tab in widget.tabs)
+                NavigationDestination(
+                  icon: Icon(tab.icon),
+                  selectedIcon: Icon(tab.selectedIcon),
+                  label: tab.label,
+                ),
+            ],
+          ),
         ],
       ),
     );

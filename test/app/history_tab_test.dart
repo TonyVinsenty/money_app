@@ -156,7 +156,7 @@ void main() {
     expect(find.text('Сохранено: расход $zero · Продукты'), findsOneWidget);
     // Ноль в итог месяца не входит: строка расходов остаётся пустой.
     expect(emptyExpenses, findsOneWidget);
-    expect(find.text('Расходы за сентябрь'), findsOneWidget);
+    expect(find.text('Сентябрь 2026'), findsOneWidget);
 
     // В «Истории» операция есть, с нулевой суммой.
     await _openTab(tester, 'История');
