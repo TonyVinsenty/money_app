@@ -143,7 +143,7 @@ void main() {
       expect(rows[1], [
         '04.10.2026',
         'Расход',
-        '350,00',
+        '-350,00',
         'RUB',
         'Кафе',
         'Кофе',
@@ -153,6 +153,38 @@ void main() {
         'sub',
         '2026-10-04T09:15:00.000Z',
       ]);
+    });
+
+    test('расход на 0,05 — это -0,05 (минус перед числом)', () {
+      final rows = buildTransactionsCsvRows(
+        transactions: [_tx('small', minor: 5)],
+        categories: _categories,
+      );
+      expect(rows[1][2], '-0,05');
+    });
+
+    test('расход на ноль выгружается как 0,00 без минуса', () {
+      final rows = buildTransactionsCsvRows(
+        transactions: [_tx('zero', minor: 0)],
+        categories: _categories,
+      );
+      expect(rows[1][1], 'Расход');
+      expect(rows[1][2], '0,00');
+    });
+
+    test('доход на ноль — тоже 0,00', () {
+      final rows = buildTransactionsCsvRows(
+        transactions: [
+          _tx(
+            'inc-zero',
+            type: TransactionType.income,
+            minor: 0,
+            categoryId: 'inc',
+          ),
+        ],
+        categories: _categories,
+      );
+      expect(rows[1][2], '0,00');
     });
 
     test('доход без подкатегории и комментария: пустые ячейки', () {

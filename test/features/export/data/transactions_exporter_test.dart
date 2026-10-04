@@ -93,7 +93,8 @@ void main() {
     expect(bytes.sublist(0, 3), [0xEF, 0xBB, 0xBF]);
     final rows = decodeCsv(utf8.decode(bytes));
     expect(rows, hasLength(2));
-    expect(rows[1][2], '350,00');
+    // Расход: минус ASCII-дефисом перед суммой (ADR 0006, п. 1).
+    expect(rows[1][2], '-350,00');
     expect(rows[1][4], 'Кафе');
   });
 

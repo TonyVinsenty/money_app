@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
+import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
 Widget _app({
   ThemeMode mode = ThemeMode.system,
   ValueChanged<ThemeMode>? onChanged,
   VoidCallback? onCategories,
+  Future<String> Function()? onExport,
+  ShareFile? shareFile,
   double textScale = 1,
 }) {
   return MaterialApp(
@@ -19,6 +24,8 @@ Widget _app({
         themeMode: mode,
         onThemeModeChanged: onChanged ?? (_) {},
         onOpenCategories: onCategories ?? () {},
+        onExportCsv: onExport ?? () async => '/tmp/zuno-export.csv',
+        shareFile: shareFile ?? (_) async {},
       ),
     ),
   );
@@ -117,5 +124,92 @@ void main() {
         reason: label,
       );
     }
+  });
+
+  group('экспорт в CSV', () {
+    Finder exportItem() => find.widgetWithText(ListTile, exportCsvItemLabel);
+
+    testWidgets('пункт «Экспорт в CSV» виден на экране', (tester) async {
+      await tester.pumpWidget(_app());
+
+      expect(find.text(exportCsvItemLabel), findsOneWidget);
+      expect(tester.widget<ListTile>(exportItem()).enabled, isTrue);
+    });
+
+    testWidgets('тап готовит файл и отправляет его, ошибки нет', (
+      tester,
+    ) async {
+      var exported = 0;
+      final shared = <String>[];
+      await tester.pumpWidget(
+        _app(
+          onExport: () async {
+            exported++;
+            return '/tmp/zuno-export-2026-10-04.csv';
+          },
+          shareFile: (path) async => shared.add(path),
+        ),
+      );
+
+      await tester.tap(find.text(exportCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(exported, 1);
+      expect(shared, ['/tmp/zuno-export-2026-10-04.csv']);
+      expect(find.text(exportCsvFailedMessage), findsNothing);
+      expect(tester.widget<ListTile>(exportItem()).enabled, isTrue);
+    });
+
+    testWidgets('во время выгрузки пункт недоступен и не запускается дважды', (
+      tester,
+    ) async {
+      final gate = Completer<String>();
+      var exported = 0;
+      await tester.pumpWidget(
+        _app(
+          onExport: () {
+            exported++;
+            return gate.future;
+          },
+        ),
+      );
+
+      await tester.tap(find.text(exportCsvItemLabel));
+      // Индикатор крутится вечно, поэтому pumpAndSettle здесь не годится.
+      await tester.pump();
+
+      expect(tester.widget<ListTile>(exportItem()).enabled, isFalse);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.tap(find.text(exportCsvItemLabel));
+      await tester.pump();
+      expect(exported, 1);
+
+      gate.complete('/tmp/zuno-export.csv');
+      await tester.pumpAndSettle();
+      expect(tester.widget<ListTile>(exportItem()).enabled, isTrue);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('ошибка выгрузки: SnackBar, файл не отправляется', (
+      tester,
+    ) async {
+      var shareCalls = 0;
+      await tester.pumpWidget(
+        _app(
+          onExport: () async => throw Exception('база испорчена'),
+          shareFile: (_) async => shareCalls++,
+        ),
+      );
+
+      await tester.tap(find.text(exportCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(exportCsvFailedMessage), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(shareCalls, 0);
+      // После ошибки пункт снова доступен.
+      expect(tester.widget<ListTile>(exportItem()).enabled, isTrue);
+    });
   });
 }

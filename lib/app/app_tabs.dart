@@ -8,6 +8,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/export/data/transactions_exporter.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -68,6 +69,13 @@ class SettingsTab extends StatelessWidget {
     return SettingsScreen(
       themeMode: settings.themeMode,
       onThemeModeChanged: settings.setThemeMode,
+      // Экспортёр собирает файл из репозиториев; создаём его здесь, под
+      // AppScope, и только при нажатии.
+      onExportCsv: () => TransactionsExporter(
+        transactions: services.transactions,
+        categories: services.categories,
+        clock: services.clock,
+      ).exportToTempFile(),
       // Репозиторий берём здесь, под AppScope: открытый маршрут его не видит.
       onOpenCategories: () => Navigator.of(context).pushNamed(
         AppRoutes.categories,

@@ -106,7 +106,7 @@ List<String> _rowOf(Transaction transaction, Map<String, Category> byId) {
   return [
     formatCsvDate(transaction.occurredOn),
     _typeText(transaction.type),
-    formatCsvAmount(transaction.amount),
+    _amountText(transaction),
     transaction.amount.currency,
     category.name,
     subcategoryName,
@@ -116,6 +116,18 @@ List<String> _rowOf(Transaction transaction, Map<String, Category> byId) {
     subcategoryId ?? '',
     transaction.occurredAt.toUtc().toIso8601String(),
   ];
+}
+
+/// Сумма в колонке «Сумма»: у расхода перед числом обычный дефис `-`
+/// (Excel читает `-350,00` как число). Доход и нулевой расход — без знака:
+/// `-0,00` выглядит как ошибка. ADR 0006, п. 1.
+String _amountText(Transaction transaction) {
+  final text = formatCsvAmount(transaction.amount);
+  final isExpense = transaction.type == TransactionType.expense;
+  if (isExpense && !transaction.amount.isZero) {
+    return '-$text';
+  }
+  return text;
 }
 
 String _typeText(TransactionType type) {
