@@ -37,7 +37,9 @@ const double _legendWidth = 140;
 
 /// Карточка «Расходы по категориям» на «Главной»: кольцо с балансом месяца в
 /// центре и легенда (до 4 строк). Касание сектора показывает в центре его
-/// категорию; выбор сектора (переход) подключит шаг 4.11.
+/// категорию; отпускание пальца на секторе и нажатие на строку легенды зовут
+/// [onOpenCategory] (экран категории за месяц). «Остальное», «Ещё N категорий»
+/// и неизвестная категория («Без категории») никуда не ведут.
 ///
 /// Потоки [transactions] (операции месяца) и [categories] (все категории,
 /// включая архивные) создаёт вызывающий и держит одними и теми же.
@@ -46,6 +48,7 @@ class MonthChartCard extends StatefulWidget {
     required this.transactions,
     required this.categories,
     required this.month,
+    this.onOpenCategory,
     super.key,
   });
 
@@ -54,6 +57,10 @@ class MonthChartCard extends StatefulWidget {
 
   /// Любой день показываемого месяца.
   final DateOnly month;
+
+  /// Выбрана категория (сектор или строка легенды). Без колбэка строки не
+  /// кнопки, а сектора только подсвечиваются.
+  final ValueChanged<Category>? onOpenCategory;
 
   @override
   State<MonthChartCard> createState() => _MonthChartCardState();
@@ -137,8 +144,23 @@ class _MonthChartCardState extends State<MonthChartCard> {
         currency: rubCurrencyCode,
       ),
     );
+    final byId = {for (final c in categories) c.id: c};
     final names = {for (final c in categories) c.id: c.name};
-    final items = _legendItems(slices, names, colors);
+    final open = widget.onOpenCategory;
+    // Категория сектора или null («Остальное», неизвестная категория).
+    Category? categoryOf(ChartSlice s) =>
+        s.isOther ? null : byId[s.categoryIds.single];
+    final items = _legendItems(
+      slices,
+      names,
+      colors,
+      onTap: open == null
+          ? null
+          : (s) {
+              final category = categoryOf(s);
+              return category == null ? null : () => open(category);
+            },
+    );
     // Номер мог устареть, если данные обновились во время касания.
     final lit = _highlight;
     final highlighted = lit != null && lit < slices.length ? lit : null;
@@ -170,6 +192,13 @@ class _MonthChartCardState extends State<MonthChartCard> {
         ],
         highlightedIndex: highlighted,
         onHighlight: (index) => setState(() => _highlight = index),
+        onSelect: open == null
+            ? null
+            : (index) {
+                if (index >= slices.length) return;
+                final category = categoryOf(slices[index]);
+                if (category != null) open(category);
+              },
         semanticsLabel: label,
         center: SizedBox(
           width: side * 0.6,
@@ -289,12 +318,21 @@ class _MonthChartCardState extends State<MonthChartCard> {
 
 /// Строка легенды: цвет метки, подпись, сумма и доля.
 class _LegendItem {
-  const _LegendItem(this.label, this.amount, this.share, this.color);
+  const _LegendItem(
+    this.label,
+    this.amount,
+    this.share,
+    this.color, [
+    this.onTap,
+  ]);
 
   final String label;
   final Money amount;
   final PercentShare share;
   final Color color;
+
+  /// Нажатие на строку; null — строка не кнопка.
+  final VoidCallback? onTap;
 }
 
 /// Цвет сектора: по месту в палитре, «Остальное» — серый.
@@ -306,8 +344,9 @@ Color _sliceColor(ChartSlice slice, int index, AppColors colors) =>
 List<_LegendItem> _legendItems(
   List<ChartSlice> slices,
   Map<String, String> names,
-  AppColors colors,
-) {
+  AppColors colors, {
+  VoidCallback? Function(ChartSlice slice)? onTap,
+}) {
   _LegendItem of(int i) {
     final s = slices[i];
     return _LegendItem(
@@ -315,6 +354,7 @@ List<_LegendItem> _legendItems(
       s.amount,
       s.share,
       _sliceColor(s, i, colors),
+      onTap?.call(s),
     );
   }
 
@@ -352,42 +392,56 @@ class _LegendRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final onTap = item.onTap;
+    final content = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: ColorDot(color: item.color),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
+              ),
+              Text(
+                '${formatMoney(item.amount)} · ${_percentText(item.share)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
     return Semantics(
       // container: каждая строка — отдельный узел, а не слитая с соседями.
       container: true,
       label:
           '${item.label}, ${spokenMoney(item.amount)}, '
           '${_percentSpoken(item.share)}',
+      button: onTap != null,
+      onTap: onTap,
       excludeSemantics: true,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 5),
-            child: ColorDot(color: item.color),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium,
-                ),
-                Text(
-                  '${formatMoney(item.amount)} · ${_percentText(item.share)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+      child: onTap == null
+          ? content
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              // Область касания не ниже 48 dp.
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: Align(alignment: Alignment.centerLeft, child: content),
+              ),
             ),
-          ),
-        ],
-      ),
     );
   }
 }

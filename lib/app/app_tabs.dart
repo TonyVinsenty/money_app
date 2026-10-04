@@ -6,6 +6,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
@@ -155,6 +156,17 @@ class _HomeTabState extends State<HomeTab> {
       monthTransactions: _monthTransactions,
       categories: _categories,
       month: _month,
+      // Потоки месяца и категорий общие с экраном категории: drift отдаёт их
+      // нескольким слушателям, новые запросы не создаются.
+      onOpenCategory: (category) => Navigator.of(context).pushNamed(
+        AppRoutes.analyticsCategory,
+        arguments: CategoryBreakdownRouteArguments(
+          category: category,
+          period: currentPeriod(PeriodKind.month, _month),
+          transactions: _monthTransactions,
+          categories: _categories,
+        ),
+      ),
       onAddTransaction: (type) => Navigator.of(context).pushNamed(
         AppRoutes.quickAdd,
         arguments: QuickAddRouteArguments(

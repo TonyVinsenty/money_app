@@ -265,7 +265,7 @@ void main() {
 
   testWidgets('ошибка потока: понятный текст', (tester) async {
     await _pump(tester, transactions: Stream.error(StateError('boom')));
-    expect(find.text('Не удалось посчитать расходы категории'), findsOneWidget);
+    expect(find.text('Не удалось посчитать итоги категории'), findsOneWidget);
     expect(find.byType(DonutChart), findsNothing);
 
     await _pump(
@@ -273,7 +273,7 @@ void main() {
       transactions: Stream.value(const []),
       categories: Stream.error(StateError('boom')),
     );
-    expect(find.text('Не удалось посчитать расходы категории'), findsOneWidget);
+    expect(find.text('Не удалось посчитать итоги категории'), findsOneWidget);
   });
 
   testWidgets('до первого ответа ничего не показывается', (tester) async {
@@ -282,7 +282,7 @@ void main() {
     await _pump(tester, transactions: transactions.stream);
 
     expect(find.text('За этот период в категории операций нет'), findsNothing);
-    expect(find.text('Не удалось посчитать расходы категории'), findsNothing);
+    expect(find.text('Не удалось посчитать итоги категории'), findsNothing);
     expect(find.byType(DonutChart), findsNothing);
     expect(find.byType(ListView), findsNothing);
   });

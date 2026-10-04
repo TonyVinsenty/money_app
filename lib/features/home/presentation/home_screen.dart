@@ -37,10 +37,15 @@ class HomeScreen extends StatelessWidget {
     required this.monthTransactions,
     required this.categories,
     required this.month,
+    required this.onOpenCategory,
     super.key,
   });
 
   final void Function(TransactionType type) onAddTransaction;
+
+  /// Выбрана категория на диаграмме или в легенде: приложение открывает её
+  /// экран за [month].
+  final ValueChanged<Category> onOpenCategory;
 
   /// Итог расходов за [month]. Поток должен быть один и тот же между
   /// перерисовками (его создаёт вызывающий), иначе подписка начнётся заново.
@@ -117,6 +122,7 @@ class HomeScreen extends StatelessWidget {
                               transactions: monthTransactions,
                               categories: categories,
                               month: month,
+                              onOpenCategory: onOpenCategory,
                             ),
                           ),
                         ),

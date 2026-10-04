@@ -39,6 +39,7 @@ Widget _app({
         monthTransactions: Stream.value(const []),
         categories: Stream.value(const []),
         month: DateOnly(2026, 9, 20),
+        onOpenCategory: (_) {},
       ),
     ),
   );
@@ -491,6 +492,7 @@ void main() {
               monthTransactions: Stream.value(const []),
               categories: Stream.value(const []),
               month: DateOnly(2026, 9, 20),
+              onOpenCategory: (_) {},
             ),
           ),
           bottomNavigationBar: NavigationBar(

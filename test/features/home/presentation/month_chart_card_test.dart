@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -65,6 +66,7 @@ Future<void> _pump(
   double textScale = 1,
   double cardHeight = 700,
   ThemeMode mode = ThemeMode.light,
+  ValueChanged<Category>? onOpen,
 }) async {
   tester.view.physicalSize = const Size(360, 1600);
   tester.view.devicePixelRatio = 1;
@@ -90,6 +92,7 @@ Future<void> _pump(
                 transactions: transactions ?? Stream.value(const []),
                 categories: categories ?? Stream.value(const []),
                 month: _month,
+                onOpenCategory: onOpen,
               ),
             ),
           ),
@@ -516,6 +519,7 @@ void main() {
             monthTransactions: Stream.value(data.transactions),
             categories: Stream.value(data.categories),
             month: _month,
+            onOpenCategory: (_) {},
           ),
         ),
       ),
@@ -530,6 +534,138 @@ void main() {
       expect(rect.bottom, lessThanOrEqualTo(640), reason: label);
       expect(rect.top, greaterThanOrEqualTo(0), reason: label);
     }
+  });
+
+  group('переход к категории', () {
+    // Продукты 60 %, Транспорт 30 %, Кафе 7 %, «Остальное» (две мелкие) 3 %.
+    final transactions = [
+      _expense('a', 60000),
+      _expense('b', 30000),
+      _expense('c', 7000),
+      _expense('x', 1500),
+      _expense('y', 1500),
+    ];
+    final categories = [
+      _category('a', 'Продукты'),
+      _category('b', 'Транспорт'),
+      _category('c', 'Кафе'),
+    ];
+
+    /// Точка кольца на [turn] оборота по часовой стрелке от «12 часов».
+    Offset ringPoint(WidgetTester tester, double turn) {
+      final rect = tester.getRect(find.byType(DonutChart));
+      final radius = rect.width / 2 - 2 - rect.width * 0.08;
+      final angle = turn * 2 * math.pi;
+      return rect.center +
+          Offset(radius * math.sin(angle), -radius * math.cos(angle));
+    }
+
+    Future<List<Category>> pumpCard(
+      WidgetTester tester, {
+      List<Transaction>? data,
+      List<Category>? cats,
+    }) async {
+      final opened = <Category>[];
+      await _pump(
+        tester,
+        transactions: Stream.value(data ?? transactions),
+        categories: Stream.value(cats ?? categories),
+        cardHeight: 900,
+        onOpen: opened.add,
+      );
+      await tester.pump();
+      return opened;
+    }
+
+    testWidgets('отпускание пальца на секторе «Продукты» зовёт колбэк', (
+      tester,
+    ) async {
+      final opened = await pumpCard(tester);
+      await tester.tapAt(ringPoint(tester, 0.3));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(opened.map((c) => c.id), ['a']);
+    });
+
+    testWidgets('сектор «Остальное» и касание мимо кольца ничего не зовут', (
+      tester,
+    ) async {
+      final opened = await pumpCard(tester);
+      expect(find.text('Остальное'), findsOneWidget);
+      await tester.tapAt(ringPoint(tester, 0.985));
+      await tester.pump(const Duration(milliseconds: 200));
+      // Центр кольца и угол карточки.
+      await tester.tapAt(tester.getCenter(find.byType(DonutChart)));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(opened, isEmpty);
+    });
+
+    testWidgets('строка легенды зовёт колбэк, «Остальное» нет', (tester) async {
+      final opened = await pumpCard(tester);
+      await tester.tap(find.text('Транспорт'));
+      await tester.tap(find.text('Остальное'));
+      await tester.pump();
+      expect(opened.map((c) => c.id), ['b']);
+    });
+
+    testWidgets('«Ещё N категорий» и неизвестная категория не кнопки', (
+      tester,
+    ) async {
+      final many = [for (var i = 0; i < 5; i++) _expense('c$i', 10000)];
+      final opened = await pumpCard(
+        tester,
+        data: many,
+        cats: [for (var i = 0; i < 5; i++) _category('c$i', 'Кат $i')],
+      );
+      await tester.tap(find.text('Ещё 2 категории'));
+      await tester.pump();
+      expect(opened, isEmpty);
+
+      final unknown = await pumpCard(tester, data: [_expense('gone', 100)]);
+      await tester.tap(find.text('Без категории'));
+      await tester.pump();
+      expect(unknown, isEmpty);
+    });
+
+    testWidgets('для скринридера: строки категорий кнопки, остальные нет', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpCard(tester);
+      bool isButton(String label) => tester
+          .getSemantics(find.bySemanticsLabel(label))
+          .flagsCollection
+          .isButton;
+
+      expect(isButton('Продукты, 600 рублей, 60 процентов'), isTrue);
+      expect(isButton('Остальное, 30 рублей, 3 процента'), isFalse);
+
+      final many = [for (var i = 0; i < 5; i++) _expense('c$i', 10000)];
+      await pumpCard(tester, data: many);
+      expect(isButton('Ещё 2 категории, 200 рублей, 40 процентов'), isFalse);
+      semantics.dispose();
+    });
+
+    testWidgets('область касания строки не ниже 48 dp, шрифт 200 % без '
+        'переполнения', (tester) async {
+      final opened = <Category>[];
+      await _pump(
+        tester,
+        transactions: Stream.value(transactions),
+        categories: Stream.value(categories),
+        textScale: 2,
+        cardHeight: 1400,
+        onOpen: opened.add,
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      final rows = find.byType(InkWell);
+      expect(rows, findsNWidgets(3));
+      for (var i = 0; i < 3; i++) {
+        expect(tester.getSize(rows.at(i)).height, greaterThanOrEqualTo(48));
+      }
+      await tester.tap(find.text('Кафе'));
+      expect(opened.map((c) => c.id), ['c']);
+    });
   });
 
   testWidgets('цвет метки первой строки — первый цвет палитры', (tester) async {

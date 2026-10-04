@@ -91,7 +91,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Не удалось посчитать расходы категории',
+              'Не удалось посчитать итоги категории',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
