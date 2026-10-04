@@ -8,8 +8,8 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
-import 'package:money_app/features/home/presentation/chart_placeholder.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
+import 'package:money_app/features/home/presentation/month_chart_card.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 
@@ -36,6 +36,8 @@ Widget _app({
         onAddTransaction: onAdd,
         monthExpenses: expenses ?? Stream.value(Money.zero('RUB')),
         monthIncome: income ?? Stream.value(Money.zero('RUB')),
+        monthTransactions: Stream.value(const []),
+        categories: Stream.value(const []),
         month: DateOnly(2026, 9, 20),
       ),
     ),
@@ -486,6 +488,8 @@ void main() {
               onAddTransaction: calls.add,
               monthExpenses: Stream.value(Money.fromMinor(35000, 'RUB')),
               monthIncome: Stream.value(Money.fromMinor(100000, 'RUB')),
+              monthTransactions: Stream.value(const []),
+              categories: Stream.value(const []),
               month: DateOnly(2026, 9, 20),
             ),
           ),
@@ -558,56 +562,18 @@ void main() {
     });
   });
 
-  group('заглушка под диаграмму', () {
-    const placeholderText = 'Диаграмма расходов по категориям появится позже';
+  testWidgets('карточка диаграммы занимает середину: между итогами и кнопками', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(onAdd: (_) {}));
+    await tester.pump();
 
-    testWidgets('текст есть на экране', (tester) async {
-      await tester.pumpWidget(_app(onAdd: (_) {}));
-      await tester.pump();
-
-      expect(find.text(placeholderText), findsOneWidget);
-    });
-
-    testWidgets('не нажимается: нет InkWell, InkResponse и роли кнопки', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      await tester.pumpWidget(_app(onAdd: (_) {}));
-      await tester.pump();
-
-      final text = find.text(placeholderText);
-      expect(
-        find.ancestor(
-          of: text,
-          matching: find.byWidgetPredicate(
-            (w) => w is InkWell || w is InkResponse,
-          ),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.ancestor(
-          of: text,
-          matching: find.byWidgetPredicate(
-            (w) => w is Semantics && w.properties.button == true,
-          ),
-        ),
-        findsNothing,
-      );
-      semantics.dispose();
-    });
-
-    testWidgets('занимает середину: между итогами и кнопками', (tester) async {
-      await tester.pumpWidget(_app(onAdd: (_) {}));
-      await tester.pump();
-
-      final placeholder = tester.getRect(find.byType(ChartPlaceholder));
-      final summary = tester.getRect(find.byKey(_incomeCard));
-      final buttons = tester.getRect(_button('Доход'));
-      expect(placeholder.top, greaterThanOrEqualTo(summary.bottom));
-      // Заглушка доходит до отступа 16 dp над кнопками: середина занята целиком.
-      expect(placeholder.bottom, closeTo(buttons.top - 16, 0.5));
-    });
+    final card = tester.getRect(find.byType(MonthChartCard));
+    final summary = tester.getRect(find.byKey(_incomeCard));
+    final buttons = tester.getRect(_button('Доход'));
+    expect(card.top, greaterThanOrEqualTo(summary.bottom));
+    // Карточка доходит до отступа 16 dp над кнопками: середина занята целиком.
+    expect(card.bottom, closeTo(buttons.top - 16, 0.5));
   });
 
   testWidgets('шрифт 200% на 360 dp: подписи кнопок целиком внутри кнопок', (

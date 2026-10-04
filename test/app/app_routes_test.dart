@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/analytics/domain/analytics_period.dart';
+import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -201,6 +205,69 @@ void main() {
           ),
         );
       }
+    });
+
+    test('маршрут категории за период: неверный аргумент - ArgumentError', () {
+      expect(AppRoutes.analyticsCategory, '/analytics-category');
+      for (final arguments in <Object?>[null, 'food']) {
+        expect(
+          () => onGenerateAppRoute(
+            RouteSettings(
+              name: AppRoutes.analyticsCategory,
+              arguments: arguments,
+            ),
+          ),
+          throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.toString(),
+              'сообщение',
+              allOf(
+                contains('/analytics-category'),
+                contains('CategoryBreakdownRouteArguments'),
+              ),
+            ),
+          ),
+        );
+      }
+    });
+
+    testWidgets('маршрут категории за период открывает экран с заголовком', (
+      tester,
+    ) async {
+      await initializeDateFormatting('ru');
+      final route = onGenerateAppRoute(
+        RouteSettings(
+          name: AppRoutes.analyticsCategory,
+          arguments: CategoryBreakdownRouteArguments(
+            category: Category.topLevel(
+              id: 'food',
+              kind: CategoryKind.expense,
+              name: 'Продукты',
+              iconKey: 'shopping_cart',
+              sortOrder: 0,
+            ),
+            period: AnalyticsPeriod(
+              PeriodKind.month,
+              monthRange(DateOnly(2026, 9, 1)),
+            ),
+            transactions: Stream.value(const <Transaction>[]),
+            categories: Stream.value(const <Category>[]),
+          ),
+        ),
+      );
+      expect(route, isA<MaterialPageRoute<void>>());
+      expect(route!.settings.name, AppRoutes.analyticsCategory);
+
+      await tester.pumpWidget(MaterialApp(onGenerateRoute: (_) => route));
+      await tester.pump();
+      expect(find.byType(CategoryBreakdownScreen), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('Продукты'),
+        ),
+        findsOneWidget,
+      );
     });
 
     test('без аргумента или с чужим аргументом — понятная ArgumentError', () {

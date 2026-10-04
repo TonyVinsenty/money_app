@@ -11,6 +11,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../support/fakes.dart';
@@ -23,6 +24,12 @@ class _TotalsOnlyRepository extends FakeTransactionsRepository {
     required DateRange period,
     String currency = rubCurrencyCode,
   }) => Stream.value(Money.zero(currency));
+
+  @override
+  Stream<List<Transaction>> watchInPeriod(
+    DateRange period, {
+    String currency = rubCurrencyCode,
+  }) => Stream.value(const []);
 }
 
 /// Каркас с настоящими вкладками и фейковыми репозиториями. Тема берётся из

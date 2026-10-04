@@ -106,6 +106,9 @@ class _HomeTabState extends State<HomeTab> {
   late DateOnly _month;
   late Stream<Money> _monthExpenses;
   late Stream<Money> _monthIncome;
+  late Stream<List<Transaction>> _monthTransactions;
+  CategoriesRepository? _categoriesRepository;
+  late Stream<List<Category>> _categories;
 
   // Поток создаём один раз (и заново только при смене репозитория или часов):
   // если создавать его в build, каждая перерисовка начинала бы подписку заново
@@ -132,6 +135,13 @@ class _HomeTabState extends State<HomeTab> {
         type: TransactionType.income,
         period: monthRange(_month),
       );
+      _monthTransactions = services.transactions.watchInPeriod(
+        monthRange(_month),
+      );
+    }
+    if (!identical(services.categories, _categoriesRepository)) {
+      _categoriesRepository = services.categories;
+      _categories = services.categories.watchAll();
     }
   }
 
@@ -142,6 +152,8 @@ class _HomeTabState extends State<HomeTab> {
     return HomeScreen(
       monthExpenses: _monthExpenses,
       monthIncome: _monthIncome,
+      monthTransactions: _monthTransactions,
+      categories: _categories,
       month: _month,
       onAddTransaction: (type) => Navigator.of(context).pushNamed(
         AppRoutes.quickAdd,

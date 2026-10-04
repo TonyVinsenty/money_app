@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/features/analytics/domain/analytics_period.dart';
+import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -36,6 +38,27 @@ abstract final class AppRoutes {
   /// Экран подкатегорий одной категории. Аргумент маршрута —
   /// [SubcategoriesRouteArguments].
   static const subcategories = '/subcategories';
+
+  /// Экран «Категория за период» (подкатегории). Аргумент маршрута —
+  /// [CategoryBreakdownRouteArguments].
+  static const analyticsCategory = '/analytics-category';
+}
+
+/// Аргументы маршрута [AppRoutes.analyticsCategory]: категория, период и два
+/// потока (операции периода и все категории, включая архивные). Потоки
+/// создаёт тот, кто открывает маршрут, и держит одними и теми же.
+final class CategoryBreakdownRouteArguments {
+  const CategoryBreakdownRouteArguments({
+    required this.category,
+    required this.period,
+    required this.transactions,
+    required this.categories,
+  });
+
+  final Category category;
+  final AnalyticsPeriod period;
+  final Stream<List<Transaction>> transactions;
+  final Stream<List<Category>> categories;
 }
 
 /// Аргументы маршрута [AppRoutes.categories]: репозиторий и генератор id
@@ -263,6 +286,25 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
               parent: arguments.parent,
             ),
           ),
+        ),
+      );
+    case AppRoutes.analyticsCategory:
+      final arguments = settings.arguments;
+      if (arguments is! CategoryBreakdownRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.analyticsCategory} ожидает аргумент '
+              'CategoryBreakdownRouteArguments (категория, период и потоки)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => CategoryBreakdownScreen(
+          category: arguments.category,
+          period: arguments.period,
+          transactions: arguments.transactions,
+          categories: arguments.categories,
         ),
       );
     case AppRoutes.categoryForm:

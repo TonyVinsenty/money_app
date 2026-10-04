@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
-import 'package:money_app/features/home/presentation/chart_placeholder.dart';
+import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/home/presentation/month_chart_card.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Запас внизу «Главной» под сообщение SnackBar («Сохранено: расход 350,00 ₽ ·
@@ -13,9 +15,9 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// 6 секунд: следующий расход нельзя было бы ввести сразу.
 const double _snackBarReserve = 112;
 
-/// Минимальная высота заглушки под диаграмму, dp. Нужна, когда при крупном
-/// шрифте итоги занимают почти весь экран: заглушка не сжимается в ноль.
-const double _chartMinHeight = 120;
+/// Минимальная высота карточки диаграммы, dp. Нужна, когда при крупном шрифте
+/// итоги занимают почти весь экран: карточка не сжимается в ноль.
+const double _chartMinHeight = 160;
 
 /// Высота кнопок «Доход» и «Расход», dp (с запасом сверх минимума 48).
 const double _buttonHeight = 64;
@@ -32,6 +34,8 @@ class HomeScreen extends StatelessWidget {
     required this.onAddTransaction,
     required this.monthExpenses,
     required this.monthIncome,
+    required this.monthTransactions,
+    required this.categories,
     required this.month,
     super.key,
   });
@@ -44,6 +48,12 @@ class HomeScreen extends StatelessWidget {
 
   /// Итог доходов за [month]; те же правила, что у [monthExpenses].
   final Stream<Money> monthIncome;
+
+  /// Операции за [month] для диаграммы (те же правила про поток).
+  final Stream<List<Transaction>> monthTransactions;
+
+  /// Все категории, включая архивные: из них берутся названия в легенде.
+  final Stream<List<Category>> categories;
 
   /// Любой день показываемого месяца: из него берётся название месяца.
   final DateOnly month;
@@ -97,14 +107,17 @@ class HomeScreen extends StatelessWidget {
                           month: month,
                         ),
                         const SizedBox(height: 16),
-                        // Заглушка занимает всю свободную середину. Этап 4:
-                        // здесь встанет круговая диаграмма расходов.
+                        // Карточка диаграммы занимает всю свободную середину.
                         Expanded(
                           child: ConstrainedBox(
-                            constraints: BoxConstraints(
+                            constraints: const BoxConstraints(
                               minHeight: _chartMinHeight,
                             ),
-                            child: ChartPlaceholder(),
+                            child: MonthChartCard(
+                              transactions: monthTransactions,
+                              categories: categories,
+                              month: month,
+                            ),
                           ),
                         ),
                       ],

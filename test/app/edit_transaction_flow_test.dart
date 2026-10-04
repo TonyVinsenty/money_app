@@ -144,8 +144,9 @@ final _homeEmpty = find.descendant(
   matching: find.text('Пока нет'),
 );
 // Сумма расходов со знаком «минус» (U+2212); подпись «Расходы за сентябрь» отдельно.
-final _homeTotal = find.text(
-  '\u2212${formatMoney(Money.fromMinor(35000, 'RUB'))}',
+final _homeTotal = find.descendant(
+  of: find.byKey(const ValueKey('month-summary-expense')),
+  matching: find.text('\u2212${formatMoney(Money.fromMinor(35000, 'RUB'))}'),
 );
 
 Future<void> _finish(WidgetTester tester) async {
