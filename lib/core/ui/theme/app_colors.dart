@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 /// Семантические цвета приложения: «расход» (красная гамма) и «доход» (зелёная).
@@ -23,6 +24,8 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.onExpenseAction,
     required this.incomeAction,
     required this.onIncomeAction,
+    required this.chartPalette,
+    required this.chartOther,
   });
 
   /// Цвета для светлой темы.
@@ -33,6 +36,17 @@ class AppColors extends ThemeExtension<AppColors> {
     onExpenseAction: Color(0xFFFFFFFF),
     incomeAction: Color(0xFF1B6E3A),
     onIncomeAction: Color(0xFFFFFFFF),
+    chartPalette: [
+      Color(0xFF1E63C4),
+      Color(0xFFC25400),
+      Color(0xFF7B4FC4),
+      Color(0xFF00838F),
+      Color(0xFF8D6E00),
+      Color(0xFFAD1F8A),
+      Color(0xFF283593),
+      Color(0xFF7A5230),
+    ],
+    chartOther: Color(0xFF757575),
   );
 
   /// Цвета для тёмной темы (светлее, чтобы читались на тёмном фоне).
@@ -43,6 +57,17 @@ class AppColors extends ThemeExtension<AppColors> {
     onExpenseAction: Color(0xFFF9DEDC),
     incomeAction: Color(0xFF1A5233),
     onIncomeAction: Color(0xFFC8EED2),
+    chartPalette: [
+      Color(0xFF8AB4F8),
+      Color(0xFFFFB06B),
+      Color(0xFFC3A6FF),
+      Color(0xFF4DD0E1),
+      Color(0xFFE6C34A),
+      Color(0xFFF48FD0),
+      Color(0xFF7986CB),
+      Color(0xFFD7A97E),
+    ],
+    chartOther: Color(0xFF8F8F8F),
   );
 
   final Color expense;
@@ -60,6 +85,14 @@ class AppColors extends ThemeExtension<AppColors> {
   /// Текст и знак на кнопке «Доход».
   final Color onIncomeAction;
 
+  /// Цвета секторов диаграммы: ровно 8, цвет определяется местом сектора
+  /// (самый крупный сектор берёт первый цвет), а не категорией. Среди них нет
+  /// смысловых красного и зелёного, контраст с `surface` не ниже 3:1.
+  final List<Color> chartPalette;
+
+  /// Цвет сектора «Остальное» (серый, не совпадает с [chartPalette]).
+  final Color chartOther;
+
   @override
   AppColors copyWith({
     Color? expense,
@@ -68,6 +101,8 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? onExpenseAction,
     Color? incomeAction,
     Color? onIncomeAction,
+    List<Color>? chartPalette,
+    Color? chartOther,
   }) {
     return AppColors(
       expense: expense ?? this.expense,
@@ -76,6 +111,8 @@ class AppColors extends ThemeExtension<AppColors> {
       onExpenseAction: onExpenseAction ?? this.onExpenseAction,
       incomeAction: incomeAction ?? this.incomeAction,
       onIncomeAction: onIncomeAction ?? this.onIncomeAction,
+      chartPalette: chartPalette ?? this.chartPalette,
+      chartOther: chartOther ?? this.chartOther,
     );
   }
 
@@ -89,6 +126,15 @@ class AppColors extends ThemeExtension<AppColors> {
       onExpenseAction: Color.lerp(onExpenseAction, other.onExpenseAction, t)!,
       incomeAction: Color.lerp(incomeAction, other.incomeAction, t)!,
       onIncomeAction: Color.lerp(onIncomeAction, other.onIncomeAction, t)!,
+      chartPalette: [
+        for (var i = 0; i < chartPalette.length; i++)
+          Color.lerp(
+            chartPalette[i],
+            i < other.chartPalette.length ? other.chartPalette[i] : null,
+            t,
+          )!,
+      ],
+      chartOther: Color.lerp(chartOther, other.chartOther, t)!,
     );
   }
 
@@ -101,7 +147,9 @@ class AppColors extends ThemeExtension<AppColors> {
         other.expenseAction == expenseAction &&
         other.onExpenseAction == onExpenseAction &&
         other.incomeAction == incomeAction &&
-        other.onIncomeAction == onIncomeAction;
+        other.onIncomeAction == onIncomeAction &&
+        listEquals(other.chartPalette, chartPalette) &&
+        other.chartOther == chartOther;
   }
 
   @override
@@ -112,6 +160,8 @@ class AppColors extends ThemeExtension<AppColors> {
     onExpenseAction,
     incomeAction,
     onIncomeAction,
+    Object.hashAll(chartPalette),
+    chartOther,
   );
 }
 

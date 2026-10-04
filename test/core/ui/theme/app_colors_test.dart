@@ -114,6 +114,8 @@ void main() {
         onExpenseAction: Color(0xFFAABBCC),
         incomeAction: Color(0xFFDDEEFF),
         onIncomeAction: Color(0xFF010203),
+        chartPalette: [Color(0xFF111111), Color(0xFF222222)],
+        chartOther: Color(0xFF333333),
       );
       const b = AppColors(
         expense: Color(0xFF112233),
@@ -122,6 +124,8 @@ void main() {
         onExpenseAction: Color(0xFFAABBCC),
         incomeAction: Color(0xFFDDEEFF),
         onIncomeAction: Color(0xFF010203),
+        chartPalette: [Color(0xFF111111), Color(0xFF222222)],
+        chartOther: Color(0xFF333333),
       );
 
       expect(a, b);
@@ -137,6 +141,8 @@ void main() {
       expect(base.copyWith(onExpenseAction: Colors.blue), isNot(base));
       expect(base.copyWith(incomeAction: Colors.blue), isNot(base));
       expect(base.copyWith(onIncomeAction: Colors.blue), isNot(base));
+      expect(base.copyWith(chartOther: Colors.blue), isNot(base));
+      expect(base.copyWith(chartPalette: [Colors.blue]), isNot(base));
       expect(base.copyWith(), base);
     });
 
@@ -149,6 +155,69 @@ void main() {
       // Тип Object скрывает настоящий тип от анализатора: сравнение намеренное.
       final Object other = Colors.red;
       expect(AppColors.light == other, isFalse);
+    });
+  });
+
+  group('палитра диаграммы', () {
+    final themes = {
+      'светлая': (AppTheme.light(), AppColors.light),
+      'тёмная': (AppTheme.dark(), AppColors.dark),
+    };
+    for (final entry in themes.entries) {
+      final (theme, colors) = entry.value;
+      final surface = theme.colorScheme.surface;
+      final all = [...colors.chartPalette, colors.chartOther];
+
+      test('${entry.key} тема: ровно 8 цветов', () {
+        expect(colors.chartPalette, hasLength(8));
+      });
+      test('${entry.key} тема: контраст с surface не ниже 3:1', () {
+        for (final c in all) {
+          expect(contrastRatio(c, surface), greaterThanOrEqualTo(3.0));
+        }
+      });
+      test('${entry.key} тема: цвета попарно разные, chartOther тоже', () {
+        expect(all.toSet(), hasLength(9));
+      });
+      test('${entry.key} тема: нет совпадений с расходом и доходом', () {
+        expect(all, isNot(contains(colors.expense)));
+        expect(all, isNot(contains(colors.income)));
+      });
+    }
+
+    test('copyWith заменяет палитру и chartOther', () {
+      final changed = AppColors.light.copyWith(
+        chartPalette: [Colors.blue],
+        chartOther: Colors.black,
+      );
+      expect(changed.chartPalette, [Colors.blue]);
+      expect(changed.chartOther, Colors.black);
+      expect(changed.expense, AppColors.light.expense);
+    });
+
+    test('lerp действует поэлементно', () {
+      final mid = AppColors.light.lerp(AppColors.dark, 0.5);
+      expect(
+        mid.chartPalette[3],
+        Color.lerp(
+          AppColors.light.chartPalette[3],
+          AppColors.dark.chartPalette[3],
+          0.5,
+        ),
+      );
+      expect(mid.chartPalette, hasLength(8));
+      expect(
+        mid.chartOther,
+        Color.lerp(AppColors.light.chartOther, AppColors.dark.chartOther, 0.5),
+      );
+    });
+
+    test('== сравнивает списки по содержимому', () {
+      final copy = AppColors.light.copyWith(
+        chartPalette: List.of(AppColors.light.chartPalette),
+      );
+      expect(copy, AppColors.light);
+      expect(copy.hashCode, AppColors.light.hashCode);
     });
   });
 
