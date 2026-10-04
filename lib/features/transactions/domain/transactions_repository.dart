@@ -80,4 +80,16 @@ abstract interface class TransactionsRepository {
     required DateRange period,
     String currency = rubCurrencyCode,
   });
+
+  /// Поток «живых» операций за [period] в валюте [currency], для экрана
+  /// «Аналитика» (подсчёты делает `domain` аналитики, ADR 0007).
+  ///
+  /// Обе границы периода входят. Мягко удалённые не приходят, операции
+  /// других валют — тоже. Порядок: по дню, затем по моменту, затем по `id`.
+  /// Испорченная строка даёт `DataCorruptedException` в потоке, поток при
+  /// этом продолжает работать.
+  Stream<List<Transaction>> watchInPeriod(
+    DateRange period, {
+    String currency = rubCurrencyCode,
+  });
 }

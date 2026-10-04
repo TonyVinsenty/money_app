@@ -72,3 +72,8 @@ DateRange monthRange(DateOnly day) {
 /// Календарный год, в который входит [day].
 DateRange yearRange(DateOnly day) =>
     DateRange(DateOnly(day.year, 1, 1), DateOnly(day.year, 12, 31));
+
+/// Вид периода экрана «Аналитика» (ADR 0007, п. 6). Календарные виды
+/// считаются функциями выше; [custom] — интервал, который задаёт сам
+/// пользователь, без сдвигов «назад/вперёд».
+enum PeriodKind { day, week, month, year, custom }

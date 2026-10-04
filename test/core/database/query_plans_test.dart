@@ -101,6 +101,20 @@ void main() {
       expect(text, isNot(contains('USE TEMP B-TREE FOR ORDER BY')));
     });
 
+    test('analytics period list (currency + day range + sort) uses '
+        'transactions_occurred_on_at, not a full scan', () async {
+      // Тот же запрос, что в `watchInPeriod` репозитория операций.
+      final text = await plan(
+        'SELECT * FROM transactions WHERE deleted_at IS NULL '
+        'AND currency = ? AND occurred_on BETWEEN ? AND ? '
+        'ORDER BY occurred_on ASC, occurred_at ASC, id ASC',
+        [Variable<String>('RUB'), ...period],
+      );
+
+      expect(text, contains('USING INDEX transactions_occurred_on_at'));
+      expect(text, isNot(contains('SCAN transactions')));
+    });
+
     test('documentation: without "deleted_at IS NULL" the partial index is '
         'NOT used (every live-rows query must contain it)', () async {
       final text = await plan(

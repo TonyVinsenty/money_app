@@ -1128,6 +1128,112 @@ void main() {
       );
     });
 
+    group('watchInPeriod', () {
+      final september = monthRange(DateOnly(2026, 9, 15));
+
+      Future<List<String>> periodIds(
+        DateRange period, {
+        String currency = 'RUB',
+      }) async {
+        final list = await repo.watchInPeriod(period, currency: currency).first;
+        return list.map((t) => t.id).toList();
+      }
+
+      test('returns live rows in order: day, then moment, then id', () async {
+        await repo.add(
+          tx(
+            'late',
+            day: DateOnly(2026, 9, 5),
+            at: DateTime.utc(2026, 9, 5, 18),
+          ),
+        );
+        await repo.add(
+          tx('b', day: DateOnly(2026, 9, 5), at: DateTime.utc(2026, 9, 5, 9)),
+        );
+        await repo.add(
+          tx('a', day: DateOnly(2026, 9, 5), at: DateTime.utc(2026, 9, 5, 9)),
+        );
+        await repo.add(tx('first', day: DateOnly(2026, 9, 3)));
+
+        expect(await periodIds(september), ['first', 'a', 'b', 'late']);
+      });
+
+      test('soft-deleted operations are not returned', () async {
+        await repo.add(tx('kept', day: DateOnly(2026, 9, 10)));
+        await repo.add(tx('gone', day: DateOnly(2026, 9, 11)));
+        await repo.softDelete('gone');
+
+        expect(await periodIds(september), ['kept']);
+      });
+
+      test(
+        'both boundary days are included, the days just outside are not',
+        () async {
+          await repo.add(tx('before', day: DateOnly(2026, 8, 31)));
+          await repo.add(tx('first', day: DateOnly(2026, 9, 1)));
+          await repo.add(tx('last', day: DateOnly(2026, 9, 30)));
+          await repo.add(tx('after', day: DateOnly(2026, 10, 1)));
+
+          expect(await periodIds(september), ['first', 'last']);
+        },
+      );
+
+      test('other currencies are not returned; the requested one is', () async {
+        await repo.add(tx('rub', day: DateOnly(2026, 9, 10)));
+        await repo.add(tx('usd', day: DateOnly(2026, 9, 10), currency: 'USD'));
+
+        expect(await periodIds(september), ['rub']);
+        expect(await periodIds(september, currency: 'USD'), ['usd']);
+      });
+
+      test('income and expense are both returned', () async {
+        await repo.add(tx('exp', day: DateOnly(2026, 9, 10)));
+        await repo.add(
+          tx('inc', day: DateOnly(2026, 9, 10), type: TransactionType.income),
+        );
+
+        expect(await periodIds(september), ['exp', 'inc']);
+      });
+
+      test('an unknown currency code is ArgumentError at once', () {
+        expect(
+          () => repo.watchInPeriod(september, currency: 'rub'),
+          throwsArgumentError,
+        );
+      });
+
+      test(
+        'a new operation in the period reaches the stream by itself',
+        () async {
+          final rec = await record(repo.watchInPeriod(september));
+          await rec.waitForEvents(1); // текущее состояние: пусто
+          expect(rec.events.last, isEmpty);
+
+          await repo.add(tx('new', day: DateOnly(2026, 9, 12)));
+          await rec.waitForEvents(2);
+
+          expect(rec.events.last.map((t) => t.id).toList(), ['new']);
+        },
+      );
+
+      test('corrupted row is a DataCorruptedException in the stream', () async {
+        // 20261332 — не дата; лежит внутри периода 01.12.2026-01.01.2027.
+        await rawInsert('bad', occurredOn: 20261332);
+        final period = DateRange(DateOnly(2026, 12, 1), DateOnly(2027, 1, 1));
+
+        await expectLater(
+          repo.watchInPeriod(period),
+          emitsError(
+            isA<DataCorruptedException>().having(
+              (e) => e.cause,
+              'cause',
+              isA<FormatException>(),
+            ),
+          ),
+        );
+      });
+    });
+
     group('corrupted data', () {
       // 20261332 проходит CHECK диапазона в схеме, но 13-го месяца нет:
       // DateOnlyConverter бросает FormatException при чтении строки.
@@ -1260,6 +1366,9 @@ void main() {
         final results = <String, Object?>{
           'findById': await outcome(() => repo.findById('bad')),
           'watchRecent': await outcome(() => repo.watchRecent().first),
+          'watchInPeriod': await outcome(
+            () => repo.watchInPeriod(yearRange(DateOnly(2026, 6, 1))).first,
+          ),
           'watchTotal': await outcome(
             () => repo
                 .watchTotal(

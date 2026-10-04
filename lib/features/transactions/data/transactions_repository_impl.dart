@@ -166,6 +166,38 @@ class DriftTransactionsRepository implements TransactionsRepository {
         .transform(_translateErrors<List<Transaction>>());
   }
 
+  /// Строки за период в одной валюте. Фильтр по `occurred_on` идёт через
+  /// конвертер, то есть границы сравниваются как ГГГГММДД, и попадает в
+  /// индекс `transactions_occurred_on_at` (план проверяет `query_plans_test`).
+  @override
+  Stream<List<Transaction>> watchInPeriod(
+    DateRange period, {
+    String currency = rubCurrencyCode,
+  }) {
+    // Заодно проверяет код валюты: неверный — ArgumentError сразу.
+    Money.zero(currency);
+    final query = _db.select(_db.transactions)
+      ..where(
+        (t) =>
+            t.deletedAt.isNull() &
+            t.currency.equals(currency) &
+            t.occurredOn.isBetweenValues(
+              period.start.toInt(),
+              period.end.toInt(),
+            ),
+      )
+      ..orderBy([
+        (t) => OrderingTerm.asc(t.occurredOn),
+        (t) => OrderingTerm.asc(t.occurredAt),
+        (t) => OrderingTerm.asc(t.id),
+      ]);
+    // Ошибки чтения и сборки — как в watchRecent: событием потока.
+    return query
+        .watch()
+        .map((rows) => rows.map(transactionFromRow).toList())
+        .transform(_translateErrors<List<Transaction>>());
+  }
+
   /// Итог считается прямо в SQL и ТОЛЬКО в валюте [currency]: `SUM` без
   /// условия по валюте сложил бы рубли с долларами (ADR 0004).
   ///
