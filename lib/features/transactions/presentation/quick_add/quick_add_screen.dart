@@ -24,7 +24,7 @@ import 'package:money_app/features/transactions/presentation/quick_add/subcatego
 ///
 /// Тип операции виден тремя способами сразу, чтобы его нельзя было спутать:
 /// словом («Новый расход»), цветом (цвет расхода/дохода из темы) и знаком
-/// («−» или «+» перед заголовком и перед суммой).
+/// («\u2212» или «+» перед заголовком и перед суммой).
 class QuickAddScreen extends StatefulWidget {
   const QuickAddScreen({
     required this.type,

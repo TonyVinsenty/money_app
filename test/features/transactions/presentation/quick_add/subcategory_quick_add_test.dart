@@ -231,7 +231,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('−$_amountText'), findsOneWidget);
+      expect(find.text('\u2212$_amountText'), findsOneWidget);
       expect(find.text('Сегодня'), findsOneWidget);
       expect(find.byType(NoteField), findsNothing);
 

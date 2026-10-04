@@ -289,7 +289,7 @@ void main() {
   );
 
   group('знак и подпись для скринридера', () {
-    testWidgets('расход: знак «−» виден, «+» нет', (tester) async {
+    testWidgets('расход: знак «\u2212» виден, «+» нет', (tester) async {
       await tester.pumpWidget(_host(controller));
 
       expect(find.text(_minus), findsOneWidget);
@@ -301,7 +301,7 @@ void main() {
       );
     });
 
-    testWidgets('доход: знак «+» виден, «−» нет', (tester) async {
+    testWidgets('доход: знак «+» виден, «\u2212» нет', (tester) async {
       await tester.pumpWidget(_host(controller, isIncome: true));
 
       expect(find.text('+'), findsOneWidget);
