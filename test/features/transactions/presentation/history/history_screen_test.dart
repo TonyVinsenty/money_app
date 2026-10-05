@@ -86,6 +86,8 @@ Widget _app({
         transactions: transactions,
         categories: categories ?? Stream.value(_categories),
         today: _today,
+        month: _today,
+        hasAnyTransactions: false,
         onTransactionTap: onTap ?? (_) {},
       ),
     ),
@@ -236,7 +238,10 @@ void main() {
       find.bySemanticsLabel('Доход 1001 рубль 50 копеек, Продукты, Вчера'),
       findsOneWidget,
     );
-    final tiles = find.byType(InkWell);
+    final tiles = find.descendant(
+      of: find.byType(ListView),
+      matching: find.byType(InkWell),
+    );
     expect(tiles, findsNWidgets(2));
     for (var i = 0; i < 2; i++) {
       expect(tester.getSize(tiles.at(i)).height, greaterThanOrEqualTo(48));

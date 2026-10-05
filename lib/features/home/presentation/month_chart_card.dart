@@ -79,8 +79,12 @@ class MonthChartCard extends StatefulWidget {
     required this.month,
     required this.ringSize,
     this.onOpenCategory,
+    this.isCurrentMonth = true,
     super.key,
   });
+
+  /// Показан текущий месяц: от этого зависит текст пустого состояния.
+  final bool isCurrentMonth;
 
   /// Диаметр кольца, dp (см. [chartRingSize]).
   final double ringSize;
@@ -99,20 +103,53 @@ class MonthChartCard extends StatefulWidget {
   State<MonthChartCard> createState() => _MonthChartCardState();
 }
 
+/// Операции вместе с месяцем, для которого их запрашивали. При смене месяца
+/// на экране остаются прежние операции, пока не придут новые: границы и
+/// подписи берём из этой пары, а не из [MonthChartCard.month], иначе прежние
+/// операции отфильтровались бы новым месяцем и мелькнуло бы «расходов нет».
+typedef _MonthData = ({
+  DateOnly month,
+  bool isCurrentMonth,
+  List<Transaction> transactions,
+});
+
 class _MonthChartCardState extends State<MonthChartCard> {
   int? _highlight;
+  late Stream<_MonthData> _data = _tag();
+
+  Stream<_MonthData> _tag() {
+    final month = widget.month;
+    final isCurrentMonth = widget.isCurrentMonth;
+    return widget.transactions.map(
+      (transactions) => (
+        month: month,
+        isCurrentMonth: isCurrentMonth,
+        transactions: transactions,
+      ),
+    );
+  }
+
+  @override
+  void didUpdateWidget(MonthChartCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Новый поток — новый месяц (или репозиторий): сектор под пальцем устарел.
+    if (!identical(oldWidget.transactions, widget.transactions)) {
+      _data = _tag();
+      _highlight = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final body = AsyncView<List<Transaction>>(
-      stream: widget.transactions,
+    final body = AsyncView<_MonthData>(
+      stream: _data,
       errorBuilder: _error,
-      dataBuilder: (context, transactions) => AsyncView<List<Category>>(
+      dataBuilder: (context, data) => AsyncView<List<Category>>(
         stream: widget.categories,
         errorBuilder: _error,
         dataBuilder: (context, categories) =>
-            _content(context, transactions, categories),
+            _content(context, data, categories),
       ),
     );
     return Card.outlined(
@@ -162,12 +199,14 @@ class _MonthChartCardState extends State<MonthChartCard> {
 
   Widget _content(
     BuildContext context,
-    List<Transaction> transactions,
+    _MonthData data,
     List<Category> categories,
   ) {
+    final transactions = data.transactions;
+    final month = data.month;
     final theme = Theme.of(context);
     final colors = context.appColors;
-    final range = monthRange(widget.month);
+    final range = monthRange(month);
     final balance = summarizePeriod(
       transactions,
       range,
@@ -207,7 +246,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
         ? 'плюс ${spokenMoney(balance)}'
         : spokenMoney(balance);
     final label =
-        'Диаграмма расходов за ${formatMonthName(widget.month)}. '
+        'Диаграмма расходов за ${formatMonthName(month)}. '
         'Всего: $balanceSpoken';
 
     final side = widget.ringSize;
@@ -253,7 +292,10 @@ class _MonthChartCardState extends State<MonthChartCard> {
 
     final Widget legend = items.isEmpty
         ? Text(
-            'В этом месяце расходов пока нет',
+            data.isCurrentMonth
+                ? 'В этом месяце расходов пока нет'
+                : 'За ${formatMonthName(month)} ${month.year} '
+                      'расходов нет',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,

@@ -122,7 +122,9 @@ void main() {
     );
     expect(scrollable.position.maxScrollExtent, 0);
     final ring = tester.getRect(find.byType(DonutChart));
-    expect(ring.width, greaterThanOrEqualTo(280));
+    // Переключатель месяца (48 dp) сделал карточку итогов выше; кольцо при этом
+    // упёрлось в высоту и стало на 1 dp меньше ширины (329): 328 dp.
+    expect(ring.width, 328);
     // Легенда кончается выше панели кнопок.
     expect(
       tester.getRect(find.byType(Wrap)).bottom,

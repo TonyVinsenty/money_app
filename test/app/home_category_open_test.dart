@@ -9,6 +9,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart' show AppScopeHost;
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tabs.dart';
+import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/app/open_and_seed_database.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/format/period_label.dart';
@@ -78,7 +79,7 @@ Future<void> _pumpApp(WidgetTester tester) async {
         settings: settings,
         clock: clock,
         idGenerator: FakeIdGenerator(prefix: 'tx'),
-        child: AppShell(tabs: defaultAppTabs),
+        child: BrowseHost(child: AppShell(tabs: defaultAppTabs)),
       ),
     ),
   );

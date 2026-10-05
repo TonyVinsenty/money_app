@@ -160,8 +160,8 @@ void main() {
       textScale: 1,
     );
     // Раньше (строки по 48 dp, зазор 12) здесь получалось 210 dp, потом 238.
-    expect(size, 254);
-    expect(size, greaterThan(238));
+    expect(size, 236);
+    expect(size, greaterThan(210));
   });
   testWidgets('пустой месяц: серое кольцо, «Всего» и ноль, текст вместо '
       'легенды', (tester) async {
@@ -712,7 +712,7 @@ void main() {
       final card = tester.getRect(find.byType(MonthChartCard));
       final title = tester.getRect(find.text('Расходы по категориям'));
       final legend = tester.getRect(find.byType(Wrap));
-      expect(ring.width, 322);
+      expect(ring.width, 304);
       // Пустоты нет: зазоры над кольцом 12 и под ним 8, отступ снизу 16.
       expect(ring.top - title.bottom, lessThanOrEqualTo(16));
       expect(legend.top - ring.bottom, lessThanOrEqualTo(12));

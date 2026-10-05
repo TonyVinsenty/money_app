@@ -25,8 +25,19 @@ class HomeScreen extends StatelessWidget {
     required this.categories,
     required this.month,
     required this.onOpenCategory,
+    this.isCurrentMonth = true,
+    this.onPreviousMonth,
+    this.onNextMonth,
     super.key,
   });
+
+  /// Показан текущий месяц (для текста пустой диаграммы).
+  final bool isCurrentMonth;
+
+  /// Стрелки переключателя месяца; `null` — стрелка недоступна. Откуда берётся
+  /// месяц, экран не знает: это решает приложение (`lib/app`, ADR 0002).
+  final VoidCallback? onPreviousMonth;
+  final VoidCallback? onNextMonth;
 
   /// Выбрана категория на диаграмме или в легенде: приложение открывает её
   /// экран за [month].
@@ -73,6 +84,8 @@ class HomeScreen extends StatelessWidget {
                     expenses: monthExpenses,
                     income: monthIncome,
                     month: month,
+                    onPreviousMonth: onPreviousMonth,
+                    onNextMonth: onNextMonth,
                   ),
                 ),
               ),
@@ -84,6 +97,7 @@ class HomeScreen extends StatelessWidget {
                   transactions: monthTransactions,
                   categories: categories,
                   month: month,
+                  isCurrentMonth: isCurrentMonth,
                   ringSize: ring,
                   onOpenCategory: onOpenCategory,
                 ),

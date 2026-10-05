@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
@@ -8,10 +9,14 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/transactions/domain/history_view.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/history/history_filter_label.dart';
+import 'package:money_app/features/transactions/presentation/history/history_filter_sheet.dart';
 
 /// Настоящий минус (U+2212), а не дефис (как в `AmountField`).
 final String _minusSign = String.fromCharCode(0x2212);
@@ -31,14 +36,36 @@ const Key historySkeletonKey = ValueKey('history-skeleton');
 /// - [categories] — справочник с архивными категориями и подкатегориями:
 ///   из него берутся имя и иконка. Операция по архивной категории показывает
 ///   её имя; если категории нет вовсе — «Без категории».
-class HistoryScreen extends StatelessWidget {
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({
     required this.transactions,
     required this.categories,
     required this.today,
+    required this.month,
+    required this.hasAnyTransactions,
     required this.onTransactionTap,
+    this.onPreviousMonth,
+    this.onNextMonth,
+    this.filter = HistoryFilter.off,
+    this.sort = HistorySort.newestFirst,
+    this.onResetFilter,
+    this.onSortChanged,
+    this.onFilterChanged,
     super.key,
   });
+
+  /// Изменения фильтра из листа; `null` — кнопка «Фильтр» недоступна.
+  final ValueChanged<HistoryFilter>? onFilterChanged;
+
+  /// Выбор порядка в меню; `null` — меню недоступно.
+  final ValueChanged<HistorySort>? onSortChanged;
+
+  /// Фильтр и порядок: экран применяет их к пришедшему [transactions].
+  final HistoryFilter filter;
+  final HistorySort sort;
+
+  /// Кнопки «Сбросить» (полоска фильтра и пустой результат).
+  final VoidCallback? onResetFilter;
 
   final Stream<List<Transaction>> transactions;
   final Stream<List<Category>> categories;
@@ -46,34 +73,184 @@ class HistoryScreen extends StatelessWidget {
   /// Сегодняшний день: от него считаются «Сегодня» и «Вчера» в заголовках.
   final DateOnly today;
 
+  /// Любой день показываемого месяца: из него берётся подпись переключателя.
+  /// [transactions] должен отдавать операции именно этого месяца.
+  final DateOnly month;
+
+  /// Есть ли в базе хоть одна операция (в любом месяце): от этого зависит
+  /// текст пустого состояния.
+  final bool hasAnyTransactions;
+
   /// Тап по строке. Правку по нему подключает шаг 2.28.
   final ValueChanged<Transaction> onTransactionTap;
+
+  /// Стрелки переключателя месяца; `null` — стрелка недоступна.
+  final VoidCallback? onPreviousMonth;
+  final VoidCallback? onNextMonth;
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+/// Операции вместе с месяцем, для которого их запрашивали: при смене месяца на
+/// экране остаются прежние операции, пока не придут новые, и текст пустого
+/// состояния должен называть тот месяц, которому принадлежат данные.
+typedef _MonthData = ({DateOnly month, List<Transaction> transactions});
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  late Stream<_MonthData> _data = _tag();
+
+  /// Текущий фильтр для открытого листа (он отдельный маршрут и сам не
+  /// перестраивается от смены виджета).
+  late final ValueNotifier<HistoryFilter> _filter = ValueNotifier(
+    widget.filter,
+  );
+
+  @override
+  void dispose() {
+    _filter.dispose();
+    super.dispose();
+  }
+
+  void _openFilter() {
+    final onChanged = widget.onFilterChanged;
+    if (onChanged == null) return;
+    showHistoryFilterSheet(context, filter: _filter, onChanged: onChanged);
+  }
+
+  Stream<_MonthData> _tag() {
+    final month = widget.month;
+    return widget.transactions.map(
+      (transactions) => (month: month, transactions: transactions),
+    );
+  }
+
+  @override
+  void didUpdateWidget(HistoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Лист слушает notifier, а менять его прямо в build нельзя: после кадра.
+    if (_filter.value != widget.filter) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _filter.value = widget.filter;
+      });
+    }
+    if (!identical(oldWidget.transactions, widget.transactions)) {
+      _data = _tag();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     // Справочник снаружи, операции внутри: справочник живёт, пока открыта
     // вкладка, а пустое состояние показывается только после ответа базы (до
     // него — скелетон, а не «Операций пока нет»).
-    return AsyncView<List<Category>>(
-      stream: categories,
+    final body = AsyncView<List<Category>>(
+      stream: widget.categories,
       loadingBuilder: (_) => const _HistorySkeleton(),
       dataBuilder: (context, all) {
         final byId = {for (final c in all) c.id: c};
-        return AsyncView<List<Transaction>>(
-          stream: transactions,
+        final list = AsyncView<_MonthData>(
+          stream: _data,
           loadingBuilder: (_) => const _HistorySkeleton(),
-          isEmpty: (list) => list.isEmpty,
-          emptyBuilder: (_) => const _EmptyState(),
-          dataBuilder: (context, list) => _HistoryList(
-            transactions: list,
-            categoriesById: byId,
-            today: today,
-            onTransactionTap: onTransactionTap,
-          ),
+          // Пустоту разбираем сами: тексту нужен месяц данных (не выбранный),
+          // без мелькания чужого названия.
+          dataBuilder: (context, data) {
+            // Над списком строка «Фильтр» + порядок. В пустых состояниях
+            // порядка нет, а «Фильтр» остаётся (кроме «Операций пока нет»).
+            Widget withBar(Widget content, {required bool showSort}) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ListBar(
+                  filterSpoken: historyFilterSpoken(widget.filter, all),
+                  filterActive: widget.filter.isActive,
+                  onFilterPressed: widget.onFilterChanged == null
+                      ? null
+                      : _openFilter,
+                  showSort: showSort,
+                  sort: widget.sort,
+                  onSortChanged: widget.onSortChanged,
+                ),
+                Expanded(child: content),
+              ],
+            );
+            if (data.transactions.isEmpty) {
+              final empty = _EmptyState(
+                hasAnyTransactions: widget.hasAnyTransactions,
+                month: data.month,
+              );
+              return widget.hasAnyTransactions
+                  ? withBar(empty, showSort: false)
+                  : empty;
+            }
+            // Фильтр и порядок применяем к пришедшему списку: поток от смены
+            // фильтра не пересоздаётся.
+            final shown = applyHistoryView(
+              data.transactions,
+              widget.filter,
+              widget.sort,
+            );
+            if (shown.isEmpty) {
+              return withBar(
+                _NothingFound(month: data.month, onReset: widget.onResetFilter),
+                showSort: false,
+              );
+            }
+            return withBar(
+              _HistoryList(
+                transactions: shown,
+                categoriesById: byId,
+                today: widget.today,
+                byAmount: _byAmount(widget.sort),
+                onTransactionTap: widget.onTransactionTap,
+              ),
+              showSort: true,
+            );
+          },
+        );
+        // Один и тот же каркас при любом фильтре: иначе список пересоздался бы
+        // и подписался на поток заново.
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.filter.isActive)
+              _FilterStrip(
+                label: historyFilterLabel(widget.filter, all),
+                onReset: widget.onResetFilter,
+              )
+            else
+              const SizedBox.shrink(),
+            Expanded(child: list),
+          ],
         );
       },
     );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Переключатель вне списка: при прокрутке остаётся на месте.
+        PeriodSwitcher(
+          label: formatMonthTitle(widget.month),
+          onPrevious: widget.onPreviousMonth,
+          onNext: widget.onNextMonth,
+          previousTooltip: 'Предыдущий месяц',
+          nextTooltip: 'Следующий месяц',
+        ),
+        Expanded(child: body),
+      ],
+    );
   }
+}
+
+bool _byAmount(HistorySort sort) =>
+    sort == HistorySort.largestFirst || sort == HistorySort.smallestFirst;
+
+/// День в строке при сортировке по сумме: «Сегодня», «Вчера», «30 сентября»
+/// (с годом, если год не текущий).
+String _shortDayLabel(DateOnly day, DateOnly today) {
+  if (day == today || day == today.addDays(-1)) {
+    return dayLabel(day, today: today);
+  }
+  return day.year == today.year ? formatDayMonth(day) : formatDate(day);
 }
 
 class _HistoryList extends StatelessWidget {
@@ -81,21 +258,26 @@ class _HistoryList extends StatelessWidget {
     required this.transactions,
     required this.categoriesById,
     required this.today,
+    required this.byAmount,
     required this.onTransactionTap,
   });
 
   final List<Transaction> transactions;
   final Map<String, Category> categoriesById;
   final DateOnly today;
+
+  /// Сортировка по сумме: без заголовков дней, день — во второй строке.
+  final bool byAmount;
   final ValueChanged<Transaction> onTransactionTap;
 
   @override
   Widget build(BuildContext context) {
     // Плоский список: заголовок дня (DateOnly) и строки операций (Transaction).
+    // Заголовки идут в порядке списка (при «Сначала старые» — по возрастанию).
     final items = <Object>[];
     DateOnly? currentDay;
     for (final t in transactions) {
-      if (t.occurredOn != currentDay) {
+      if (!byAmount && t.occurredOn != currentDay) {
         currentDay = t.occurredOn;
         items.add(t.occurredOn);
       }
@@ -119,7 +301,10 @@ class _HistoryList extends StatelessWidget {
           transaction: t,
           title: _title(category, subcategory),
           iconKey: category?.iconKey,
-          dayText: historyDayLabel(t.occurredOn, today: today),
+          dayText: byAmount
+              ? _shortDayLabel(t.occurredOn, today)
+              : historyDayLabel(t.occurredOn, today: today),
+          showDay: byAmount,
           onTap: () => onTransactionTap(t),
         );
       },
@@ -163,11 +348,15 @@ class _TransactionTile extends StatelessWidget {
     required this.title,
     required this.iconKey,
     required this.dayText,
+    required this.showDay,
     required this.onTap,
   });
 
   final Transaction transaction;
   final String title;
+
+  /// Показать день во второй строке («30 сентября · комментарий»).
+  final bool showDay;
 
   /// Ключ иконки категории; `null` — категории нет, берётся запасная иконка.
   final String? iconKey;
@@ -236,9 +425,11 @@ class _TransactionTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge,
                       ),
-                      if (note != null)
+                      if (note != null || showDay)
                         Text(
-                          note,
+                          showDay
+                              ? (note == null ? dayText : '$dayText · $note')
+                              : note!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -276,13 +467,23 @@ class _TransactionTile extends StatelessWidget {
   }
 }
 
-/// Пустое состояние: спросили базу, и операций в ней нет.
+/// Пустое состояние: спросили базу, и операций нет. Либо их нет вообще, либо
+/// пуст только выбранный [month].
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.hasAnyTransactions, required this.month});
+
+  final bool hasAnyTransactions;
+  final DateOnly month;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final title = hasAnyTransactions
+        ? 'За ${formatMonthName(month)} ${month.year} операций нет'
+        : 'Операций пока нет';
+    final hint = hasAnyTransactions
+        ? 'Выберите другой месяц стрелками вверху'
+        : 'Добавьте расход или доход на вкладке «Главная»';
     // Прокрутка на случай крупного шрифта на маленьком экране.
     return Center(
       child: SingleChildScrollView(
@@ -291,17 +492,208 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Операций пока нет',
+              title,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Добавьте расход или доход на вкладке «Главная»',
+              hint,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Полоска «Фильтр: Расходы · Продукты» с кнопкой «Сбросить». Подпись
+/// переносится на несколько строк, кнопка остаётся не ниже 48 dp.
+class _FilterStrip extends StatelessWidget {
+  const _FilterStrip({required this.label, required this.onReset});
+
+  final String label;
+  final VoidCallback? onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 8),
+      // Wrap, а не Row: при крупном шрифте кнопка уходит под подпись, а не
+      // сжимает её до слова по буквам.
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Semantics(
+            label: 'Сбросить фильтр',
+            button: true,
+            excludeSemantics: true,
+            onTap: onReset,
+            child: TextButton(
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: onReset,
+              child: const Text('Сбросить'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const _sortLabels = {
+  HistorySort.newestFirst: 'Сначала новые',
+  HistorySort.oldestFirst: 'Сначала старые',
+  HistorySort.largestFirst: 'Сначала крупные',
+  HistorySort.smallestFirst: 'Сначала мелкие',
+};
+
+/// Строка над списком: слева кнопка «Фильтр» (с точкой, если фильтр включён),
+/// справа кнопка текущего порядка с меню из четырёх вариантов (если [showSort]).
+class _ListBar extends StatelessWidget {
+  const _ListBar({
+    required this.filterSpoken,
+    required this.filterActive,
+    required this.onFilterPressed,
+    required this.showSort,
+    required this.sort,
+    required this.onSortChanged,
+  });
+
+  final String filterSpoken;
+  final bool filterActive;
+  final VoidCallback? onFilterPressed;
+  final bool showSort;
+  final HistorySort sort;
+  final ValueChanged<HistorySort>? onSortChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      // Wrap: при крупном шрифте кнопки переносятся, а не переполняют строку.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Semantics(
+            label: filterSpoken,
+            button: true,
+            excludeSemantics: true,
+            onTap: onFilterPressed,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: onFilterPressed,
+              icon: Badge(
+                isLabelVisible: filterActive,
+                smallSize: 8,
+                child: const Icon(Icons.filter_list, size: 20),
+              ),
+              label: const Text('Фильтр'),
+            ),
+          ),
+          if (showSort) _SortButton(sort: sort, onChanged: onSortChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _SortButton extends StatelessWidget {
+  const _SortButton({required this.sort, required this.onChanged});
+
+  final HistorySort sort;
+  final ValueChanged<HistorySort>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = _sortLabels[sort]!;
+    return MenuAnchor(
+      menuChildren: [
+        for (final option in HistorySort.values)
+          MergeSemantics(
+            child: Semantics(
+              selected: option == sort,
+              child: MenuItemButton(
+                style: MenuItemButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                ),
+                trailingIcon: option == sort
+                    ? const Icon(Icons.check, size: 20)
+                    : null,
+                onPressed: onChanged == null ? null : () => onChanged!(option),
+                child: Text(_sortLabels[option]!),
+              ),
+            ),
+          ),
+      ],
+      builder: (context, controller, _) => Semantics(
+        label: 'Сортировка: ${current.toLowerCase()}',
+        button: true,
+        excludeSemantics: true,
+        onTap: () => controller.isOpen ? controller.close() : controller.open(),
+        child: TextButton.icon(
+          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+          icon: const Icon(Icons.swap_vert, size: 20),
+          label: Text(current),
+        ),
+      ),
+    );
+  }
+}
+
+/// В месяце операции есть, но под фильтр не подходит ни одна.
+class _NothingFound extends StatelessWidget {
+  const _NothingFound({required this.month, required this.onReset});
+
+  final DateOnly month;
+  final VoidCallback? onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Ничего не найдено',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'За ${formatMonthName(month)} ${month.year} нет операций, '
+              'подходящих под фильтр',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: onReset,
+              child: const Text('Сбросить фильтр'),
             ),
           ],
         ),

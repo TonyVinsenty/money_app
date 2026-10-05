@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
+import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -108,42 +109,38 @@ class HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<HomeTab> {
   TransactionsRepository? _repository;
-  Clock? _clock;
-  late DateOnly _month;
+  DateRange? _month;
   late Stream<Money> _monthExpenses;
   late Stream<Money> _monthIncome;
   late Stream<List<Transaction>> _monthTransactions;
   CategoriesRepository? _categoriesRepository;
   late Stream<List<Category>> _categories;
 
-  // Поток создаём один раз (и заново только при смене репозитория или часов):
-  // если создавать его в build, каждая перерисовка начинала бы подписку заново
-  // и итог мигал бы.
+  // Потоки создаём один раз (и заново только при смене репозитория или
+  // выбранного месяца): если создавать их в build, каждая перерисовка начинала
+  // бы подписку заново и итог мигал бы. didChangeDependencies вызывается и при
+  // смене фильтра «Истории» (BrowseScope уведомляет обо всём), но месяц тогда
+  // тот же, и потоки остаются прежними.
   //
-  // Месяц берётся по часам в момент создания потока. Если приложение остаётся
-  // открытым через полночь границы месяца, итог не переключится сам до
-  // следующего пересоздания вкладки: полночь при открытом экране осознанно не
-  // отслеживаем (редкий случай, усложнение не оправдано).
+  // Месяц выбирает BrowseController, «сегодня» он берёт из часов один раз при
+  // создании: полночь при открытом экране осознанно не отслеживаем.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final services = AppScope.of(context);
-    if (!identical(services.transactions, _repository) ||
-        !identical(services.clock, _clock)) {
+    final month = BrowseScope.of(context).month;
+    if (!identical(services.transactions, _repository) || month != _month) {
       _repository = services.transactions;
-      _clock = services.clock;
-      _month = services.clock.today();
+      _month = month;
       _monthExpenses = services.transactions.watchTotal(
         type: TransactionType.expense,
-        period: monthRange(_month),
+        period: month,
       );
       _monthIncome = services.transactions.watchTotal(
         type: TransactionType.income,
-        period: monthRange(_month),
+        period: month,
       );
-      _monthTransactions = services.transactions.watchInPeriod(
-        monthRange(_month),
-      );
+      _monthTransactions = services.transactions.watchInPeriod(month);
     }
     if (!identical(services.categories, _categoriesRepository)) {
       _categoriesRepository = services.categories;
@@ -153,19 +150,24 @@ class _HomeTabState extends State<HomeTab> {
 
   @override
   Widget build(BuildContext context) {
+    final browse = BrowseScope.of(context);
+    final month = _month!;
     return HomeScreen(
       monthExpenses: _monthExpenses,
       monthIncome: _monthIncome,
       monthTransactions: _monthTransactions,
       categories: _categories,
-      month: _month,
+      month: month.start,
+      isCurrentMonth: month == monthRange(browse.today),
+      onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,
+      onNextMonth: browse.canGoForward ? browse.nextMonth : null,
       // Потоки месяца и категорий общие с экраном категории: drift отдаёт их
       // нескольким слушателям, новые запросы не создаются.
       onOpenCategory: (category) => Navigator.of(context).pushNamed(
         AppRoutes.analyticsCategory,
         arguments: CategoryBreakdownRouteArguments(
           category: category,
-          period: currentPeriod(PeriodKind.month, _month),
+          period: AnalyticsPeriod(PeriodKind.month, month),
           transactions: _monthTransactions,
           categories: _categories,
         ),
@@ -199,11 +201,6 @@ class HomeActions extends StatelessWidget {
   }
 }
 
-/// Сколько последних операций показывает «История». Постраничной подгрузки
-/// пока нет, поэтому предел большой: список строится лениво (по мере
-/// прокрутки), и 500 строк ему не тяжелы.
-const int historyLimit = 500;
-
 /// Вкладка «История»: даёт экрану фичи `transactions` потоки из репозиториев.
 /// Сам `HistoryScreen` репозиториев не знает (ADR 0002).
 class HistoryTab extends StatefulWidget {
@@ -217,12 +214,15 @@ class _HistoryTabState extends State<HistoryTab> {
   TransactionsRepository? _transactionsRepository;
   CategoriesRepository? _categoriesRepository;
   Clock? _clock;
+  DateRange? _month;
   late DateOnly _today;
   late Stream<List<Transaction>> _transactions;
   late Stream<List<Category>> _categories;
 
-  // Потоки создаём один раз (и заново только при смене сервисов): в build
-  // каждая перерисовка начинала бы подписку заново, и список мигал бы.
+  // Потоки создаём один раз (и заново только при смене сервисов или выбранного
+  // месяца): в build каждая перерисовка начинала бы подписку заново, и список
+  // мигал бы. didChangeDependencies вызывается и при смене фильтра (BrowseScope
+  // уведомляет обо всём), но месяц тогда тот же, и поток остаётся прежним.
   //
   // «Сегодня» берётся по часам в момент создания. Если приложение открыто через
   // полночь, заголовки «Сегодня»/«Вчера» обновятся, только когда вкладка
@@ -231,14 +231,18 @@ class _HistoryTabState extends State<HistoryTab> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final services = AppScope.of(context);
+    final month = BrowseScope.of(context).month;
     if (!identical(services.transactions, _transactionsRepository) ||
         !identical(services.categories, _categoriesRepository) ||
-        !identical(services.clock, _clock)) {
+        !identical(services.clock, _clock) ||
+        month != _month) {
       _transactionsRepository = services.transactions;
       _categoriesRepository = services.categories;
       _clock = services.clock;
+      _month = month;
       _today = services.clock.today();
-      _transactions = services.transactions.watchRecent(limit: historyLimit);
+      // Фильтр и порядок применяет сам экран: поток от них не зависит.
+      _transactions = services.transactions.watchInPeriod(month);
       _categories = services.categories.watchAll();
     }
   }
@@ -247,10 +251,20 @@ class _HistoryTabState extends State<HistoryTab> {
   Widget build(BuildContext context) {
     // Сервисы берём здесь, под AppScope: открытый маршрут AppScope не видит.
     final services = AppScope.of(context);
+    final browse = BrowseScope.of(context);
     return HistoryScreen(
       transactions: _transactions,
       categories: _categories,
       today: _today,
+      month: _month!.start,
+      hasAnyTransactions: browse.firstDay != null,
+      filter: browse.historyFilter,
+      sort: browse.historySort,
+      onResetFilter: browse.resetHistoryFilter,
+      onSortChanged: browse.setHistorySort,
+      onFilterChanged: browse.setHistoryFilter,
+      onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,
+      onNextMonth: browse.canGoForward ? browse.nextMonth : null,
       onTransactionTap: (transaction) => Navigator.of(context).pushNamed(
         AppRoutes.editTransaction,
         arguments: EditTransactionRouteArguments(

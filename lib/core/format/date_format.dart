@@ -19,6 +19,11 @@ String formatWeekdayDayMonth(DateOnly date) =>
 String formatWeekdayFullDate(DateOnly date) =>
     DateFormat.yMMMMEEEEd('ru').format(date.toDateTime());
 
+/// Число и месяц без года и дня недели: «30 сентября». Требует
+/// `initializeDateFormatting('ru')`.
+String formatDayMonth(DateOnly date) =>
+    DateFormat('d MMMM', 'ru').format(date.toDateTime());
+
 /// Месяц и год по-русски, например «сентябрь 2026 г.» (месяц в именительном
 /// падеже). Требует того же `initializeDateFormatting('ru')`, что и
 /// [formatDate].
@@ -30,3 +35,10 @@ String formatMonthYear(DateOnly date) =>
 /// `MMMM` — «сентября». Требует `initializeDateFormatting('ru')`.
 String formatMonthName(DateOnly date) =>
     DateFormat.LLLL('ru').format(date.toDateTime());
+
+/// Подпись переключателя месяца: «Сентябрь 2026» (с большой буквы, без «г.»).
+/// Требует `initializeDateFormatting('ru')`.
+String formatMonthTitle(DateOnly date) {
+  final name = formatMonthName(date);
+  return '${name[0].toUpperCase()}${name.substring(1)} ${date.year}';
+}

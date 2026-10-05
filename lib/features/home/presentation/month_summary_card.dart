@@ -6,6 +6,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -35,10 +36,12 @@ double estimateSummaryHeight(double contentWidth, double textScale) {
   final columns = inRow
       ? rowColumn * textScale
       : 2 * stackedColumn * textScale + 25;
-  return 2 * _cardPadding + 22 * textScale + 12 + columns;
+  // Заголовок — переключатель месяца: стрелки 48 dp, но не ниже подписи.
+  final header = 48 > 22 * textScale ? 48.0 : 22 * textScale;
+  return 2 * _cardPadding + header + 4 + columns;
 }
 
-/// Одна компактная карточка итогов за месяц: заголовок «Октябрь 2026», под ним
+/// Одна компактная карточка итогов за месяц: заголовок-переключатель «‹ Октябрь 2026 ›», под ним
 /// две колонки через тонкий разделитель — «Расходы» и «Доходы».
 ///
 /// Подписи нейтральные: цвет и знак («минус» или «+») есть только у суммы.
@@ -52,8 +55,14 @@ class MonthSummaryCard extends StatelessWidget {
     required this.expenses,
     required this.income,
     required this.month,
+    this.onPreviousMonth,
+    this.onNextMonth,
     super.key,
   });
+
+  /// Стрелки «‹» и «›» заголовка; `null` — стрелка недоступна.
+  final VoidCallback? onPreviousMonth;
+  final VoidCallback? onNextMonth;
 
   /// Ключи колонок: на них опираются тесты и поиск по дереву.
   static const expenseKey = ValueKey('month-summary-expense');
@@ -81,7 +90,7 @@ class MonthSummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final name = formatMonthName(month);
-    final title = '${name[0].toUpperCase()}${name.substring(1)} ${month.year}';
+    final title = formatMonthTitle(month);
     final inRow = _fitsInRow(context);
 
     final expenseColumn = _SummaryColumn(
@@ -137,14 +146,14 @@ class MonthSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+            PeriodSwitcher(
+              label: title,
+              onPrevious: onPreviousMonth,
+              onNext: onNextMonth,
+              previousTooltip: 'Предыдущий месяц',
+              nextTooltip: 'Следующий месяц',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             columns,
           ],
         ),

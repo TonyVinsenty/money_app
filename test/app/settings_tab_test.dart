@@ -5,6 +5,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tabs.dart';
+import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
@@ -55,7 +56,7 @@ Future<AppSettingsController> _pump(WidgetTester tester) async {
             categories: categories,
             transactions: _TotalsOnlyRepository(),
           ),
-          child: AppShell(tabs: defaultAppTabs),
+          child: BrowseHost(child: AppShell(tabs: defaultAppTabs)),
         ),
       ),
     ),
