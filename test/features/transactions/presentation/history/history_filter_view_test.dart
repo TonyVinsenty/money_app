@@ -100,7 +100,7 @@ void main() {
     var resets = 0;
     await tester.pumpWidget(
       _app(
-        filter: const HistoryFilter.expenseCategories({'food'}),
+        filter: HistoryFilter.expenseCategories({'food'}),
         onReset: () => resets++,
       ),
     );
@@ -116,7 +116,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _app(filter: const HistoryFilter.expenseCategories({'food'})),
+      _app(filter: HistoryFilter.expenseCategories({'food'})),
     );
     await tester.pumpAndSettle();
     final button = tester.getTopLeft(find.widgetWithText(TextButton, 'Фильтр'));
@@ -132,7 +132,7 @@ void main() {
     var resets = 0;
     await tester.pumpWidget(
       _app(
-        filter: const HistoryFilter.expenseCategories({'nobody'}),
+        filter: HistoryFilter.expenseCategories({'nobody'}),
         onReset: () => resets++,
       ),
     );
@@ -185,7 +185,7 @@ void main() {
     await tester.pumpWidget(
       _app(
         textScale: 2,
-        filter: const HistoryFilter.expenseCategories({'food', 'cafe'}),
+        filter: HistoryFilter.expenseCategories({'food', 'cafe'}),
         onReset: () {},
       ),
     );

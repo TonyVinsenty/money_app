@@ -7,6 +7,7 @@ import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -296,7 +297,9 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   void _showError(ScaffoldMessengerState messenger, String text) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+      ..showSnackBar(
+        SnackBar(content: TapToDismissSnackContent(child: Text(text))),
+      );
   }
 
   @override

@@ -12,20 +12,32 @@ enum HistoryTypeFilter { all, income, expense }
 /// `null` — «все категории этого вида», пустой набор — «ни одной».
 /// Набор расходов не влияет на доходы и наоборот.
 final class HistoryFilter {
-  const HistoryFilter({
+  /// Наборы копируются в неизменяемые: правка исходного набора снаружи не
+  /// должна ломать `==` и `hashCode` (поэтому конструктор не `const`).
+  HistoryFilter({
     this.type = HistoryTypeFilter.all,
-    this.expenseCategoryIds,
-    this.incomeCategoryIds,
-  });
+    Set<String>? expenseCategoryIds,
+    Set<String>? incomeCategoryIds,
+  }) : expenseCategoryIds = _freeze(expenseCategoryIds),
+       incomeCategoryIds = _freeze(incomeCategoryIds);
 
   /// «Только расходы этих категорий».
-  const HistoryFilter.expenseCategories(Set<String> ids)
+  HistoryFilter.expenseCategories(Set<String> ids)
     : type = HistoryTypeFilter.expense,
-      expenseCategoryIds = ids,
+      expenseCategoryIds = _freeze(ids),
       incomeCategoryIds = null;
 
-  /// Фильтр выключен: показываем всё.
-  static const off = HistoryFilter();
+  const HistoryFilter._off()
+    : type = HistoryTypeFilter.all,
+      expenseCategoryIds = null,
+      incomeCategoryIds = null;
+
+  /// Фильтр выключен: показываем всё (константа, чтобы годиться в `const`
+  /// значения по умолчанию).
+  static const off = HistoryFilter._off();
+
+  static Set<String>? _freeze(Set<String>? ids) =>
+      ids == null ? null : Set.unmodifiable(ids);
 
   final HistoryTypeFilter type;
 

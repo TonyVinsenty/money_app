@@ -216,7 +216,7 @@ void main() {
     final initial = repo.watchCalls;
     expect(initial, 3);
 
-    _browse.setHistoryFilter(const HistoryFilter.expenseCategories({'food'}));
+    _browse.setHistoryFilter(HistoryFilter.expenseCategories({'food'}));
     await tester.pump();
     _browse.setHistorySort(HistorySort.largestFirst);
     await tester.pump();

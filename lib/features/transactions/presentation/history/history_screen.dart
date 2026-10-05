@@ -81,8 +81,9 @@ class HistoryScreen extends StatefulWidget {
   final DateOnly month;
 
   /// Есть ли в базе хоть одна операция (в любом месяце): от этого зависит
-  /// текст пустого состояния.
-  final bool hasAnyTransactions;
+  /// текст пустого состояния. `null` — ещё неизвестно (база не ответила):
+  /// пустой месяц тогда показывает загрузку, а не «Операций пока нет».
+  final bool? hasAnyTransactions;
 
   /// Тап по строке. Правку по нему подключает шаг 2.28.
   final ValueChanged<Transaction> onTransactionTap;
@@ -200,13 +201,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ],
             );
             if (data.transactions.isEmpty) {
+              final hasAny = widget.hasAnyTransactions;
+              if (hasAny == null) return const _HistorySkeleton();
               final empty = _EmptyState(
-                hasAnyTransactions: widget.hasAnyTransactions,
+                hasAnyTransactions: hasAny,
                 month: data.month,
               );
-              return widget.hasAnyTransactions
-                  ? withBar(empty, showSort: false)
-                  : empty;
+              return hasAny ? withBar(empty, showSort: false) : empty;
             }
             // Фильтр и порядок применяем к пришедшему списку: поток от смены
             // фильтра не пересоздаётся.
@@ -831,6 +832,7 @@ class _FilteredTotal extends StatelessWidget {
 
     return Semantics(
       label: spoken.toString(),
+      liveRegion: true,
       excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

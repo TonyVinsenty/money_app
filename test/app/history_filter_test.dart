@@ -123,14 +123,14 @@ void main() {
     final browse = _browse(tester);
 
     browse.setHistorySort(HistorySort.largestFirst);
-    browse.setHistoryFilter(const HistoryFilter.expenseCategories({'food'}));
+    browse.setHistoryFilter(HistoryFilter.expenseCategories({'food'}));
     await tester.pumpAndSettle();
     expect(find.text('Фильтр: Расходы · Продукты'), findsOneWidget);
     // По сумме: заголовков дней нет, день во второй строке.
     expect(find.text('Вчера · большая'), findsOneWidget);
     expect(find.text('Вчера'), findsNothing);
 
-    browse.setHistoryFilter(const HistoryFilter.expenseCategories({'zzz'}));
+    browse.setHistoryFilter(HistoryFilter.expenseCategories({'zzz'}));
     await tester.pumpAndSettle();
     expect(find.text('Ничего не найдено'), findsOneWidget);
     expect(find.text('Операций пока нет'), findsNothing);
@@ -147,9 +147,7 @@ void main() {
   testWidgets('кнопка «Сбросить» в полоске выключает фильтр', (tester) async {
     await _pumpHistory(tester);
     final browse = _browse(tester);
-    browse.setHistoryFilter(
-      const HistoryFilter(type: HistoryTypeFilter.income),
-    );
+    browse.setHistoryFilter(HistoryFilter(type: HistoryTypeFilter.income));
     await tester.pumpAndSettle();
     expect(find.text('Фильтр: Доходы'), findsOneWidget);
     expect(find.text('Ничего не найдено'), findsOneWidget);

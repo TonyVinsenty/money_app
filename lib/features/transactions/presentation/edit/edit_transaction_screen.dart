@@ -11,6 +11,7 @@ import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/date_chip.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -43,8 +44,13 @@ class EditTransactionScreen extends StatefulWidget {
     required this.clock,
     required this.categories,
     required this.transactions,
+    this.onSaved,
     super.key,
   });
+
+  /// Правка сохранена, операция теперь на этот день (удаление и «Назад» его
+  /// не вызывают; «Отменить» в сообщении месяц не возвращает).
+  final ValueChanged<DateOnly>? onSaved;
 
   /// Операция в том виде, в каком её показывала «История».
   final Transaction transaction;
@@ -416,6 +422,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         return;
       }
       await widget.transactions.update(edited);
+      widget.onSaved?.call(edited.occurredOn);
       // Если человек успел нажать «Назад», закрывать уже нечего (иначе `pop`
       // закрыл бы «Историю»). Сообщение при этом всё равно показываем.
       if (mounted) navigator.pop();
@@ -423,7 +430,9 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
-            content: Text(EditTransactionScreen.savedText),
+            content: TapToDismissSnackContent(
+              child: Text(EditTransactionScreen.savedText),
+            ),
             duration: EditTransactionScreen.savedDuration,
           ),
         );
@@ -492,7 +501,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     messenger.hideCurrentSnackBar();
     if (alreadyGone) {
       messenger.showSnackBar(
-        const SnackBar(content: Text(EditTransactionScreen.alreadyDeletedText)),
+        const SnackBar(
+          content: TapToDismissSnackContent(
+            child: Text(EditTransactionScreen.alreadyDeletedText),
+          ),
+        ),
       );
       return;
     }
@@ -523,7 +536,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(content: Text(SavedSnackBar.undoFailedText)),
+          const SnackBar(
+            content: TapToDismissSnackContent(
+              child: Text(SavedSnackBar.undoFailedText),
+            ),
+          ),
         );
     }
   }

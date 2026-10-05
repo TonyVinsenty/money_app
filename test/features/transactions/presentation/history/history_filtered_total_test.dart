@@ -114,7 +114,7 @@ void main() {
   testWidgets('только расходы: сумма равна totalsByCategory, цвет расхода', (
     tester,
   ) async {
-    await _pump(tester, const HistoryFilter.expenseCategories({'food'}));
+    await _pump(tester, HistoryFilter.expenseCategories({'food'}));
     final amount = '$_minus${formatMoney(foodTotal)}';
     final plain = '2 операции \u00b7 $amount';
     expect(foodTotal, _m(1842050));
@@ -123,7 +123,7 @@ void main() {
   });
 
   testWidgets('только доходы: плюс и цвет дохода', (tester) async {
-    await _pump(tester, const HistoryFilter(type: HistoryTypeFilter.income));
+    await _pump(tester, HistoryFilter(type: HistoryTypeFilter.income));
     final amount = '+${formatMoney(_m(500000))}';
     final plain = '1 операция \u00b7 $amount';
     expect(_rich(plain), findsOneWidget);
@@ -131,7 +131,7 @@ void main() {
   });
 
   testWidgets('смешанные типы: обе суммы со знаками и цветами', (tester) async {
-    await _pump(tester, const HistoryFilter(expenseCategoryIds: {'food'}));
+    await _pump(tester, HistoryFilter(expenseCategoryIds: {'food'}));
     final expense = '$_minus${formatMoney(_m(1842050))}';
     final income = '+${formatMoney(_m(500000))}';
     final plain = '3 операции \u00b7 расходы $expense \u00b7 доходы $income';
@@ -146,19 +146,19 @@ void main() {
     await _pump(tester, HistoryFilter.off);
     expect(_totalLine, findsNothing);
 
-    await _pump(tester, const HistoryFilter.expenseCategories({'zzz'}));
+    await _pump(tester, HistoryFilter.expenseCategories({'zzz'}));
     expect(find.text('Ничего не найдено'), findsOneWidget);
     expect(_totalLine, findsNothing);
   });
 
   testWidgets('озвучка суммами словами', (tester) async {
     final handle = tester.ensureSemantics();
-    await _pump(tester, const HistoryFilter.expenseCategories({'food'}));
+    await _pump(tester, HistoryFilter.expenseCategories({'food'}));
     expect(
       find.bySemanticsLabel('2 операции, минус 18420 рублей 50 копеек'),
       findsOneWidget,
     );
-    await _pump(tester, const HistoryFilter(expenseCategoryIds: {'food'}));
+    await _pump(tester, HistoryFilter(expenseCategoryIds: {'food'}));
     expect(
       find.bySemanticsLabel(
         '3 операции, расходы минус 18420 рублей 50 копеек, '
@@ -172,7 +172,7 @@ void main() {
   testWidgets('шрифт 200 %: без переполнения', (tester) async {
     await _pump(
       tester,
-      const HistoryFilter(expenseCategoryIds: {'food'}),
+      HistoryFilter(expenseCategoryIds: {'food'}),
       textScale: 2,
     );
     expect(tester.takeException(), isNull);

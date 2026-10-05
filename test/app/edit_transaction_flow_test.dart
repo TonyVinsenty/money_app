@@ -165,6 +165,55 @@ void main() {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = false;
   });
 
+  DateOnly shownMonth(WidgetTester tester) => BrowseScope.of(
+    tester.element(find.byType(NavigationBar, skipOffstage: false)),
+  ).month.start;
+
+  testWidgets('перенос в август: «История» показывает август и операцию', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    await _openEdit(tester);
+    expect(shownMonth(tester), DateOnly(2026, 9, 1));
+    await tester.tap(find.byType(DateChip));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Предыдущий месяц'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('31'));
+    await tester.tap(find.text('ОК'));
+    await tester.pumpAndSettle();
+    await _save(tester);
+
+    expect((await _row()).occurredOn, DateOnly(2026, 8, 31));
+    expect(shownMonth(tester), DateOnly(2026, 8, 1));
+    expect(find.text('молоко'), findsOneWidget);
+    await _finish(tester);
+  });
+
+  testWidgets('правка без смены месяца: месяц прежний', (tester) async {
+    await _pumpApp(tester);
+    await _openEdit(tester);
+    await tester.tap(find.byType(DateChip));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('19'));
+    await tester.tap(find.text('ОК'));
+    await tester.pumpAndSettle();
+    await _save(tester);
+
+    expect(shownMonth(tester), DateOnly(2026, 9, 1));
+    expect(find.text('молоко'), findsOneWidget);
+    await _finish(tester);
+  });
+
+  testWidgets('удаление не меняет месяц', (tester) async {
+    await _pumpApp(tester);
+    await _openEdit(tester);
+    await _delete(tester);
+
+    expect(shownMonth(tester), DateOnly(2026, 9, 1));
+    await _finish(tester);
+  });
+
   testWidgets('экран заполнен текущими значениями, тип виден словом и знаком', (
     tester,
   ) async {
@@ -252,6 +301,21 @@ void main() {
       await _finish(tester);
     },
   );
+
+  testWidgets('касание сообщения «Изменения сохранены» закрывает его', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    await _openEdit(tester);
+    await tester.enterText(_amountInput, '10');
+    await _save(tester);
+
+    await tester.tap(find.text('Изменения сохранены'));
+    await tester.pumpAndSettle();
+    expect(find.text('Изменения сохранены'), findsNothing);
+    expect((await _row()).amountMinor, 1000);
+    await _finish(tester);
+  });
 
   testWidgets('сообщение о сохранении исчезает само через 4 секунды', (
     tester,
@@ -519,6 +583,20 @@ void main() {
         find.text('$_minus${formatMoney(Money.fromMinor(35000, 'RUB'))}'),
         findsOneWidget,
       );
+      await _finish(tester);
+    });
+
+    testWidgets('касание сообщения закрывает его, запись остаётся удалённой', (
+      tester,
+    ) async {
+      await _pumpApp(tester);
+      await _openEdit(tester);
+      await _delete(tester);
+
+      await tester.tap(find.text('Операция удалена'));
+      await tester.pumpAndSettle();
+      expect(find.text('Операция удалена'), findsNothing);
+      expect((await _row()).deletedAt, isNotNull);
       await _finish(tester);
     });
 

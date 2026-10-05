@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
@@ -91,7 +92,9 @@ mixin CategoryActions<T extends StatefulWidget> on State<T> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(archivedMessage(category.name)),
+          content: TapToDismissSnackContent(
+            child: Text(archivedMessage(category.name)),
+          ),
           duration: categoriesArchivedDuration,
           persist: false,
           action: SnackBarAction(
@@ -120,6 +123,8 @@ mixin CategoryActions<T extends StatefulWidget> on State<T> {
   void _showError(ScaffoldMessengerState messenger, String text) {
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+      ..showSnackBar(
+        SnackBar(content: TapToDismissSnackContent(child: Text(text))),
+      );
   }
 }

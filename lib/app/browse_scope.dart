@@ -59,19 +59,32 @@ class _BrowseHostState extends State<BrowseHost> {
   BrowseController? _controller;
   AppServices? _services;
   StreamSubscription<DateOnly?>? _subscription;
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(
+      onResume: () {
+        final services = _services;
+        if (services != null) _controller?.updateToday(services.clock.today());
+      },
+    );
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final services = AppScope.of(context);
-    // «Сегодня» берётся из Clock один раз, при создании контроллера.
+    // Начальное «сегодня» из Clock; дальше его обновляет onResume.
     _controller ??= BrowseController(today: services.clock.today());
     if (!identical(services.transactions, _services?.transactions)) {
       _subscription?.cancel();
-      // Ошибку чтения игнорируем: остаётся прежний день первой операции.
+      // Ошибку чтения не показываем: остаётся прежний день первой операции,
+      // но «неизвестно» снимаем, чтобы экран не застрял на загрузке.
       _subscription = services.transactions.watchFirstDay().listen(
         _controller!.updateFirstDay,
-        onError: (Object _) {},
+        onError: (Object _) => _controller!.markFirstDayKnown(),
       );
     }
     _services = services;
@@ -79,6 +92,7 @@ class _BrowseHostState extends State<BrowseHost> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _subscription?.cancel();
     _controller?.dispose();
     _selectedTab.dispose();

@@ -11,10 +11,13 @@ import 'package:money_app/features/transactions/domain/history_view.dart';
 /// (его читает хост из `Clock`). Слушатели уведомляются один раз на
 /// настоящее изменение и ни разу на «пустое» действие.
 class BrowseController extends ChangeNotifier {
-  BrowseController({required this.today}) : _month = monthRange(today);
+  BrowseController({required DateOnly today})
+    : _today = today,
+      _month = monthRange(today);
 
-  /// Сегодняшний день на момент создания контроллера.
-  final DateOnly today;
+  /// Сегодняшний день; обновляется через [updateToday].
+  DateOnly get today => _today;
+  DateOnly _today;
 
   DateRange _month;
   DateOnly? _firstDay;
@@ -26,6 +29,11 @@ class BrowseController extends ChangeNotifier {
 
   /// День самой ранней «живой» операции; `null` — операций нет.
   DateOnly? get firstDay => _firstDay;
+
+  /// Пришёл ли уже ответ про первый день (в том числе `null` — «операций
+  /// нет»). До него `firstDay == null` значит «ещё неизвестно».
+  bool get firstDayKnown => _firstDayKnown;
+  bool _firstDayKnown = false;
 
   HistoryFilter get historyFilter => _historyFilter;
   HistorySort get historySort => _historySort;
@@ -58,11 +66,31 @@ class BrowseController extends ChangeNotifier {
     _setMonth(monthRange(day > today ? today : day));
   }
 
+  /// Новое «сегодня» (приложение пережило полночь). Если выбран был старый
+  /// текущий месяц, переходим на новый текущий; прошлый месяц не трогаем.
+  /// Слушатели уведомляются один раз, а при том же дне ни разу.
+  void updateToday(DateOnly day) {
+    if (day == _today) return;
+    final wasCurrent = _month == monthRange(_today);
+    _today = day;
+    if (wasCurrent) _month = monthRange(day);
+    notifyListeners();
+  }
+
   /// Новый день первой операции. Выбранный месяц не двигается, даже если
   /// оказался раньше (самую раннюю удалили): просто [canGoBack] станет false.
   void updateFirstDay(DateOnly? day) {
-    if (day == _firstDay) return;
+    if (_firstDayKnown && day == _firstDay) return;
+    _firstDayKnown = true;
     _firstDay = day;
+    notifyListeners();
+  }
+
+  /// Чтение первого дня не удалось: «неизвестно» не должно висеть вечно
+  /// (экран перестанет показывать загрузку, день остаётся прежним).
+  void markFirstDayKnown() {
+    if (_firstDayKnown) return;
+    _firstDayKnown = true;
     notifyListeners();
   }
 

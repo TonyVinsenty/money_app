@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 
 /// Подпись индикатора загрузки для программ экранного чтения.
 const databaseLoadingLabel = 'Загрузка';
@@ -341,7 +342,9 @@ class _DatabaseErrorView extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     await Clipboard.setData(ClipboardData(text: _details));
     messenger.showSnackBar(
-      const SnackBar(content: Text(databaseCopiedMessage)),
+      const SnackBar(
+        content: TapToDismissSnackContent(child: Text(databaseCopiedMessage)),
+      ),
     );
   }
 

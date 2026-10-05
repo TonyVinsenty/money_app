@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
 /// Подписи вариантов темы.
@@ -62,9 +63,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         path = await widget.onExportCsv();
       } on Exception {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text(exportCsvFailedMessage)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: TapToDismissSnackContent(
+                child: Text(exportCsvFailedMessage),
+              ),
+            ),
+          );
         }
         return;
       }

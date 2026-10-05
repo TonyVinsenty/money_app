@@ -292,6 +292,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('касание сообщения об архиве закрывает его, архив остаётся', (
+    tester,
+  ) async {
+    final repository = await _pump(tester, _fixture());
+
+    await tester.tap(_button('bread'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Подкатегория «Хлеб» в архиве'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SnackBar), findsNothing);
+    expect(repository.all.firstWhere((c) => c.id == 'bread').isArchived, true);
+  });
+
   testWidgets('сообщение об архиве исчезает через 6 секунд', (tester) async {
     await _pump(tester, _fixture());
 

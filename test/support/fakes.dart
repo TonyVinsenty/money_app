@@ -194,6 +194,10 @@ class FakeTransactionsRepository extends Fake
     implements TransactionsRepository {
   DateOnly? firstDay;
 
+  /// `false` — подписка молчит, пока тест не вызовет [setFirstDay] или
+  /// [failFirstDay] (имитация «база ещё не ответила»).
+  bool answerFirstDayOnListen = true;
+
   /// Сколько подписок на `watchFirstDay` сейчас активно.
   int firstDayListeners = 0;
 
@@ -221,7 +225,7 @@ class FakeTransactionsRepository extends Fake
       onListen: () {
         firstDayListeners++;
         _firstDayControllers.add(controller);
-        controller.add(firstDay);
+        if (answerFirstDayOnListen) controller.add(firstDay);
       },
       onCancel: () {
         firstDayListeners--;
@@ -241,12 +245,13 @@ AppServices fakeAppServices({
   required AppSettingsController settings,
   CategoriesRepository? categories,
   TransactionsRepository? transactions,
+  FixedClock? clock,
 }) {
   return AppServices(
     categories: categories ?? FakeCategoriesRepository(),
     transactions: transactions ?? FakeTransactionsRepository(),
     settings: settings,
-    clock: FixedClock(DateTime.utc(2026, 9, 20, 12)),
+    clock: clock ?? FixedClock(DateTime.utc(2026, 9, 20, 12)),
     idGenerator: FakeIdGenerator(),
   );
 }

@@ -71,6 +71,7 @@ Widget _app({
   ValueChanged<Transaction>? onTap,
   double textScale = 1,
   ThemeMode mode = ThemeMode.light,
+  bool? hasAny = false,
 }) {
   return MaterialApp(
     theme: AppTheme.light(),
@@ -87,7 +88,7 @@ Widget _app({
         categories: categories ?? Stream.value(_categories),
         today: _today,
         month: _today,
-        hasAnyTransactions: false,
+        hasAnyTransactions: hasAny,
         onTransactionTap: onTap ?? (_) {},
       ),
     ),
@@ -100,6 +101,31 @@ Color? _colorOf(WidgetTester tester, String text) =>
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('ru');
+  });
+
+  testWidgets('месяц пуст, firstDay неизвестен: загрузка, не «Операций нет»', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app(transactions: Stream.value([]), hasAny: null));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.bySemanticsLabel('Загрузка операций'), findsOneWidget);
+  });
+
+  testWidgets('firstDay ответил null: «Операций пока нет»', (tester) async {
+    await tester.pumpWidget(_app(transactions: Stream.value([]), hasAny: null));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Операций пока нет'), findsNothing);
+
+    await tester.pumpWidget(
+      _app(transactions: Stream.value([]), hasAny: false),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Операций пока нет'), findsOneWidget);
   });
 
   testWidgets('новые сверху, заголовки дней: Сегодня, Вчера, дата', (

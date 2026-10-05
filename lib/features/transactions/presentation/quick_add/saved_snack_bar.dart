@@ -3,6 +3,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Подписи и сборка сообщений после сохранения операции.
@@ -53,10 +54,12 @@ abstract final class SavedSnackBar {
     TextScaler textScaler = TextScaler.noScaling,
   }) {
     return SnackBar(
-      content: Semantics(
-        label: spokenText,
-        excludeSemantics: true,
-        child: Text(text),
+      content: TapToDismissSnackContent(
+        child: Semantics(
+          label: spokenText,
+          excludeSemantics: true,
+          child: Text(text),
+        ),
       ),
       duration: duration,
       persist: false,

@@ -194,7 +194,7 @@ void main() {
   testWidgets('в пустом результате кнопки порядка нет', (tester) async {
     await _pump(tester);
     _browse(tester)
-        .setHistoryFilter(const HistoryFilter(type: HistoryTypeFilter.income));
+        .setHistoryFilter(HistoryFilter(type: HistoryTypeFilter.income));
     await tester.pumpAndSettle();
     expect(find.text('Ничего не найдено'), findsOneWidget);
     expect(find.text('Сначала новые'), findsNothing);

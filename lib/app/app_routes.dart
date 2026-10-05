@@ -145,7 +145,11 @@ final class EditTransactionRouteArguments {
     required this.clock,
     required this.categories,
     required this.transactions,
+    this.onSaved,
   });
+
+  /// Правка сохранена; операция теперь на этом дне.
+  final ValueChanged<DateOnly>? onSaved;
 
   final Transaction transaction;
   final Clock clock;
@@ -209,6 +213,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           clock: arguments.clock,
           categories: arguments.categories,
           transactions: arguments.transactions,
+          onSaved: arguments.onSaved,
         ),
       );
     case AppRoutes.categories:

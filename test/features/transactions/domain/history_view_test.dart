@@ -38,36 +38,41 @@ const _income = TransactionType.income;
 
 void main() {
   group('HistoryFilter', () {
+    test('копирует наборы: правка исходного ничего не меняет', () {
+      final ids = {'a'};
+      final filter = HistoryFilter(expenseCategoryIds: ids);
+      final hash = filter.hashCode;
+      ids.add('b');
+      expect(filter.expenseCategoryIds, {'a'});
+      expect(filter, HistoryFilter(expenseCategoryIds: {'a'}));
+      expect(filter.hashCode, hash);
+      expect(() => filter.expenseCategoryIds!.add('c'), throwsUnsupportedError);
+    });
+
     test('off не активен, любой тип или набор включает фильтр', () {
       expect(HistoryFilter.off.isActive, isFalse);
+      expect(HistoryFilter(type: HistoryTypeFilter.income).isActive, isTrue);
+      expect(HistoryFilter(expenseCategoryIds: {}).isActive, isTrue);
+      expect(HistoryFilter(incomeCategoryIds: {'x'}).isActive, isTrue);
       expect(
-        const HistoryFilter(type: HistoryTypeFilter.income).isActive,
-        isTrue,
-      );
-      expect(const HistoryFilter(expenseCategoryIds: {}).isActive, isTrue);
-      expect(const HistoryFilter(incomeCategoryIds: {'x'}).isActive, isTrue);
-      expect(
-        const HistoryFilter.expenseCategories({'a'}).type,
+        HistoryFilter.expenseCategories({'a'}).type,
         HistoryTypeFilter.expense,
       );
     });
 
     test('равенство сравнивает наборы по содержимому, null != пустой', () {
       expect(
-        const HistoryFilter(expenseCategoryIds: {'a', 'b'}),
+        HistoryFilter(expenseCategoryIds: {'a', 'b'}),
         HistoryFilter(expenseCategoryIds: {'b', 'a'}),
       );
       expect(
-        const HistoryFilter(expenseCategoryIds: {'a', 'b'}).hashCode,
+        HistoryFilter(expenseCategoryIds: {'a', 'b'}).hashCode,
         HistoryFilter(expenseCategoryIds: {'b', 'a'}).hashCode,
       );
+      expect(HistoryFilter(expenseCategoryIds: {}), isNot(HistoryFilter.off));
       expect(
-        const HistoryFilter(expenseCategoryIds: {}),
-        isNot(HistoryFilter.off),
-      );
-      expect(
-        const HistoryFilter(expenseCategoryIds: {'a'}),
-        isNot(const HistoryFilter(incomeCategoryIds: {'a'})),
+        HistoryFilter(expenseCategoryIds: {'a'}),
+        isNot(HistoryFilter(incomeCategoryIds: {'a'})),
       );
     });
   });
@@ -85,11 +90,8 @@ void main() {
 
     test('каждый тип', () {
       expect(run(HistoryFilter.off), {'e1', 'e2', 'e3', 'i1', 'i2'});
-      expect(run(const HistoryFilter(type: HistoryTypeFilter.income)), {
-        'i1',
-        'i2',
-      });
-      expect(run(const HistoryFilter(type: HistoryTypeFilter.expense)), {
+      expect(run(HistoryFilter(type: HistoryTypeFilter.income)), {'i1', 'i2'});
+      expect(run(HistoryFilter(type: HistoryTypeFilter.expense)), {
         'e1',
         'e2',
         'e3',
@@ -97,10 +99,10 @@ void main() {
     });
 
     test('null — все категории вида, пустой набор — ни одной', () {
-      expect(run(const HistoryFilter(expenseCategoryIds: {})), {'i1', 'i2'});
+      expect(run(HistoryFilter(expenseCategoryIds: {})), {'i1', 'i2'});
       expect(
         run(
-          const HistoryFilter(
+          HistoryFilter(
             type: HistoryTypeFilter.expense,
             expenseCategoryIds: {},
           ),
@@ -110,13 +112,13 @@ void main() {
     });
 
     test('«Расходы · Продукты» с типом «Все» = эти расходы + все доходы', () {
-      expect(run(const HistoryFilter(expenseCategoryIds: {'food'})), {
+      expect(run(HistoryFilter(expenseCategoryIds: {'food'})), {
         'e1',
         'e3',
         'i1',
         'i2',
       });
-      expect(run(const HistoryFilter(incomeCategoryIds: {'gift'})), {
+      expect(run(HistoryFilter(incomeCategoryIds: {'gift'})), {
         'e1',
         'e2',
         'e3',
@@ -125,11 +127,8 @@ void main() {
     });
 
     test('операция с подкатегорией проходит по своей категории', () {
-      expect(run(const HistoryFilter.expenseCategories({'food'})), {
-        'e1',
-        'e3',
-      });
-      expect(run(const HistoryFilter.expenseCategories({'veg'})), isEmpty);
+      expect(run(HistoryFilter.expenseCategories({'food'})), {'e1', 'e3'});
+      expect(run(HistoryFilter.expenseCategories({'veg'})), isEmpty);
     });
   });
 
@@ -184,7 +183,7 @@ void main() {
       final before = List.of(list);
       final result = applyHistoryView(
         list,
-        const HistoryFilter(type: HistoryTypeFilter.income),
+        HistoryFilter(type: HistoryTypeFilter.income),
         HistorySort.largestFirst,
       );
       expect(list, before);
@@ -218,7 +217,7 @@ void main() {
 
       final shown = applyHistoryView(
         inSeptember,
-        const HistoryFilter.expenseCategories({'cat-food'}),
+        HistoryFilter.expenseCategories({'cat-food'}),
         HistorySort.largestFirst,
       );
       final sum = shown.fold(Money.zero('RUB'), (a, t) => a + t.amount);

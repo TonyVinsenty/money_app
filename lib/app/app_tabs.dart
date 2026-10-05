@@ -4,8 +4,6 @@ import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/money.dart';
-import 'package:money_app/core/time/clock.dart';
-import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -190,7 +188,11 @@ class HomeActions extends StatelessWidget {
           transactions: services.transactions,
           idGenerator: services.idGenerator,
           // Общий месяц переключается на месяц новой операции.
-          onSaved: browse.showMonthOf,
+          onSaved: (day) {
+            // Приложение могло пережить полночь: сначала свежее «сегодня».
+            browse.updateToday(services.clock.today());
+            browse.showMonthOf(day);
+          },
         ),
       ),
     );
@@ -209,9 +211,7 @@ class HistoryTab extends StatefulWidget {
 class _HistoryTabState extends State<HistoryTab> {
   TransactionsRepository? _transactionsRepository;
   CategoriesRepository? _categoriesRepository;
-  Clock? _clock;
   DateRange? _month;
-  late DateOnly _today;
   late Stream<List<Transaction>> _transactions;
   late Stream<List<Category>> _categories;
 
@@ -220,9 +220,7 @@ class _HistoryTabState extends State<HistoryTab> {
   // мигал бы. didChangeDependencies вызывается и при смене фильтра (BrowseScope
   // уведомляет обо всём), но месяц тогда тот же, и поток остаётся прежним.
   //
-  // «Сегодня» берётся по часам в момент создания. Если приложение открыто через
-  // полночь, заголовки «Сегодня»/«Вчера» обновятся, только когда вкладка
-  // пересоздастся (как и месяц на «Главной»): редкий случай, не усложняем.
+  // «Сегодня» берётся из BrowseController (обновляется при возврате в приложение).
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -230,13 +228,10 @@ class _HistoryTabState extends State<HistoryTab> {
     final month = BrowseScope.of(context).month;
     if (!identical(services.transactions, _transactionsRepository) ||
         !identical(services.categories, _categoriesRepository) ||
-        !identical(services.clock, _clock) ||
         month != _month) {
       _transactionsRepository = services.transactions;
       _categoriesRepository = services.categories;
-      _clock = services.clock;
       _month = month;
-      _today = services.clock.today();
       // Фильтр и порядок применяет сам экран: поток от них не зависит.
       _transactions = services.transactions.watchInPeriod(month);
       _categories = services.categories.watchAll();
@@ -251,9 +246,9 @@ class _HistoryTabState extends State<HistoryTab> {
     return HistoryScreen(
       transactions: _transactions,
       categories: _categories,
-      today: _today,
+      today: browse.today,
       month: _month!.start,
-      hasAnyTransactions: browse.firstDay != null,
+      hasAnyTransactions: browse.firstDayKnown ? browse.firstDay != null : null,
       filter: browse.historyFilter,
       sort: browse.historySort,
       onResetFilter: browse.resetHistoryFilter,
@@ -268,6 +263,11 @@ class _HistoryTabState extends State<HistoryTab> {
           clock: services.clock,
           categories: services.categories,
           transactions: services.transactions,
+          // Перенос в другой месяц: «История» идёт за операцией.
+          onSaved: (day) {
+            browse.updateToday(services.clock.today());
+            browse.showMonthOf(day);
+          },
         ),
       ),
     );

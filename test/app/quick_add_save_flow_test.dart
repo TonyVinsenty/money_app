@@ -163,6 +163,49 @@ void main() {
     await _db.close();
   });
 
+  testWidgets(
+    'приложение не сворачивали, наступило 1.11: «Главная» на ноябре',
+    (tester) async {
+      final original = _clock.value;
+      addTearDown(() => _clock.value = original);
+      _clock.value = DateTime(2026, 10, 31, 23, 50);
+      await _pumpApp(tester);
+      final browse = BrowseScope.of(tester.element(find.byType(NavigationBar)));
+      expect(browse.month.start, DateOnly(2026, 10, 1));
+
+      _clock.value = DateTime(2026, 11, 1, 0, 10);
+      await _enterAmount(tester, button: 'Расход', amount: '350');
+      await _pickCategory(tester, 'Продукты');
+
+      expect((await _rows()).single.occurredOn, DateOnly(2026, 11, 1));
+      expect(browse.today, DateOnly(2026, 11, 1));
+      expect(browse.month.start, DateOnly(2026, 11, 1));
+      expect(browse.canGoForward, isFalse);
+
+      await tester.pumpWidget(const SizedBox());
+      await _db.close();
+    },
+  );
+
+  testWidgets('касание сообщения закрывает его, запись остаётся', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    await _enterAmount(tester, button: 'Расход', amount: '350');
+    await _pickCategory(tester, 'Продукты');
+    final text = find.textContaining('Сохранено: расход');
+    expect(text, findsOneWidget);
+
+    await tester.tap(text);
+    await tester.pumpAndSettle();
+    expect(find.byType(SnackBar), findsNothing);
+    final rows = await _rows();
+    expect(rows.single.deletedAt, isNull);
+
+    await tester.pumpWidget(const SizedBox());
+    await _db.close();
+  });
+
   testWidgets('сообщение исчезает само через 6 секунд, запись остаётся', (
     tester,
   ) async {

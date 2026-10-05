@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/history_view.dart';
@@ -62,6 +63,9 @@ class _CategorySection extends StatelessWidget {
     );
     final visibleIds = {for (final c in visible) c.id};
     void toggle(String id, bool checked) {
+      // Если набор был `null` («все»), он собирается только из видимых
+      // категорий показанного месяца: операции «Без категории» и архивных
+      // категорий других месяцев после снятия галочки из фильтра выпадают.
       final next = {...(selected ?? visibleIds)};
       checked ? next.add(id) : next.remove(id);
       // Все отмечены — ограничения по категориям нет.
@@ -72,33 +76,54 @@ class _CategorySection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 16),
-        Semantics(
-          header: true,
-          child: Text(title, style: theme.textTheme.titleMedium),
-        ),
-        // Wrap: при крупном шрифте кнопки переносятся, а не вылезают за край.
-        Wrap(
-          alignment: WrapAlignment.end,
-          children: [
-            TextButton(
-              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-              onPressed: () => onSelected(null),
-              child: const Text('Выбрать все'),
-            ),
-            TextButton(
-              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-              onPressed: () => onSelected(<String>{}),
-              child: const Text('Снять все'),
-            ),
-          ],
+        // Заголовок и кнопки в одной строке. При крупном шрифте (больше 130 %)
+        // кнопки уходят на вторую строку, а не вылезают за край.
+        Builder(
+          builder: (context) {
+            final header = Semantics(
+              header: true,
+              child: Text(title, style: theme.textTheme.titleMedium),
+            );
+            final buttons = [
+              TextButton(
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () => onSelected(null),
+                child: const Text('Выбрать все'),
+              ),
+              TextButton(
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: () => onSelected(<String>{}),
+                child: const Text('Снять все'),
+              ),
+            ];
+            final large = fontScaleFrom(MediaQuery.textScalerOf(context)) > 1.3;
+            if (large) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  header,
+                  Wrap(alignment: WrapAlignment.end, children: buttons),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: header),
+                ...buttons,
+              ],
+            );
+          },
         ),
         if (selected != null && selected!.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              'Не выбрана ни одна категория',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          Semantics(
+            liveRegion: true,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                'Не выбрана ни одна категория',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),

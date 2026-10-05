@@ -30,6 +30,60 @@ void main() {
     expect(c.historySort, HistorySort.newestFirst);
   });
 
+  group('firstDayKnown', () {
+    test('false до ответа; null-ответ делает true с уведомлением', () {
+      final fresh = make(DateOnly(2026, 10, 4));
+      expect(fresh.firstDayKnown, isFalse);
+      fresh.updateFirstDay(null);
+      expect(fresh.firstDayKnown, isTrue);
+      expect(fresh.firstDay, isNull);
+      expect(notifications, 1);
+      fresh.updateFirstDay(null);
+      expect(notifications, 1);
+    });
+
+    test('markFirstDayKnown снимает «неизвестно» один раз', () {
+      final fresh = make(DateOnly(2026, 10, 4));
+      fresh.markFirstDayKnown();
+      fresh.markFirstDayKnown();
+      expect(fresh.firstDayKnown, isTrue);
+      expect(notifications, 1);
+    });
+  });
+
+  group('updateToday', () {
+    test('тот же день: без уведомления', () {
+      c.updateToday(DateOnly(2026, 10, 4));
+      expect(notifications, 0);
+    });
+
+    test('выбран текущий месяц: переходим на новый, одно уведомление', () {
+      c.updateToday(DateOnly(2026, 11, 1));
+      expect(c.today, DateOnly(2026, 11, 1));
+      expect(c.month, _month(2026, 11));
+      expect(notifications, 1);
+    });
+
+    test('выбран прошлый месяц: месяц тот же, вперёд пересчитан', () {
+      c.previousMonth();
+      expect(c.month, _month(2026, 9));
+      notifications = 0;
+      c.updateToday(DateOnly(2026, 11, 1));
+      expect(c.month, _month(2026, 9));
+      expect(notifications, 1);
+      c.nextMonth();
+      c.nextMonth();
+      expect(c.month, _month(2026, 11));
+      expect(c.canGoForward, isFalse);
+    });
+
+    test('новый день в том же месяце: месяц тот же', () {
+      c.updateToday(DateOnly(2026, 10, 5));
+      expect(c.month, _month(2026, 10));
+      expect(notifications, 1);
+    });
+  });
+
   group('листание', () {
     test('вперёд с текущего месяца нельзя, из прошлого можно', () {
       expect(c.canGoForward, isFalse);
@@ -144,10 +198,7 @@ void main() {
       c.setHistorySort(HistorySort.largestFirst);
       c.previousMonth();
 
-      expect(
-        c.historyFilter,
-        const HistoryFilter.expenseCategories({'cat-food'}),
-      );
+      expect(c.historyFilter, HistoryFilter.expenseCategories({'cat-food'}));
       expect(c.historySort, HistorySort.largestFirst);
     });
 

@@ -46,8 +46,9 @@ final _list = [
 ];
 
 class _Harness extends StatefulWidget {
-  const _Harness({this.initial = HistoryFilter.off});
+  const _Harness({this.initial = HistoryFilter.off, this.list});
   final HistoryFilter initial;
+  final List<Transaction>? list;
 
   @override
   State<_Harness> createState() => _HarnessState();
@@ -55,7 +56,8 @@ class _Harness extends StatefulWidget {
 
 class _HarnessState extends State<_Harness> {
   late HistoryFilter filter = widget.initial;
-  final transactions = Stream.value(_list).asBroadcastStream();
+  late final transactions = Stream.value(widget.list ?? _list)
+      .asBroadcastStream();
   final categories = Stream.value(_categories).asBroadcastStream();
 
   @override
@@ -76,6 +78,7 @@ Future<void> _open(
   WidgetTester tester, {
   HistoryFilter initial = HistoryFilter.off,
   double textScale = 1,
+  List<Transaction>? list,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -85,7 +88,9 @@ Future<void> _open(
             .copyWith(textScaler: TextScaler.linear(textScale)),
         child: child!,
       ),
-      home: Scaffold(body: _Harness(initial: initial)),
+      home: Scaffold(
+        body: _Harness(initial: initial, list: list),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -135,7 +140,7 @@ void main() {
   testWidgets('«Снять все»: подсказка и пустой результат; «Выбрать все»', (
     tester,
   ) async {
-    await _open(tester, initial: const HistoryFilter.expenseCategories({}));
+    await _open(tester, initial: HistoryFilter.expenseCategories({}));
     expect(find.text('Не выбрана ни одна категория'), findsOneWidget);
     expect(find.text('Ничего не найдено'), findsOneWidget);
 
@@ -155,10 +160,7 @@ void main() {
     tester,
   ) async {
     final handle = tester.ensureSemantics();
-    await _open(
-      tester,
-      initial: const HistoryFilter.expenseCategories({'food'}),
-    );
+    await _open(tester, initial: HistoryFilter.expenseCategories({'food'}));
     for (final tile in tester.widgetList(find.byType(CheckboxListTile))) {
       final size = tester.getSize(find.byWidget(tile));
       expect(size.height, greaterThanOrEqualTo(48));
@@ -173,6 +175,76 @@ void main() {
         'isTrue';
     expect(checked('Продукты'), isTrue);
     expect(checked('Кафе'), isFalse);
+    handle.dispose();
+  });
+
+  testWidgets('заголовок раздела и кнопки в одной строке', (tester) async {
+    await _open(tester);
+    final titleY = tester
+        .getCenter(_inSheet(find.text('Категории расходов')))
+        .dy;
+    final allY = tester.getCenter(_inSheet(find.text('Выбрать все')).first).dy;
+    final noneY = tester.getCenter(_inSheet(find.text('Снять все')).first).dy;
+    expect(allY, closeTo(titleY, 1));
+    expect(noneY, closeTo(titleY, 1));
+  });
+
+  testWidgets('320 dp, шрифт 200 %: кнопки ниже заголовка, без переполнения', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _open(tester, textScale: 2);
+    expect(tester.takeException(), isNull);
+    final titleY = tester
+        .getCenter(_inSheet(find.text('Категории расходов')))
+        .dy;
+    expect(
+      tester.getCenter(_inSheet(find.text('Выбрать все')).first).dy,
+      greaterThan(titleY),
+    );
+  });
+
+  testWidgets('подсказка «Не выбрана ни одна категория» — liveRegion', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _open(tester, initial: HistoryFilter.expenseCategories({}));
+    final node = tester.getSemantics(
+      _inSheet(find.text('Не выбрана ни одна категория')),
+    );
+    expect(node.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
+    handle.dispose();
+  });
+
+  testWidgets('набор null: снятие галочки собирает набор из видимых', (
+    tester,
+  ) async {
+    // Фильтр «все» (null); в списке месяца есть операция с категорией вне
+    // справочника («Без категории»): после снятия галочки она выпадает.
+    await _open(
+      tester,
+      list: [..._list, _tx('g', TransactionType.expense, 'ghost', 'без-кат')],
+    );
+    expect(find.textContaining('без-кат'), findsOneWidget);
+    await tester.tap(_inSheet(find.text('Кафе')));
+    await tester.pumpAndSettle();
+    final harness = tester.state(find.byType(_Harness)) as _HarnessState;
+    expect(harness.filter.expenseCategoryIds, {'food'});
+    expect(harness.filter.incomeCategoryIds, isNull);
+    expect(find.textContaining('без-кат'), findsNothing);
+  });
+
+  testWidgets('строка итога фильтра — liveRegion', (tester) async {
+    final handle = tester.ensureSemantics();
+    await _open(tester, initial: HistoryFilter.expenseCategories({'food'}));
+    await tester.tap(find.text('Готово'));
+    await tester.pumpAndSettle();
+    final node = tester.getSemantics(
+      find.bySemanticsLabel(RegExp('^1 операция')),
+    );
+    expect(node.getSemanticsData().flagsCollection.isLiveRegion, isTrue);
     handle.dispose();
   });
 

@@ -9,6 +9,28 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
 import '../support/fakes.dart';
+import '../support/fixed_clock.dart';
+
+Future<void> _background(WidgetTester tester) async {
+  for (final s in [
+    AppLifecycleState.inactive,
+    AppLifecycleState.hidden,
+    AppLifecycleState.paused,
+  ]) {
+    tester.binding.handleAppLifecycleStateChanged(s);
+  }
+}
+
+Future<void> _resume(WidgetTester tester) async {
+  for (final s in [
+    AppLifecycleState.hidden,
+    AppLifecycleState.inactive,
+    AppLifecycleState.resumed,
+  ]) {
+    tester.binding.handleAppLifecycleStateChanged(s);
+  }
+  await tester.pump();
+}
 
 AppTab _tab(String label) => AppTab(
   label: label,
@@ -22,6 +44,7 @@ Future<void> _pump(
   WidgetTester tester,
   FakeTransactionsRepository repo, {
   Widget? replacement,
+  FixedClock? clock,
   void Function(BrowseController, ValueNotifier<int>)? onReady,
 }) async {
   final settings = AppSettingsController();
@@ -29,7 +52,11 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       home: AppScope(
-        services: fakeAppServices(settings: settings, transactions: repo),
+        services: fakeAppServices(
+          settings: settings,
+          transactions: repo,
+          clock: clock,
+        ),
         child:
             replacement ??
             BrowseHost(
@@ -150,6 +177,34 @@ void main() {
       expect(controller.firstDay, DateOnly(2026, 7, 1));
     });
 
+    testWidgets('ошибка потока до первого ответа: firstDayKnown true', (
+      tester,
+    ) async {
+      final repo = FakeTransactionsRepository()..answerFirstDayOnListen = false;
+      late BrowseController controller;
+      await _pump(tester, repo, onReady: (c, _) => controller = c);
+      await tester.pump();
+      expect(controller.firstDayKnown, isFalse);
+
+      repo.failFirstDay(StateError('boom'));
+      await tester.pump();
+
+      expect(controller.firstDayKnown, isTrue);
+      expect(controller.firstDay, isNull);
+    });
+
+    testWidgets('ответ null: firstDayKnown true', (tester) async {
+      final repo = FakeTransactionsRepository()..answerFirstDayOnListen = false;
+      late BrowseController controller;
+      await _pump(tester, repo, onReady: (c, _) => controller = c);
+      await tester.pump();
+      expect(controller.firstDayKnown, isFalse);
+
+      repo.setFirstDay(null);
+      await tester.pump();
+      expect(controller.firstDayKnown, isTrue);
+    });
+
     testWidgets('после удаления хоста подписка отменена', (tester) async {
       final repo = FakeTransactionsRepository();
       await _pump(tester, repo);
@@ -160,6 +215,52 @@ void main() {
       await tester.pump();
 
       expect(repo.firstDayListeners, 0);
+    });
+
+    testWidgets('возврат в приложение в новый день: «сегодня» и месяц новые', (
+      tester,
+    ) async {
+      final clock = FixedClock(DateTime(2026, 10, 31, 23, 50));
+      late BrowseController controller;
+      await _pump(
+        tester,
+        FakeTransactionsRepository(),
+        clock: clock,
+        onReady: (c, _) => controller = c,
+      );
+      expect(controller.today, DateOnly(2026, 10, 31));
+
+      await _background(tester);
+      clock.value = DateTime(2026, 11, 1, 8);
+      await _resume(tester);
+
+      expect(controller.today, DateOnly(2026, 11, 1));
+      expect(controller.month.start, DateOnly(2026, 11, 1));
+    });
+
+    testWidgets('слушатель жизненного цикла освобождается с хостом', (
+      tester,
+    ) async {
+      final clock = FixedClock(DateTime(2026, 10, 31, 23, 50));
+      late BrowseController controller;
+      await _pump(
+        tester,
+        FakeTransactionsRepository(),
+        clock: clock,
+        onReady: (c, _) => controller = c,
+      );
+      await _pump(
+        tester,
+        FakeTransactionsRepository(),
+        replacement: const SizedBox(),
+      );
+
+      clock.value = DateTime(2026, 11, 1, 8);
+      await _background(tester);
+      await _resume(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(controller.today, DateOnly(2026, 10, 31));
     });
 
     testWidgets('перерисовка не создаёт вторую подписку', (tester) async {

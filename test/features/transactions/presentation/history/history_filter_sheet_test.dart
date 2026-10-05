@@ -113,7 +113,7 @@ Future<void> _openSheet(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-const _income = HistoryFilter(type: HistoryTypeFilter.income);
+final _income = HistoryFilter(type: HistoryTypeFilter.income);
 
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
@@ -126,14 +126,14 @@ void main() {
     test('тип и категория — через запятую, с маленькой буквы', () {
       expect(
         historyFilterSpoken(
-          const HistoryFilter.expenseCategories({'food'}),
+          HistoryFilter.expenseCategories({'food'}),
           _categories,
         ),
         'Фильтр, включён: расходы, Продукты',
       );
       expect(
         historyFilterSpoken(
-          const HistoryFilter(
+          HistoryFilter(
             expenseCategoryIds: {'food'},
             incomeCategoryIds: {'food'},
           ),
@@ -156,10 +156,7 @@ void main() {
     expect(find.bySemanticsLabel('Фильтр'), findsOneWidget);
     expect(tester.widget<Badge>(find.byType(Badge)).isLabelVisible, isFalse);
 
-    await _pump(
-      tester,
-      initial: const HistoryFilter.expenseCategories({'food'}),
-    );
+    await _pump(tester, initial: HistoryFilter.expenseCategories({'food'}));
     expect(
       find.bySemanticsLabel('Фильтр, включён: расходы, Продукты'),
       findsOneWidget,
@@ -218,7 +215,7 @@ void main() {
           month: _today,
           hasAnyTransactions: true,
           onTransactionTap: (_) {},
-          filter: const HistoryFilter.expenseCategories({'food'}),
+          filter: HistoryFilter.expenseCategories({'food'}),
           onFilterChanged: (f) => last = f,
         ),
       ),
@@ -280,10 +277,7 @@ void main() {
     expect(find.widgetWithText(TextButton, 'Фильтр'), findsOneWidget);
     expect(find.text('Сначала крупные'), findsNothing);
 
-    await _pump(
-      tester,
-      initial: const HistoryFilter.expenseCategories({'nobody'}),
-    );
+    await _pump(tester, initial: HistoryFilter.expenseCategories({'nobody'}));
     expect(find.text('Ничего не найдено'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Фильтр'), findsOneWidget);
     expect(find.text('Сначала крупные'), findsNothing);

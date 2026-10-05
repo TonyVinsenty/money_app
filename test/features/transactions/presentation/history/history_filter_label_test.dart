@@ -26,31 +26,22 @@ final _cats = [
 void main() {
   test('тип без категорий', () {
     expect(
-      historyFilterLabel(
-        const HistoryFilter(type: HistoryTypeFilter.income),
-        _cats,
-      ),
+      historyFilterLabel(HistoryFilter(type: HistoryTypeFilter.income), _cats),
       'Фильтр: Доходы',
     );
     expect(
-      historyFilterLabel(
-        const HistoryFilter(type: HistoryTypeFilter.expense),
-        _cats,
-      ),
+      historyFilterLabel(HistoryFilter(type: HistoryTypeFilter.expense), _cats),
       'Фильтр: Расходы',
     );
   });
 
   test('одна и две категории называются по именам', () {
     expect(
-      historyFilterLabel(const HistoryFilter.expenseCategories({'a'}), _cats),
+      historyFilterLabel(HistoryFilter.expenseCategories({'a'}), _cats),
       'Фильтр: Расходы · Продукты',
     );
     expect(
-      historyFilterLabel(
-        const HistoryFilter.expenseCategories({'a', 'b'}),
-        _cats,
-      ),
+      historyFilterLabel(HistoryFilter.expenseCategories({'a', 'b'}), _cats),
       'Фильтр: Расходы · Продукты, Кафе',
     );
   });
@@ -65,14 +56,14 @@ void main() {
 
   test('тип «Все» с ограничением только расходов', () {
     expect(
-      historyFilterLabel(const HistoryFilter(expenseCategoryIds: {'a'}), _cats),
+      historyFilterLabel(HistoryFilter(expenseCategoryIds: {'a'}), _cats),
       'Фильтр: Все · расходы: Продукты',
     );
   });
 
   test('тип «Все» с ограничением только доходов', () {
     expect(
-      historyFilterLabel(const HistoryFilter(incomeCategoryIds: {'b'}), _cats),
+      historyFilterLabel(HistoryFilter(incomeCategoryIds: {'b'}), _cats),
       'Фильтр: Все · доходы: Кафе',
     );
   });
@@ -80,7 +71,7 @@ void main() {
   test('тип «Все» с ограничением обоих видов', () {
     expect(
       historyFilterLabel(
-        const HistoryFilter(
+        HistoryFilter(
           expenseCategoryIds: {'a'},
           incomeCategoryIds: {'b', 'c', 'd'},
         ),
@@ -92,19 +83,16 @@ void main() {
 
   test('тип «Все»: пустой набор, удалённая категория, без ограничений', () {
     expect(
-      historyFilterLabel(const HistoryFilter(expenseCategoryIds: {}), _cats),
+      historyFilterLabel(HistoryFilter(expenseCategoryIds: {}), _cats),
       'Фильтр: Все · расходы: нет категорий',
     );
     expect(
-      historyFilterLabel(
-        const HistoryFilter(incomeCategoryIds: {'zzz'}),
-        _cats,
-      ),
+      historyFilterLabel(HistoryFilter(incomeCategoryIds: {'zzz'}), _cats),
       'Фильтр: Все · доходы: Без категории',
     );
     expect(
       historyFilterLabel(
-        const HistoryFilter(expenseCategoryIds: {'a', 'b', 'c', 'd', 'e'}),
+        HistoryFilter(expenseCategoryIds: {'a', 'b', 'c', 'd', 'e'}),
         _cats,
       ),
       'Фильтр: Все · расходы: 5 категорий',
@@ -115,10 +103,7 @@ void main() {
   test('тип «Доходы» с пустым набором', () {
     expect(
       historyFilterLabel(
-        const HistoryFilter(
-          type: HistoryTypeFilter.income,
-          incomeCategoryIds: {},
-        ),
+        HistoryFilter(type: HistoryTypeFilter.income, incomeCategoryIds: {}),
         _cats,
       ),
       'Фильтр: Доходы · нет категорий',
@@ -127,18 +112,18 @@ void main() {
 
   test('архивная категория — своим именем', () {
     expect(
-      historyFilterLabel(const HistoryFilter.expenseCategories({'old'}), _cats),
+      historyFilterLabel(HistoryFilter.expenseCategories({'old'}), _cats),
       'Фильтр: Расходы · Старая',
     );
   });
 
   test('пустой набор и неизвестная категория', () {
     expect(
-      historyFilterLabel(const HistoryFilter.expenseCategories({}), _cats),
+      historyFilterLabel(HistoryFilter.expenseCategories({}), _cats),
       'Фильтр: Расходы · нет категорий',
     );
     expect(
-      historyFilterLabel(const HistoryFilter.expenseCategories({'zzz'}), _cats),
+      historyFilterLabel(HistoryFilter.expenseCategories({'zzz'}), _cats),
       'Фильтр: Расходы · Без категории',
     );
   });
