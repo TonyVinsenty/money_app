@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -121,7 +122,11 @@ final class QuickAddRouteArguments {
     required this.categories,
     required this.transactions,
     required this.idGenerator,
+    this.onSaved,
   });
+
+  /// Операция сохранена на этот день (отмена записи месяц не возвращает).
+  final ValueChanged<DateOnly>? onSaved;
 
   final TransactionType type;
   final Clock clock;
@@ -173,6 +178,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           categories: arguments.categories,
           transactions: arguments.transactions,
           idGenerator: arguments.idGenerator,
+          onSaved: arguments.onSaved,
           // «Добавить категорию» в пустом выборе категории: форма нужного вида.
           onCreateCategory: () => unawaited(
             Navigator.of(context).pushNamed(

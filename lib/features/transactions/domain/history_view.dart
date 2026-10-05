@@ -1,3 +1,5 @@
+import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -86,6 +88,36 @@ bool _sameSet(Set<String>? a, Set<String>? b) {
 int? _setHash(Set<String>? set) {
   if (set == null) return null;
   return set.fold<int>(set.length, (sum, id) => sum ^ id.hashCode);
+}
+
+/// Категории верхнего уровня вида [kind] для списка галочек в листе фильтра.
+///
+/// Живые категории идут по `sortOrder` (при равенстве по имени и id). Архивная
+/// показывается, только если по ней есть операции в [monthTransactions] или она
+/// уже входит в [selected]. Подкатегории не попадают.
+List<Category> historyFilterCategories({
+  required Iterable<Category> categories,
+  required CategoryKind kind,
+  required Iterable<Transaction> monthTransactions,
+  required Set<String>? selected,
+}) {
+  final used = {for (final t in monthTransactions) t.categoryId};
+  final result = [
+    for (final c in categories)
+      if (c.kind == kind &&
+          c.isTopLevel &&
+          (!c.isArchived ||
+              used.contains(c.id) ||
+              (selected?.contains(c.id) ?? false)))
+        c,
+  ];
+  result.sort((a, b) {
+    final byOrder = a.sortOrder.compareTo(b.sortOrder);
+    if (byOrder != 0) return byOrder;
+    final byName = a.name.compareTo(b.name);
+    return byName != 0 ? byName : a.id.compareTo(b.id);
+  });
+  return result;
 }
 
 /// Порядок списка «Истории».

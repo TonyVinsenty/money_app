@@ -132,6 +132,16 @@ void main() {
         'Фильтр, включён: расходы, Продукты',
       );
       expect(
+        historyFilterSpoken(
+          const HistoryFilter(
+            expenseCategoryIds: {'food'},
+            incomeCategoryIds: {'food'},
+          ),
+          _categories,
+        ),
+        'Фильтр, включён: все, расходы: Продукты, доходы: Продукты',
+      );
+      expect(
         historyFilterSpoken(_income, _categories),
         'Фильтр, включён: доходы',
       );

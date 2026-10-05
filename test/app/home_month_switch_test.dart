@@ -11,14 +11,12 @@ import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/app/browse_controller.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/format/money_format.dart';
-import 'package:money_app/core/format/period_label.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
-import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -323,13 +321,11 @@ void main() {
     await tester.tap(find.text(top.key).first);
     await tester.pumpAndSettle();
 
-    expect(find.byType(CategoryBreakdownScreen), findsOneWidget);
-    expect(
-      find.text(
-        formatPeriodLabel(PeriodKind.month, monthRange(DateOnly(2026, 9, 1))),
-      ),
-      findsOneWidget,
-    );
+    // Вкладка «История» выбрана, месяц тот же, фильтр по категории.
+    final shell = tester.element(find.byType(HomeTab));
+    expect(BrowseScope.selectedTabOf(shell).value, historyTabIndex);
+    expect(BrowseScope.of(shell).month, monthRange(DateOnly(2026, 9, 1)));
+    expect(BrowseScope.of(shell).historyFilter.expenseCategoryIds, {top.key});
   });
 
   testWidgets('шрифт 200 % на 360 dp: без переполнения', (tester) async {

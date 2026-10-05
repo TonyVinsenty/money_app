@@ -7,7 +7,6 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
-import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
@@ -161,17 +160,11 @@ class _HomeTabState extends State<HomeTab> {
       isCurrentMonth: month == monthRange(browse.today),
       onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,
       onNextMonth: browse.canGoForward ? browse.nextMonth : null,
-      // Потоки месяца и категорий общие с экраном категории: drift отдаёт их
-      // нескольким слушателям, новые запросы не создаются.
-      onOpenCategory: (category) => Navigator.of(context).pushNamed(
-        AppRoutes.analyticsCategory,
-        arguments: CategoryBreakdownRouteArguments(
-          category: category,
-          period: AnalyticsPeriod(PeriodKind.month, month),
-          transactions: _monthTransactions,
-          categories: _categories,
-        ),
-      ),
+      // Месяц и порядок «Истории» не меняются; новый экран не открывается.
+      onOpenCategory: (ids) {
+        browse.showCategoryExpenses(ids);
+        BrowseScope.selectedTabOf(context).value = historyTabIndex;
+      },
     );
   }
 }
@@ -186,6 +179,7 @@ class HomeActions extends StatelessWidget {
   Widget build(BuildContext context) {
     // Сервисы берём здесь, под AppScope: открытый маршрут AppScope не видит.
     final services = AppScope.of(context);
+    final browse = BrowseScope.of(context);
     return HomeActionBar(
       onAddTransaction: (type) => Navigator.of(context).pushNamed(
         AppRoutes.quickAdd,
@@ -195,6 +189,8 @@ class HomeActions extends StatelessWidget {
           categories: services.categories,
           transactions: services.transactions,
           idGenerator: services.idGenerator,
+          // Общий месяц переключается на месяц новой операции.
+          onSaved: browse.showMonthOf,
         ),
       ),
     );

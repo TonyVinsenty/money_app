@@ -33,10 +33,15 @@ class QuickAddScreen extends StatefulWidget {
     required this.transactions,
     required this.idGenerator,
     this.onCreateCategory,
+    this.onSaved,
     super.key,
   });
 
   final TransactionType type;
+
+  /// Операция сохранена на этот день (до закрытия экрана). Даёт приложение:
+  /// например, чтобы «Главная» показала месяц новой операции.
+  final ValueChanged<DateOnly>? onSaved;
 
   /// Открывает форму новой категории (кнопка в пустом выборе категории). Даёт
   /// приложение: маршрут формы чужой фичи знает только оно. Если `null`,
@@ -248,6 +253,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         subcategoryName: subcategory?.name,
       );
       await transactions.add(transaction);
+      widget.onSaved?.call(occurrence.occurredOn);
 
       navigator.popUntil((route) => route.isFirst);
       // Предыдущее сообщение убираем, чтобы новое не встало в очередь за ним.

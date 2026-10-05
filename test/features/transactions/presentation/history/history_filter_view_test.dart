@@ -112,6 +112,20 @@ void main() {
     expect(resets, 1);
   });
 
+  testWidgets('порядок: кнопка «Фильтр» выше полоски, полоска выше списка', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(filter: const HistoryFilter.expenseCategories({'food'})),
+    );
+    await tester.pumpAndSettle();
+    final button = tester.getTopLeft(find.widgetWithText(TextButton, 'Фильтр'));
+    final strip = tester.getTopLeft(find.text('Фильтр: Расходы · Продукты'));
+    final row = tester.getTopLeft(find.text('молоко'));
+    expect(button.dy, lessThan(strip.dy));
+    expect(strip.dy, lessThan(row.dy));
+  });
+
   testWidgets('пустой результат: свой текст и кнопка, не «операций нет»', (
     tester,
   ) async {

@@ -70,7 +70,7 @@ Future<void> _pump(
   double cardHeight = 1000,
   double ringSize = 280,
   ThemeMode mode = ThemeMode.light,
-  ValueChanged<Category>? onOpen,
+  ValueChanged<Set<String>>? onOpen,
 }) async {
   tester.view.physicalSize = const Size(360, 1600);
   tester.view.devicePixelRatio = 1;
@@ -854,12 +854,12 @@ void main() {
           Offset(radius * math.sin(angle), -radius * math.cos(angle));
     }
 
-    Future<List<Category>> pumpCard(
+    Future<List<Set<String>>> pumpCard(
       WidgetTester tester, {
       List<Transaction>? data,
       List<Category>? cats,
     }) async {
-      final opened = <Category>[];
+      final opened = <Set<String>>[];
       await _pump(
         tester,
         transactions: Stream.value(data ?? transactions),
@@ -877,33 +877,42 @@ void main() {
       final opened = await pumpCard(tester);
       await tester.tapAt(ringPoint(tester, 0.3));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(opened.map((c) => c.id), ['a']);
+      expect(opened, [
+        {'a'},
+      ]);
     });
 
-    testWidgets('сектор «Остальное» и касание мимо кольца ничего не зовут', (
+    testWidgets('сектор «Остальное» зовёт колбэк с группой, мимо кольца нет', (
       tester,
     ) async {
       final opened = await pumpCard(tester);
       expect(find.text('Остальное'), findsOneWidget);
       await tester.tapAt(ringPoint(tester, 0.985));
       await tester.pump(const Duration(milliseconds: 200));
-      // Центр кольца и угол карточки.
+      expect(opened, [
+        {'x', 'y'},
+      ]);
+      // Центр кольца ничего не зовёт.
       await tester.tapAt(tester.getCenter(find.byType(DonutChart)));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(opened, isEmpty);
+      expect(opened, hasLength(1));
     });
 
-    testWidgets('строка легенды зовёт колбэк, «Остальное» нет', (tester) async {
+    testWidgets('строки легенды зовут колбэк, «Остальное» с группой', (
+      tester,
+    ) async {
       final opened = await pumpCard(tester);
       await tester.tap(find.text('Транспорт'));
       await tester.tap(find.text('Остальное'));
       await tester.pump();
-      expect(opened.map((c) => c.id), ['b']);
+      expect(opened, [
+        {'b'},
+        {'x', 'y'},
+      ]);
     });
 
-    testWidgets('«Ещё N категорий» и неизвестная категория не кнопки', (
-      tester,
-    ) async {
+    testWidgets('«Ещё N категорий» зовёт колбэк с оставшимися категориями; '
+        'неизвестная категория не кнопка', (tester) async {
       final many = [for (var i = 0; i < 5; i++) _expense('c$i', 10000)];
       final opened = await pumpCard(
         tester,
@@ -912,7 +921,11 @@ void main() {
       );
       await tester.tap(find.text('Ещё 2 категории'));
       await tester.pump();
-      expect(opened, isEmpty);
+      final expected = legendRestCategoryIds(
+        _slices(many.map((t) => t).toList()),
+      );
+      expect(expected, hasLength(2));
+      expect(opened, [expected]);
 
       final unknown = await pumpCard(tester, data: [_expense('gone', 100)]);
       await tester.tap(find.text('Без категории'));
@@ -931,11 +944,11 @@ void main() {
           .isButton;
 
       expect(isButton('Продукты, 600 рублей, 60 процентов'), isTrue);
-      expect(isButton('Остальное, 30 рублей, 3 процента'), isFalse);
+      expect(isButton('Остальное, 30 рублей, 3 процента'), isTrue);
 
       final many = [for (var i = 0; i < 5; i++) _expense('c$i', 10000)];
       await pumpCard(tester, data: many);
-      expect(isButton('Ещё 2 категории, 200 рублей, 40 процентов'), isFalse);
+      expect(isButton('Ещё 2 категории, 200 рублей, 40 процентов'), isTrue);
       semantics.dispose();
     });
 
@@ -949,14 +962,14 @@ void main() {
       );
       await tester.pump();
       final rows = find.byType(InkWell);
-      expect(rows, findsNWidgets(3));
-      for (var i = 0; i < 3; i++) {
+      expect(rows, findsNWidgets(4));
+      for (var i = 0; i < 4; i++) {
         expect(tester.getSize(rows.at(i)).height, 28);
       }
     });
     testWidgets('строки легенды не ниже 28 dp, шрифт 200 % без '
         'переполнения', (tester) async {
-      final opened = <Category>[];
+      final opened = <Set<String>>[];
       await _pump(
         tester,
         transactions: Stream.value(transactions),
@@ -968,12 +981,41 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
       final rows = find.byType(InkWell);
-      expect(rows, findsNWidgets(3));
-      for (var i = 0; i < 3; i++) {
+      expect(rows, findsNWidgets(4));
+      for (var i = 0; i < 4; i++) {
         expect(tester.getSize(rows.at(i)).height, greaterThanOrEqualTo(28));
       }
       await tester.tap(find.text('Кафе'));
-      expect(opened.map((c) => c.id), ['c']);
+      expect(opened, [
+        {'c'},
+      ]);
+    });
+  });
+
+  group('legendRestCategoryIds', () {
+    test('до четырёх секторов строки «Ещё N» нет — набор пуст', () {
+      final four = [for (var i = 0; i < 4; i++) _expense('c$i', 10000)];
+      expect(legendRestCategoryIds(_slices(four)), isEmpty);
+      expect(legendRestCategoryIds(const []), isEmpty);
+    });
+
+    test('все секторы после первых трёх, включая группу «Остальное»', () {
+      final data = [
+        _expense('a', 50000),
+        _expense('b', 20000),
+        _expense('c', 10000),
+        _expense('d', 5000),
+        _expense('e', 5000),
+        _expense('x', 1000),
+        _expense('y', 1000),
+      ];
+      final slices = _slices(data);
+      final shown = {for (final s in slices.take(3)) ...s.categoryIds};
+      final all = {for (final s in slices) ...s.categoryIds};
+      final rest = legendRestCategoryIds(slices);
+      expect(shown, {'a', 'b', 'c'});
+      expect(rest, all.difference(shown));
+      expect(rest, containsAll(['d', 'e', 'x', 'y']));
     });
   });
 

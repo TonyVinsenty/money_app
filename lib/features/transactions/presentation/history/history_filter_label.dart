@@ -24,31 +24,27 @@ String historyFilterLabel(HistoryFilter filter, Iterable<Category> categories) {
       typeLabel = 'Доходы';
       ids = income;
     case HistoryTypeFilter.all:
-      if (expense != null && income != null) {
-        typeLabel = 'Расходы и доходы';
-        ids = {...expense, ...income};
-      } else if (expense != null) {
-        typeLabel = 'Расходы';
-        ids = expense;
-      } else if (income != null) {
-        typeLabel = 'Доходы';
-        ids = income;
-      } else {
-        typeLabel = 'Все';
-        ids = null;
-      }
+      final parts = [
+        'Все',
+        if (expense != null) 'расходы: ${_describe(expense, categories)}',
+        if (income != null) 'доходы: ${_describe(income, categories)}',
+      ];
+      return 'Фильтр: ${parts.join(' · ')}';
   }
 
   if (ids == null) return 'Фильтр: $typeLabel';
-  if (ids.isEmpty) return 'Фильтр: $typeLabel · нет категорий';
+  return 'Фильтр: $typeLabel · ${_describe(ids, categories)}';
+}
+
+/// «нет категорий», «Продукты, Кафе» или «3 категории».
+String _describe(Set<String> ids, Iterable<Category> categories) {
+  if (ids.isEmpty) return 'нет категорий';
   if (ids.length >= 3) {
     final n = ids.length;
-    final word = pluralRu(n, 'категория', 'категории', 'категорий');
-    return 'Фильтр: $typeLabel · $n $word';
+    return '$n ${pluralRu(n, 'категория', 'категории', 'категорий')}';
   }
   final byId = {for (final c in categories) c.id: c.name};
-  final names = [for (final id in ids) byId[id] ?? noCategoryLabel];
-  return 'Фильтр: $typeLabel · ${names.join(', ')}';
+  return [for (final id in ids) byId[id] ?? noCategoryLabel].join(', ');
 }
 
 /// Озвучка кнопки «Фильтр»: «Фильтр» или «Фильтр, включён: расходы, Продукты».

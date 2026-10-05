@@ -39,9 +39,9 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onPreviousMonth;
   final VoidCallback? onNextMonth;
 
-  /// Выбрана категория на диаграмме или в легенде: приложение открывает её
-  /// экран за [month].
-  final ValueChanged<Category> onOpenCategory;
+  /// Выбраны категории на диаграмме или в легенде (id одной категории или
+  /// группы): приложение показывает их расходы за [month] в «Истории».
+  final ValueChanged<Set<String>> onOpenCategory;
 
   /// Итог расходов за [month]. Поток должен быть один и тот же между
   /// перерисовками (его создаёт вызывающий), иначе подписка начнётся заново.

@@ -66,9 +66,8 @@ double chartRingSize({
 /// Карточка «Расходы по категориям» на «Главной»: кольцо размера [ringSize] с
 /// суммой расходов месяца в центре и легенда под ним (до 4 элементов). Касание
 /// сектора показывает в центре его категорию; отпускание пальца на секторе и
-/// нажатие на элемент легенды зовут [onOpenCategory] (экран категории за
-/// месяц). «Остальное», «Ещё N категорий» и неизвестная категория («Без
-/// категории») никуда не ведут.
+/// нажатие на элемент легенды зовут [onOpenCategory] с набором id категорий.
+/// Неизвестная категория («Без категории») никуда не ведёт.
 ///
 /// Потоки [transactions] (операции месяца) и [categories] (все категории,
 /// включая архивные) создаёт вызывающий и держит одними и теми же.
@@ -95,9 +94,10 @@ class MonthChartCard extends StatefulWidget {
   /// Любой день показываемого месяца.
   final DateOnly month;
 
-  /// Выбрана категория (сектор или строка легенды). Без колбэка строки не
+  /// Выбраны категории (сектор или строка легенды): id одной категории, группы
+  /// «Остальное» или всех категорий строки «Ещё N». Без колбэка строки не
   /// кнопки, а сектора только подсвечиваются.
-  final ValueChanged<Category>? onOpenCategory;
+  final ValueChanged<Set<String>>? onOpenCategory;
 
   @override
   State<MonthChartCard> createState() => _MonthChartCardState();
@@ -223,9 +223,13 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final byId = {for (final c in categories) c.id: c};
     final names = {for (final c in categories) c.id: c.name};
     final open = widget.onOpenCategory;
-    // Категория сектора или null («Остальное», неизвестная категория).
-    Category? categoryOf(ChartSlice s) =>
-        s.isOther ? null : byId[s.categoryIds.single];
+    // Категории сектора; null — неизвестная категория («Без категории»).
+    Set<String>? idsOf(ChartSlice s) {
+      if (s.isOther) return s.categoryIds.toSet();
+      final id = s.categoryIds.single;
+      return byId.containsKey(id) ? {id} : null;
+    }
+
     final items = _legendItems(
       slices,
       names,
@@ -233,9 +237,12 @@ class _MonthChartCardState extends State<MonthChartCard> {
       onTap: open == null
           ? null
           : (s) {
-              final category = categoryOf(s);
-              return category == null ? null : () => open(category);
+              final ids = idsOf(s);
+              return ids == null ? null : () => open(ids);
             },
+      onTapRest: open == null
+          ? null
+          : () => open(legendRestCategoryIds(slices)),
     );
     // Номер мог устареть, если данные обновились во время касания.
     final lit = _highlight;
@@ -270,8 +277,8 @@ class _MonthChartCardState extends State<MonthChartCard> {
             ? null
             : (index) {
                 if (index >= slices.length) return;
-                final category = categoryOf(slices[index]);
-                if (category != null) open(category);
+                final ids = idsOf(slices[index]);
+                if (ids != null) open(ids);
               },
         semanticsLabel: label,
         center: SizedBox(
@@ -416,6 +423,7 @@ List<_LegendItem> _legendItems(
   Map<String, String> names,
   AppColors colors, {
   VoidCallback? Function(ChartSlice slice)? onTap,
+  VoidCallback? onTapRest,
 }) {
   _LegendItem of(int i) {
     final s = slices[i];
@@ -450,8 +458,18 @@ List<_LegendItem> _legendItems(
         isBelowOne: amount.minorUnits > 0 && percent == 0,
       ),
       colors.chartOther,
+      onTapRest,
     ),
   ];
+}
+
+/// Категории, не показанные отдельными элементами легенды (все секторы после
+/// первых трёх, включая категории «Остального»): их открывает строка
+/// «Ещё N категорий». Если секторов не больше [_legendRows], строки нет и
+/// набор пуст.
+Set<String> legendRestCategoryIds(List<ChartSlice> slices) {
+  if (slices.length <= _legendRows) return {};
+  return {for (final s in slices.skip(_legendRows - 1)) ...s.categoryIds};
 }
 
 class _LegendItemView extends StatelessWidget {

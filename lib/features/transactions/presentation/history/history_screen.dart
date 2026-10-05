@@ -3,14 +3,17 @@ import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/history_view.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -115,8 +118,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void _openFilter() {
     final onChanged = widget.onFilterChanged;
     if (onChanged == null) return;
-    showHistoryFilterSheet(context, filter: _filter, onChanged: onChanged);
+    showHistoryFilterSheet(
+      context,
+      filter: _filter,
+      onChanged: onChanged,
+      categories: _allCategories,
+      monthTransactions: _monthTransactions,
+    );
   }
+
+  // Последние данные экрана: лист берёт их при открытии, без новых запросов.
+  List<Category> _allCategories = const [];
+  List<Transaction> _monthTransactions = const [];
 
   Stream<_MonthData> _tag() {
     final month = widget.month;
@@ -157,7 +170,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
           dataBuilder: (context, data) {
             // Над списком строка «Фильтр» + порядок. В пустых состояниях
             // порядка нет, а «Фильтр» остаётся (кроме «Операций пока нет»).
-            Widget withBar(Widget content, {required bool showSort}) => Column(
+            _allCategories = all;
+            _monthTransactions = data.transactions;
+            Widget withBar(
+              Widget content, {
+              required bool showSort,
+              List<Transaction>? total,
+            }) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _ListBar(
@@ -170,6 +189,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   sort: widget.sort,
                   onSortChanged: widget.onSortChanged,
                 ),
+                if (widget.filter.isActive)
+                  _FilterStrip(
+                    label: historyFilterLabel(widget.filter, all),
+                    onReset: widget.onResetFilter,
+                  ),
+                if (widget.filter.isActive && total != null)
+                  _FilteredTotal(shown: total, month: data.month),
                 Expanded(child: content),
               ],
             );
@@ -204,24 +230,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 onTransactionTap: widget.onTransactionTap,
               ),
               showSort: true,
+              total: shown,
             );
           },
         );
-        // Один и тот же каркас при любом фильтре: иначе список пересоздался бы
-        // и подписался на поток заново.
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (widget.filter.isActive)
-              _FilterStrip(
-                label: historyFilterLabel(widget.filter, all),
-                onReset: widget.onResetFilter,
-              )
-            else
-              const SizedBox.shrink(),
-            Expanded(child: list),
-          ],
-        );
+        return list;
       },
     );
     return Column(
@@ -753,6 +766,75 @@ class _HistorySkeleton extends StatelessWidget {
           padding: const EdgeInsets.only(top: 16),
           children: [for (var i = 0; i < 8; i++) row()],
         ),
+      ),
+    );
+  }
+}
+
+/// Строка итога под полоской фильтра: «7 операций, сумма расходов» либо
+/// «12 операций, расходы и доходы» для смешанных типов. Суммы цветом расхода и дохода.
+class _FilteredTotal extends StatelessWidget {
+  const _FilteredTotal({required this.shown, required this.month});
+
+  final List<Transaction> shown;
+  final DateOnly month;
+
+  static String _spoken(Money money) => money.currency == rubCurrencyCode
+      ? spokenMoney(money)
+      : formatMoney(money);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    final summary = summarizePeriod(
+      shown,
+      monthRange(month),
+      currency: shown.first.amount.currency,
+    );
+    final style = theme.textTheme.bodyMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final count = summary.count;
+    final word = pluralRu(count, 'операция', 'операции', 'операций');
+    final mixed = summary.expenseCount > 0 && summary.incomeCount > 0;
+    final onlyIncome = summary.expenseCount == 0;
+
+    final expense = '$_minusSign${formatMoney(summary.expense)}';
+    final income = '+${formatMoney(summary.income)}';
+    final spans = <InlineSpan>[TextSpan(text: '$count $word')];
+    final spoken = StringBuffer('$count $word');
+    void add(String prefix, String text, Color color) {
+      spans
+        ..add(TextSpan(text: ' \u00b7 $prefix'))
+        ..add(
+          TextSpan(
+            text: text,
+            style: TextStyle(color: color),
+          ),
+        );
+    }
+
+    if (mixed) {
+      add('расходы ', expense, colors.expense);
+      add('доходы ', income, colors.income);
+      spoken
+        ..write(', расходы минус ${_spoken(summary.expense)}')
+        ..write(', доходы плюс ${_spoken(summary.income)}');
+    } else if (onlyIncome) {
+      add('', income, colors.income);
+      spoken.write(', плюс ${_spoken(summary.income)}');
+    } else {
+      add('', expense, colors.expense);
+      spoken.write(', минус ${_spoken(summary.expense)}');
+    }
+
+    return Semantics(
+      label: spoken.toString(),
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Text.rich(TextSpan(style: style, children: spans)),
       ),
     );
   }
