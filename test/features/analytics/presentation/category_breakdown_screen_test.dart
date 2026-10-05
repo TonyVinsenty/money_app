@@ -206,7 +206,7 @@ void main() {
     // Итог: в шапке со знаком расхода и в центре кольца.
     expect(find.text('$_minus${formatMoney(sum)}'), findsNWidgets(2));
     expect(find.byType(DonutChart), findsOneWidget);
-    expect(_inRing('Итого'), findsOneWidget);
+    expect(_inRing('Всего'), findsOneWidget);
   });
 
   testWidgets('итог расхода цветом расхода, дохода - цветом дохода со знаком '
@@ -375,7 +375,7 @@ void main() {
         _sub(_food, 'b', 'Вторая'),
       ]),
     );
-    expect(_inRing('Итого'), findsOneWidget);
+    expect(_inRing('Всего'), findsOneWidget);
 
     // Точка на кольце сразу правее «12 часов»: там начинается первый сектор.
     final rect = tester.getRect(find.byType(DonutChart));
@@ -388,11 +388,11 @@ void main() {
     expect(_inRing('Первая'), findsOneWidget);
     expect(_inRing(_money(7500)), findsOneWidget);
     expect(_inRing('75$_nbsp%'), findsOneWidget);
-    expect(_inRing('Итого'), findsNothing);
+    expect(_inRing('Всего'), findsNothing);
 
     await gesture.up();
     await tester.pump();
-    expect(_inRing('Итого'), findsOneWidget);
+    expect(_inRing('Всего'), findsOneWidget);
   });
 
   group('скринридер', () {
@@ -443,13 +443,15 @@ void main() {
 
       expect(
         find.bySemanticsLabel(
-          'Диаграмма по подкатегориям. Итог: '
+          'Диаграмма по подкатегориям. Всего: '
           '${spokenMoney(Money.fromMinor(1234500, 'RUB'))}',
         ),
         findsOneWidget,
       );
       expect(
-        find.bySemanticsLabel('Диаграмма по подкатегориям. Итог: 12345 рублей'),
+        find.bySemanticsLabel(
+          'Диаграмма по подкатегориям. Всего: 12345 рублей',
+        ),
         findsOneWidget,
       );
       semantics.dispose();

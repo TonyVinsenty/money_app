@@ -223,7 +223,27 @@ class _DonutChartState extends State<DonutChart> {
           aspectRatio: 1,
           child: CustomPaint(
             painter: painter,
-            child: Center(child: widget.center),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final center = widget.center;
+                if (center == null) return const SizedBox.shrink();
+                // Центр живёт во вписанном квадрате дырки (диаметр дырки
+                // на 0.71): шире и выше не бывает, большее ужимается.
+                final side = _Ring(constraints.biggest).inner * 2 * 0.71;
+                return Center(
+                  child: SizedBox.square(
+                    dimension: side,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: side),
+                        child: center,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),

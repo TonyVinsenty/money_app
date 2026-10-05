@@ -303,24 +303,59 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('центр кольца: «Всего» и баланс периода', (tester) async {
-    await _pump(
-      tester,
-      transactions: _data([
-        ..._withOther,
-        _tx('s', 5000000, type: TransactionType.income),
-      ]),
-    );
+  testWidgets('центр кольца: «Расходы» и сумма расходов, а не баланс', (
+    tester,
+  ) async {
+    final all = [
+      ..._withOther,
+      _tx('s', 5000000, type: TransactionType.income),
+    ];
+    await _pump(tester, transactions: _data(all));
 
-    final balance = summarizePeriod(
-      [..._withOther, _tx('s', 5000000, type: TransactionType.income)],
-      _september,
-      currency: 'RUB',
-    ).balance;
-    expect(_inRing('Всего'), findsOneWidget);
-    expect(_inRing('+${formatMoney(balance)}'), findsOneWidget);
+    // 10 000 + 5 000 + 200 + 150 = 15 350 рублей расходов; баланс другой.
+    final expenses = _rub(1535000);
+    final balance = summarizePeriod(all, _september, currency: 'RUB').balance;
+    expect(balance, isNot(expenses));
+    expect(_inRing('Расходы'), findsOneWidget);
+    expect(_inRing('Всего'), findsNothing);
+    expect(_inRing('$_minus${formatMoney(expenses)}'), findsOneWidget);
+    expect(_inRing('+${formatMoney(balance)}'), findsNothing);
+    expect(
+      tester.widget<DonutChart>(find.byType(DonutChart)).semanticsLabel,
+      'Диаграмма расходов по категориям. Расходы: '
+      'минус ${spokenMoney(expenses)}',
+    );
   });
 
+  testWidgets('центр кольца: «Доходы» и сумма доходов, а не баланс', (
+    tester,
+  ) async {
+    final all = [
+      ..._withOther,
+      _tx('s', 5000000, type: TransactionType.income),
+      _tx('t', 1000000, type: TransactionType.income),
+    ];
+    await _pump(tester, transactions: _data(all), switchable: true);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(CategoryBreakdownCard.typeKey),
+        matching: find.text('Доходы'),
+      ),
+    );
+    await tester.pump();
+
+    final income = _rub(6000000);
+    final balance = summarizePeriod(all, _september, currency: 'RUB').balance;
+    expect(balance, isNot(income));
+    expect(_inRing('Доходы'), findsOneWidget);
+    expect(_inRing('+${formatMoney(income)}'), findsOneWidget);
+    expect(_inRing('+${formatMoney(balance)}'), findsNothing);
+    expect(
+      tester.widget<DonutChart>(find.byType(DonutChart)).semanticsLabel,
+      'Диаграмма доходов по категориям. Доходы: '
+      'плюс ${spokenMoney(income)}',
+    );
+  });
   testWidgets('неизвестная категория: «Без категории», не нажимается', (
     tester,
   ) async {
@@ -521,7 +556,7 @@ void main() {
       );
       expect(
         donut.semanticsLabel,
-        startsWith('Диаграмма доходов по категориям. Всего: '),
+        startsWith('Диаграмма доходов по категориям. Доходы: плюс '),
       );
 
       await tester.tap(_segment('Расходы'));
@@ -530,7 +565,7 @@ void main() {
       expect(rowIds(), expenseRows);
       expect(
         tester.widget<DonutChart>(find.byType(DonutChart)).semanticsLabel,
-        startsWith('Диаграмма расходов по категориям. Всего: '),
+        startsWith('Диаграмма расходов по категориям. Расходы: минус '),
       );
     });
 
@@ -630,12 +665,16 @@ void main() {
       expect(summaryTexts(), before);
     });
 
-    testWidgets('центр кольца с доходами — тот же баланс', (tester) async {
+    testWidgets('центр кольца с доходами — сумма доходов, не баланс', (
+      tester,
+    ) async {
       await pumpSwitch(tester);
       final balance = summarizePeriod(all, _september, currency: 'RUB').balance;
       await chooseIncome(tester);
 
-      expect(_inRing(formatMoney(balance)), findsOneWidget);
+      final income = summarizePeriod(all, _september, currency: 'RUB').income;
+      expect(income, isNot(balance));
+      expect(_inRing('+${formatMoney(income)}'), findsOneWidget);
     });
 
     testWidgets('период без доходов: текст, переключатель виден и работает', (

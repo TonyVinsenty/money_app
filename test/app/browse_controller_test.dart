@@ -226,6 +226,62 @@ void main() {
       expect(notifications, 2);
     });
 
+    group('временный фильтр', () {
+      final manual = HistoryFilter.expenseCategories({'m'});
+      final temp = HistoryFilter.expenseCategories({'t'});
+
+      test('поверх ручного: уход из «Истории» возвращает ручной', () {
+        c.setHistoryFilter(manual);
+        c.showCategoryExpenses({'t'});
+        expect(c.historyFilter, temp);
+        expect(c.hasTemporaryFilter, isTrue);
+
+        c.leaveHistory();
+
+        expect(c.historyFilter, manual);
+        expect(c.hasTemporaryFilter, isFalse);
+      });
+
+      test('без ручного: уход даёт пустой фильтр', () {
+        c.showCategoryExpenses({'t'});
+        c.leaveHistory();
+        expect(c.historyFilter, HistoryFilter.off);
+      });
+
+      test('ручная правка делает фильтр ручным, он переживает уход', () {
+        c.setHistoryFilter(manual);
+        c.showCategoryExpenses({'t'});
+        c.setHistoryFilter(temp);
+        expect(c.hasTemporaryFilter, isFalse);
+
+        c.leaveHistory();
+        expect(c.historyFilter, temp);
+
+        c.showCategoryExpenses({'x'});
+        c.resetHistoryFilter();
+        c.leaveHistory();
+        expect(c.historyFilter, HistoryFilter.off);
+      });
+
+      test('другой сектор заменяет временный, ручной под ним прежний', () {
+        c.setHistoryFilter(manual);
+        c.showCategoryExpenses({'t'});
+        c.showCategoryExpenses({'u'});
+        expect(c.historyFilter, HistoryFilter.expenseCategories({'u'}));
+
+        c.leaveHistory();
+        expect(c.historyFilter, manual);
+      });
+
+      test('уход без временного фильтра ничего не меняет и не уведомляет', () {
+        c.setHistoryFilter(manual);
+        notifications = 0;
+        c.leaveHistory();
+        expect(c.historyFilter, manual);
+        expect(notifications, 0);
+      });
+    });
+
     test('resetHistoryFilter сбрасывает фильтр, но не сортировку', () {
       c.showCategoryExpenses({'a'});
       c.setHistorySort(HistorySort.smallestFirst);

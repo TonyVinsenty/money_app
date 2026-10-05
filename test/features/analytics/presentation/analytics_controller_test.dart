@@ -175,6 +175,23 @@ void main() {
       expect(c.period, currentPeriod(PeriodKind.month, today));
       expect(counter.count, 1);
     });
+
+    test('первая операция ещё неизвестна: вперёд можно, как раньше', () {
+      final c = make(firstDay: DateOnly(2026, 1, 1))..previous();
+
+      c.updateFirstDay(null, known: false);
+
+      expect(c.canGoForward, isTrue);
+    });
+
+    test('без операций (день первой операции пропал) вперёд нельзя', () {
+      final c = make(firstDay: DateOnly(2026, 1, 1))..previous();
+
+      c.updateFirstDay(null);
+
+      expect(c.canGoBack, isFalse);
+      expect(c.canGoForward, isFalse);
+    });
   });
 
   group('updateToday', () {

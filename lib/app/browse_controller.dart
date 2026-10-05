@@ -21,7 +21,8 @@ class BrowseController extends ChangeNotifier {
 
   DateRange _month;
   DateOnly? _firstDay;
-  HistoryFilter _historyFilter = HistoryFilter.off;
+  HistoryFilter _manualFilter = HistoryFilter.off;
+  HistoryFilter? _temporaryFilter;
   HistorySort _historySort = HistorySort.newestFirst;
 
   /// Выбранный календарный месяц.
@@ -35,7 +36,11 @@ class BrowseController extends ChangeNotifier {
   bool get firstDayKnown => _firstDayKnown;
   bool _firstDayKnown = false;
 
-  HistoryFilter get historyFilter => _historyFilter;
+  /// Действующий фильтр: временный (если есть), иначе ручной.
+  HistoryFilter get historyFilter => _temporaryFilter ?? _manualFilter;
+
+  /// Есть ли временный фильтр от тапа по сектору.
+  bool get hasTemporaryFilter => _temporaryFilter != null;
   HistorySort get historySort => _historySort;
 
   /// Назад можно, пока выбранный месяц позже месяца первой операции.
@@ -94,9 +99,21 @@ class BrowseController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ручное изменение фильтра. Если был временный (тап по сектору), текущий
+  /// фильтр становится ручным и сохраняется как обычно.
   void setHistoryFilter(HistoryFilter filter) {
-    if (filter == _historyFilter) return;
-    _historyFilter = filter;
+    final hadTemporary = _temporaryFilter != null;
+    if (filter == historyFilter && !hadTemporary) return;
+    _manualFilter = filter;
+    _temporaryFilter = null;
+    notifyListeners();
+  }
+
+  /// Пользователь ушёл из «Истории» на другую вкладку: временный фильтр
+  /// снимается, возвращается прежний ручной. Без временного ничего не делает.
+  void leaveHistory() {
+    if (_temporaryFilter == null) return;
+    _temporaryFilter = null;
     notifyListeners();
   }
 
@@ -109,9 +126,15 @@ class BrowseController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Фильтр «только расходы этих категорий»; месяц не меняет.
-  void showCategoryExpenses(Set<String> ids) =>
-      setHistoryFilter(HistoryFilter.expenseCategories(Set.of(ids)));
+  /// Временный фильтр «только расходы этих категорий» (тап по сектору):
+  /// лежит поверх ручного и снимается при уходе из «Истории». Месяц не
+  /// меняет; повторный вызов заменяет прежний временный фильтр.
+  void showCategoryExpenses(Set<String> ids) {
+    final filter = HistoryFilter.expenseCategories(Set.of(ids));
+    if (filter == historyFilter) return;
+    _temporaryFilter = filter;
+    notifyListeners();
+  }
 
   AnalyticsPeriod get _asPeriod => AnalyticsPeriod(PeriodKind.month, _month);
 

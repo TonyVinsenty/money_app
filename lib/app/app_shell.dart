@@ -179,22 +179,75 @@ class _AppShellState extends State<AppShell> {
         children: [
           if (widget.tabs[_selectedIndex].actionsBuilder != null)
             widget.tabs[_selectedIndex].actionsBuilder!(context),
-          NavigationBar(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (index) {
-              setState(() => _selectedIndex = index);
-            },
-            destinations: [
-              for (final tab in widget.tabs)
-                NavigationDestination(
-                  icon: Icon(tab.icon),
-                  selectedIcon: Icon(tab.selectedIcon),
-                  label: tab.label,
-                ),
-            ],
-          ),
+          _buildNavigationBar(),
         ],
       ),
     );
   }
+
+  /// Нижняя панель с подписями в одну строку. Масштаб шрифта подписей не
+  /// больше [_maxLabelScale] (как у таб-бара iOS), а если самая длинная подпись
+  /// всё равно шире своей вкладки, размер шрифта уменьшается, и слово не рвётся
+  /// и не обрезается.
+  Widget _buildNavigationBar() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final theme = Theme.of(context);
+        final media = MediaQuery.of(context);
+        final scaler = TextScaler.linear(
+          media.textScaler.scale(1).clamp(1.0, _maxLabelScale),
+        );
+        final base = theme.textTheme.labelMedium ?? const TextStyle();
+        final baseSize = base.fontSize ?? 12;
+        // Ширина вкладки за вычетом полей по краям.
+        final room = constraints.maxWidth / widget.tabs.length - 8;
+        var widest = 0.0;
+        for (final tab in widget.tabs) {
+          final painter = TextPainter(
+            text: TextSpan(text: tab.label, style: base),
+            textDirection: Directionality.of(context),
+            textScaler: scaler,
+            maxLines: 1,
+          )..layout();
+          if (painter.width > widest) widest = painter.width;
+          painter.dispose();
+        }
+        final factor = widest > room && widest > 0 ? room / widest : 1.0;
+        final scheme = theme.colorScheme;
+        TextStyle style(Color color) =>
+            base.copyWith(fontSize: baseSize * factor, color: color);
+        return MediaQuery(
+          data: media.copyWith(textScaler: scaler),
+          child: NavigationBarTheme(
+            data: NavigationBarTheme.of(context).copyWith(
+              labelTextStyle: WidgetStateProperty.resolveWith(
+                (states) => style(
+                  states.contains(WidgetState.selected)
+                      ? scheme.onSurface
+                      : scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (index) {
+                setState(() => _selectedIndex = index);
+              },
+              destinations: [
+                for (final tab in widget.tabs)
+                  NavigationDestination(
+                    icon: Icon(tab.icon),
+                    selectedIcon: Icon(tab.selectedIcon),
+                    label: tab.label,
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
+
+/// Наибольший масштаб шрифта подписей вкладок.
+const double _maxLabelScale = 1.15;

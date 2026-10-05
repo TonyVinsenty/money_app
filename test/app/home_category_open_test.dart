@@ -166,8 +166,36 @@ void main() {
     expect(_browse(tester).month, monthRange(DateOnly(2026, 9, 20)));
   }
 
+  Future<void> tapNav(WidgetTester tester, String label) async {
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text(label),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('временный фильтр сектора снимается при уходе с «Истории» '
+      'через нижнюю навигацию', (tester) async {
+    await _pumpApp(tester);
+
+    await tester.tapAt(_ringPoint(tester, 0.3));
+    await tester.pumpAndSettle();
+    expect(find.text('Фильтр: Расходы · Продукты'), findsOneWidget);
+
+    await tapNav(tester, 'Главная');
+    expect(_tab(tester), 0);
+    expect(_browse(tester).historyFilter.isActive, isFalse);
+
+    await tapNav(tester, 'История');
+    expect(find.textContaining('Фильтр:'), findsNothing);
+    expect(find.text('Транспорт'), findsOneWidget);
+    await _finish(tester);
+  });
+
   testWidgets('сектор «Продукты» ведёт в «Историю»; «Назад» на «Главную», '
-      'фильтр остаётся', (tester) async {
+      'временный фильтр снимается', (tester) async {
     await _pumpApp(tester);
 
     await tester.tapAt(_ringPoint(tester, 0.3));
@@ -182,7 +210,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_tab(tester), 0);
     expect(find.text('Расходы по категориям'), findsOneWidget);
-    expect(_browse(tester).historyFilter.isActive, isTrue);
+    expect(_browse(tester).historyFilter.isActive, isFalse);
     await _finish(tester);
   });
 

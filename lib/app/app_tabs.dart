@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_shell.dart';
+import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
@@ -19,8 +20,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 
-/// Номер вкладки «История» в [defaultAppTabs].
-const historyTabIndex = 1;
+export 'package:money_app/app/app_tab_indices.dart';
 
 /// Вкладки приложения в порядке слева направо. Часть вкладок пока заглушки.
 /// Список неизменяемый: случайно добавить или убрать вкладку нельзя.
@@ -318,11 +318,12 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
       _controller = AnalyticsController(
         today: browse.today,
         firstDay: browse.firstDay,
+        firstDayKnown: browse.firstDayKnown,
       )..addListener(_refreshTransactions);
       _refreshTransactions();
     } else {
       controller.updateToday(browse.today);
-      controller.updateFirstDay(browse.firstDay);
+      controller.updateFirstDay(browse.firstDay, known: browse.firstDayKnown);
       if (servicesChanged) _refreshTransactions();
     }
   }
@@ -362,6 +363,7 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         onNext: controller.canGoForward ? controller.next : null,
         onOpenCategory: (category) => _openCategory(context, category),
         firstDay: controller.firstDay,
+        firstDayKnown: controller.firstDayKnown,
         type: controller.type,
         onTypeSelected: controller.selectType,
         onCustomRangeSelected: controller.selectCustomRange,

@@ -11,7 +11,6 @@ import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
-import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -174,11 +173,11 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
     final type = widget.type;
     final slices = chartSlices(totals);
     final shares = percentShares([for (final t in totals) t.amount]);
-    final balance = summarizePeriod(
-      widget.transactions,
-      widget.range,
-      currency: rubCurrencyCode,
-    ).balance;
+    final isExpense = type == TransactionType.expense;
+    final total = Money.fromMinor(
+      totals.fold<int>(0, (sum, t) => sum + t.amount.minorUnits),
+      rubCurrencyCode,
+    );
 
     // Цвет категории: цвет её сектора, у попавших в «Остальное» — серый.
     final colorOf = <String, Color>{};
@@ -194,10 +193,11 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
     final lit = _highlight;
     final highlighted = lit != null && lit < slices.length ? lit : null;
 
-    final balanceSpoken = balance > Money.zero(rubCurrencyCode)
-        ? 'плюс ${spokenMoney(balance)}'
-        : spokenMoney(balance);
-    final what = type == TransactionType.expense ? 'расходов' : 'доходов';
+    final label = isExpense ? 'Расходы' : 'Доходы';
+    final totalSpoken = isExpense
+        ? 'минус ${spokenMoney(total)}'
+        : 'плюс ${spokenMoney(total)}';
+    final what = isExpense ? 'расходов' : 'доходов';
 
     return [
       Center(
@@ -223,11 +223,11 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
                     if (category != null) open(category);
                   },
             semanticsLabel:
-                'Диаграмма $what по категориям. Всего: $balanceSpoken',
+                'Диаграмма $what по категориям. $label: $totalSpoken',
             center: SizedBox(
               width: side * 0.66,
               child: highlighted == null
-                  ? _totalCenter(theme, colors, balance)
+                  ? _totalCenter(theme, colors, total, label, isExpense)
                   : _sliceCenter(
                       theme,
                       slices[highlighted],
@@ -263,23 +263,25 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
     ];
   }
 
-  /// Центр без подсветки: «Всего» и баланс периода. Цвет и знак только у суммы:
-  /// плюс цветом дохода, минус цветом расхода, ноль нейтрально.
-  Widget _totalCenter(ThemeData theme, AppColors colors, Money balance) {
-    final color = balance.isZero
-        ? null
-        : balance.isNegative
-        ? colors.expense
-        : colors.income;
-    final text = balance.isZero || balance.isNegative
-        ? formatMoney(balance)
-        : '+${formatMoney(balance)}';
+  /// Центр без подсветки: подпись типа и сумма всех его категорий, со знаком и
+  /// цветом, как в строках списка.
+  Widget _totalCenter(
+    ThemeData theme,
+    AppColors colors,
+    Money total,
+    String label,
+    bool isExpense,
+  ) {
+    final color = isExpense ? colors.expense : colors.income;
+    final text = isExpense
+        ? '\u2212${formatMoney(total)}'
+        : '+${formatMoney(total)}';
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _fit(
           Text(
-            'Всего',
+            label,
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_services.dart';
+import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_controller.dart';
 import 'package:money_app/core/time/date_only.dart';
 
@@ -60,10 +61,22 @@ class _BrowseHostState extends State<BrowseHost> {
   AppServices? _services;
   StreamSubscription<DateOnly?>? _subscription;
   late final AppLifecycleListener _lifecycle;
+  int _previousTab = 0;
+
+  // Уход с вкладки «История» на другую снимает временный фильтр (тап по
+  // сектору). Переход в карточку операции вкладку не меняет.
+  void _onTabChanged() {
+    final tab = _selectedTab.value;
+    if (_previousTab == historyTabIndex && tab != historyTabIndex) {
+      _controller?.leaveHistory();
+    }
+    _previousTab = tab;
+  }
 
   @override
   void initState() {
     super.initState();
+    _selectedTab.addListener(_onTabChanged);
     _lifecycle = AppLifecycleListener(
       onResume: () {
         final services = _services;
@@ -93,6 +106,7 @@ class _BrowseHostState extends State<BrowseHost> {
   @override
   void dispose() {
     _lifecycle.dispose();
+    _selectedTab.removeListener(_onTabChanged);
     _subscription?.cancel();
     _controller?.dispose();
     _selectedTab.dispose();

@@ -11,14 +11,18 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// Слушатели уведомляются один раз на настоящее изменение и ни разу на
 /// «пустое» действие. Правила сдвига — функции `analytics_period.dart`.
 class AnalyticsController extends ChangeNotifier {
-  AnalyticsController({required DateOnly today, DateOnly? firstDay})
-    : _today = today,
-      _period = currentPeriod(PeriodKind.month, today) {
+  AnalyticsController({
+    required DateOnly today,
+    DateOnly? firstDay,
+    this._firstDayKnown = true,
+  }) : _today = today,
+       _period = currentPeriod(PeriodKind.month, today) {
     _firstDay = firstDay;
   }
 
   DateOnly _today;
   DateOnly? _firstDay;
+  bool _firstDayKnown;
   AnalyticsPeriod _period;
   TransactionType _type = TransactionType.expense;
 
@@ -34,6 +38,9 @@ class AnalyticsController extends ChangeNotifier {
   /// День самой ранней операции; `null` — операций нет или ещё неизвестно.
   DateOnly? get firstDay => _firstDay;
 
+  /// false — ответа базы о первой операции ещё не было.
+  bool get firstDayKnown => _firstDayKnown;
+
   /// Назад можно до периода, в который попадает первая операция. Без первого
   /// дня — нельзя.
   bool get canGoBack {
@@ -42,8 +49,11 @@ class AnalyticsController extends ChangeNotifier {
     return first != null && previous != null && previous.range.end >= first;
   }
 
-  /// Вперёд можно не дальше текущего периода своего вида.
-  bool get canGoForward => nextPeriod(_period, _today) != null;
+  /// Вперёд можно не дальше текущего периода своего вида; когда точно известно,
+  /// что операций нет, стрелок нет.
+  bool get canGoForward =>
+      (!_firstDayKnown || _firstDay != null) &&
+      nextPeriod(_period, _today) != null;
 
   void previous() {
     if (!canGoBack) return;
@@ -105,9 +115,11 @@ class AnalyticsController extends ChangeNotifier {
   }
 
   /// Новый день первой операции. Выбранный период не двигается.
-  void updateFirstDay(DateOnly? day) {
-    if (day == _firstDay) return;
+  /// [known] false — база ещё не ответила (тогда null значит «неизвестно»).
+  void updateFirstDay(DateOnly? day, {bool known = true}) {
+    if (day == _firstDay && known == _firstDayKnown) return;
     _firstDay = day;
+    _firstDayKnown = known;
     notifyListeners();
   }
 }

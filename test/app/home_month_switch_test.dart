@@ -192,7 +192,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(DonutChart),
-        matching: find.text(formatMoney(Money.fromMinor(-2508488, 'RUB'))),
+        matching: find.text(_expense(12803388)),
       ),
       findsOneWidget,
     );

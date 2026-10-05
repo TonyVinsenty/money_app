@@ -47,7 +47,7 @@ const EdgeInsets _chipLabelPadding = EdgeInsets.symmetric(horizontal: 4);
 };
 
 /// Экран «Аналитика»: выбор вида периода и переключатель периода; под ними
-/// место для итогов ([content]).
+/// место для итогов.
 ///
 /// Экран ничего не знает ни о выбранном периоде как состоянии, ни о
 /// репозиториях, ни о маршрутах (ADR 0002): всё приходит параметрами.
@@ -65,8 +65,8 @@ class AnalyticsScreen extends StatelessWidget {
     this.onTypeSelected,
     this.onOpenCategory,
     this.firstDay,
+    this.firstDayKnown = false,
     this.onCustomRangeSelected,
-    this.content = const [],
     super.key,
   });
 
@@ -87,6 +87,10 @@ class AnalyticsScreen extends StatelessWidget {
   /// нельзя. `null` — операций нет или ещё неизвестно.
   final DateOnly? firstDay;
 
+  /// База уже ответила про первую операцию. Пока нет, null в [firstDay] не
+  /// значит «операций нет вообще».
+  final bool firstDayKnown;
+
   /// Свой интервал выбран в диалоге (начало, конец включительно). Без колбэка
   /// чип «Свой» недоступен.
   final void Function(DateOnly start, DateOnly end)? onCustomRangeSelected;
@@ -100,9 +104,6 @@ class AnalyticsScreen extends StatelessWidget {
   /// Выбрана категория (строка списка или сектор кольца). Маршрут открывает
   /// вызывающий; без колбэка строки не кнопки.
   final ValueChanged<Category>? onOpenCategory;
-
-  /// Блоки под переключателем (итоги, кольцо, списки): всё в одной прокрутке.
-  final List<Widget> content;
 
   /// Стандартный выбор интервала. Последний день — сегодня, первый — день
   /// первой операции (без операций — сегодня). Отмена ничего не меняет.
@@ -174,7 +175,9 @@ class AnalyticsScreen extends StatelessWidget {
           loadingBuilder: (_) => const _SummarySkeleton(),
           errorBuilder: (context, error) => const _SummaryError(),
           isEmpty: (data) => data.transactions.isEmpty,
-          emptyBuilder: (_) => const _EmptyPeriod(),
+          emptyBuilder: (_) => _EmptyPeriod(
+            noOperationsAtAll: firstDayKnown && firstDay == null,
+          ),
           dataBuilder: (context, data) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -201,14 +204,16 @@ class AnalyticsScreen extends StatelessWidget {
             ],
           ),
         ),
-        ...content,
       ],
     );
   }
 }
 
 class _EmptyPeriod extends StatelessWidget {
-  const _EmptyPeriod();
+  const _EmptyPeriod({required this.noOperationsAtAll});
+
+  /// Операций нет вообще (а не только в этом периоде).
+  final bool noOperationsAtAll;
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +221,9 @@ class _EmptyPeriod extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Text(
-        'За этот период операций нет',
+        noOperationsAtAll
+            ? 'Операций пока нет. Добавьте первую — и здесь появится статистика'
+            : 'За этот период операций нет',
         textAlign: TextAlign.center,
         style: theme.textTheme.bodyLarge?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,

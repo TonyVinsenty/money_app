@@ -33,6 +33,7 @@ Future<void> _pump(
   double textScale = 1,
   AnalyticsPeriod? period,
   DateOnly? firstDay,
+  bool firstDayKnown = false,
   void Function(DateOnly, DateOnly)? onCustom,
 }) async {
   tester.view.physicalSize = const Size(360, 800);
@@ -50,6 +51,7 @@ Future<void> _pump(
         body: AnalyticsScreen(
           period: period ?? currentPeriod(kind, _today),
           firstDay: firstDay,
+          firstDayKnown: firstDayKnown,
           onCustomRangeSelected: onCustom,
           today: _today,
           onKindSelected: onKindSelected ?? (_) {},
@@ -349,11 +351,41 @@ void main() {
     });
 
     testWidgets('пустой период: текст, а не нули', (tester) async {
+      await _pump(
+        tester,
+        firstDay: DateOnly(2026, 9, 1),
+        transactions: data(const []),
+      );
+      await tester.pump();
+
+      expect(find.text('За этот период операций нет'), findsOneWidget);
+      expect(find.textContaining('Операций пока нет'), findsNothing);
+      expect(find.byType(PeriodSummaryCard), findsNothing);
+    });
+
+    testWidgets('первая операция неизвестна: приглашения нет, прежний текст', (
+      tester,
+    ) async {
       await _pump(tester, transactions: data(const []));
       await tester.pump();
 
       expect(find.text('За этот период операций нет'), findsOneWidget);
-      expect(find.byType(PeriodSummaryCard), findsNothing);
+      expect(find.textContaining('Операций пока нет'), findsNothing);
+    });
+
+    testWidgets('операций нет вообще (известно): приглашение добавить', (
+      tester,
+    ) async {
+      await _pump(tester, firstDayKnown: true, transactions: data(const []));
+      await tester.pump();
+
+      expect(
+        find.text(
+          'Операций пока нет. Добавьте первую — и здесь появится статистика',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('За этот период операций нет'), findsNothing);
     });
 
     testWidgets('операции только с нулевой суммой: карточка с нулями', (

@@ -210,7 +210,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
                 highlightedIndex: highlighted,
                 onHighlight: (index) => setState(() => _highlight = index),
                 semanticsLabel:
-                    'Диаграмма по подкатегориям. Итог: ${spokenMoney(total)}',
+                    'Диаграмма по подкатегориям. Всего: ${spokenMoney(total)}',
                 center: SizedBox(
                   width: ringCenterWidth,
                   child: FittedBox(
@@ -241,7 +241,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Итого',
+          'Всего',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
