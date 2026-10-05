@@ -5,6 +5,7 @@ import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/format/period_label.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
@@ -32,6 +33,7 @@ class CategoryBreakdownScreen extends StatefulWidget {
   const CategoryBreakdownScreen({
     required this.category,
     required this.period,
+    required this.today,
     required this.transactions,
     required this.categories,
     super.key,
@@ -39,6 +41,9 @@ class CategoryBreakdownScreen extends StatefulWidget {
 
   final Category category;
   final AnalyticsPeriod period;
+
+  /// Сегодняшний день: от него зависит, как подписан период.
+  final DateOnly today;
   final Stream<List<Transaction>> transactions;
   final Stream<List<Category>> categories;
 
@@ -69,7 +74,11 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Text(
-              formatPeriodLabel(widget.period.kind, widget.period.range),
+              formatPeriodLabel(
+                widget.period.kind,
+                widget.period.range,
+                today: widget.today,
+              ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

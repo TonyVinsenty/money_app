@@ -45,19 +45,21 @@ abstract final class AppRoutes {
   static const analyticsCategory = '/analytics-category';
 }
 
-/// Аргументы маршрута [AppRoutes.analyticsCategory]: категория, период и два
-/// потока (операции периода и все категории, включая архивные). Потоки
+/// Аргументы маршрута [AppRoutes.analyticsCategory]: категория, период, сегодняшний
+/// день и два потока (операции периода и все категории, включая архивные). Потоки
 /// создаёт тот, кто открывает маршрут, и держит одними и теми же.
 final class CategoryBreakdownRouteArguments {
   const CategoryBreakdownRouteArguments({
     required this.category,
     required this.period,
+    required this.today,
     required this.transactions,
     required this.categories,
   });
 
   final Category category;
   final AnalyticsPeriod period;
+  final DateOnly today;
   final Stream<List<Transaction>> transactions;
   final Stream<List<Category>> categories;
 }
@@ -314,6 +316,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
         builder: (_) => CategoryBreakdownScreen(
           category: arguments.category,
           period: arguments.period,
+          today: arguments.today,
           transactions: arguments.transactions,
           categories: arguments.categories,
         ),

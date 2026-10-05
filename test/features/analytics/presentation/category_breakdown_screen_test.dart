@@ -102,6 +102,7 @@ Future<void> _pump(
       home: CategoryBreakdownScreen(
         category: category ?? _food,
         period: _period,
+        today: DateOnly(2026, 10, 4),
         transactions: transactions ?? Stream.value(const []),
         categories: categories ?? Stream.value(const []),
       ),
@@ -134,11 +135,11 @@ void main() {
       findsOneWidget,
     );
     // Период стоит под тулбаром, а не в нём.
-    expect(find.text('сентябрь 2026'), findsOneWidget);
+    expect(find.text('Сентябрь 2026'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AppBar),
-        matching: find.text('сентябрь 2026'),
+        matching: find.text('Сентябрь 2026'),
       ),
       findsNothing,
     );
@@ -153,7 +154,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    final period = find.text('сентябрь 2026');
+    final period = find.text('Сентябрь 2026');
     expect(period, findsOneWidget);
     final screen = tester.getRect(find.byType(CategoryBreakdownScreen));
     expect(tester.getRect(period).left, greaterThanOrEqualTo(0));

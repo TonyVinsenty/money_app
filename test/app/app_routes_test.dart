@@ -250,6 +250,7 @@ void main() {
               PeriodKind.month,
               monthRange(DateOnly(2026, 9, 1)),
             ),
+            today: DateOnly(2026, 10, 4),
             transactions: Stream.value(const <Transaction>[]),
             categories: Stream.value(const <Category>[]),
           ),

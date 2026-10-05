@@ -5,6 +5,9 @@ import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/features/analytics/domain/analytics_period.dart';
+import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
+import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
@@ -19,7 +22,7 @@ import 'package:money_app/features/transactions/presentation/history/history_scr
 /// Номер вкладки «История» в [defaultAppTabs].
 const historyTabIndex = 1;
 
-/// Вкладки приложения в порядке слева направо. Пока внутри только заглушки.
+/// Вкладки приложения в порядке слева направо. Часть вкладок пока заглушки.
 /// Список неизменяемый: случайно добавить или убрать вкладку нельзя.
 final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
   AppTab(
@@ -39,9 +42,7 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
     label: 'Аналитика',
     icon: Icons.pie_chart_outline,
     selectedIcon: Icons.pie_chart,
-    builder: (_) => const TabPlaceholder(
-      'Здесь будут итоги по периодам и диаграмма по категориям',
-    ),
+    builder: (_) => const AnalyticsTab(),
   ),
   AppTab(
     label: 'Баланс',
@@ -269,6 +270,120 @@ class _HistoryTabState extends State<HistoryTab> {
             browse.showMonthOf(day);
           },
         ),
+      ),
+    );
+  }
+}
+
+/// Вкладка «Аналитика»: держит выбранный период ([AnalyticsController]) и
+/// связывает его с экраном. «Сегодня» и день первой операции берёт у общего
+/// [BrowseScope]. Вкладки лежат в IndexedStack, поэтому период сохраняется
+/// при переходах между вкладками.
+class AnalyticsTab extends StatefulWidget {
+  const AnalyticsTab({super.key});
+
+  @override
+  State<AnalyticsTab> createState() => _AnalyticsTabState();
+}
+
+class _AnalyticsTabState extends State<AnalyticsTab> {
+  AnalyticsController? _controller;
+  TransactionsRepository? _transactionsRepository;
+  CategoriesRepository? _categoriesRepository;
+  late Stream<PeriodTransactions> _transactions;
+  late Stream<List<Category>> _categories;
+  AnalyticsPeriod? _streamPeriod;
+  TransactionsRepository? _streamRepository;
+
+  // Потоки создаём один раз и заново только при смене периода или сервисов:
+  // в build каждая перерисовка начинала бы подписку заново. Слушатель
+  // контроллера добавлен раньше, чем ListenableBuilder, поэтому к моменту
+  // перерисовки поток уже новый.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final services = AppScope.of(context);
+    final browse = BrowseScope.of(context);
+    final servicesChanged = !identical(
+      services.transactions,
+      _transactionsRepository,
+    );
+    _transactionsRepository = services.transactions;
+    if (!identical(services.categories, _categoriesRepository)) {
+      _categoriesRepository = services.categories;
+      _categories = services.categories.watchAll();
+    }
+    final controller = _controller;
+    if (controller == null) {
+      _controller = AnalyticsController(
+        today: browse.today,
+        firstDay: browse.firstDay,
+      )..addListener(_refreshTransactions);
+      _refreshTransactions();
+    } else {
+      controller.updateToday(browse.today);
+      controller.updateFirstDay(browse.firstDay);
+      if (servicesChanged) _refreshTransactions();
+    }
+  }
+
+  void _refreshTransactions() {
+    final period = _controller!.period;
+    final repository = _transactionsRepository!;
+    if (period == _streamPeriod && identical(repository, _streamRepository)) {
+      return;
+    }
+    _streamPeriod = period;
+    _streamRepository = repository;
+    final range = period.range;
+    _transactions = repository
+        .watchInPeriod(range)
+        .map((list) => (range: range, transactions: list));
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller!;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => AnalyticsScreen(
+        period: controller.period,
+        today: controller.today,
+        transactions: _transactions,
+        categories: _categories,
+        onKindSelected: controller.selectKind,
+        onPrevious: controller.canGoBack ? controller.previous : null,
+        onNext: controller.canGoForward ? controller.next : null,
+        onOpenCategory: (category) => _openCategory(context, category),
+        firstDay: controller.firstDay,
+        type: controller.type,
+        onTypeSelected: controller.selectType,
+        onCustomRangeSelected: controller.selectCustomRange,
+      ),
+    );
+  }
+
+  // Экран категории получает выбранный период и свои потоки: они создаются при
+  // нажатии, а не в build, и не зависят от потока вкладки (тот уже слушается).
+  void _openCategory(BuildContext context, Category category) {
+    final services = AppScope.of(context);
+    final controller = _controller!;
+    Navigator.of(context).pushNamed(
+      AppRoutes.analyticsCategory,
+      arguments: CategoryBreakdownRouteArguments(
+        category: category,
+        period: controller.period,
+        today: controller.today,
+        transactions: services.transactions.watchInPeriod(
+          controller.period.range,
+        ),
+        categories: services.categories.watchAll(),
       ),
     );
   }

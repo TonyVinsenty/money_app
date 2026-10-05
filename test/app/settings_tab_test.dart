@@ -133,7 +133,7 @@ void main() {
     expect(find.text('Тема'), findsOneWidget);
   });
 
-  for (final tab in ['Аналитика', 'Баланс']) {
+  for (final tab in ['Баланс']) {
     testWidgets('вкладка «$tab» подписана «В разработке»', (tester) async {
       await _pump(tester);
 
