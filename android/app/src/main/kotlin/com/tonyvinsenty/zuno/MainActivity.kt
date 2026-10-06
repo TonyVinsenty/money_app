@@ -11,7 +11,8 @@ import java.io.File
 class MainActivity : FlutterActivity() {
 
     // Канал, по которому Dart просит отправить файл через системное «Поделиться».
-    // Имя канала и метод должны совпадать с lib/features/settings/presentation/share_csv_file.dart.
+    // Имя канала и метод должны совпадать с lib/features/settings/presentation/share_csv_file.dart
+    // и с ios/Runner/AppDelegate.swift.
     private val shareChannelName = "com.tonyvinsenty.zuno/share"
 
     // Authority нашего FileProvider (см. AndroidManifest.xml). Отдельный от share_plus.
