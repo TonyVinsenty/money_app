@@ -74,6 +74,9 @@ class SettingsTab extends StatelessWidget {
     return SettingsScreen(
       themeMode: settings.themeMode,
       onThemeModeChanged: settings.setThemeMode,
+      lastExportDay: settings.lastExportDay,
+      today: services.clock.today(),
+      onExportShared: () => settings.setLastExportDay(services.clock.today()),
       // Экспортёр собирает файл из репозиториев; создаём его здесь, под
       // AppScope, и только при нажатии.
       onExportCsv: () => TransactionsExporter(

@@ -1,6 +1,10 @@
 /// Ключ настройки «тема оформления». Значения: `system`, `light`, `dark`.
 const themeModeSettingKey = 'theme_mode';
 
+/// Ключ настройки «последняя выгрузка CSV». Значение — локальный день
+/// ГГГГММДД строкой (например, `20261007`).
+const lastExportDaySettingKey = 'last_export_day';
+
 /// Хранилище настроек «ключ — значение» (ADR 0002: интерфейс в `domain`,
 /// реализация в `data`). Значения — строки; что они значат, решает вызывающий.
 abstract interface class SettingsRepository {

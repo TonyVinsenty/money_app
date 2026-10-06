@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/settings/data/settings_repository_impl.dart';
 import 'package:money_app/features/settings/domain/settings_repository.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -86,6 +87,23 @@ void main() {
 
     expect(second.themeMode, ThemeMode.dark);
     expect(_appThemeMode(tester), ThemeMode.dark);
+  });
+
+  testWidgets('день последнего экспорта переживает перезапуск', (tester) async {
+    final first = AppSettingsController();
+    addTearDown(first.dispose);
+    await tester.runAsync(() async {
+      await first.attach(DriftSettingsRepository(db));
+      first.setLastExportDay(DateOnly(2026, 10, 7));
+      // Запись идёт в фоне: ждём, пока она дойдёт до базы.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+
+    final second = AppSettingsController();
+    addTearDown(second.dispose);
+    await tester.runAsync(() => second.attach(DriftSettingsRepository(db)));
+
+    expect(second.lastExportDay, DateOnly(2026, 10, 7));
   });
 
   testWidgets('чистая база: запуск в теме «как в системе»', (tester) async {

@@ -8,14 +8,17 @@ import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../support/fakes.dart';
+import '../support/fixed_clock.dart';
 
 /// Репозиторий операций для "Главной": ей нужны только итоги месяца.
 class _TotalsOnlyRepository extends FakeTransactionsRepository {
@@ -36,7 +39,10 @@ class _TotalsOnlyRepository extends FakeTransactionsRepository {
 /// Каркас с настоящими вкладками и фейковыми репозиториями. Тема берётся из
 /// настроек, как в `MoneyApp`: так видно, что выбор в «Настройках» доходит
 /// до `MaterialApp`.
-Future<AppSettingsController> _pump(WidgetTester tester) async {
+Future<AppSettingsController> _pump(
+  WidgetTester tester, {
+  FixedClock? clock,
+}) async {
   final settings = AppSettingsController();
   addTearDown(settings.dispose);
   // Экран «Категории» читает список сразу при открытии.
@@ -54,6 +60,7 @@ Future<AppSettingsController> _pump(WidgetTester tester) async {
           services: fakeAppServices(
             settings: settings,
             categories: categories,
+            clock: clock,
             transactions: _TotalsOnlyRepository(),
           ),
           child: BrowseHost(child: AppShell(tabs: defaultAppTabs)),
@@ -131,6 +138,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CategoriesScreen), findsNothing);
     expect(find.text('Тема'), findsOneWidget);
+  });
+
+  testWidgets('подпись экспорта следует за днём в настройках и часами', (
+    tester,
+  ) async {
+    final settings = await _pump(
+      tester,
+      clock: FixedClock(DateTime(2027, 1, 2, 12)),
+    );
+    expect(find.text('Последний экспорт: ещё не было'), findsOneWidget);
+
+    // Как после успешного «Поделиться»: экран сообщает вкладке, вкладка
+    // записывает сегодняшний день из часов приложения.
+    tester.widget<SettingsScreen>(find.byType(SettingsScreen)).onExportShared();
+    await tester.pump();
+    expect(settings.lastExportDay, DateOnly(2027, 1, 2));
+    expect(find.text('Последний экспорт: 2 января'), findsOneWidget);
+
+    settings.setLastExportDay(DateOnly(2026, 12, 31));
+    await tester.pump();
+    expect(
+      find.textContaining('Последний экспорт: 31 декабря 2026'),
+      findsOneWidget,
+    );
   });
 
   for (final tab in ['Баланс']) {

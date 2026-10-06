@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/settings/domain/settings_repository.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
@@ -128,5 +129,114 @@ void main() {
     expect(controller.themeMode, ThemeMode.dark);
     // Необработанных ошибок в зоне не появилось.
     expect(errors, isEmpty);
+  });
+
+  group('день последней выгрузки', () {
+    test('по умолчанию null', () {
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+
+      expect(controller.lastExportDay, isNull);
+    });
+
+    test('attach читает сохранённый день и уведомляет', () async {
+      final repo = _FakeSettingsRepository()
+        ..data[lastExportDaySettingKey] = '20261007';
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      await controller.attach(repo);
+
+      expect(controller.lastExportDay, DateOnly(2026, 10, 7));
+      expect(notifications, 1);
+      expect(repo.writes, 0);
+    });
+
+    test('испорченное значение даёт null', () async {
+      for (final bad in ['', 'abc', '20261340', '20260230', '0', '-5']) {
+        final repo = _FakeSettingsRepository()
+          ..data[lastExportDaySettingKey] = bad;
+        final controller = AppSettingsController();
+        addTearDown(controller.dispose);
+
+        await controller.attach(repo);
+
+        expect(controller.lastExportDay, isNull, reason: bad);
+      }
+    });
+
+    test('setLastExportDay обновляет, уведомляет и пишет', () async {
+      final repo = _FakeSettingsRepository();
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      controller.setLastExportDay(DateOnly(2026, 10, 7));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.lastExportDay, DateOnly(2026, 10, 7));
+      expect(notifications, 1);
+      expect(repo.data[lastExportDaySettingKey], '20261007');
+    });
+
+    test('повтор того же дня: без уведомления и второй записи', () async {
+      final repo = _FakeSettingsRepository();
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      controller.setLastExportDay(DateOnly(2026, 10, 7));
+      await Future<void>.delayed(Duration.zero);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      controller.setLastExportDay(DateOnly(2026, 10, 7));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(notifications, 0);
+      expect(repo.writes, 1);
+    });
+
+    test('attach без сохранённого дня: без уведомления и записи', () async {
+      final repo = _FakeSettingsRepository();
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+
+      await controller.attach(repo);
+
+      expect(notifications, 0);
+      expect(repo.writes, 0);
+    });
+
+    test('ошибка записи не откатывает день и не падает', () async {
+      final repo = _FakeSettingsRepository(failWrite: true);
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        controller.setLastExportDay(DateOnly(2026, 10, 7));
+        await Future<void>.delayed(Duration.zero);
+      }, (error, _) => errors.add(error));
+
+      expect(repo.writes, 1);
+      expect(controller.lastExportDay, DateOnly(2026, 10, 7));
+      expect(errors, isEmpty);
+    });
+
+    test('ошибка чтения: день остаётся null', () async {
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+
+      await controller.attach(_FakeSettingsRepository(failRead: true));
+
+      expect(controller.lastExportDay, isNull);
+    });
   });
 }

@@ -60,6 +60,16 @@ void main() {
       expect(await repo.read('other'), 'x');
     });
 
+    test('день последней выгрузки: запись, чтение, перезапись', () async {
+      expect(await repo.read(lastExportDaySettingKey), isNull);
+
+      await repo.write(lastExportDaySettingKey, '20261007');
+      expect(await repo.read(lastExportDaySettingKey), '20261007');
+
+      await repo.write(lastExportDaySettingKey, '20261008');
+      expect(await repo.read(lastExportDaySettingKey), '20261008');
+    });
+
     test('мусор в базе: контроллер применяет «как в системе»', () async {
       await db
           .into(db.appSettings)

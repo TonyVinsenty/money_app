@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
@@ -11,6 +14,8 @@ Widget _app({
   VoidCallback? onCategories,
   Future<String> Function()? onExport,
   ShareFile? shareFile,
+  DateOnly? lastExportDay,
+  VoidCallback? onExportShared,
   double textScale = 1,
 }) {
   return MaterialApp(
@@ -26,6 +31,9 @@ Widget _app({
         onOpenCategories: onCategories ?? () {},
         onExportCsv: onExport ?? () async => '/tmp/zuno-export.csv',
         shareFile: shareFile ?? (_) async {},
+        lastExportDay: lastExportDay,
+        today: DateOnly(2026, 10, 7),
+        onExportShared: onExportShared ?? () {},
       ),
     ),
   );
@@ -37,6 +45,8 @@ ThemeMode _groupValue(WidgetTester tester) => tester
     .groupValue!;
 
 void main() {
+  setUpAll(() => initializeDateFormatting('ru'));
+
   testWidgets('три варианта темы, выбран текущий', (tester) async {
     await tester.pumpWidget(_app(mode: ThemeMode.dark));
 
@@ -209,6 +219,97 @@ void main() {
       expect(find.byType(SnackBar), findsOneWidget);
       expect(shareCalls, 0);
       // После ошибки пункт снова доступен.
+      expect(tester.widget<ListTile>(exportItem()).enabled, isTrue);
+    });
+
+    testWidgets('подпись: выгрузки ещё не было', (tester) async {
+      await tester.pumpWidget(_app());
+
+      expect(find.text('Последний экспорт: ещё не было'), findsOneWidget);
+    });
+
+    testWidgets('подпись: день этого года без года', (tester) async {
+      await tester.pumpWidget(_app(lastExportDay: DateOnly(2026, 10, 7)));
+
+      expect(find.text('Последний экспорт: 7 октября'), findsOneWidget);
+    });
+
+    testWidgets('подпись: день прошлого года с годом', (tester) async {
+      await tester.pumpWidget(_app(lastExportDay: DateOnly(2025, 10, 5)));
+
+      // Перед «г.» intl ставит узкий неразрывный пробел, поэтому не точное
+      // совпадение, а начало строки.
+      expect(
+        find.textContaining('Последний экспорт: 5 октября 2025'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('успешный экспорт вызывает onExportShared один раз', (
+      tester,
+    ) async {
+      var shared = 0;
+      await tester.pumpWidget(_app(onExportShared: () => shared++));
+
+      await tester.tap(find.text(exportCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(shared, 1);
+    });
+
+    testWidgets('ошибка подготовки файла: onExportShared не вызван', (
+      tester,
+    ) async {
+      var shared = 0;
+      await tester.pumpWidget(
+        _app(
+          onExport: () async => throw Exception('нет места'),
+          onExportShared: () => shared++,
+        ),
+      );
+
+      await tester.tap(find.text(exportCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(shared, 0);
+    });
+
+    testWidgets('экран закрыт, пока «Поделиться» открыто: без исключений', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      var shared = 0;
+      await tester.pumpWidget(
+        _app(shareFile: (_) => gate.future, onExportShared: () => shared++),
+      );
+
+      await tester.tap(find.text(exportCsvItemLabel));
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox());
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(shared, 1);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('«Поделиться» не открылось: SnackBar, дата не меняется', (
+      tester,
+    ) async {
+      var shared = 0;
+      await tester.pumpWidget(
+        _app(
+          shareFile: (_) async => throw PlatformException(code: 'share'),
+          onExportShared: () => shared++,
+        ),
+      );
+
+      await tester.tap(find.text(exportCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(shareFailedMessage), findsOneWidget);
+      expect(shared, 0);
       expect(tester.widget<ListTile>(exportItem()).enabled, isTrue);
     });
   });

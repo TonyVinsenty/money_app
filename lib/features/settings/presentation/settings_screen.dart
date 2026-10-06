@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/format/date_format.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
@@ -17,9 +19,23 @@ const categoriesItemLabel = 'Категории';
 const exportCsvItemLabel = 'Экспорт в CSV';
 
 /// Сообщение, если файл экспорта не получилось подготовить.
-/// Новый текст: ждёт утверждения пользователя.
 const exportCsvFailedMessage =
     'Не удалось подготовить файл экспорта. Файл не создан';
+
+/// Сообщение, если системное окно «Поделиться» открыть не удалось.
+const shareFailedMessage =
+    'Не удалось открыть окно «Поделиться». Файл не отправлен';
+
+/// Подпись индикатора для скринридера, пока готовится файл.
+const exportPreparingLabel = 'Готовим файл';
+
+/// Подпись под пунктом экспорта. Без года, если выгрузка в текущем году
+/// (год берётся из [today]); если выгрузки не было — «ещё не было».
+String lastExportLabel(DateOnly? day, DateOnly today) {
+  if (day == null) return 'Последний экспорт: ещё не было';
+  final text = day.year == today.year ? formatDayMonth(day) : formatDate(day);
+  return 'Последний экспорт: $text';
+}
 
 /// Экран (вкладка) «Настройки»: выбор темы, переход к категориям и экспорт CSV.
 ///
@@ -32,6 +48,9 @@ class SettingsScreen extends StatefulWidget {
     required this.onThemeModeChanged,
     required this.onOpenCategories,
     required this.onExportCsv,
+    required this.lastExportDay,
+    required this.today,
+    required this.onExportShared,
     this.shareFile = shareCsvFile,
     super.key,
   });
@@ -43,6 +62,15 @@ class SettingsScreen extends StatefulWidget {
   /// Готовит файл экспорта и возвращает путь к нему. Бросает исключение,
   /// если подготовить не удалось.
   final Future<String> Function() onExportCsv;
+
+  /// День последней выгрузки; `null` — ещё не было.
+  final DateOnly? lastExportDay;
+
+  /// Сегодняшний день: по нему решаем, показывать ли год.
+  final DateOnly today;
+
+  /// Вызывается после того, как окно «Поделиться» открылось без ошибки.
+  final VoidCallback onExportShared;
 
   /// Отправляет готовый файл наружу.
   final ShareFile shareFile;
@@ -73,7 +101,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
         return;
       }
-      await widget.shareFile(path);
+      try {
+        await widget.shareFile(path);
+      } on Exception {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: TapToDismissSnackContent(
+                child: Text(shareFailedMessage),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      widget.onExportShared();
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -123,12 +165,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const Divider(),
         ListTile(
           title: const Text(exportCsvItemLabel),
+          subtitle: Text(lastExportLabel(widget.lastExportDay, widget.today)),
           // Пока идёт выгрузка, вместо стрелки крутится индикатор, а пункт
           // недоступен: повторное нажатие не запустит вторую выгрузку.
           trailing: _exporting
               ? const SizedBox.square(
                   dimension: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    semanticsLabel: exportPreparingLabel,
+                  ),
                 )
               : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
           enabled: !_exporting,
