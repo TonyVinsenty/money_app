@@ -1,12 +1,15 @@
 package com.tonyvinsenty.zuno
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
+import java.io.IOException
 
 class MainActivity : FlutterActivity() {
 
@@ -62,5 +65,85 @@ class MainActivity : FlutterActivity() {
                     result.error("share_failed", e.message, null)
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, filesChannelName)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "pickCsvFile") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                if (pendingPick != null) {
+                    result.error("busy", "Окно выбора файла уже открыто", null)
+                    return@setMethodCallHandler
+                }
+
+                val open = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    putExtra(
+                        Intent.EXTRA_MIME_TYPES,
+                        arrayOf("text/csv", "text/comma-separated-values", "text/plain"),
+                    )
+                }
+                pendingPick = result
+                try {
+                    startActivityForResult(open, pickFileRequestCode)
+                } catch (e: ActivityNotFoundException) {
+                    pendingPick = null
+                    result.error("no_picker", e.message, null)
+                } catch (e: Exception) {
+                    pendingPick = null
+                    result.error("copy_failed", e.message, null)
+                }
+            }
+    }
+
+    // Канал выбора файла: имя и метод — как в lib/features/csv_import/presentation/pick_csv_file.dart
+    // и в ios/Runner/AppDelegate.swift.
+    private val filesChannelName = "com.tonyvinsenty.zuno/files"
+    private val pickFileRequestCode = 4101
+
+    // Ожидающий ответ Dart, пока открыто окно выбора (второй вызов получит "busy").
+    private var pendingPick: MethodChannel.Result? = null
+
+    @Deprecated("FlutterActivity наследует Activity, поэтому ответ окна приходит сюда")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode != pickFileRequestCode) {
+            super.onActivityResult(requestCode, resultCode, data)
+            return
+        }
+        val result = pendingPick ?: return
+        pendingPick = null
+
+        val uri = if (resultCode == RESULT_OK) data?.data else null
+        if (uri == null) {
+            // Отмена не ошибка: Dart получает null.
+            result.success(null)
+            return
+        }
+
+        // Копируем не на главном потоке, а ответ отдаём на главном.
+        Thread {
+            try {
+                val path = copyToCache(uri)
+                runOnUiThread { result.success(path) }
+            } catch (e: Exception) {
+                runOnUiThread { result.error("copy_failed", e.message, null) }
+            }
+        }.start()
+    }
+
+    // Копия выбранного файла в cacheDir/csv_import; прежние копии удаляем.
+    private fun copyToCache(uri: Uri): String {
+        val dir = File(cacheDir, "csv_import")
+        dir.deleteRecursively()
+        if (!dir.mkdirs()) throw IOException("Не удалось создать каталог копии")
+        val target = File(dir, "import.csv")
+        val input = contentResolver.openInputStream(uri)
+            ?: throw IOException("Не удалось открыть файл")
+        input.use { source ->
+            target.outputStream().use { sink -> source.copyTo(sink) }
+        }
+        return target.absolutePath
     }
 }
