@@ -155,7 +155,7 @@ Future<void> _openTab(WidgetTester tester, String label) async {
 }
 
 Finder get _field =>
-    find.widgetWithText(TextField, 'Поиск по комментарию и подкатегории');
+    find.widgetWithText(TextField, 'Комментарий или подкатегория');
 
 Future<void> _type(WidgetTester tester, String text) async {
   await tester.enterText(find.byType(TextField), text);

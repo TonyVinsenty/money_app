@@ -753,7 +753,7 @@ class _SearchField extends StatelessWidget {
           keyboardType: TextInputType.text,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            hintText: 'Поиск по комментарию и подкатегории',
+            hintText: 'Комментарий или подкатегория',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: value.text.isEmpty
                 ? null
