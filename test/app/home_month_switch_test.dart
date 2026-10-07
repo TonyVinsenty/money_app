@@ -121,6 +121,7 @@ Future<void> _pump(
           settings: settings,
           clock: FixedClock(DateTime(2026, 10, 4, 12)),
           idGenerator: FakeIdGenerator(),
+          csvImport: FakeCsvImportStore(),
         ),
         child: BrowseHost(
           child: Builder(

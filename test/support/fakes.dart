@@ -7,6 +7,9 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
+import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
+import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
@@ -246,6 +249,7 @@ AppServices fakeAppServices({
   CategoriesRepository? categories,
   TransactionsRepository? transactions,
   FixedClock? clock,
+  CsvImportStore? csvImport,
 }) {
   return AppServices(
     categories: categories ?? FakeCategoriesRepository(),
@@ -253,5 +257,33 @@ AppServices fakeAppServices({
     settings: settings,
     clock: clock ?? FixedClock(DateTime.utc(2026, 9, 20, 12)),
     idGenerator: FakeIdGenerator(),
+    csvImport: csvImport ?? FakeCsvImportStore(),
   );
+}
+
+/// Пустой фейк импорта CSV: любой вызов падает, если тест его не ждал.
+class FakeCsvImportStore extends Fake implements CsvImportStore {}
+
+/// Фейк импорта CSV с заданным планом. Записанные планы — в [written];
+/// [writeError] — что бросить при записи (имитация сбоя базы).
+class PlannedCsvImportStore implements CsvImportStore {
+  PlannedCsvImportStore(this.plan);
+
+  CsvImportPlan plan;
+  Exception? writeError;
+  List<ParsedCsvRow>? preparedRows;
+  final List<CsvImportPlan> written = [];
+
+  @override
+  Future<CsvImportPlan> prepare(List<ParsedCsvRow> rows) async {
+    preparedRows = rows;
+    return plan;
+  }
+
+  @override
+  Future<void> write(CsvImportPlan plan) async {
+    final error = writeError;
+    if (error != null) throw error;
+    written.add(plan);
+  }
 }

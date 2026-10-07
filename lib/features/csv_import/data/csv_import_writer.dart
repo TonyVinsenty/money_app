@@ -1,6 +1,7 @@
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
@@ -9,7 +10,7 @@ import 'package:money_app/features/transactions/domain/transactions_repository.d
 ///
 /// Репозитории обязаны работать с той же [AppDatabase]: вложенная транзакция
 /// drift присоединяется к внешней, поэтому откат отменяет всё сразу.
-class CsvImportWriter {
+class CsvImportWriter implements CsvImportStore {
   CsvImportWriter({
     required this._db,
     required this._categories,
@@ -23,6 +24,7 @@ class CsvImportWriter {
   final IdGenerator _ids;
 
   /// Читает из базы всё нужное и строит план. В базу ничего не пишет.
+  @override
   Future<CsvImportPlan> prepare(List<ParsedCsvRow> rows) async {
     final categories = await _categories.watchAll().first;
 
@@ -57,6 +59,7 @@ class CsvImportWriter {
   /// Пишет [plan] одной транзакцией: сначала категории, потом операции.
   /// Любая ошибка (в том числе уже существующий id операции) откатывает всё
   /// и выходит наружу. Пустой план ничего не делает.
+  @override
   Future<void> write(CsvImportPlan plan) async {
     if (plan.errors.isNotEmpty) {
       throw StateError('Нельзя записывать план с ошибками');
