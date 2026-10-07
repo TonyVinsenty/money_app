@@ -251,7 +251,7 @@ void main() {
       );
     });
 
-    test('валюта: пусто — рубль, RUB — можно, USD — ошибка', () {
+    test('валюта: пусто — рубль, RUB и rub — можно, USD — ошибка', () {
       const header = 'Дата;Тип;Сумма;Валюта;Категория';
       expect(_parsed('$header\r\n04.10.2026;Расход;5;;Кафе').errors, isEmpty);
       expect(
@@ -259,9 +259,38 @@ void main() {
         isEmpty,
       );
       expect(
+        _parsed('$header\r\n04.10.2026;Расход;5;rub;Кафе').errors,
+        isEmpty,
+      );
+      expect(
         _parsed('$header\r\n04.10.2026;Расход;5;USD;Кафе').errors.single,
         isA<CsvUnsupportedCurrency>(),
       );
+    });
+
+    test('лишние непустые ячейки — ошибка строки, а не угадывание', () {
+      // Сумма с запятой без кавычек в файле с `,` расползается на 2 ячейки.
+      const comma = 'Дата,Тип,Сумма,Категория,Подкатегория';
+      final shifted = _parsed('$comma\r\n01.10.2026,Расход,350,50,Кафе,Кофе');
+      expect(shifted.rows, isEmpty);
+      final error = shifted.errors.single;
+      expect(error, isA<CsvExtraCells>());
+      expect(error.line, 2);
+      expect(error.value, ',');
+
+      final quoted = _parsed('$comma\r\n01.10.2026,Расход,"350,50",Кафе,Кофе');
+      expect(quoted.errors, isEmpty);
+      expect(quoted.rows.single.amount, Money.fromMinor(35050, 'RUB'));
+
+      final semicolon = _errorsOf('04.10.2026;Расход;5;Кафе;в аэропорт');
+      expect(semicolon.single, isA<CsvExtraCells>());
+      expect(semicolon.single.value, ';');
+    });
+
+    test('пустые ячейки после последней колонки не мешают', () {
+      final parsed = _parsed('$_header\r\n04.10.2026;Расход;5;Кафе;; \r\n');
+      expect(parsed.errors, isEmpty);
+      expect(parsed.rows, hasLength(1));
     });
 
     test('категория и подкатегория: пусто и длина 40', () {

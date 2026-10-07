@@ -76,7 +76,7 @@ final class CsvNegativeIncome extends CsvRowError {
   const CsvNegativeIncome(super.line, super.value);
 }
 
-/// Валюта не пустая и не `RUB`.
+/// Валюта не пустая и не `RUB` (регистр не важен).
 final class CsvUnsupportedCurrency extends CsvRowError {
   const CsvUnsupportedCurrency(super.line, super.value);
 }
@@ -127,4 +127,10 @@ final class CsvCategoryIdIsSubcategory extends CsvRowError {
 /// подкатегорию другой категории.
 final class CsvSubcategoryWrongParent extends CsvRowError {
   const CsvSubcategoryWrongParent(super.line, super.value);
+}
+
+/// В строке больше непустых ячеек, чем колонок в заголовке. [value] —
+/// разделитель файла (`;` или `,`): от него зависит подсказка.
+final class CsvExtraCells extends CsvRowError {
+  const CsvExtraCells(super.line, super.value);
 }

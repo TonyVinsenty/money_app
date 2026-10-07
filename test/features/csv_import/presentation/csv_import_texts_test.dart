@@ -82,6 +82,19 @@ void main() {
       );
     });
 
+    test('лишние ячейки: подсказка зависит от разделителя', () {
+      expect(
+        csvRowErrorMessage(const CsvExtraCells(5, ',')),
+        'Строка 5: ячеек больше, чем колонок. Похоже, сумма или текст с '
+        'запятой без кавычек: нужно "350,50"',
+      );
+      expect(
+        csvRowErrorMessage(const CsvExtraCells(5, ';')),
+        'Строка 5: ячеек больше, чем колонок. Похоже, в тексте есть «;» '
+        'без кавычек вокруг ячейки',
+      );
+    });
+
     test('каждая ошибка строки и каждая причина суммы дают текст', () {
       final errors = <CsvRowError>[
         const CsvInvalidDate(2, '31.02.2026'),
@@ -100,6 +113,8 @@ void main() {
         const CsvCategoryKindMismatch(2, 'x'),
         const CsvCategoryIdIsSubcategory(2, 'x'),
         const CsvSubcategoryWrongParent(2, 'x'),
+        const CsvExtraCells(2, ','),
+        const CsvExtraCells(2, ';'),
       ];
       final texts = errors.map(csvRowErrorMessage).toList();
       for (final text in texts) {

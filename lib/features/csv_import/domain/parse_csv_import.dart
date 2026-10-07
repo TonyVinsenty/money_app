@@ -127,6 +127,12 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
   for (var i = 1; i < table.length; i++) {
     final record = table[i];
     if (record.every((f) => f.trim().isEmpty)) continue;
+    // Лишние непустые ячейки: значение «уехало» (например, `350,50` без
+    // кавычек в файле с `,`). Угадывать, где какое поле, нельзя.
+    if (record.skip(headers.length).any((f) => f.trim().isNotEmpty)) {
+      errors.add(CsvExtraCells(i + 1, separator));
+      continue;
+    }
     String field(String column) {
       final index = columns[column];
       return index == null || index >= record.length ? '' : record[index];
@@ -184,7 +190,7 @@ ParsedCsvRow? _parseRow(
   }
 
   final currency = field(csvColumnCurrency).trim();
-  if (currency.isNotEmpty && currency != rubCurrencyCode) {
+  if (currency.isNotEmpty && currency.toUpperCase() != rubCurrencyCode) {
     errors.add(CsvUnsupportedCurrency(line, currency));
   }
 
