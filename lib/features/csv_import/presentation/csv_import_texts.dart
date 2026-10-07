@@ -66,10 +66,15 @@ String csvImportSkippedExisting(int count) =>
 String csvImportSkippedDeleted(int count) =>
     'Пропущено (удалены в приложении): ${formatCount(count)}';
 
-/// Строки списка новых категорий: сначала расходы, потом доходы, например
-/// «Расходы: Аптека, Еда → Кафе». Родителя подкатегории ищем среди новых
-/// категорий и среди [existing]. Вида без новых категорий в списке нет.
-List<String> csvImportNewCategoryLines(
+/// Новые категории одного вида для предпросмотра: заголовок вида и строки.
+typedef CsvImportCategoryGroup = ({String title, List<String> lines});
+
+/// Список новых категорий: сначала расходы, потом доходы. Одна строка на
+/// категорию верхнего уровня, по алфавиту: «Кафе: Кофе, Обед» (родитель уже
+/// есть, новые только подкатегории), «Хобби (новая): Кисти, Краски»,
+/// «Аптека (новая)». Родителя ищем среди новых категорий и среди
+/// [existing]. Вида без новых категорий в списке нет.
+List<CsvImportCategoryGroup> csvImportNewCategoryGroups(
   List<Category> toCreate,
   List<Category> existing,
 ) {
@@ -77,21 +82,41 @@ List<String> csvImportNewCategoryLines(
     for (final c in existing) c.id: c.name,
     for (final c in toCreate) c.id: c.name,
   };
-  final lines = <String>[];
+  int byName(String a, String b) => a.toLowerCase().compareTo(b.toLowerCase());
+  final groups = <CsvImportCategoryGroup>[];
   for (final (kind, title) in [
     (CategoryKind.expense, 'Расходы'),
     (CategoryKind.income, 'Доходы'),
   ]) {
-    final items = [
-      for (final c in toCreate)
-        if (c.kind == kind)
-          c.parentId == null
-              ? c.name
-              : '${names[c.parentId] ?? '?'} → ${c.name}',
-    ];
-    if (items.isNotEmpty) lines.add('$title: ${items.join(', ')}');
+    // id категории верхнего уровня → новая ли она и её новые подкатегории.
+    final isNew = <String, bool>{};
+    final subs = <String, List<String>>{};
+    for (final c in toCreate) {
+      if (c.kind != kind) continue;
+      final topId = c.parentId ?? c.id;
+      isNew[topId] = (isNew[topId] ?? false) || c.parentId == null;
+      if (c.parentId != null) (subs[topId] ??= []).add(c.name);
+    }
+    final lines = [
+      for (final topId in isNew.keys)
+        _newCategoryLine(
+          names[topId] ?? '?',
+          isNew: isNew[topId]!,
+          subs: (subs[topId] ?? [])..sort(byName),
+        ),
+    ]..sort(byName);
+    if (lines.isNotEmpty) groups.add((title: title, lines: lines));
   }
-  return lines;
+  return groups;
+}
+
+String _newCategoryLine(
+  String name, {
+  required bool isNew,
+  required List<String> subs,
+}) {
+  final head = isNew ? '$name (новая)' : name;
+  return subs.isEmpty ? head : '$head: ${subs.join(', ')}';
 }
 
 /// Ошибка всего файла: что случилось и что сделать.

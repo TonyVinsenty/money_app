@@ -107,8 +107,10 @@ void main() {
 
     expect(find.text('Будут добавлены 2 операции'), findsOneWidget);
     expect(find.text(csvImportNewCategoriesTitle), findsOneWidget);
-    expect(find.text('Расходы: Еда → Кафе'), findsOneWidget);
-    expect(find.text('Доходы: Кэшбэк'), findsOneWidget);
+    expect(find.text('Расходы'), findsOneWidget);
+    expect(find.text('Еда: Кафе'), findsOneWidget);
+    expect(find.text('Доходы'), findsOneWidget);
+    expect(find.text('Кэшбэк (новая)'), findsOneWidget);
 
     await tester.tap(find.text(csvImportLoadButton));
     await tester.pumpAndSettle();

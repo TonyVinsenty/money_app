@@ -172,22 +172,47 @@ void main() {
     });
   });
 
-  group('csvImportNewCategoryLines', () {
+  group('csvImportNewCategoryGroups', () {
     final food = _top('food', 'Еда', CategoryKind.expense);
 
-    test('сначала расходы, потом доходы; родитель из базы или из новых', () {
+    test('сначала расходы, потом доходы; по строке на категорию', () {
       final pharmacy = _top('ph', 'Аптека', CategoryKind.expense);
+      final hobby = _top('hb', 'хобби', CategoryKind.expense);
       final cashback = _top('cb', 'Кэшбэк', CategoryKind.income);
-      final cafe = _sub('cafe', food, 'Кафе');
-      final drugs = _sub('dr', pharmacy, 'Лекарства');
-      expect(
-        csvImportNewCategoryLines([cashback, pharmacy, cafe, drugs], [food]),
-        ['Расходы: Аптека, Еда → Кафе, Аптека → Лекарства', 'Доходы: Кэшбэк'],
+      final groups = csvImportNewCategoryGroups(
+        [
+          cashback,
+          _sub('lunch', food, 'Обед'),
+          hobby,
+          _sub('paint', hobby, 'Краски'),
+          _sub('brush', hobby, 'Кисти'),
+          _sub('cafe', food, 'Кафе'),
+          pharmacy,
+        ],
+        [food],
       );
+      expect(groups.map((g) => g.title), ['Расходы', 'Доходы']);
+      // По алфавиту без учёта регистра; родитель из базы или из новых.
+      expect(groups[0].lines, [
+        'Аптека (новая)',
+        'Еда: Кафе, Обед',
+        'хобби (новая): Кисти, Краски',
+      ]);
+      expect(groups[1].lines, ['Кэшбэк (новая)']);
+    });
+
+    test('только доходы: новая подкатегория у категории из базы', () {
+      final old = _top('old', 'Старое', CategoryKind.income);
+      final group = csvImportNewCategoryGroups(
+        [_sub('x', old, 'Разное')],
+        [old],
+      ).single;
+      expect(group.title, 'Доходы');
+      expect(group.lines, ['Старое: Разное']);
     });
 
     test('нет новых категорий — пустой список', () {
-      expect(csvImportNewCategoryLines(const [], [food]), isEmpty);
+      expect(csvImportNewCategoryGroups(const [], [food]), isEmpty);
     });
   });
 }

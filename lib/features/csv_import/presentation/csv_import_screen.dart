@@ -69,10 +69,10 @@ final class _RowErrors extends _View {
 }
 
 final class _Preview extends _View {
-  const _Preview(this.plan, this.categoryLines, {required this.noRows});
+  const _Preview(this.plan, this.categoryGroups, {required this.noRows});
 
   final CsvImportPlan plan;
-  final List<String> categoryLines;
+  final List<CsvImportCategoryGroup> categoryGroups;
 
   /// В файле только строка заголовков.
   final bool noRows;
@@ -105,7 +105,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             final existing = await widget.categories.first;
             view = _Preview(
               plan,
-              csvImportNewCategoryLines(plan.categoriesToCreate, existing),
+              csvImportNewCategoryGroups(plan.categoriesToCreate, existing),
               noRows: rows.isEmpty,
             );
           }
@@ -197,7 +197,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
         ),
         for (final line in skipped)
           Padding(padding: const EdgeInsets.only(top: 8), child: Text(line)),
-        if (view.categoryLines.isNotEmpty) ...[
+        if (view.categoryGroups.isNotEmpty) ...[
           const SizedBox(height: 24),
           Semantics(
             header: true,
@@ -206,8 +206,20 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
               style: textTheme.titleSmall,
             ),
           ),
-          for (final line in view.categoryLines)
-            Padding(padding: const EdgeInsets.only(top: 8), child: Text(line)),
+          for (final group in view.categoryGroups) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Semantics(
+                header: true,
+                child: Text(group.title, style: textTheme.labelLarge),
+              ),
+            ),
+            for (final line in group.lines)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(top: 8, start: 16),
+                child: Text(line),
+              ),
+          ],
         ],
         if (_writeFailed) ...[
           const SizedBox(height: 24),
