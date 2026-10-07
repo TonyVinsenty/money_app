@@ -15,18 +15,31 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// Заголовки колонок в принятом порядке. Импорт ищет колонки по заголовку,
 /// поэтому эти строки менять нельзя (ADR 0006, п. 2).
 const List<String> transactionsExportHeaders = [
-  'Дата',
-  'Тип',
-  'Сумма',
-  'Валюта',
-  'Категория',
-  'Подкатегория',
-  'Комментарий',
-  'ID операции',
-  'ID категории',
-  'ID подкатегории',
-  'Время операции (UTC)',
+  csvColumnDate,
+  csvColumnType,
+  csvColumnAmount,
+  csvColumnCurrency,
+  csvColumnCategory,
+  csvColumnSubcategory,
+  csvColumnNote,
+  csvColumnTransactionId,
+  csvColumnCategoryId,
+  csvColumnSubcategoryId,
+  csvColumnOccurredAtUtc,
 ];
+
+// Имена колонок: общие для экспорта и импорта (ADR 0006, п. 2).
+const String csvColumnDate = 'Дата';
+const String csvColumnType = 'Тип';
+const String csvColumnAmount = 'Сумма';
+const String csvColumnCurrency = 'Валюта';
+const String csvColumnCategory = 'Категория';
+const String csvColumnSubcategory = 'Подкатегория';
+const String csvColumnNote = 'Комментарий';
+const String csvColumnTransactionId = 'ID операции';
+const String csvColumnCategoryId = 'ID категории';
+const String csvColumnSubcategoryId = 'ID подкатегории';
+const String csvColumnOccurredAtUtc = 'Время операции (UTC)';
 
 /// Текст CSV-файла экспорта: заголовки, затем операции от старых к новым.
 ///

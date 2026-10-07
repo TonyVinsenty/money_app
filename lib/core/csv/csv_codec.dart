@@ -37,11 +37,17 @@ String encodeCsv(List<List<String>> rows) {
 
 /// Читает текст CSV обратно в таблицу.
 ///
+/// [separator] — разделитель полей: `;` (по умолчанию, наш экспорт) или `,`
+/// («Google Таблицы»). Запись ([encodeCsv]) всегда пишет `;`.
+///
 /// BOM в начале снимается, если он есть. Строки можно разделять `\r\n` или `\n`.
 /// Некорректный ввод даёт [FormatException] с номером строки в сообщении:
 /// незакрытая кавычка, символ после закрывающей кавычки, кавычка внутри
 /// поля без кавычек, одиночный `\r`.
-List<List<String>> decodeCsv(String text) {
+List<List<String>> decodeCsv(String text, {String separator = _separator}) {
+  if (separator != ';' && separator != ',') {
+    throw ArgumentError.value(separator, 'separator', 'ожидается ; или ,');
+  }
   final source = text.startsWith(_bom) ? text.substring(_bom.length) : text;
   final rows = <List<String>>[];
   if (source.isEmpty) return rows;
@@ -78,17 +84,17 @@ List<List<String>> decodeCsv(String text) {
           'Ошибка CSV в строке $startLine: не закрыта кавычка',
         );
       }
-      if (pos < source.length && !_isFieldEnd(source[pos])) {
+      if (pos < source.length && !_isFieldEnd(source[pos], separator)) {
         throw FormatException(
           'Ошибка CSV в строке $line: после закрывающей кавычки ожидался '
-          'разделитель ";" или перенос строки',
+          'разделитель "$separator" или перенос строки',
         );
       }
       value = buffer.toString();
     } else {
       // Поле без кавычек: до разделителя или конца строки.
       final start = pos;
-      while (pos < source.length && !_isFieldEnd(source[pos])) {
+      while (pos < source.length && !_isFieldEnd(source[pos], separator)) {
         if (source[pos] == '"') {
           throw FormatException(
             'Ошибка CSV в строке $line: кавычка внутри поля без кавычек',
@@ -104,7 +110,7 @@ List<List<String>> decodeCsv(String text) {
       rows.add(row);
       return rows;
     }
-    if (source[pos] == _separator) {
+    if (source[pos] == separator) {
       pos++;
       continue;
     }
@@ -127,8 +133,8 @@ List<List<String>> decodeCsv(String text) {
 }
 
 /// Что-то, после чего заканчивается поле без кавычек.
-bool _isFieldEnd(String char) =>
-    char == _separator || char == '\r' || char == '\n';
+bool _isFieldEnd(String char, String separator) =>
+    char == separator || char == '\r' || char == '\n';
 
 /// Записывает одно поле: в кавычки, только если без них нельзя.
 String _encodeField(String field) {

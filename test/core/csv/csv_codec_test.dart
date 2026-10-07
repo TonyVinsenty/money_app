@@ -180,4 +180,36 @@ void main() {
       expect(() => decodeCsv('a\rb'), throwsFormatException);
     });
   });
+
+  group('decodeCsv: разделитель-запятая', () {
+    test('читает поля через запятую', () {
+      expect(decodeCsv('a,b\r\nc,d', separator: ','), [
+        ['a', 'b'],
+        ['c', 'd'],
+      ]);
+    });
+
+    test('точка с запятой при запятой — обычный символ', () {
+      expect(decodeCsv('a;b,c', separator: ','), [
+        ['a;b', 'c'],
+      ]);
+    });
+
+    test('запятая в кавычках остаётся в поле', () {
+      expect(decodeCsv('"a,b",c', separator: ','), [
+        ['a,b', 'c'],
+      ]);
+    });
+
+    test('символ после закрывающей кавычки — ошибка', () {
+      expect(() => decodeCsv('"a"x,b', separator: ','), throwsFormatException);
+    });
+
+    test('разделитель по умолчанию — ;, чужой разделитель — ArgumentError', () {
+      expect(decodeCsv('a,b;c'), [
+        ['a,b', 'c'],
+      ]);
+      expect(() => decodeCsv('a', separator: '|'), throwsArgumentError);
+    });
+  });
 }
