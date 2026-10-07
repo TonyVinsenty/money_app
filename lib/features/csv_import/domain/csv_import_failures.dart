@@ -112,3 +112,19 @@ final class CsvInvalidId extends CsvRowError {
 final class CsvDuplicateTransactionId extends CsvRowError {
   const CsvDuplicateTransactionId(super.line, super.value);
 }
+
+/// `ID категории` указывает на категорию другого вида, чем `Тип` строки.
+final class CsvCategoryKindMismatch extends CsvRowError {
+  const CsvCategoryKindMismatch(super.line, super.value);
+}
+
+/// `ID категории` указывает на подкатегорию.
+final class CsvCategoryIdIsSubcategory extends CsvRowError {
+  const CsvCategoryIdIsSubcategory(super.line, super.value);
+}
+
+/// `ID подкатегории` указывает на категорию верхнего уровня или на
+/// подкатегорию другой категории.
+final class CsvSubcategoryWrongParent extends CsvRowError {
+  const CsvSubcategoryWrongParent(super.line, super.value);
+}
