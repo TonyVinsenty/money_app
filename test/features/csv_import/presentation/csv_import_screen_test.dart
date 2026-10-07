@@ -28,7 +28,7 @@ class _PlanningStore implements CsvImportStore {
   @override
   Future<CsvImportPlan> prepare(List<ParsedCsvRow> rows) async {
     final error = prepareError;
-    if (error != null) throw error;
+    if (error != null) return Future.error(error);
     return planCsvImport(
       rows: rows,
       categories: categories,
@@ -41,7 +41,7 @@ class _PlanningStore implements CsvImportStore {
   @override
   Future<void> write(CsvImportPlan plan) async {
     final error = writeError;
-    if (error != null) throw error;
+    if (error != null) return Future.error(error);
     written.add(plan);
   }
 }
