@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 
 const _size = Size(200, 200);
+
+/// Удержание пальца в тестах: чуть дольше [donutHoldDelay] и заметно короче
+/// стандартного долгого нажатия — полсекунды ждать не нужно.
+const _hold = Duration(milliseconds: 250);
 
 /// Точка на средней линии кольца под углом [turns] оборотов от «12 часов».
 Offset _at(double turns, {double radius = 82}) {
@@ -323,7 +326,7 @@ void main() {
           'отпускание на секторе выбирает (${scroll.name})', (tester) async {
         await tester.pumpWidget(chart(scroll: scroll));
         final g = await tester.startGesture(global(tester, _at(0.1)));
-        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await tester.pump(_hold);
         expect(shown, 0);
         await g.moveTo(global(tester, _at(0.6)));
         await tester.pump();
@@ -343,7 +346,7 @@ void main() {
           'экран стоит (${scroll.name})', (tester) async {
         await tester.pumpWidget(chart(scroll: scroll));
         final g = await tester.startGesture(global(tester, _at(0.1)));
-        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await tester.pump(_hold);
         await g.moveBy(const Offset(0, 250));
         await tester.pump();
         expect(shown, isNull);
@@ -506,7 +509,7 @@ void main() {
       await tester.tapAt(global(tester, _at(0.1)));
       await tester.pump();
       expect(log, isEmpty);
-      // Свой Listener кольца — непрозрачный (у GestureDetector внутри свой).
+      // Свой Listener кольца — непрозрачный (у RawGestureDetector внутри свой).
       expect(
         tester
             .widget<Listener>(
@@ -522,14 +525,14 @@ void main() {
       );
       expect(
         tester
-            .widget<GestureDetector>(
+            .widget<RawGestureDetector>(
               find.descendant(
                 of: find.byType(DonutChart),
-                matching: find.byType(GestureDetector),
+                matching: find.byType(RawGestureDetector),
               ),
             )
-            .onLongPress,
-        isNull,
+            .gestures,
+        isEmpty,
       );
     });
   });

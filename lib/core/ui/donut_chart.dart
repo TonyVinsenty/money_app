@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// Один сектор кольца: целый вес (доля считается от суммы весов) и цвет.
@@ -20,6 +21,11 @@ const double _highlightExtraDp = 4;
 const double _thicknessFraction = 0.16;
 
 const double _fullTurn = 2 * math.pi;
+
+/// Сколько пальцу полежать на кольце, чтобы экран перестал прокручиваться и
+/// палец мог ходить по секторам. Короче стандартного долгого нажатия (500 мс):
+/// быстрый свайп всё равно успевает сдвинуться раньше и прокручивает экран.
+const Duration donutHoldDelay = Duration(milliseconds: 200);
 
 /// Геометрия кольца: одна на рисование и на попадание, чтобы они совпадали.
 ///
@@ -214,12 +220,26 @@ class _DonutChartState extends State<DonutChart> {
       label: widget.semanticsLabel,
       excludeSemantics: true,
       // Долгое нажатие само ничего не делает: оно выигрывает арену жестов у
-      // прокрутки родителя, если палец полежал на месте. После этого экран
-      // стоит, и палец свободно ходит между секторами. На iOS прокрутка
-      // «пружинит» даже без лишнего содержимого и иначе забирала бы жест.
-      child: GestureDetector(
+      // прокрутки родителя, если палец полежал на месте [donutHoldDelay].
+      // После этого экран стоит, и палец свободно ходит между секторами. На
+      // iOS прокрутка «пружинит» даже без лишнего содержимого и иначе
+      // забирала бы жест. RawGestureDetector — потому что у GestureDetector
+      // длительность долгого нажатия не настраивается.
+      child: RawGestureDetector(
         excludeFromSemantics: true,
-        onLongPress: interactive ? () {} : null,
+        gestures: {
+          if (interactive)
+            LongPressGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<
+                  LongPressGestureRecognizer
+                >(
+                  () => LongPressGestureRecognizer(
+                    duration: donutHoldDelay,
+                    debugOwner: this,
+                  ),
+                  (recognizer) => recognizer.onLongPress = () {},
+                ),
+        },
         child: Listener(
           behavior: HitTestBehavior.opaque,
           onPointerDown: interactive ? _down : null,
