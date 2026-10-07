@@ -1,2 +1,4 @@
 * text=auto
 *.sh text eol=lf
+# Тестовый набор сверяется с выводом скрипта байт в байт: концы строк не трогать.
+test/fixtures/zuno-test-dataset.csv -text
