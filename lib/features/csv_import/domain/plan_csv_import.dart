@@ -49,19 +49,25 @@ final class CsvImportPlan {
 /// Строит план импорта (ADR 0009, п. 6).
 ///
 /// [categories] — все не удалённые категории и подкатегории, включая
-/// архивные. [liveTransactionIds] и [deletedTransactionIds] — id операций в
-/// базе. [ids] даёт id для новых категорий.
+/// архивные. [deletedCategoryIds] — id мягко удалённых категорий: они тоже
+/// заняты, новая категория не получит такой id. [liveTransactionIds] и
+/// [deletedTransactionIds] — id операций в базе. [ids] даёт id для новых
+/// категорий.
 CsvImportPlan planCsvImport({
   required List<ParsedCsvRow> rows,
   required List<Category> categories,
   required Set<String> liveTransactionIds,
   required Set<String> deletedTransactionIds,
   required IdGenerator ids,
+  Set<String> deletedCategoryIds = const {},
 }) {
   final live = {for (final id in liveTransactionIds) id.toLowerCase()};
   final deleted = {for (final id in deletedTransactionIds) id.toLowerCase()};
   final byId = {for (final c in categories) c.id.toLowerCase(): c};
-  final taken = {...byId.keys};
+  final taken = {
+    ...byId.keys,
+    for (final id in deletedCategoryIds) id.toLowerCase(),
+  };
   final planned = <Category>[];
   final nextSort = <String, int>{};
 

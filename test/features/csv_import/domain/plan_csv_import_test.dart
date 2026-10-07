@@ -87,6 +87,19 @@ CsvImportPlan _plan(
 }
 
 void main() {
+  test('id из файла совпал с id мягко удалённой категории: id новый', () {
+    final plan = planCsvImport(
+      rows: [_row(category: 'Кафе', categoryId: 'gone-1')],
+      categories: [_top(_food, CategoryKind.expense, 'Еда')],
+      liveTransactionIds: const {},
+      deletedTransactionIds: const {},
+      deletedCategoryIds: const {'GONE-1'},
+      ids: _SeqIds(),
+    );
+    expect(plan.categoriesToCreate.single.id, 'new-1');
+    expect(plan.transactions.single.categoryId, 'new-1');
+  });
+
   test('новые строки добавляются в существующую категорию по имени', () {
     final plan = _plan([_row(category: ' еда ')]);
     expect(plan.transactions.single.categoryId, _food);

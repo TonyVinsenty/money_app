@@ -44,12 +44,24 @@ class DriftTransactionsRepository implements TransactionsRepository {
   /// [_checkLinks]). Нарушения бросают [TransactionRuleException] до записи.
   /// Категория, которой нет (или она мягко удалена), — [ArgumentError].
   @override
-  Future<void> add(Transaction transaction) {
+  Future<void> add(Transaction transaction) =>
+      _insert(transaction, allowArchivedCategories: false);
+
+  /// Для импорта CSV: то же, что [add], но архивные категории разрешены.
+  @override
+  Future<void> addImported(Transaction transaction) =>
+      _insert(transaction, allowArchivedCategories: true);
+
+  Future<void> _insert(
+    Transaction transaction, {
+    required bool allowArchivedCategories,
+  }) {
     return _db.transaction(() async {
       await _checkLinks(
         transaction,
-        checkCategoryArchived: true,
-        checkSubcategoryArchived: transaction.subcategoryId != null,
+        checkCategoryArchived: !allowArchivedCategories,
+        checkSubcategoryArchived:
+            !allowArchivedCategories && transaction.subcategoryId != null,
       );
       final now = _clock.now();
       await _db
