@@ -64,7 +64,7 @@ void main() {
       expect(dbFile().lengthSync(), greaterThan(0));
     });
 
-    test('creates the schema with all three tables', () async {
+    test('creates the schema with all five tables', () async {
       final db = await open(tempDir);
 
       final rows = await db
@@ -75,7 +75,13 @@ void main() {
           .get();
       final names = rows.map((r) => r.read<String>('name')).toSet();
 
-      expect(names, {'app_settings', 'categories', 'transactions'});
+      expect(names, {
+        'app_settings',
+        'categories',
+        'transactions',
+        'accounts',
+        'transfers',
+      });
     });
 
     test('data survives closing and reopening the same file', () async {
@@ -93,15 +99,15 @@ void main() {
     });
 
     test(
-      'user_version is 1 and foreign keys are on, also after reopen',
+      'user_version is 2 and foreign keys are on, also after reopen',
       () async {
         final first = await open(tempDir);
-        expect(await readPragma(first, 'user_version'), 1);
+        expect(await readPragma(first, 'user_version'), 2);
         expect(await readPragma(first, 'foreign_keys'), 1);
         await first.close();
 
         final second = await open(tempDir);
-        expect(await readPragma(second, 'user_version'), 1);
+        expect(await readPragma(second, 'user_version'), 2);
         expect(await readPragma(second, 'foreign_keys'), 1);
       },
     );

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:money_app/core/database/converters/date_only_converter.dart';
 import 'package:money_app/core/database/converters/transaction_type_converter.dart';
+import 'package:money_app/core/database/tables/accounts.dart';
 import 'package:money_app/core/database/tables/categories.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -29,6 +30,10 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 @TableIndex.sql(
   'CREATE INDEX transactions_category_occurred_on ON transactions '
   '(category_id, occurred_on) WHERE deleted_at IS NULL',
+)
+@TableIndex.sql(
+  'CREATE INDEX transactions_account ON transactions (account_id) '
+  'WHERE deleted_at IS NULL AND account_id IS NOT NULL',
 )
 class Transactions extends Table {
   /// UUID v7, создаётся вне базы (ADR 0001).
@@ -73,6 +78,11 @@ class Transactions extends Table {
 
   /// Мягкое удаление (миллисекунды эпохи UTC); NULL — строка «живая».
   IntColumn get deletedAt => integer().nullable()();
+
+  /// Счёт операции (внешний ключ на `accounts.id`); NULL — «без счёта».
+  /// Объявлена ПОСЛЕДНЕЙ: так колонка, добавленная миграцией v1 -> v2,
+  /// стоит там же, где в свежей базе (ADR 0010, п. 9).
+  TextColumn get accountId => text().nullable().references(Accounts, #id)();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

@@ -417,6 +417,7 @@ void main() {
           'created_at',
           'updated_at',
           'deleted_at',
+          'account_id',
         ]),
       );
       expect(byName['id']!.read<int>('pk'), 1);
@@ -427,6 +428,7 @@ void main() {
         'category_id',
         'subcategory_id',
         'note',
+        'account_id',
       ]) {
         expect(type(c), 'TEXT', reason: c);
       }
@@ -440,33 +442,35 @@ void main() {
       ]) {
         expect(type(c), 'INTEGER', reason: c);
       }
-      for (final c in ['subcategory_id', 'note', 'deleted_at']) {
+      const nullable = ['subcategory_id', 'note', 'deleted_at', 'account_id'];
+      for (final c in nullable) {
         expect(notNull(c), 0, reason: c);
       }
-      for (final c in byName.keys.where(
-        (c) => !['subcategory_id', 'note', 'deleted_at'].contains(c),
-      )) {
+      for (final c in byName.keys.where((c) => !nullable.contains(c))) {
         expect(notNull(c), 1, reason: c);
       }
     });
 
-    test('foreign keys point to categories.id', () async {
+    test('foreign keys point to categories.id and accounts.id', () async {
       final rows = await db
           .customSelect('PRAGMA foreign_key_list(transactions)')
           .get();
 
-      expect(rows, hasLength(2));
-      expect(
-        rows.map((r) => r.read<String>('from')),
-        unorderedEquals(['category_id', 'subcategory_id']),
-      );
+      expect(rows, hasLength(3));
+      final tableByColumn = {
+        for (final r in rows) r.read<String>('from'): r.read<String>('table'),
+      };
+      expect(tableByColumn, {
+        'category_id': 'categories',
+        'subcategory_id': 'categories',
+        'account_id': 'accounts',
+      });
       for (final r in rows) {
-        expect(r.read<String>('table'), 'categories');
         expect(r.read<String>('to'), 'id');
       }
     });
 
-    test('exactly two partial indexes cover only live rows', () async {
+    test('exactly three partial indexes cover only live rows', () async {
       final list = await db
           .customSelect('PRAGMA index_list(transactions)')
           .get();
@@ -479,6 +483,7 @@ void main() {
       expect(created, {
         'transactions_occurred_on_at': 1,
         'transactions_category_occurred_on': 1,
+        'transactions_account': 1,
       });
 
       final master = await db
