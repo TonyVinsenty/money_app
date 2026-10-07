@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
@@ -113,7 +115,31 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     } catch (_) {
       view = const _Failed(csvImportReadFailedMessage);
     }
-    if (mounted) setState(() => _view = view);
+    if (!mounted) return;
+    setState(() => _view = view);
+    _announce(_summary(view));
+  }
+
+  /// Главная фраза нового состояния экрана для скринридера.
+  static String _summary(_View view) => switch (view) {
+    _Checking() => csvImportCheckingLabel,
+    _Failed(:final message) => message,
+    _RowErrors() => csvImportErrorsIntro,
+    _Preview(:final plan, :final noRows) when plan.transactions.isEmpty =>
+      noRows ? csvImportNoRowsMessage : csvImportNothingToAddMessage,
+    _Preview(:final plan) => csvImportWillAdd(plan.transactions.length),
+  };
+
+  /// Содержимое экрана сменилось целиком, а фокус VoiceOver и TalkBack
+  /// остался на прежнем месте: говорим, что теперь на экране.
+  void _announce(String message) {
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        message,
+        Directionality.of(context),
+      ),
+    );
   }
 
   /// Сортировка по номеру строки; ошибки одной строки — в прежнем порядке.
@@ -131,6 +157,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
       _writing = true;
       _writeFailed = false;
     });
+    _announce(csvImportWritingLabel);
     try {
       await widget.store.write(plan);
       // Любая ошибка, не только Exception: иначе `_writing` останется true,
@@ -142,6 +169,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
           _writing = false;
           _writeFailed = true;
         });
+        _announce(csvImportWriteFailedMessage);
       }
       return;
     }
@@ -239,16 +267,19 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
           onPressed: _writing ? null : () => Navigator.of(context).pop(),
           child: const Text(csvImportCancelButton),
         ),
-        const SizedBox(width: 8),
         FilledButton(
           onPressed: _writing ? null : () => _write(plan),
+          // Кружок без подписи скринридер называет просто «индикатор»:
+          // прячем его, кнопка читается текстом «Загружаем…».
           child: _writing
               ? const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ExcludeSemantics(
+                      child: SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     ),
                     SizedBox(width: 8),
                     Text(csvImportWritingLabel),
@@ -272,7 +303,8 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
   }
 }
 
-/// Кнопки внизу экрана, прижатые вправо.
+/// Кнопки внизу экрана, прижатые вправо. Если в строку не помещаются
+/// (крупный текст), встают друг под другом, главная — сверху.
 class _BottomBar extends StatelessWidget {
   const _BottomBar({required this.children});
 
@@ -283,8 +315,12 @@ class _BottomBar extends StatelessWidget {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
+        child: OverflowBar(
+          alignment: MainAxisAlignment.end,
+          spacing: 8,
+          overflowAlignment: OverflowBarAlignment.end,
+          overflowDirection: VerticalDirection.up,
+          overflowSpacing: 8,
           children: children,
         ),
       ),
@@ -303,7 +339,8 @@ class _Progress extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
+          // Подпись — текст ниже; кружок скринридеру не нужен.
+          const ExcludeSemantics(child: CircularProgressIndicator()),
           const SizedBox(height: 16),
           Text(label),
         ],

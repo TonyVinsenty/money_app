@@ -126,8 +126,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
         return;
       }
+      final bool shared;
       try {
-        await widget.shareFile(path);
+        shared = await widget.shareFile(path);
       } on Exception {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -140,7 +141,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
         return;
       }
-      widget.onExportShared();
+      // Отмена (false) не ошибка: ничего не показываем и «последний экспорт» не ставим.
+      if (shared) widget.onExportShared();
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -167,9 +169,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showMessage(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: TapToDismissSnackContent(child: Text(text))),
-    );
+    // Прежнее сообщение могло остаться (persist ниже): новое его заменяет,
+    // а не ждёт в очереди.
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: TapToDismissSnackContent(child: Text(text)),
+          // Со скринридером итог не исчезает через 4 с, пока его не дочитали:
+          // закрывается двойным касанием (TapToDismissSnackContent).
+          persist: MediaQuery.accessibleNavigationOf(context),
+        ),
+      );
   }
 
   @override

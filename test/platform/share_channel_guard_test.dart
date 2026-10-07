@@ -56,6 +56,22 @@ void main() {
     expect(checkShareCommon(kotlin), isEmpty);
   });
 
+  // Шаг i.18b: «Последний экспорт» ставится только по ответу окна
+  // «Поделиться», поэтому нативный код обязан этот ответ дождаться.
+  test('AppDelegate.swift ждёт закрытия окна «Поделиться»', () {
+    expect(swift, contains('completionWithItemsHandler'));
+    expect(
+      swift,
+      isNot(contains('present(share, animated: true)\n    result(')),
+    );
+  });
+
+  test('MainActivity.kt узнаёт выбранное приложение', () {
+    expect(kotlin, contains('createChooser(send, null, chosen.intentSender)'));
+    expect(kotlin, contains('RECEIVER_NOT_EXPORTED'));
+    expect(kotlin, contains('result.success(chosen)'));
+  });
+
   group('сам сторож распознаёт нарушения (синтетический текст)', () {
     String good({String channel = 'com.tonyvinsenty.zuno/share'}) =>
         '''

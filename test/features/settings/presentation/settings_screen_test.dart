@@ -18,11 +18,14 @@ Widget _app({
   VoidCallback? onExportShared,
   Future<int?> Function()? onImportCsv,
   double textScale = 1,
+  bool screenReader = false,
 }) {
   return MaterialApp(
     builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context)
-          .copyWith(textScaler: TextScaler.linear(textScale)),
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(textScale),
+        accessibleNavigation: screenReader,
+      ),
       child: child!,
     ),
     home: Scaffold(
@@ -31,7 +34,7 @@ Widget _app({
         onThemeModeChanged: onChanged ?? (_) {},
         onOpenCategories: onCategories ?? () {},
         onExportCsv: onExport ?? () async => '/tmp/zuno-export.csv',
-        shareFile: shareFile ?? (_) async {},
+        shareFile: shareFile ?? (_) async => true,
         lastExportDay: lastExportDay,
         today: DateOnly(2026, 10, 7),
         onExportShared: onExportShared ?? () {},
@@ -159,7 +162,10 @@ void main() {
             exported++;
             return '/tmp/zuno-export-2026-10-04.csv';
           },
-          shareFile: (path) async => shared.add(path),
+          shareFile: (path) async {
+            shared.add(path);
+            return true;
+          },
         ),
       );
 
@@ -210,7 +216,10 @@ void main() {
       await tester.pumpWidget(
         _app(
           onExport: () async => throw Exception('база испорчена'),
-          shareFile: (_) async => shareCalls++,
+          shareFile: (_) async {
+            shareCalls++;
+            return true;
+          },
         ),
       );
 
@@ -259,6 +268,23 @@ void main() {
       expect(shared, 1);
     });
 
+    testWidgets(
+      'отмена «Поделиться»: onExportShared не вызван, без сообщений',
+      (tester) async {
+        var shared = 0;
+        await tester.pumpWidget(
+          _app(shareFile: (_) async => false, onExportShared: () => shared++),
+        );
+
+        await tester.tap(find.text(exportCsvItemLabel));
+        await tester.pumpAndSettle();
+
+        expect(shared, 0);
+        expect(find.byType(SnackBar), findsNothing);
+        expect(tester.widget<ListTile>(exportItem()).enabled, isTrue);
+      },
+    );
+
     testWidgets('ошибка подготовки файла: onExportShared не вызван', (
       tester,
     ) async {
@@ -279,7 +305,7 @@ void main() {
     testWidgets('экран закрыт, пока «Поделиться» открыто: без исключений', (
       tester,
     ) async {
-      final gate = Completer<void>();
+      final gate = Completer<bool>();
       var shared = 0;
       await tester.pumpWidget(
         _app(shareFile: (_) => gate.future, onExportShared: () => shared++),
@@ -289,7 +315,7 @@ void main() {
       await tester.pump();
       await tester.pumpWidget(const SizedBox());
 
-      gate.complete();
+      gate.complete(true);
       await tester.pumpAndSettle();
 
       expect(shared, 1);
@@ -340,6 +366,56 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Загружены 3 операции'), findsOneWidget);
+    });
+
+    testWidgets('итог без скринридера исчезает сам', (tester) async {
+      await tester.pumpWidget(_app(onImportCsv: () async => 3));
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.text('Загружены 3 операции'), findsNothing);
+    });
+
+    testWidgets('со скринридером итог не исчезает, закрывается касанием', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(onImportCsv: () async => 3, screenReader: true),
+      );
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('Загружены 3 операции'), findsOneWidget);
+
+      await tester.tap(find.text('Загружены 3 операции'));
+      await tester.pumpAndSettle();
+      expect(find.text('Загружены 3 операции'), findsNothing);
+    });
+
+    testWidgets('со скринридером новое сообщение заменяет прежнее', (
+      tester,
+    ) async {
+      var calls = 0;
+      await tester.pumpWidget(
+        _app(
+          onImportCsv: () async {
+            if (++calls == 1) return 3;
+            throw PlatformException(code: 'busy');
+          },
+          screenReader: true,
+        ),
+      );
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Загружены 3 операции'), findsNothing);
+      expect(find.text(importOpenFailedMessage), findsOneWidget);
     });
 
     testWidgets('файл не открылся: SnackBar с текстом', (tester) async {

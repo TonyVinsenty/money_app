@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -23,6 +25,9 @@ class _PlanningStore implements CsvImportStore {
   final Set<String> liveIds;
   Object? writeError;
   Object? prepareError;
+
+  /// Если задан, запись ждёт его завершения.
+  Completer<void>? writeGate;
   final List<CsvImportPlan> written = [];
 
   @override
@@ -40,10 +45,35 @@ class _PlanningStore implements CsvImportStore {
 
   @override
   Future<void> write(CsvImportPlan plan) async {
+    await writeGate?.future;
     final error = writeError;
     if (error != null) return Future.error(error);
     written.add(plan);
   }
+}
+
+/// Объявления скринридеру (VoiceOver/TalkBack), сделанные во время теста.
+List<String> _captureAnnouncements(WidgetTester tester) {
+  final announcements = <String>[];
+  final messenger = tester.binding.defaultBinaryMessenger;
+  messenger.setMockDecodedMessageHandler<dynamic>(
+    SystemChannels.accessibility,
+    (message) async {
+      final map = message as Map<Object?, Object?>;
+      if (map['type'] == 'announce') {
+        final data = map['data']! as Map<Object?, Object?>;
+        announcements.add(data['message']! as String);
+      }
+      return null;
+    },
+  );
+  addTearDown(
+    () => messenger.setMockDecodedMessageHandler<dynamic>(
+      SystemChannels.accessibility,
+      null,
+    ),
+  );
+  return announcements;
 }
 
 final _food = Category.topLevel(
@@ -274,5 +304,122 @@ void main() {
 
     expect(find.text(csvImportReadFailedMessage), findsOneWidget);
     expect(find.text(csvImportCheckingLabel), findsNothing);
+  });
+
+  testWidgets('крупный текст: кнопки друг под другом, «Загрузить» сверху', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(3)),
+          child: child!,
+        ),
+        home: CsvImportScreen(
+          path: '/tmp/import.csv',
+          clock: FixedClock(DateTime(2026, 10, 7, 12)),
+          store: _PlanningStore(categories: [_food]),
+          categories: Stream.value([_food]),
+          readBytes: (_) async =>
+              utf8.encode('$_header\n01.10.2026;Расход;350;Еда;;\n'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final load = tester.getRect(find.text(csvImportLoadButton));
+    final cancel = tester.getRect(find.text(csvImportCancelButton));
+    expect(load.bottom, lessThanOrEqualTo(cancel.top));
+    expect(load.right, lessThanOrEqualTo(320));
+    expect(cancel.right, lessThanOrEqualTo(320));
+  });
+
+  group('скринридер', () {
+    testWidgets('предпросмотр и запись объявляются', (tester) async {
+      final announcements = _captureAnnouncements(tester);
+      final store = _PlanningStore(categories: [_food])
+        ..writeGate = Completer<void>();
+      final results = await _open(
+        tester,
+        store: store,
+        csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
+      );
+      expect(announcements, [csvImportWillAdd(1)]);
+
+      await tester.tap(find.text(csvImportLoadButton));
+      await tester.pump();
+      expect(announcements, [csvImportWillAdd(1), csvImportWritingLabel]);
+      // Кружок на кнопке спрятан: кнопка читается текстом «Загружаем…».
+      expect(
+        find.ancestor(
+          of: find.byType(CircularProgressIndicator),
+          matching: find.byType(ExcludeSemantics),
+        ),
+        findsWidgets,
+      );
+
+      store.writeGate!.complete();
+      await tester.pumpAndSettle();
+      expect(results, [1]);
+    });
+
+    testWidgets('ошибки в файле объявляются', (tester) async {
+      final announcements = _captureAnnouncements(tester);
+      await _open(
+        tester,
+        store: _PlanningStore(),
+        csv: '$_header\n01.10.2026;Расход;abc;Еда;;\n',
+      );
+
+      expect(announcements, [csvImportErrorsIntro]);
+    });
+
+    testWidgets('«Нечего добавлять» объявляется', (tester) async {
+      final announcements = _captureAnnouncements(tester);
+      const id = '0190f0a0-0000-7000-8000-000000000001';
+      await _open(
+        tester,
+        store: _PlanningStore(liveIds: {id}),
+        csv: '$_header\n01.10.2026;Расход;350;Еда;;$id\n',
+      );
+
+      expect(announcements, [csvImportNothingToAddMessage]);
+    });
+
+    testWidgets('файл не прочитался — объявляется', (tester) async {
+      final announcements = _captureAnnouncements(tester);
+      final store = _PlanningStore()..prepareError = StateError('неожиданно');
+      await _open(
+        tester,
+        store: store,
+        csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
+      );
+
+      expect(announcements, [csvImportReadFailedMessage]);
+    });
+
+    testWidgets('ошибка записи объявляется', (tester) async {
+      final announcements = _captureAnnouncements(tester);
+      final store = _PlanningStore()..writeError = Exception('диск полон');
+      await _open(
+        tester,
+        store: store,
+        csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
+      );
+
+      await tester.tap(find.text(csvImportLoadButton));
+      await tester.pumpAndSettle();
+
+      expect(announcements, [
+        csvImportWillAdd(1),
+        csvImportWritingLabel,
+        csvImportWriteFailedMessage,
+      ]);
+    });
   });
 }

@@ -31,6 +31,25 @@ void main() {
     expect(calls.single.arguments, {'path': '/cache/zuno-export.csv'});
   });
 
+  void replyWith(Object? value) {
+    messenger.setMockMethodCallHandler(shareChannel, (call) async => value);
+  }
+
+  test('канал вернул true: файл отправлен', () async {
+    replyWith(true);
+    expect(await shareCsvFile('/cache/zuno-export.csv'), isTrue);
+  });
+
+  test('канал вернул false: отмена', () async {
+    replyWith(false);
+    expect(await shareCsvFile('/cache/zuno-export.csv'), isFalse);
+  });
+
+  test('канал вернул null (старая сборка): считаем отправкой', () async {
+    replyWith(null);
+    expect(await shareCsvFile('/cache/zuno-export.csv'), isTrue);
+  });
+
   test('ошибка на стороне Android приходит как PlatformException', () async {
     messenger.setMockMethodCallHandler(shareChannel, (call) async {
       throw PlatformException(code: 'share_failed', message: 'нет приложения');

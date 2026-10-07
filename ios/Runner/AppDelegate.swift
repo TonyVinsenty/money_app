@@ -76,9 +76,19 @@ import UniformTypeIdentifiers
       popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
       popover.permittedArrowDirections = []
     }
+    // Ответ в Dart уходит ровно один раз: iOS иногда вызывает обработчик повторно.
+    var pendingShare: FlutterResult? = result
+    share.completionWithItemsHandler = { _, completed, _, error in
+      guard let reply = pendingShare else { return }
+      pendingShare = nil
+      if let error = error {
+        reply(FlutterError(code: "share_failed", message: error.localizedDescription, details: nil))
+      } else {
+        // true: файл отправлен или сохранён; false: пользователь закрыл окно.
+        reply(completed)
+      }
+    }
     presenter.present(share, animated: true)
-    // Результат (выбранное приложение или отмену) не ждём, как и на Android.
-    result(nil)
   }
 
   // Активная сцена -> её главное окно -> самый верхний показанный экран.

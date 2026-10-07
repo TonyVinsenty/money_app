@@ -4,8 +4,8 @@ import 'package:flutter/services.dart';
 /// `AppDelegate.swift`).
 ///
 /// Через него файл уходит в системное «Поделиться» без пакета `share_plus`:
-/// окно открывается из приложения и не ждёт ответа, поэтому выбранное
-/// приложение (например, Telegram) не остаётся внутри окна Zuno.
+/// окно открывается из приложения, а выбранное приложение (например,
+/// Telegram) не остаётся внутри окна Zuno.
 const shareChannel = MethodChannel('com.tonyvinsenty.zuno/share');
 
 /// Имя метода канала; в `MainActivity.kt` и `AppDelegate.swift` такое же.
@@ -18,15 +18,20 @@ const shareCsvFilePathArg = 'path';
 ///
 /// В приложении это системное «Поделиться» ([shareCsvFile]); в тестах
 /// подменяется фейком, чтобы не вызывать платформенный канал.
-typedef ShareFile = Future<void> Function(String path);
+///
+/// Возвращает `true`, если файл отправлен или сохранён, и `false`, если
+/// пользователь закрыл окно без действия.
+typedef ShareFile = Future<bool> Function(String path);
 
 /// Открывает системное «Поделиться» для CSV-файла по пути [path].
 ///
-/// Результат шаринга (в том числе отмену пользователем) не разбираем: отмена
-/// не ошибка и сообщения не требует. Ошибка на стороне Android или iOS приходит
-/// как исключение [PlatformException].
-Future<void> shareCsvFile(String path) async {
-  await shareChannel.invokeMethod<void>(shareCsvFileMethod, {
+/// Возвращает `true`, если файл отправлен или сохранён, и `false` при отмене:
+/// отмена не ошибка и сообщения не требует. Ответ `null` (старая нативная
+/// сборка, которая не сообщала результат) считаем успехом. Ошибка на стороне
+/// Android или iOS приходит как исключение [PlatformException].
+Future<bool> shareCsvFile(String path) async {
+  final done = await shareChannel.invokeMethod<bool>(shareCsvFileMethod, {
     shareCsvFilePathArg: path,
   });
+  return done ?? true;
 }
