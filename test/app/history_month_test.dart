@@ -20,7 +20,6 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
-import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 
 import '../support/fake_id_generator.dart';
 import '../support/fakes.dart';
@@ -246,7 +245,7 @@ void main() {
       maxScrolls: 500,
       scrollable: find
           .descendant(
-            of: find.byType(HistoryScreen),
+            of: find.byType(ListView),
             matching: find.byType(Scrollable),
           )
           .first,

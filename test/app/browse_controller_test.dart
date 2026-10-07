@@ -294,4 +294,48 @@ void main() {
       expect(notifications, 1);
     });
   });
+
+  group('поиск в «Истории»', () {
+    test('по умолчанию пусто, поиска нет', () {
+      expect(c.historySearch, '');
+      expect(c.isSearchingHistory, isFalse);
+    });
+
+    test('текст хранится как набран; одни пробелы — не поиск', () {
+      c.setHistorySearch('   ');
+      expect(c.historySearch, '   ');
+      expect(c.isSearchingHistory, isFalse);
+      c.setHistorySearch(' кофе ');
+      expect(c.historySearch, ' кофе ');
+      expect(c.isSearchingHistory, isTrue);
+      expect(notifications, 2);
+    });
+
+    test('тот же текст не уведомляет', () {
+      c.setHistorySearch('кофе');
+      c.setHistorySearch('кофе');
+      expect(notifications, 1);
+    });
+
+    test('месяц, фильтр, сортировка и уход из «Истории» поиск не трогают', () {
+      c.setHistorySearch('кофе');
+      c.previousMonth();
+      c.setHistoryFilter(HistoryFilter.expenseCategories({'a'}));
+      c.setHistorySort(HistorySort.largestFirst);
+      c.resetHistoryFilter();
+      c.showCategoryExpenses({'b'});
+      c.leaveHistory();
+      expect(c.historySearch, 'кофе');
+      expect(c.month, _month(2026, 9));
+    });
+
+    test('поиск не меняет месяц и фильтр', () {
+      c.previousMonth();
+      c.setHistoryFilter(HistoryFilter.expenseCategories({'a'}));
+      c.setHistorySearch('кофе');
+      c.setHistorySearch('');
+      expect(c.month, _month(2026, 9));
+      expect(c.historyFilter, HistoryFilter.expenseCategories({'a'}));
+    });
+  });
 }

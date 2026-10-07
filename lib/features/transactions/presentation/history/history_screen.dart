@@ -54,8 +54,18 @@ class HistoryScreen extends StatefulWidget {
     this.onResetFilter,
     this.onSortChanged,
     this.onFilterChanged,
+    this.searchQuery = '',
+    this.onSearchChanged,
     super.key,
   });
+
+  /// Текст поиска как набран. Непустой (не из одних пробелов) — режим поиска:
+  /// [transactions] тогда отдаёт операции всех месяцев, а экран оставляет те,
+  /// где запрос входит в комментарий или имя подкатегории.
+  final String searchQuery;
+
+  /// Изменение текста в поле поиска; `null` — поля нет.
+  final ValueChanged<String>? onSearchChanged;
 
   /// Изменения фильтра из листа; `null` — кнопка «Фильтр» недоступна.
   final ValueChanged<HistoryFilter>? onFilterChanged;
@@ -110,9 +120,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
     widget.filter,
   );
 
+  /// Текст поля поиска; источник истины — [HistoryScreen.searchQuery].
+  late final TextEditingController _search = TextEditingController(
+    text: widget.searchQuery,
+  );
+
+  bool get _searching => normalizeHistorySearch(widget.searchQuery).isNotEmpty;
+
+  void _clearSearch() {
+    _search.clear();
+    widget.onSearchChanged?.call('');
+  }
+
   @override
   void dispose() {
     _filter.dispose();
+    _search.dispose();
     super.dispose();
   }
 
@@ -150,6 +173,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
     if (!identical(oldWidget.transactions, widget.transactions)) {
       _data = _tag();
+    }
+    // Запрос сменили снаружи (кнопка «Очистить поиск»): поле догоняет.
+    if (_search.text != widget.searchQuery) {
+      _search.value = TextEditingValue(
+        text: widget.searchQuery,
+        selection: TextSelection.collapsed(offset: widget.searchQuery.length),
+      );
     }
   }
 
@@ -195,30 +225,50 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     label: historyFilterLabel(widget.filter, all),
                     onReset: widget.onResetFilter,
                   ),
-                if (widget.filter.isActive && total != null)
-                  _FilteredTotal(shown: total, month: data.month),
+                if ((widget.filter.isActive || _searching) && total != null)
+                  _FilteredTotal(shown: total),
                 Expanded(child: content),
               ],
+            );
+            final nothingFound = _SearchNothingFound(
+              query: widget.searchQuery.trim(),
+              onClear: _clearSearch,
+              onResetFilter: widget.filter.isActive
+                  ? widget.onResetFilter
+                  : null,
             );
             if (data.transactions.isEmpty) {
               final hasAny = widget.hasAnyTransactions;
               if (hasAny == null) return const _HistorySkeleton();
+              // Пустой месяц, пришедший до ответа «всех месяцев», при поиске
+              // не должен говорить «За … операций нет».
+              if (hasAny && _searching) {
+                return withBar(nothingFound, showSort: false);
+              }
               final empty = _EmptyState(
                 hasAnyTransactions: hasAny,
                 month: data.month,
               );
               return hasAny ? withBar(empty, showSort: false) : empty;
             }
-            // Фильтр и порядок применяем к пришедшему списку: поток от смены
-            // фильтра не пересоздаётся.
-            final shown = applyHistoryView(
-              data.transactions,
-              widget.filter,
-              widget.sort,
+            // Запрос, фильтр и порядок применяем к пришедшему списку: поток от
+            // них не пересоздаётся.
+            final found = data.transactions.where(
+              (t) => matchesHistorySearch(
+                widget.searchQuery,
+                comment: t.note,
+                subcategoryName: byId[t.subcategoryId]?.name,
+              ),
             );
+            final shown = applyHistoryView(found, widget.filter, widget.sort);
             if (shown.isEmpty) {
               return withBar(
-                _NothingFound(month: data.month, onReset: widget.onResetFilter),
+                _searching
+                    ? nothingFound
+                    : _NothingFound(
+                        month: data.month,
+                        onReset: widget.onResetFilter,
+                      ),
                 showSort: false,
               );
             }
@@ -241,13 +291,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Переключатель вне списка: при прокрутке остаётся на месте.
-        PeriodSwitcher(
-          label: formatMonthTitle(widget.month),
-          onPrevious: widget.onPreviousMonth,
-          onNext: widget.onNextMonth,
-          previousTooltip: 'Предыдущий месяц',
-          nextTooltip: 'Следующий месяц',
+        if (widget.onSearchChanged != null)
+          _SearchField(controller: _search, onChanged: widget.onSearchChanged!),
+        // Переключатель вне списка: при прокрутке остаётся на месте. Во время
+        // поиска стрелок нет (ищем во всех месяцах); высота та же, что со
+        // стрелками, чтобы список не прыгал.
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: PeriodSwitcher(
+            label: _searching
+                ? 'Во всех месяцах'
+                : formatMonthTitle(widget.month),
+            onPrevious: _searching ? null : widget.onPreviousMonth,
+            onNext: _searching ? null : widget.onNextMonth,
+            previousTooltip: 'Предыдущий месяц',
+            nextTooltip: 'Следующий месяц',
+          ),
         ),
         Expanded(child: body),
       ],
@@ -673,6 +732,106 @@ class _SortButton extends StatelessWidget {
   }
 }
 
+/// Поле поиска над списком: лупа, серая подсказка, крестик «Очистить поиск»,
+/// пока в поле что-то есть.
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.controller, required this.onChanged});
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) => TextField(
+          controller: controller,
+          onChanged: onChanged,
+          maxLines: 1,
+          keyboardType: TextInputType.text,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: 'Поиск по комментарию и подкатегории',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: value.text.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Очистить поиск',
+                    onPressed: () {
+                      controller.clear();
+                      onChanged('');
+                    },
+                  ),
+            border: const OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Поиск ничего не нашёл (во всех месяцах, с учётом фильтра).
+class _SearchNothingFound extends StatelessWidget {
+  const _SearchNothingFound({
+    required this.query,
+    required this.onClear,
+    required this.onResetFilter,
+  });
+
+  /// Запрос без пробелов по краям, как его показать в тексте.
+  final String query;
+  final VoidCallback onClear;
+
+  /// «Сбросить фильтр»; `null` — фильтр выключен, кнопки нет.
+  final VoidCallback? onResetFilter;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Ничего не найдено',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Нет операций с «$query» в комментарии или подкатегории',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+              onPressed: onClear,
+              child: const Text('Очистить поиск'),
+            ),
+            if (onResetFilter != null) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: onResetFilter,
+                child: const Text('Сбросить фильтр'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// В месяце операции есть, но под фильтр не подходит ни одна.
 class _NothingFound extends StatelessWidget {
   const _NothingFound({required this.month, required this.onReset});
@@ -772,13 +931,24 @@ class _HistorySkeleton extends StatelessWidget {
   }
 }
 
-/// Строка итога под полоской фильтра: «7 операций, сумма расходов» либо
-/// «12 операций, расходы и доходы» для смешанных типов. Суммы цветом расхода и дохода.
+/// Строка итога под полоской фильтра или при поиске: «7 операций, сумма
+/// расходов» либо «12 операций, расходы и доходы» для смешанных типов. Суммы
+/// цветом расхода и дохода. Период — от первого до последнего дня [shown]
+/// (при поиске это несколько месяцев).
 class _FilteredTotal extends StatelessWidget {
-  const _FilteredTotal({required this.shown, required this.month});
+  const _FilteredTotal({required this.shown});
 
   final List<Transaction> shown;
-  final DateOnly month;
+
+  static DateRange _span(List<Transaction> transactions) {
+    var first = transactions.first.occurredOn;
+    var last = first;
+    for (final t in transactions) {
+      if (t.occurredOn < first) first = t.occurredOn;
+      if (t.occurredOn > last) last = t.occurredOn;
+    }
+    return DateRange(first, last);
+  }
 
   static String _spoken(Money money) => money.currency == rubCurrencyCode
       ? spokenMoney(money)
@@ -790,7 +960,7 @@ class _FilteredTotal extends StatelessWidget {
     final colors = context.appColors;
     final summary = summarizePeriod(
       shown,
-      monthRange(month),
+      _span(shown),
       currency: shown.first.amount.currency,
     );
     final style = theme.textTheme.bodyMedium?.copyWith(

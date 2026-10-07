@@ -120,6 +120,22 @@ class BrowseController extends ChangeNotifier {
   /// Выключает фильтр; сортировку не трогает.
   void resetHistoryFilter() => setHistoryFilter(HistoryFilter.off);
 
+  /// Текст в поле поиска «Истории» как набран (с пробелами): поле при
+  /// возврате на вкладку показывает его же. Живёт, пока его не очистят.
+  String get historySearch => _historySearch;
+  String _historySearch = '';
+
+  /// Идёт ли поиск: в запросе есть что-то кроме пробелов. Тогда «История»
+  /// показывает все месяцы, а выбранный месяц не меняется.
+  bool get isSearchingHistory =>
+      normalizeHistorySearch(_historySearch).isNotEmpty;
+
+  void setHistorySearch(String text) {
+    if (text == _historySearch) return;
+    _historySearch = text;
+    notifyListeners();
+  }
+
   void setHistorySort(HistorySort sort) {
     if (sort == _historySort) return;
     _historySort = sort;

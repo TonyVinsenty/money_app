@@ -250,30 +250,41 @@ class _HistoryTabState extends State<HistoryTab> {
   TransactionsRepository? _transactionsRepository;
   CategoriesRepository? _categoriesRepository;
   DateRange? _month;
+  bool _searching = false;
   late Stream<List<Transaction>> _transactions;
   late Stream<List<Category>> _categories;
 
-  // Потоки создаём один раз (и заново только при смене сервисов или выбранного
-  // месяца): в build каждая перерисовка начинала бы подписку заново, и список
-  // мигал бы. didChangeDependencies вызывается и при смене фильтра (BrowseScope
-  // уведомляет обо всём), но месяц тогда тот же, и поток остаётся прежним.
+  // Потоки создаём один раз (и заново только при смене сервисов, выбранного
+  // месяца или при начале и конце поиска): в build каждая перерисовка
+  // начинала бы подписку заново, и список мигал бы. didChangeDependencies
+  // вызывается и при смене фильтра или каждой буквы поиска (BrowseScope
+  // уведомляет обо всём), но поток тогда остаётся прежним.
   //
   // «Сегодня» берётся из BrowseController (обновляется при возврате в приложение).
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final services = AppScope.of(context);
-    final month = BrowseScope.of(context).month;
-    if (!identical(services.transactions, _transactionsRepository) ||
-        !identical(services.categories, _categoriesRepository) ||
-        month != _month) {
+    final browse = BrowseScope.of(context);
+    final month = browse.month;
+    final searching = browse.isSearchingHistory;
+    final repositoriesChanged =
+        !identical(services.transactions, _transactionsRepository) ||
+        !identical(services.categories, _categoriesRepository);
+    // Во время поиска смена месяца поток не трогает: он и так за все месяцы.
+    final sourceChanged =
+        searching != _searching || (!searching && month != _month);
+    _month = month;
+    if (repositoriesChanged || sourceChanged) {
       _transactionsRepository = services.transactions;
       _categoriesRepository = services.categories;
-      _month = month;
-      // Фильтр и порядок применяет сам экран: поток от них не зависит.
-      _transactions = services.transactions.watchInPeriod(month);
-      _categories = services.categories.watchAll();
+      _searching = searching;
+      // Фильтр, порядок и сам запрос применяет экран: поток от них не зависит.
+      _transactions = searching
+          ? services.transactions.watchAll()
+          : services.transactions.watchInPeriod(month);
     }
+    if (repositoriesChanged) _categories = services.categories.watchAll();
   }
 
   @override
@@ -292,6 +303,8 @@ class _HistoryTabState extends State<HistoryTab> {
       onResetFilter: browse.resetHistoryFilter,
       onSortChanged: browse.setHistorySort,
       onFilterChanged: browse.setHistoryFilter,
+      searchQuery: browse.historySearch,
+      onSearchChanged: browse.setHistorySearch,
       onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,
       onNextMonth: browse.canGoForward ? browse.nextMonth : null,
       onTransactionTap: (transaction) => Navigator.of(context).pushNamed(
