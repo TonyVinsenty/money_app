@@ -21,17 +21,22 @@ class _PlanningStore implements CsvImportStore {
 
   final List<Category> categories;
   final Set<String> liveIds;
-  Exception? writeError;
+  Object? writeError;
+  Object? prepareError;
   final List<CsvImportPlan> written = [];
 
   @override
-  Future<CsvImportPlan> prepare(List<ParsedCsvRow> rows) async => planCsvImport(
-    rows: rows,
-    categories: categories,
-    liveTransactionIds: liveIds,
-    deletedTransactionIds: const {},
-    ids: FakeIdGenerator(prefix: 'new'),
-  );
+  Future<CsvImportPlan> prepare(List<ParsedCsvRow> rows) async {
+    final error = prepareError;
+    if (error != null) throw error;
+    return planCsvImport(
+      rows: rows,
+      categories: categories,
+      liveTransactionIds: liveIds,
+      deletedTransactionIds: const {},
+      ids: FakeIdGenerator(prefix: 'new'),
+    );
+  }
 
   @override
   Future<void> write(CsvImportPlan plan) async {
@@ -233,5 +238,39 @@ void main() {
     await tester.tap(find.text(csvImportLoadButton));
     await tester.pumpAndSettle();
     expect(results, [1]);
+  });
+
+  testWidgets(
+    'сбой записи не Exception: текст ошибки, «назад» снова работает',
+    (tester) async {
+      final store = _PlanningStore()..writeError = StateError('неожиданно');
+      final results = await _open(
+        tester,
+        store: store,
+        csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
+      );
+
+      await tester.tap(find.text(csvImportLoadButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text(csvImportWriteFailedMessage), findsOneWidget);
+      expect(find.text(csvImportWritingLabel), findsNothing);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(results, [null]);
+    },
+  );
+
+  testWidgets('сбой проверки не Exception — понятный текст', (tester) async {
+    final store = _PlanningStore()..prepareError = StateError('неожиданно');
+    await _open(
+      tester,
+      store: store,
+      csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
+    );
+
+    expect(find.text(csvImportReadFailedMessage), findsOneWidget);
+    expect(find.text(csvImportCheckingLabel), findsNothing);
   });
 }

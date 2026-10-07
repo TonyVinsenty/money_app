@@ -110,7 +110,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             );
           }
       }
-    } on Exception {
+    } catch (_) {
       view = const _Failed(csvImportReadFailedMessage);
     }
     if (mounted) setState(() => _view = view);
@@ -133,7 +133,10 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     });
     try {
       await widget.store.write(plan);
-    } on Exception {
+      // Любая ошибка, не только Exception: иначе `_writing` останется true,
+      // а с ним и запрет «назад» — экран не закрыть до перезапуска.
+      // База при сбое не меняется (одна транзакция).
+    } catch (_) {
       if (mounted) {
         setState(() {
           _writing = false;
