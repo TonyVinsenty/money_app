@@ -188,18 +188,32 @@ class DriftTransactionsRepository implements TransactionsRepository {
     DateRange period, {
     String currency = rubCurrencyCode,
   }) {
+    return _watchLive(
+      currency,
+      (t) => t.occurredOn.isBetweenValues(
+        period.start.toInt(),
+        period.end.toInt(),
+      ),
+    );
+  }
+
+  @override
+  Stream<List<Transaction>> watchAll({String currency = rubCurrencyCode}) =>
+      _watchLive(currency, null);
+
+  /// Живые строки в валюте [currency] (и под условием [where], если оно
+  /// есть) по дню, моменту и `id`.
+  Stream<List<Transaction>> _watchLive(
+    String currency,
+    Expression<bool> Function($TransactionsTable t)? where,
+  ) {
     // Заодно проверяет код валюты: неверный — ArgumentError сразу.
     Money.zero(currency);
     final query = _db.select(_db.transactions)
-      ..where(
-        (t) =>
-            t.deletedAt.isNull() &
-            t.currency.equals(currency) &
-            t.occurredOn.isBetweenValues(
-              period.start.toInt(),
-              period.end.toInt(),
-            ),
-      )
+      ..where((t) {
+        final live = t.deletedAt.isNull() & t.currency.equals(currency);
+        return where == null ? live : live & where(t);
+      })
       ..orderBy([
         (t) => OrderingTerm.asc(t.occurredOn),
         (t) => OrderingTerm.asc(t.occurredAt),

@@ -102,6 +102,11 @@ abstract interface class TransactionsRepository {
     String currency = rubCurrencyCode,
   });
 
+  /// Поток всех «живых» операций в валюте [currency], за все месяцы (поиск в
+  /// «Истории»). Мягко удалённые и другие валюты не приходят. Порядок и
+  /// ошибки — как у [watchInPeriod].
+  Stream<List<Transaction>> watchAll({String currency = rubCurrencyCode});
+
   /// Поток самого раннего дня среди «живых» операций; `null`, если их нет.
   ///
   /// Нужен, чтобы знать, как далеко можно листать месяцы назад. Мягко

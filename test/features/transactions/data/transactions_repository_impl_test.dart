@@ -1296,6 +1296,53 @@ void main() {
       });
     });
 
+    group('watchAll', () {
+      Future<List<String>> allIds({String currency = 'RUB'}) async {
+        final list = await repo.watchAll(currency: currency).first;
+        return list.map((t) => t.id).toList();
+      }
+
+      test('returns live rows of every month in day/moment/id order', () async {
+        await repo.add(tx('oct', day: DateOnly(2026, 10, 1)));
+        await repo.add(tx('old', day: DateOnly(2025, 1, 31)));
+        await repo.add(tx('sep-b', day: DateOnly(2026, 9, 5)));
+        await repo.add(tx('sep-a', day: DateOnly(2026, 9, 5)));
+        await repo.add(
+          tx('inc', day: DateOnly(2026, 8, 1), type: TransactionType.income),
+        );
+
+        expect(await allIds(), ['old', 'inc', 'sep-a', 'sep-b', 'oct']);
+      });
+
+      test('soft-deleted rows and other currencies are not returned', () async {
+        await repo.add(tx('kept', day: DateOnly(2026, 9, 10)));
+        await repo.add(tx('gone', day: DateOnly(2026, 7, 11)));
+        await repo.add(tx('usd', day: DateOnly(2026, 8, 1), currency: 'USD'));
+        await repo.softDelete('gone');
+
+        expect(await allIds(), ['kept']);
+        expect(await allIds(currency: 'USD'), ['usd']);
+      });
+
+      test('an unknown currency code is ArgumentError at once', () {
+        expect(() => repo.watchAll(currency: 'rub'), throwsArgumentError);
+      });
+
+      test('add and update reach the stream by themselves', () async {
+        final rec = await record(repo.watchAll());
+        await rec.waitForEvents(1);
+        expect(rec.events.last, isEmpty);
+
+        await repo.add(tx('a', day: DateOnly(2024, 3, 3)));
+        await rec.waitForEvents(2);
+        expect(rec.events.last.map((t) => t.id).toList(), ['a']);
+
+        await repo.update(tx('a', day: DateOnly(2024, 3, 3), note: 'кофе'));
+        await rec.waitForEvents(3);
+        expect(rec.events.last.single.note, 'кофе');
+      });
+    });
+
     group('corrupted data', () {
       // 20261332 проходит CHECK диапазона в схеме, но 13-го месяца нет:
       // DateOnlyConverter бросает FormatException при чтении строки.

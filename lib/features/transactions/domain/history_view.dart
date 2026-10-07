@@ -132,6 +132,26 @@ List<Category> historyFilterCategories({
   return result;
 }
 
+/// Текст для сравнения при поиске в «Истории»: без пробелов по краям, в нижнем
+/// регистре, «ё» читается как «е».
+String normalizeHistorySearch(String text) =>
+    text.trim().toLowerCase().replaceAll('ё', 'е');
+
+/// Подходит ли операция под поисковый [query]: запрос входит в комментарий
+/// или в имя подкатегории (без учёта регистра, «ё» = «е»). Пустой запрос и
+/// запрос из одних пробелов подходят всему.
+bool matchesHistorySearch(
+  String query, {
+  required String? comment,
+  required String? subcategoryName,
+}) {
+  final needle = normalizeHistorySearch(query);
+  if (needle.isEmpty) return true;
+  bool has(String? text) =>
+      text != null && normalizeHistorySearch(text).contains(needle);
+  return has(comment) || has(subcategoryName);
+}
+
 /// Порядок списка «Истории».
 enum HistorySort { newestFirst, oldestFirst, largestFirst, smallestFirst }
 
