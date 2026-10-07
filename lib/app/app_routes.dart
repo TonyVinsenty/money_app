@@ -12,6 +12,8 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
 import 'package:money_app/features/categories/presentation/category_form_screen.dart';
 import 'package:money_app/features/categories/presentation/subcategories_screen.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
+import 'package:money_app/features/csv_import/presentation/csv_import_screen.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -43,6 +45,26 @@ abstract final class AppRoutes {
   /// Экран «Категория за период» (подкатегории). Аргумент маршрута —
   /// [CategoryBreakdownRouteArguments].
   static const analyticsCategory = '/analytics-category';
+
+  /// Экран «Загрузка из CSV». Аргумент маршрута — [CsvImportRouteArguments].
+  /// Закрывается с числом добавленных операций (`int`) или с `null`.
+  static const csvImport = '/csv-import';
+}
+
+/// Аргументы маршрута [AppRoutes.csvImport]: путь к копии файла и сервисы
+/// (их достаёт тот, кто открывает маршрут).
+final class CsvImportRouteArguments {
+  const CsvImportRouteArguments({
+    required this.path,
+    required this.clock,
+    required this.store,
+    required this.categories,
+  });
+
+  final String path;
+  final Clock clock;
+  final CsvImportStore store;
+  final Stream<List<Category>> categories;
 }
 
 /// Аргументы маршрута [AppRoutes.analyticsCategory]: категория, период, сегодняшний
@@ -299,6 +321,25 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
               parent: arguments.parent,
             ),
           ),
+        ),
+      );
+    case AppRoutes.csvImport:
+      final arguments = settings.arguments;
+      if (arguments is! CsvImportRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.csvImport} ожидает аргумент '
+              'CsvImportRouteArguments (путь к файлу и сервисы)',
+        );
+      }
+      return MaterialPageRoute<int>(
+        settings: settings,
+        builder: (_) => CsvImportScreen(
+          path: arguments.path,
+          clock: arguments.clock,
+          store: arguments.store,
+          categories: arguments.categories,
         ),
       );
     case AppRoutes.analyticsCategory:

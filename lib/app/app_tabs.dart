@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
+import 'package:money_app/app/app_services.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_scope.dart';
@@ -11,6 +14,7 @@ import 'package:money_app/features/analytics/presentation/analytics_controller.d
 import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/csv_import/presentation/pick_csv_file.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
 import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
@@ -63,7 +67,36 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
 /// Вкладка «Настройки»: связывает экран фичи `settings` с настройками
 /// приложения и маршрутами. Сам `SettingsScreen` их не знает (ADR 0002).
 class SettingsTab extends StatelessWidget {
-  const SettingsTab({super.key});
+  const SettingsTab({this.pickFile = pickCsvFile, super.key});
+
+  /// Окно выбора файла для загрузки из CSV; в тестах — фейк.
+  final PickFile pickFile;
+
+  /// Выбор файла → экран «Загрузка из CSV» → число добавленных операций или
+  /// `null`. Копия файла удаляется после закрытия экрана.
+  Future<int?> _importCsv(BuildContext context, AppServices services) async {
+    final navigator = Navigator.of(context);
+    final path = await pickFile();
+    if (path == null) return null;
+    try {
+      return await navigator.pushNamed<int>(
+        AppRoutes.csvImport,
+        arguments: CsvImportRouteArguments(
+          path: path,
+          clock: services.clock,
+          store: services.csvImport,
+          categories: services.categories.watchAll(),
+        ),
+      );
+    } finally {
+      // Синхронно: асинхронный ввод-вывод в widget-тестах не завершается.
+      try {
+        File(path).deleteSync();
+      } on FileSystemException {
+        // Копии уже нет — удалять нечего.
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +117,7 @@ class SettingsTab extends StatelessWidget {
         categories: services.categories,
         clock: services.clock,
       ).exportToTempFile(),
+      onImportCsv: () => _importCsv(context, services),
       // Репозиторий берём здесь, под AppScope: открытый маршрут его не видит.
       onOpenCategories: () => Navigator.of(context).pushNamed(
         AppRoutes.categories,

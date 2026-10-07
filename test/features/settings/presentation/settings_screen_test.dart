@@ -16,6 +16,7 @@ Widget _app({
   ShareFile? shareFile,
   DateOnly? lastExportDay,
   VoidCallback? onExportShared,
+  Future<int?> Function()? onImportCsv,
   double textScale = 1,
 }) {
   return MaterialApp(
@@ -34,6 +35,7 @@ Widget _app({
         lastExportDay: lastExportDay,
         today: DateOnly(2026, 10, 7),
         onExportShared: onExportShared ?? () {},
+        onImportCsv: onImportCsv ?? () async => null,
       ),
     ),
   );
@@ -311,6 +313,77 @@ void main() {
       expect(find.text(shareFailedMessage), findsOneWidget);
       expect(shared, 0);
       expect(tester.widget<ListTile>(exportItem()).enabled, isTrue);
+    });
+  });
+
+  group('загрузка из CSV', () {
+    testWidgets('отмена: сообщения нет', (tester) async {
+      var calls = 0;
+      await tester.pumpWidget(
+        _app(
+          onImportCsv: () async {
+            calls++;
+            return null;
+          },
+        ),
+      );
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(calls, 1);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('загружено: «Загружены 3 операции»', (tester) async {
+      await tester.pumpWidget(_app(onImportCsv: () async => 3));
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Загружены 3 операции'), findsOneWidget);
+    });
+
+    testWidgets('файл не открылся: SnackBar с текстом', (tester) async {
+      await tester.pumpWidget(
+        _app(onImportCsv: () async => throw PlatformException(code: 'busy')),
+      );
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(importOpenFailedMessage), findsOneWidget);
+    });
+
+    testWidgets('пока идёт загрузка, второе нажатие ничего не делает', (
+      tester,
+    ) async {
+      final done = Completer<int?>();
+      var calls = 0;
+      await tester.pumpWidget(
+        _app(
+          onImportCsv: () {
+            calls++;
+            return done.future;
+          },
+        ),
+      );
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pump();
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pump();
+      expect(calls, 1);
+
+      done.complete(null);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pump();
+      expect(calls, 2);
+    });
+
+    test('итог по числу: 1, 3, 5, 1 234', () {
+      final nbsp = String.fromCharCode(0x00A0);
+      expect(importDoneMessage(1), 'Загружена 1 операция');
+      expect(importDoneMessage(3), 'Загружены 3 операции');
+      expect(importDoneMessage(5), 'Загружено 5 операций');
+      expect(importDoneMessage(1234), 'Загружены 1${nbsp}234 операции');
     });
   });
 }

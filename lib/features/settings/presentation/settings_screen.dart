@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:money_app/core/format/date_format.dart';
+import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
@@ -29,6 +31,23 @@ const shareFailedMessage =
 /// Подпись индикатора для скринридера, пока готовится файл.
 const exportPreparingLabel = 'Готовим файл';
 
+/// Пункт, открывающий выбор файла для загрузки операций, и подпись под ним.
+const importCsvItemLabel = 'Загрузить из CSV';
+const importCsvItemSubtitle = 'Добавить операции из файла';
+
+/// Сообщение, если окно выбора файла не открылось или файл не скопировался.
+const importOpenFailedMessage = 'Не удалось открыть файл. Попробуйте ещё раз';
+
+/// Итог загрузки: «Загружена 1 операция», «Загружены 3 операции»,
+/// «Загружено 1 234 операции».
+String importDoneMessage(int count) {
+  final verb = pluralRu(count, 'Загружена', 'Загружены', 'Загружено');
+  final noun = pluralRu(count, 'операция', 'операции', 'операций');
+  return '$verb ${_countFormat.format(count)} $noun';
+}
+
+final NumberFormat _countFormat = NumberFormat.decimalPattern('ru');
+
 /// Подпись под пунктом экспорта. Без года, если выгрузка в текущем году
 /// (год берётся из [today]); если выгрузки не было — «ещё не было».
 String lastExportLabel(DateOnly? day, DateOnly today) {
@@ -51,6 +70,7 @@ class SettingsScreen extends StatefulWidget {
     required this.lastExportDay,
     required this.today,
     required this.onExportShared,
+    required this.onImportCsv,
     this.shareFile = shareCsvFile,
     super.key,
   });
@@ -74,6 +94,11 @@ class SettingsScreen extends StatefulWidget {
 
   /// Отправляет готовый файл наружу.
   final ShareFile shareFile;
+
+  /// Выбор файла и загрузка из него. Возвращает число добавленных операций
+  /// или `null`, если ничего не загружено (отмена). Бросает исключение, если
+  /// файл не удалось открыть.
+  final Future<int?> Function() onImportCsv;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -119,6 +144,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
+  }
+
+  /// Идёт загрузка (открыто окно выбора или экран загрузки).
+  bool _importing = false;
+
+  Future<void> _importCsv() async {
+    setState(() => _importing = true);
+    try {
+      final int? added;
+      try {
+        added = await widget.onImportCsv();
+      } on Exception {
+        _showMessage(importOpenFailedMessage);
+        return;
+      }
+      if (added != null) _showMessage(importDoneMessage(added));
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  void _showMessage(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: TapToDismissSnackContent(child: Text(text))),
+    );
   }
 
   @override
@@ -179,6 +230,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
           enabled: !_exporting,
           onTap: _exporting ? null : _exportCsv,
+        ),
+        ListTile(
+          title: const Text(importCsvItemLabel),
+          subtitle: const Text(importCsvItemSubtitle),
+          trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+          // Второе нажатие, пока открыто окно выбора, ничего не делает.
+          onTap: _importing ? null : _importCsv,
         ),
       ],
     );
