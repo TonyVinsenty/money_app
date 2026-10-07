@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
@@ -172,6 +173,11 @@ void main() {
       );
       if (scroll != _Scroll.off) {
         c = SingleChildScrollView(
+          physics: scroll == _Scroll.bounce
+              ? const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                )
+              : null,
           child: Column(
             children: [
               c,
@@ -307,6 +313,67 @@ void main() {
       expect(scrollable.position.pixels, 0);
     });
 
+    for (final scroll in [_Scroll.long, _Scroll.bounce]) {
+      double pixels(WidgetTester tester) => tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+
+      testWidgets('долгое нажатие держит экран: палец ходит по секторам, '
+          'отпускание на секторе выбирает (${scroll.name})', (tester) async {
+        await tester.pumpWidget(chart(scroll: scroll));
+        final g = await tester.startGesture(global(tester, _at(0.1)));
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        expect(shown, 0);
+        await g.moveTo(global(tester, _at(0.6)));
+        await tester.pump();
+        expect(shown, 3);
+        await g.moveTo(global(tester, _at(0.35)));
+        await tester.pump();
+        expect(shown, 1);
+        expect(pixels(tester), 0);
+        await g.up();
+        await tester.pumpAndSettle();
+        expect(selects(), ['s1']);
+        expect(shown, isNull);
+        expect(pixels(tester), 0);
+      });
+
+      testWidgets('долгое нажатие, отпускание вне кольца: ничего не выбрано, '
+          'экран стоит (${scroll.name})', (tester) async {
+        await tester.pumpWidget(chart(scroll: scroll));
+        final g = await tester.startGesture(global(tester, _at(0.1)));
+        await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+        await g.moveBy(const Offset(0, 250));
+        await tester.pump();
+        expect(shown, isNull);
+        expect(pixels(tester), 0);
+        await g.up();
+        await tester.pumpAndSettle();
+        expect(selects(), isEmpty);
+        expect(shown, isNull);
+      });
+    }
+
+    testWidgets('пружинящая прокрутка: быстрый свайп по кольцу двигает экран и '
+        'ничего не выбирает', (tester) async {
+      await tester.pumpWidget(chart(scroll: _Scroll.bounce));
+      final g = await tester.startGesture(global(tester, _at(0.1)));
+      await tester.pump(const Duration(milliseconds: 100));
+      await g.moveBy(const Offset(0, 60));
+      await tester.pump();
+      await g.moveBy(const Offset(0, 60));
+      await tester.pump();
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      expect(position.pixels, isNot(0));
+      expect(shown, isNull);
+      await g.up();
+      await tester.pumpAndSettle();
+      expect(selects(), isEmpty);
+    });
+
     testWidgets('отмена указателя снимает подсветку без выбора', (
       tester,
     ) async {
@@ -439,15 +506,29 @@ void main() {
       await tester.tapAt(global(tester, _at(0.1)));
       await tester.pump();
       expect(log, isEmpty);
+      // Свой Listener кольца — непрозрачный (у GestureDetector внутри свой).
       expect(
         tester
             .widget<Listener>(
               find.descendant(
                 of: find.byType(DonutChart),
-                matching: find.byType(Listener),
+                matching: find.byWidgetPredicate(
+                  (w) => w is Listener && w.behavior == HitTestBehavior.opaque,
+                ),
               ),
             )
             .onPointerDown,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<GestureDetector>(
+              find.descendant(
+                of: find.byType(DonutChart),
+                matching: find.byType(GestureDetector),
+              ),
+            )
+            .onLongPress,
         isNull,
       );
     });
@@ -455,4 +536,5 @@ void main() {
 }
 
 /// Родитель кольца в тесте: без прокрутки, с нечего-прокручивать и с запасом.
-enum _Scroll { off, none, long }
+/// [bounce] — как на iOS: прокрутка «пружинит», даже когда всё помещается.
+enum _Scroll { off, none, long, bounce }

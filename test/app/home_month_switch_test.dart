@@ -193,7 +193,8 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(DonutChart),
-        matching: find.text(_expense(12803388)),
+        // Центр кольца — баланс месяца: доходы минус расходы.
+        matching: find.text(formatMoney(Money.fromMinor(-2508488, 'RUB'))),
       ),
       findsOneWidget,
     );

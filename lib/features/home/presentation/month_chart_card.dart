@@ -13,6 +13,7 @@ import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
+import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
@@ -63,9 +64,10 @@ double chartRingSize({
 }
 
 /// Карточка «Расходы по категориям» на «Главной»: кольцо размера [ringSize] с
-/// суммой расходов месяца в центре и легенда под ним (до 4 элементов). Касание
-/// сектора показывает в центре его категорию; отпускание пальца на секторе и
-/// нажатие на элемент легенды зовут [onOpenCategory] с набором id категорий.
+/// балансом месяца («Всего») в центре и легенда под ним (до 4 элементов).
+/// Касание сектора показывает в центре его категорию; отпускание пальца на
+/// секторе и нажатие на элемент легенды зовут [onOpenCategory] с набором id
+/// категорий.
 /// Неизвестная категория («Без категории») никуда не ведёт.
 ///
 /// Потоки [transactions] (операции месяца) и [categories] (все категории,
@@ -206,17 +208,18 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final theme = Theme.of(context);
     final colors = context.appColors;
     final range = monthRange(month);
-    final totals = totalsByCategory(
+    final balance = summarizePeriod(
       transactions,
       range,
-      type: TransactionType.expense,
       currency: rubCurrencyCode,
-    );
-    final slices = chartSlices(totals);
-    // Расходы месяца: сумма секторов.
-    final expenses = Money.fromMinor(
-      totals.fold<int>(0, (sum, t) => sum + t.amount.minorUnits),
-      rubCurrencyCode,
+    ).balance;
+    final slices = chartSlices(
+      totalsByCategory(
+        transactions,
+        range,
+        type: TransactionType.expense,
+        currency: rubCurrencyCode,
+      ),
     );
     final byId = {for (final c in categories) c.id: c};
     final names = {for (final c in categories) c.id: c.name};
@@ -246,13 +249,13 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final lit = _highlight;
     final highlighted = lit != null && lit < slices.length ? lit : null;
 
-    // Как на «Аналитике»: «минус» перед суммой, у нуля без приставки.
-    final expensesSpoken = expenses.isZero
-        ? spokenMoney(expenses)
-        : 'минус ${spokenMoney(expenses)}';
+    // spokenMoney сам добавляет «минус»; для плюса приставку ставим тут.
+    final balanceSpoken = balance > Money.zero(rubCurrencyCode)
+        ? 'плюс ${spokenMoney(balance)}'
+        : spokenMoney(balance);
     final label =
         'Диаграмма расходов за ${formatMonthName(month)}. '
-        'Расходы: $expensesSpoken';
+        'Всего: $balanceSpoken';
 
     final side = widget.ringSize;
 
@@ -282,7 +285,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
         center: SizedBox(
           width: side * 0.66,
           child: highlighted == null
-              ? _totalCenter(theme, colors, expenses)
+              ? _totalCenter(theme, colors, balance)
               : _sliceCenter(
                   theme,
                   slices[highlighted],
@@ -322,19 +325,24 @@ class _MonthChartCardState extends State<MonthChartCard> {
     );
   }
 
-  /// Центр без подсветки: «Расходы» и сумма расходов месяца со знаком минус и
-  /// цветом расхода, как на «Аналитике»; ноль без знака и нейтрально.
-  Widget _totalCenter(ThemeData theme, AppColors colors, Money expenses) {
-    final color = expenses.isZero ? null : colors.expense;
-    final text = expenses.isZero
-        ? formatMoney(expenses)
-        : '\u2212${formatMoney(expenses)}';
+  /// Центр без подсветки: «Всего» и баланс месяца (доходы минус расходы). Цвет и
+  /// знак только у суммы: плюс цветом дохода, минус цветом расхода, ноль
+  /// нейтрально.
+  Widget _totalCenter(ThemeData theme, AppColors colors, Money balance) {
+    final color = balance.isZero
+        ? null
+        : balance.isNegative
+        ? colors.expense
+        : colors.income;
+    final text = balance.isZero || balance.isNegative
+        ? formatMoney(balance)
+        : '+${formatMoney(balance)}';
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _fit(
           Text(
-            'Расходы',
+            'Всего',
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

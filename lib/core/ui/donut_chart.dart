@@ -213,36 +213,44 @@ class _DonutChartState extends State<DonutChart> {
       container: true,
       label: widget.semanticsLabel,
       excludeSemantics: true,
-      child: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: interactive ? _down : null,
-        onPointerMove: interactive ? _move : null,
-        onPointerUp: interactive ? _up : null,
-        onPointerCancel: interactive ? _cancel : null,
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: CustomPaint(
-            painter: painter,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final center = widget.center;
-                if (center == null) return const SizedBox.shrink();
-                // Центр живёт во вписанном квадрате дырки (диаметр дырки
-                // на 0.71): шире и выше не бывает, большее ужимается.
-                final side = _Ring(constraints.biggest).inner * 2 * 0.71;
-                return Center(
-                  child: SizedBox.square(
-                    dimension: side,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: side),
-                        child: center,
+      // Долгое нажатие само ничего не делает: оно выигрывает арену жестов у
+      // прокрутки родителя, если палец полежал на месте. После этого экран
+      // стоит, и палец свободно ходит между секторами. На iOS прокрутка
+      // «пружинит» даже без лишнего содержимого и иначе забирала бы жест.
+      child: GestureDetector(
+        excludeFromSemantics: true,
+        onLongPress: interactive ? () {} : null,
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: interactive ? _down : null,
+          onPointerMove: interactive ? _move : null,
+          onPointerUp: interactive ? _up : null,
+          onPointerCancel: interactive ? _cancel : null,
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: CustomPaint(
+              painter: painter,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final center = widget.center;
+                  if (center == null) return const SizedBox.shrink();
+                  // Центр живёт во вписанном квадрате дырки (диаметр дырки
+                  // на 0.71): шире и выше не бывает, большее ужимается.
+                  final side = _Ring(constraints.biggest).inner * 2 * 0.71;
+                  return Center(
+                    child: SizedBox.square(
+                      dimension: side,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: side),
+                          child: center,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
