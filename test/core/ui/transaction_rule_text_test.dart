@@ -38,6 +38,20 @@ void main() {
     );
   });
 
+  test('счёт: тексты подсказывают выбрать другой', () {
+    expect(
+      transactionRuleMessage(TransactionRule.accountArchived, type: expense),
+      contains('в архиве'),
+    );
+    expect(
+      transactionRuleMessage(
+        TransactionRule.accountCurrencyMismatch,
+        type: expense,
+      ),
+      contains('Валюта счёта'),
+    );
+  });
+
   test('typeKindMismatch называет, что вводит человек', () {
     expect(
       transactionRuleMessage(TransactionRule.typeKindMismatch, type: expense),

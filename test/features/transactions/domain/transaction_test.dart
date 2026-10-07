@@ -429,6 +429,55 @@ void main() {
     });
   });
 
+  group('счёт', () {
+    test('по умолчанию без счёта', () {
+      expect(_make().accountId, isNull);
+    });
+
+    test('withAccount ставит и снимает счёт, остальное сохраняется', () {
+      final original = _make(note: 'n', subcategoryId: 's1');
+      final withAcc = original.withAccount('acc');
+      expect(withAcc.accountId, 'acc');
+      expect(withAcc.note, 'n');
+      expect(withAcc.subcategoryId, 's1');
+      expect(withAcc.withAccount(null).accountId, isNull);
+      expect(withAcc.withAccount(null), original);
+    });
+
+    test('копии и смена типа сохраняют счёт', () {
+      final t = _make().withAccount('acc');
+      expect(t.copyWith(amount: _rub(1)).accountId, 'acc');
+      expect(t.withNote('x').accountId, 'acc');
+      final income = _top(id: 'inc', kind: CategoryKind.income);
+      final changed = t.withCategory(
+        type: TransactionType.income,
+        category: income,
+      );
+      expect(changed.accountId, 'acc');
+    });
+
+    test('Transaction.create принимает счёт', () {
+      final t = Transaction.create(
+        id: 't1',
+        type: TransactionType.expense,
+        amount: _rub(1),
+        occurredOn: _day,
+        occurredAt: _moment,
+        category: _top(),
+        accountId: 'acc',
+      );
+      expect(t.accountId, 'acc');
+    });
+
+    test('счёт участвует в равенстве, hashCode и toString', () {
+      final a = _make().withAccount('acc');
+      expect(a, _make().withAccount('acc'));
+      expect(a.hashCode, _make().withAccount('acc').hashCode);
+      expect(a, isNot(_make()));
+      expect(a, isNot(_make().withAccount('other')));
+      expect(a.toString(), contains('accountId: acc'));
+    });
+  });
   group('равенство', () {
     test('одинаковые поля дают равные операции и одинаковый hashCode', () {
       final a = _make(note: 'n', subcategoryId: 's1');

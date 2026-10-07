@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/database/app_database.dart';
@@ -148,6 +149,7 @@ void main() {
       String? categoryId,
       String? subcategoryId,
       String? note,
+      String? accountId,
     }) {
       final onDay = day ?? DateOnly(2026, 9, 20);
       return Transaction(
@@ -162,7 +164,33 @@ void main() {
             categoryId ?? (type == TransactionType.income ? 'inc' : 'cat'),
         subcategoryId: subcategoryId,
         note: note,
+        accountId: accountId,
       );
+    }
+
+    /// Счёт напрямую в таблице (репозитория счетов ещё нет, шаг 5.6).
+    Future<void> insertAccount(
+      String id, {
+      String currency = 'RUB',
+      bool archived = false,
+      bool deleted = false,
+    }) {
+      return db
+          .into(db.accounts)
+          .insert(
+            AccountsCompanion.insert(
+              id: id,
+              name: 'Account $id',
+              iconKey: 'icon',
+              currency: currency,
+              openingBalanceMinor: 0,
+              sortOrder: 0,
+              archivedAt: Value(archived ? 5 : null),
+              createdAt: 1,
+              updatedAt: 1,
+              deletedAt: Value(deleted ? 6 : null),
+            ),
+          );
     }
 
     Future<TransactionRow> rowOf(String id) async {
@@ -463,6 +491,129 @@ void main() {
         expect((await repo.findById('a'))!.subcategoryId, 'sub');
       });
 
+      group('accounts', () {
+        test('a transaction with an account is stored and read back', () async {
+          await insertAccount('acc');
+
+          await repo.add(tx('a', accountId: 'acc'));
+
+          expect((await repo.findById('a'))!.accountId, 'acc');
+          expect((await repo.watchRecent().first).single.accountId, 'acc');
+        });
+
+        test('a transaction without an account has accountId null', () async {
+          await repo.add(tx('a'));
+
+          expect((await repo.findById('a'))!.accountId, isNull);
+        });
+
+        test(
+          'an unknown or soft-deleted account is an ArgumentError',
+          () async {
+            await insertAccount('gone', deleted: true);
+
+            await expectLater(
+              repo.add(tx('a', accountId: 'nope')),
+              throwsArgumentError,
+            );
+            await expectLater(
+              repo.add(tx('b', accountId: 'gone')),
+              throwsArgumentError,
+            );
+            await expectLater(
+              repo.addImported(tx('c', accountId: 'nope')),
+              throwsArgumentError,
+            );
+            expect(await rowCount(), 0);
+          },
+        );
+
+        test('another currency is accountCurrencyMismatch', () async {
+          await insertAccount('usd', currency: 'USD');
+          await insertAccount('rub');
+
+          await expectLater(
+            repo.add(tx('a', accountId: 'usd')),
+            throwsRule(TransactionRule.accountCurrencyMismatch),
+          );
+          await repo.add(tx('b', accountId: 'rub'));
+          await expectLater(
+            repo.update(tx('b', accountId: 'usd')),
+            throwsRule(TransactionRule.accountCurrencyMismatch),
+          );
+          await expectLater(
+            repo.addImported(tx('c', accountId: 'usd')),
+            throwsRule(TransactionRule.accountCurrencyMismatch),
+          );
+          expect(await rowCount(), 1);
+        });
+
+        test('add to an archived account is accountArchived', () async {
+          await insertAccount('arch', archived: true);
+
+          await expectLater(
+            repo.add(tx('a', accountId: 'arch')),
+            throwsRule(TransactionRule.accountArchived),
+          );
+          expect(await rowCount(), 0);
+        });
+
+        test('addImported may use an archived account', () async {
+          await insertAccount('arch', archived: true);
+
+          await repo.addImported(tx('a', accountId: 'arch'));
+
+          expect((await repo.findById('a'))!.accountId, 'arch');
+        });
+
+        test('moving to an archived account is accountArchived and keeps '
+            'the old row', () async {
+          await insertAccount('arch', archived: true);
+          await repo.add(tx('a'));
+          final before = await rowOf('a');
+
+          await expectLater(
+            repo.update(tx('a', accountId: 'arch')),
+            throwsRule(TransactionRule.accountArchived),
+          );
+
+          expect(await rowOf('a'), before);
+        });
+
+        test('editing a transaction in a now archived account is allowed, '
+            'type change keeps the account', () async {
+          await insertAccount('acc');
+          await repo.add(tx('a', accountId: 'acc', amountMinor: 100));
+          await db.customStatement(
+            'UPDATE accounts SET archived_at = 5 WHERE id = ?',
+            ['acc'],
+          );
+
+          await repo.update(
+            tx('a', accountId: 'acc', amountMinor: 250, note: 'fixed'),
+          );
+          await repo.update(
+            tx('a', type: TransactionType.income, accountId: 'acc'),
+          );
+
+          final found = await repo.findById('a');
+          expect(found!.note, isNull);
+          expect(found.type, TransactionType.income);
+          expect(found.accountId, 'acc');
+        });
+
+        test('update can change and clear the account', () async {
+          await insertAccount('one');
+          await insertAccount('two');
+          await repo.add(tx('a', accountId: 'one'));
+
+          await repo.update(tx('a', accountId: 'two'));
+          expect((await repo.findById('a'))!.accountId, 'two');
+
+          await repo.update(tx('a'));
+          expect((await repo.findById('a'))!.accountId, isNull);
+        });
+      });
       group('archived categories', () {
         test('add in an archived category is categoryArchived', () async {
           await categories.archive('cat2');

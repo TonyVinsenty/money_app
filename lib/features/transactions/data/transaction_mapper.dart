@@ -31,6 +31,7 @@ Transaction transactionFromRow(TransactionRow row) {
       categoryId: row.categoryId,
       subcategoryId: row.subcategoryId,
       note: row.note,
+      accountId: row.accountId,
     );
   } catch (error) {
     if (error is TransactionRuleException ||
@@ -65,6 +66,7 @@ TransactionsCompanion transactionToInsertCompanion(
     categoryId: transaction.categoryId,
     subcategoryId: Value(transaction.subcategoryId),
     note: Value(transaction.note),
+    accountId: Value(transaction.accountId),
     createdAt: createdAt.toUtc().millisecondsSinceEpoch,
     updatedAt: updatedAt.toUtc().millisecondsSinceEpoch,
   );
@@ -88,6 +90,7 @@ TransactionsCompanion transactionToUpdateCompanion(
     categoryId: Value(transaction.categoryId),
     subcategoryId: Value(transaction.subcategoryId),
     note: Value(transaction.note),
+    accountId: Value(transaction.accountId),
     updatedAt: Value(updatedAt.toUtc().millisecondsSinceEpoch),
   );
 }

@@ -30,6 +30,13 @@ enum TransactionRule {
   /// Категория или подкатегория в архиве: новую операцию в ней создать
   /// нельзя. Проверяет репозиторий (архивность известна только хранилищу).
   categoryArchived,
+
+  /// Счёт в архиве: новую операцию привязать к нему нельзя. Проверяет
+  /// репозиторий; у уже существующей привязки не проверяется.
+  accountArchived,
+
+  /// Валюта счёта не совпадает с валютой операции. Проверяет репозиторий.
+  accountCurrencyMismatch,
 }
 
 /// Ошибка нарушения правила операции.
@@ -66,6 +73,10 @@ final class TransactionRuleException implements Exception {
             'category';
       case TransactionRule.categoryArchived:
         return 'Transaction category or subcategory must not be archived';
+      case TransactionRule.accountArchived:
+        return 'Transaction account must not be archived';
+      case TransactionRule.accountCurrencyMismatch:
+        return 'Transaction currency must match the currency of its account';
     }
   }
 

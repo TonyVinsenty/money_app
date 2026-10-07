@@ -36,6 +36,7 @@ final class Transaction {
     required String categoryId,
     String? subcategoryId,
     String? note,
+    this.accountId,
   }) : amount = _checkedAmount(amount),
        occurredAt = _checkedOccurredAt(occurredAt),
        categoryId = _checkedId(categoryId),
@@ -56,6 +57,7 @@ final class Transaction {
     required Category category,
     Category? subcategory,
     String? note,
+    String? accountId,
   }) {
     _checkLinks(type, category, subcategory);
     return Transaction(
@@ -67,6 +69,7 @@ final class Transaction {
       categoryId: category.id,
       subcategoryId: subcategory?.id,
       note: note,
+      accountId: accountId,
     );
   }
 
@@ -95,6 +98,25 @@ final class Transaction {
   /// [transactionNoteMaxLength] символов; `null` — «нет комментария».
   final String? note;
 
+  /// Идентификатор счёта (ADR 0010); `null` — «без счёта». Существование,
+  /// архивность и валюту счёта проверяет репозиторий.
+  final String? accountId;
+
+  /// Копия с другим счётом (или без счёта, если [accountId] равен `null`).
+  Transaction withAccount(String? accountId) {
+    return Transaction(
+      id: id,
+      type: type,
+      amount: amount,
+      occurredOn: occurredOn,
+      occurredAt: occurredAt,
+      categoryId: categoryId,
+      subcategoryId: subcategoryId,
+      note: note,
+      accountId: accountId,
+    );
+  }
+
   /// Копия с новой суммой, днём или моментом; остальное сохраняется.
   ///
   /// Проверки те же, что при создании.
@@ -112,6 +134,7 @@ final class Transaction {
       categoryId: categoryId,
       subcategoryId: subcategoryId,
       note: note,
+      accountId: accountId,
     );
   }
 
@@ -127,6 +150,7 @@ final class Transaction {
       categoryId: categoryId,
       subcategoryId: subcategoryId,
       note: note,
+      accountId: accountId,
     );
   }
 
@@ -157,6 +181,7 @@ final class Transaction {
       categoryId: categoryId,
       subcategoryId: subcategory?.id,
       note: note,
+      accountId: accountId,
     );
   }
 
@@ -187,6 +212,7 @@ final class Transaction {
       categoryId: category.id,
       subcategoryId: subcategory?.id,
       note: note,
+      accountId: accountId,
     );
   }
 
@@ -201,7 +227,8 @@ final class Transaction {
             other.occurredAt == occurredAt &&
             other.categoryId == categoryId &&
             other.subcategoryId == subcategoryId &&
-            other.note == note;
+            other.note == note &&
+            other.accountId == accountId;
   }
 
   @override
@@ -214,6 +241,7 @@ final class Transaction {
     categoryId,
     subcategoryId,
     note,
+    accountId,
   );
 
   @override
@@ -221,7 +249,7 @@ final class Transaction {
     return 'Transaction(id: $id, type: ${type.name}, amount: $amount, '
         'occurredOn: $occurredOn, occurredAt: $occurredAt, '
         'categoryId: $categoryId, subcategoryId: $subcategoryId, '
-        'note: $note)';
+        'note: $note, accountId: $accountId)';
   }
 
   static void _checkLinks(

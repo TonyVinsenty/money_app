@@ -63,6 +63,7 @@ class DriftTransactionsRepository implements TransactionsRepository {
         checkSubcategoryArchived:
             !allowArchivedCategories && transaction.subcategoryId != null,
       );
+      await _checkAccount(transaction, checkArchived: !allowArchivedCategories);
       final now = _clock.now();
       await _db
           .into(_db.transactions)
@@ -96,6 +97,10 @@ class DriftTransactionsRepository implements TransactionsRepository {
         checkSubcategoryArchived:
             transaction.subcategoryId != null &&
             transaction.subcategoryId != state.subcategoryId,
+      );
+      await _checkAccount(
+        transaction,
+        checkArchived: transaction.accountId != state.accountId,
       );
       await (_db.update(
         _db.transactions,
@@ -293,6 +298,7 @@ class DriftTransactionsRepository implements TransactionsRepository {
                 table.deletedAt,
                 table.categoryId,
                 table.subcategoryId,
+                table.accountId,
               ])
               ..where(table.id.equals(id)))
             .getSingleOrNull();
@@ -303,7 +309,37 @@ class DriftTransactionsRepository implements TransactionsRepository {
       isDeleted: row.read(table.deletedAt) != null,
       categoryId: row.read(table.categoryId)!,
       subcategoryId: row.read(table.subcategoryId),
+      accountId: row.read(table.accountId),
     );
+  }
+
+  /// Проверяет счёт операции (ADR 0010, п. 5): без счёта проверять нечего;
+  /// счёта нет или он мягко удалён -> [ArgumentError]; валюта счёта не равна
+  /// валюте операции -> [TransactionRule.accountCurrencyMismatch]; архивный
+  /// счёт -> [TransactionRule.accountArchived] (только если [checkArchived]).
+  Future<void> _checkAccount(
+    Transaction transaction, {
+    required bool checkArchived,
+  }) async {
+    final accountId = transaction.accountId;
+    if (accountId == null) {
+      return;
+    }
+    final table = _db.accounts;
+    final row =
+        await (_db.selectOnly(table)
+              ..addColumns([table.currency, table.archivedAt])
+              ..where(table.deletedAt.isNull() & table.id.equals(accountId)))
+            .getSingleOrNull();
+    if (row == null) {
+      throw ArgumentError.value(accountId, 'accountId', 'account not found');
+    }
+    if (row.read(table.currency) != transaction.amount.currency) {
+      throw TransactionRuleException(TransactionRule.accountCurrencyMismatch);
+    }
+    if (checkArchived && row.read(table.archivedAt) != null) {
+      throw TransactionRuleException(TransactionRule.accountArchived);
+    }
   }
 
   /// Проверяет те же связи, что `Transaction.create`, но по строкам базы.
@@ -427,11 +463,13 @@ final class _RowState {
     required this.isDeleted,
     required this.categoryId,
     required this.subcategoryId,
+    required this.accountId,
   });
 
   final bool isDeleted;
   final String categoryId;
   final String? subcategoryId;
+  final String? accountId;
 }
 
 /// Колонки категории, нужные для проверки связей операции.

@@ -41,6 +41,11 @@ String transactionRuleMessage(
           'Выберите подкатегорию заново или нажмите «Без подкатегории»';
     case TransactionRule.categoryArchived:
       return 'Эта категория в архиве. Выберите другую';
+    case TransactionRule.accountArchived:
+      return 'Этот счёт в архиве. Выберите другой счёт или «Без счёта»';
+    case TransactionRule.accountCurrencyMismatch:
+      return 'Валюта счёта не совпадает с валютой операции. '
+          'Выберите другой счёт';
     case TransactionRule.negativeAmount:
     case TransactionRule.occurredAtNotUtc:
     case TransactionRule.categoryMustBeTopLevel:
