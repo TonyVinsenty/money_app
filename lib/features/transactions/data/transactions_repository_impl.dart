@@ -45,25 +45,23 @@ class DriftTransactionsRepository implements TransactionsRepository {
   /// Категория, которой нет (или она мягко удалена), — [ArgumentError].
   @override
   Future<void> add(Transaction transaction) =>
-      _insert(transaction, allowArchivedCategories: false);
+      _insert(transaction, isImport: false);
 
   /// Для импорта CSV: то же, что [add], но архивные категории разрешены.
   @override
   Future<void> addImported(Transaction transaction) =>
-      _insert(transaction, allowArchivedCategories: true);
+      _insert(transaction, isImport: true);
 
-  Future<void> _insert(
-    Transaction transaction, {
-    required bool allowArchivedCategories,
-  }) {
+  /// [isImport] - импорт CSV: архивные категории и счёт разрешены.
+  Future<void> _insert(Transaction transaction, {required bool isImport}) {
     return _db.transaction(() async {
       await _checkLinks(
         transaction,
-        checkCategoryArchived: !allowArchivedCategories,
+        checkCategoryArchived: !isImport,
         checkSubcategoryArchived:
-            !allowArchivedCategories && transaction.subcategoryId != null,
+            !isImport && transaction.subcategoryId != null,
       );
-      await _checkAccount(transaction, checkArchived: !allowArchivedCategories);
+      await _checkAccount(transaction, checkArchived: !isImport);
       final now = _clock.now();
       await _db
           .into(_db.transactions)

@@ -613,6 +613,39 @@ void main() {
           await repo.update(tx('a'));
           expect((await repo.findById('a'))!.accountId, isNull);
         });
+
+        test('softDelete then restore keeps the account even if it was '
+            'archived meanwhile', () async {
+          await insertAccount('acc');
+          await repo.add(tx('a', accountId: 'acc'));
+          await repo.softDelete('a');
+          await db.customStatement(
+            'UPDATE accounts SET archived_at = 5 WHERE id = ?',
+            ['acc'],
+          );
+
+          await repo.restore('a');
+
+          expect((await repo.findById('a'))!.accountId, 'acc');
+        });
+
+        test('update to a missing or soft-deleted account is ArgumentError, '
+            'row stays as it was', () async {
+          await insertAccount('gone', deleted: true);
+          await repo.add(tx('a'));
+          final before = await rowOf('a');
+
+          await expectLater(
+            repo.update(tx('a', accountId: 'nope')),
+            throwsArgumentError,
+          );
+          await expectLater(
+            repo.update(tx('a', accountId: 'gone')),
+            throwsArgumentError,
+          );
+
+          expect(await rowOf('a'), before);
+        });
       });
       group('archived categories', () {
         test('add in an archived category is categoryArchived', () async {

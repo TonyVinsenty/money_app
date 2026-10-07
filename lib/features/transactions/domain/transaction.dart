@@ -25,7 +25,8 @@ final class Transaction {
   /// [TransactionRuleException]: [TransactionRule.negativeAmount] (ноль
   /// допустим), [TransactionRule.occurredAtNotUtc],
   /// [TransactionRule.emptyCategoryId] (для [categoryId] и для заданной
-  /// [subcategoryId]) и [TransactionRule.noteTooLong]. Комментарий
+  /// [subcategoryId]), [TransactionRule.emptyAccountId] (заданный, но пустой
+  /// [accountId]) и [TransactionRule.noteTooLong]. Комментарий
   /// сохраняется без пробелов по краям, пустой становится `null`.
   Transaction({
     required this.id,
@@ -36,12 +37,13 @@ final class Transaction {
     required String categoryId,
     String? subcategoryId,
     String? note,
-    this.accountId,
+    String? accountId,
   }) : amount = _checkedAmount(amount),
        occurredAt = _checkedOccurredAt(occurredAt),
        categoryId = _checkedId(categoryId),
        subcategoryId = subcategoryId == null ? null : _checkedId(subcategoryId),
-       note = _checkedNote(note);
+       note = _checkedNote(note),
+       accountId = _checkedAccountId(accountId);
 
   /// Новая операция по загруженным категориям.
   ///
@@ -294,6 +296,13 @@ final class Transaction {
       throw TransactionRuleException(TransactionRule.emptyCategoryId);
     }
     return categoryId;
+  }
+
+  static String? _checkedAccountId(String? accountId) {
+    if (accountId != null && accountId.trim().isEmpty) {
+      throw TransactionRuleException(TransactionRule.emptyAccountId);
+    }
+    return accountId;
   }
 
   static String? _checkedNote(String? note) {

@@ -45,6 +45,7 @@ Transaction _make({
   String categoryId = 'c-food',
   String? subcategoryId,
   String? note,
+  String? accountId,
 }) {
   return Transaction(
     id: id,
@@ -55,6 +56,7 @@ Transaction _make({
     categoryId: categoryId,
     subcategoryId: subcategoryId,
     note: note,
+    accountId: accountId,
   );
 }
 
@@ -197,6 +199,19 @@ void main() {
 
     test('subcategoryId может быть null', () {
       expect(_make().subcategoryId, isNull);
+    });
+
+    test('пустой accountId запрещён, null и обычный id допустимы', () {
+      expect(
+        () => _make(accountId: ''),
+        _throwsRule(TransactionRule.emptyAccountId),
+      );
+      expect(
+        () => _make(accountId: '  '),
+        _throwsRule(TransactionRule.emptyAccountId),
+      );
+      expect(_make().accountId, isNull);
+      expect(_make(accountId: 'acc').accountId, 'acc');
     });
   });
 

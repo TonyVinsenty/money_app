@@ -31,14 +31,20 @@ class AppDatabase extends _$AppDatabase {
       if (from < 2) {
         // v1 -> v2 (ADR 0010, п. 9): данные не меняются, у старых операций
         // account_id = NULL.
-        await m.createTable(accounts);
-        await m.createTable(transfers);
-        await m.addColumn(transactions, transactions.accountId);
-        await m.createIndex(accountsOrder);
-        await m.createIndex(transactionsAccount);
-        await m.createIndex(transfersOccurredOnAt);
-        await m.createIndex(transfersFromAccount);
-        await m.createIndex(transfersToAccount);
+        //
+        // Всё в одной транзакции: addColumn и createIndex не повторяются, и
+        // при сбое посередине база осталась бы наполовину обновлённой и
+        // больше не открылась бы. Транзакция откатывает всё целиком.
+        await transaction(() async {
+          await m.createTable(accounts);
+          await m.createTable(transfers);
+          await m.addColumn(transactions, transactions.accountId);
+          await m.createIndex(accountsOrder);
+          await m.createIndex(transactionsAccount);
+          await m.createIndex(transfersOccurredOnAt);
+          await m.createIndex(transfersFromAccount);
+          await m.createIndex(transfersToAccount);
+        });
       }
     },
     beforeOpen: (details) async {

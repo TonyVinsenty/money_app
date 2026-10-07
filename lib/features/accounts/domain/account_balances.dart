@@ -13,9 +13,12 @@ final class AccountFlows {
     required this.transfersOut,
   }) {
     final currency = income.currency;
-    for (final money in [expense, transfersIn, transfersOut]) {
+    for (final money in [income, expense, transfersIn, transfersOut]) {
       if (money.currency != currency) {
         throw ArgumentError('Currency mismatch in account flows');
+      }
+      if (money.isNegative) {
+        throw ArgumentError('Account flows must not be negative');
       }
     }
   }
@@ -44,7 +47,7 @@ final class AccountFlows {
   /// Валюта движений.
   String get currency => income.currency;
 
-  /// Чистое изменение остатка: доходы + переводы на − расходы − переводы со.
+  /// Чистое изменение остатка: доходы + переводы на - расходы - переводы со.
   Money get net => income + transfersIn - expense - transfersOut;
 
   @override
@@ -94,8 +97,9 @@ Map<String, Money> computeAccountBalances(
 
 /// «Всего на счетах»: сумма остатков только не архивных счетов в [currency].
 ///
-/// Для не архивного счёта без записи в [balances] или с другой валютой
-/// бросает [ArgumentError].
+/// Архивные счета и не архивные счета другой валюты пропускаются. Для не
+/// архивного счёта в [currency] без записи в [balances] бросает
+/// [ArgumentError].
 Money totalOnAccounts(
   Iterable<Account> accounts,
   Map<String, Money> balances, {
@@ -103,7 +107,7 @@ Money totalOnAccounts(
 }) {
   var total = Money.zero(currency);
   for (final account in accounts) {
-    if (account.isArchived) continue;
+    if (account.isArchived || account.currency != currency) continue;
     final balance = balances[account.id];
     if (balance == null) {
       throw ArgumentError('No balance for account ${account.id}');

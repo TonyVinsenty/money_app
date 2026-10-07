@@ -132,18 +132,61 @@ void main() {
       await expectLater(insert(to: 'missing'), throwsA(anything));
     });
 
+    test('an interrupted migration rolls back and can be retried', () async {
+      final schema = await verifier.schemaAt(1);
+      final raw = schema.rawDatabase;
+      raw
+        ..execute(
+          'INSERT INTO categories (id, kind, name, icon_key, sort_order, '
+          "created_at, updated_at) VALUES ('c1', 'expense', 'Food', 'food', "
+          '0, 1, 1)',
+        )
+        // Индекс с тем же именем, что создаст миграция: она упадёт на нём
+        // уже после создания таблиц и колонки.
+        ..execute('CREATE INDEX transactions_account ON transactions (id)');
+      expect(raw.select('PRAGMA user_version').single.values.single, 1);
+
+      final broken = AppDatabase(schema.newConnection());
+      await expectLater(
+        broken.select(broken.categories).get(),
+        throwsA(anything),
+      );
+      await broken.close();
+
+      // Откат: версия прежняя, ни таблиц, ни колонки нет.
+      expect(raw.select('PRAGMA user_version').single.values.single, 1);
+      final tables = raw
+          .select("SELECT name FROM sqlite_master WHERE type = 'table'")
+          .map((r) => r['name'] as String);
+      expect(tables, isNot(contains('accounts')));
+      expect(tables, isNot(contains('transfers')));
+      final columns = raw
+          .select('PRAGMA table_info(transactions)')
+          .map((r) => r['name'] as String);
+      expect(columns, isNot(contains('account_id')));
+
+      // Убираем помеху: повторное открытие мигрирует, данные на месте.
+      raw.execute('DROP INDEX transactions_account');
+      final db = AppDatabase(schema.newConnection());
+      addTearDown(db.close);
+      await verifier.migrateAndValidate(db, 2);
+      expect((await db.select(db.categories).get()).single.name, 'Food');
+      expect(raw.select('PRAGMA user_version').single.values.single, 2);
+    });
+
     test('migration v1 -> v2 keeps data and leaves account_id empty', () async {
       final schema = await verifier.schemaAt(1);
       schema.rawDatabase
         ..execute(
-          'INSERT INTO categories (id, kind, name, icon_key, sort_order, '
-          "created_at, updated_at) VALUES ('c1', 'expense', 'Food', 'food', "
-          "0, 1, 1), ('c2', 'income', 'Salary', 'salary', 1, 1, 1)",
+          "INSERT INTO app_settings (key, value, updated_at) VALUES ('theme', "
+          "'dark', 42)",
         )
         ..execute(
           'INSERT INTO categories (id, kind, name, icon_key, parent_id, '
-          "sort_order, created_at, updated_at) VALUES ('s1', 'expense', "
-          "'Cafe', 'cafe', 'c1', 0, 1, 1)",
+          'sort_order, archived_at, created_at, updated_at, deleted_at) '
+          "VALUES ('c1', 'expense', 'Food', 'food', NULL, 0, NULL, 1, 2, "
+          "NULL), ('c2', 'income', 'Salary', 'salary', NULL, 1, 33, 3, 4, "
+          "NULL), ('s1', 'expense', 'Cafe', 'cafe', 'c1', 5, NULL, 6, 7, 8)",
         )
         ..execute(
           'INSERT INTO transactions (id, type, amount_minor, currency, '
@@ -163,26 +206,86 @@ void main() {
           .customSelect('SELECT * FROM transactions ORDER BY id')
           .get();
       expect(rows, hasLength(2));
-      final t1 = rows[0].data;
-      expect(t1['type'], 'expense');
-      expect(t1['amount_minor'], 12345);
-      expect(t1['currency'], 'RUB');
-      expect(t1['occurred_on'], 20260920);
-      expect(t1['occurred_at'], 111);
-      expect(t1['category_id'], 'c1');
-      expect(t1['subcategory_id'], 's1');
-      expect(t1['note'], 'lunch');
-      expect(t1['created_at'], 5);
-      expect(t1['updated_at'], 6);
-      expect(t1['deleted_at'], isNull);
-      final t2 = rows[1].data;
-      expect(t2['type'], 'income');
-      expect(t2['amount_minor'], 0);
-      expect(t2['note'], isNull);
-      expect(t2['deleted_at'], 9);
-      expect(rows.map((r) => r.data['account_id']), everyElement(isNull));
+      expect(rows[0].data, {
+        'id': 't1',
+        'type': 'expense',
+        'amount_minor': 12345,
+        'currency': 'RUB',
+        'occurred_on': 20260920,
+        'occurred_at': 111,
+        'category_id': 'c1',
+        'subcategory_id': 's1',
+        'note': 'lunch',
+        'created_at': 5,
+        'updated_at': 6,
+        'deleted_at': null,
+        'account_id': null,
+      });
+      expect(rows[1].data, {
+        'id': 't2',
+        'type': 'income',
+        'amount_minor': 0,
+        'currency': 'RUB',
+        'occurred_on': 20260921,
+        'occurred_at': 222,
+        'category_id': 'c2',
+        'subcategory_id': null,
+        'note': null,
+        'created_at': 7,
+        'updated_at': 8,
+        'deleted_at': 9,
+        'account_id': null,
+      });
 
-      expect(await db.select(db.categories).get(), hasLength(3));
+      final categories = await db
+          .customSelect('SELECT * FROM categories ORDER BY id')
+          .get();
+      expect(categories.map((r) => r.data), [
+        {
+          'id': 'c1',
+          'kind': 'expense',
+          'name': 'Food',
+          'icon_key': 'food',
+          'parent_id': null,
+          'sort_order': 0,
+          'archived_at': null,
+          'created_at': 1,
+          'updated_at': 2,
+          'deleted_at': null,
+        },
+        {
+          'id': 'c2',
+          'kind': 'income',
+          'name': 'Salary',
+          'icon_key': 'salary',
+          'parent_id': null,
+          'sort_order': 1,
+          'archived_at': 33,
+          'created_at': 3,
+          'updated_at': 4,
+          'deleted_at': null,
+        },
+        {
+          'id': 's1',
+          'kind': 'expense',
+          'name': 'Cafe',
+          'icon_key': 'cafe',
+          'parent_id': 'c1',
+          'sort_order': 5,
+          'archived_at': null,
+          'created_at': 6,
+          'updated_at': 7,
+          'deleted_at': 8,
+        },
+      ]);
+      final settings = await db
+          .customSelect('SELECT * FROM app_settings')
+          .get();
+      expect(settings.single.data, {
+        'key': 'theme',
+        'value': 'dark',
+        'updated_at': 42,
+      });
       expect(await db.select(db.accounts).get(), isEmpty);
       expect(await db.select(db.transfers).get(), isEmpty);
 

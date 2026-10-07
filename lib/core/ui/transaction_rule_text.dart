@@ -49,6 +49,7 @@ String transactionRuleMessage(
     case TransactionRule.negativeAmount:
     case TransactionRule.occurredAtNotUtc:
     case TransactionRule.categoryMustBeTopLevel:
+    case TransactionRule.emptyAccountId:
       return transactionSaveFailedText;
   }
 }

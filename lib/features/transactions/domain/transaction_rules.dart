@@ -37,6 +37,9 @@ enum TransactionRule {
 
   /// Валюта счёта не совпадает с валютой операции. Проверяет репозиторий.
   accountCurrencyMismatch,
+
+  /// Идентификатор счёта задан, но пустой (`null` — «без счёта» — допустим).
+  emptyAccountId,
 }
 
 /// Ошибка нарушения правила операции.
@@ -77,6 +80,8 @@ final class TransactionRuleException implements Exception {
         return 'Transaction account must not be archived';
       case TransactionRule.accountCurrencyMismatch:
         return 'Transaction currency must match the currency of its account';
+      case TransactionRule.emptyAccountId:
+        return 'Transaction account id must not be empty';
     }
   }
 

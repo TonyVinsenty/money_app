@@ -216,6 +216,51 @@ void main() {
     });
   });
 
+  group('счёт операции', () {
+    final withAccount = _original.withAccount('acc');
+    final salary = _top('salary', kind: CategoryKind.income);
+
+    Transaction build({
+      Category? newCategory,
+      TransactionType? newType,
+      Category? newSubcategory,
+    }) => buildEditedTransaction(
+      original: withAccount,
+      amount: Money.fromMinor(100, 'RUB'),
+      day: DateOnly(2026, 9, 19),
+      clock: _clock,
+      note: 'новое',
+      newCategory: newCategory,
+      newType: newType,
+      newSubcategory: newSubcategory,
+    );
+
+    test('правка суммы, дня и комментария сохраняет счёт', () {
+      expect(build().accountId, 'acc');
+    });
+
+    test('смена типа и категории сохраняет счёт', () {
+      final result = build(
+        newType: TransactionType.income,
+        newCategory: salary,
+      );
+      expect(result.accountId, 'acc');
+    });
+
+    test('withSubcategory сохраняет счёт', () {
+      final sub = Category(
+        id: 'food-sub2',
+        kind: CategoryKind.expense,
+        name: 'x',
+        iconKey: 'shopping_cart',
+        parentId: 'food',
+        sortOrder: 0,
+      );
+      expect(withAccount.withSubcategory(sub).accountId, 'acc');
+      expect(withAccount.withSubcategory(null).accountId, 'acc');
+    });
+  });
+
   group('смена типа', () {
     final salary = _top('salary', kind: CategoryKind.income);
 

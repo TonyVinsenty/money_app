@@ -28,7 +28,7 @@ AccountFlows flows({
 
 void main() {
   group('AccountFlows', () {
-    test('net: доходы + переводы на − расходы − переводы со', () {
+    test('net: доходы + переводы на - расходы - переводы со', () {
       expect(flows(income: 1000, expense: 300, inn: 50, out: 20).net, rub(730));
     });
 
@@ -48,6 +48,13 @@ void main() {
         ),
         throwsArgumentError,
       );
+    });
+
+    test('отрицательная сумма движений — ArgumentError', () {
+      expect(() => flows(income: -1), throwsArgumentError);
+      expect(() => flows(expense: -1), throwsArgumentError);
+      expect(() => flows(inn: -1), throwsArgumentError);
+      expect(() => flows(out: -1), throwsArgumentError);
     });
 
     test('равенство и hashCode', () {
@@ -152,15 +159,33 @@ void main() {
       );
     });
 
-    test('другая валюта — ArgumentError', () {
-      final accounts = [acc('a', 1)];
+    test('счета другой валюты (и архивные тоже) пропускаются', () {
+      final usd = Account(
+        id: 'u',
+        name: 'USD',
+        iconKey: 'card',
+        openingBalance: Money.fromMinor(999, 'USD'),
+        sortOrder: 0,
+      );
+      final usdArchived = Account(
+        id: 'ua',
+        name: 'USD old',
+        iconKey: 'card',
+        openingBalance: Money.fromMinor(5, 'USD'),
+        sortOrder: 0,
+        archivedAt: DateTime.utc(2026, 10, 7),
+      );
+      final accounts = [acc('a', 100), usd, usdArchived];
+      final balances = computeAccountBalances(accounts, {});
+
+      expect(totalOnAccounts(accounts, balances, currency: 'RUB'), rub(100));
       expect(
-        () => totalOnAccounts(
-          accounts,
-          computeAccountBalances(accounts, {}),
-          currency: 'USD',
-        ),
-        throwsArgumentError,
+        totalOnAccounts(accounts, balances, currency: 'USD'),
+        Money.fromMinor(999, 'USD'),
+      );
+      expect(
+        totalOnAccounts(accounts, balances, currency: 'EUR'),
+        Money.zero('EUR'),
       );
     });
   });
