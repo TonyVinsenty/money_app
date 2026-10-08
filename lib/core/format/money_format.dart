@@ -40,8 +40,8 @@ int pow10(int digits) {
 /// получает ведущий минус («\u22121 234,50 ₽»), знак «+» не добавляется.
 /// С `withCurrencySymbol: false` возвращается только число («12 345,67»).
 ///
-/// Код не из каталога без переданной [currency] показывается как есть, с 2
-/// знаками (старое поведение, тест «неизвестный код»).
+/// Код не из каталога без переданной [currency] - ошибка программиста
+/// (`assert`); в релизе берутся 2 знака и код вместо символа.
 ///
 /// Части считаются целочисленно из `minorUnits`, дробные числа не
 /// используются. Только для показа в UI: в хранилище деньги остаются целыми.
@@ -50,7 +50,7 @@ String formatMoney(
   CurrencyInfo? currency,
   bool withCurrencySymbol = true,
 }) {
-  final info = currency ?? currencyInfoFor(money.currency, digits: 2);
+  final info = currency ?? currencyInfoFor(money.currency);
   final digits = info.digits;
   final minor = money.minorUnits;
   final divisor = pow10(digits);

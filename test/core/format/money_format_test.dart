@@ -89,8 +89,20 @@ void main() {
       expect(formatMoney(Money.fromMinor(123456, 'EUR')), nb('1 234,56 €'));
     });
 
-    test('неизвестный код показывается как есть', () {
-      expect(formatMoney(Money.fromMinor(123456, 'GBP')), nb('1 234,56 GBP'));
+    test('валюта не из каталога: нужна явная currency, иначе assert', () {
+      final m = Money.fromMinor(123456, 'ABC');
+      expect(() => formatMoney(m), throwsA(isA<AssertionError>()));
+      expect(
+        formatMoney(m, currency: currencyInfoFor('ABC', digits: 2)),
+        nb('1 234,56 ABC'),
+      );
+    });
+    test('GBP из каталога: символ £', () {
+      expect(formatMoney(Money.fromMinor(123456, 'GBP')), nb('1 234,56 £'));
+    });
+    test('JPY без запятой, KWD с тремя знаками', () {
+      expect(formatMoney(Money.fromMinor(1500, 'JPY')), nb('1 500 JPY'));
+      expect(formatMoney(Money.fromMinor(12345, 'KWD')), nb('12,345 KWD'));
     });
   });
 
@@ -99,7 +111,7 @@ void main() {
       expect(currencySymbol('RUB'), '₽');
       expect(currencySymbol('USD'), r'$');
       expect(currencySymbol('EUR'), '€');
-      expect(currencySymbol('KZT'), 'KZT');
+      expect(currencySymbol('ABC'), 'ABC');
     });
   });
 

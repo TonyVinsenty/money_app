@@ -84,8 +84,20 @@ void main() {
       expect(spokenMoney(rub(100000000000000)), '1000000000000 рублей');
     });
 
-    test('код не из каталога без знаков — 2 знака, число и код', () {
-      expect(spokenMoney(Money.fromMinor(150, 'GBP')), '1,5, GBP');
+    test('код не из каталога: без currency assert, с currency число и код', () {
+      final m = Money.fromMinor(150, 'ABC');
+      expect(() => spokenMoney(m), throwsA(isA<AssertionError>()));
+      expect(
+        spokenMoney(m, currency: currencyInfoFor('ABC', digits: 2)),
+        '1,5, ABC',
+      );
+    });
+
+    test('валюта каталога без слов: число, название', () {
+      expect(
+        spokenMoney(Money.fromMinor(150000, 'TRY')),
+        '1500, Турецкая лира',
+      );
     });
   });
 

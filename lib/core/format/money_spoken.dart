@@ -26,7 +26,7 @@ import 'package:money_app/core/money/money.dart';
 /// Считается целыми числами, без дробных. Только для показа и озвучки в UI
 /// (ADR 0004).
 String spokenMoney(Money money, {CurrencyInfo? currency}) {
-  final info = currency ?? currencyInfoFor(money.currency, digits: 2);
+  final info = currency ?? currencyInfoFor(money.currency);
   if (info.code != rubCurrencyCode) return _spokenOther(money, info);
 
   final minor = money.minorUnits;
