@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/ui/account_icons.dart';
@@ -27,6 +27,7 @@ class AccountFormScreen extends StatefulWidget {
     required this.accounts,
     required this.idGenerator,
     required this.currency,
+    this.currencyInfo,
     this.editing,
     super.key,
   });
@@ -36,6 +37,10 @@ class AccountFormScreen extends StatefulWidget {
 
   /// Валюта нового счёта.
   final String currency;
+
+  /// Описание валюты (знаки, символ); по умолчанию - счёта в правке или
+  /// запись каталога по коду [currency].
+  final CurrencyInfo? currencyInfo;
 
   /// Счёт, который правим; `null` — создаём новый.
   final Account? editing;
@@ -61,6 +66,11 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
 
   bool get _isEdit => widget.editing != null;
 
+  CurrencyInfo get _info =>
+      widget.currencyInfo ??
+      widget.editing?.currencyInfo ??
+      currencyInfoFor(widget.currency);
+
   @override
   void initState() {
     super.initState();
@@ -80,12 +90,21 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
     // Сумма нужна только новому счёту; пусто — 0.
     var opening = Money.zero(widget.currency);
     if (!_isEdit) {
-      final parsed = parseAmount(_balance.text, currency: widget.currency);
+      final parsed = parseAmount(
+        _balance.text,
+        currency: widget.currency,
+        currencyInfo: _info,
+      );
       if (parsed is AmountParsed) {
         opening = _minus ? -parsed.amount : parsed.amount;
       } else if (parsed is AmountParseFailed &&
           parsed.failure != AmountParseFailure.empty) {
-        setState(() => _balanceError = amountFailureMessage(parsed.failure));
+        setState(
+          () => _balanceError = amountFailureMessage(
+            parsed.failure,
+            currency: _info,
+          ),
+        );
         return;
       }
     }
@@ -217,13 +236,15 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                           decimal: true,
                         ),
                         textInputAction: TextInputAction.done,
-                        inputFormatters: const [AmountInputFormatter()],
+                        inputFormatters: [
+                          AmountInputFormatter(maxDecimals: _info.digits),
+                        ],
                         decoration: InputDecoration(
                           labelText: accountFormBalanceLabel,
                           // Символ виден и при пустом поле без фокуса.
                           floatingLabelBehavior: FloatingLabelBehavior.always,
                           hintText: '0',
-                          suffixText: currencySymbol(widget.currency),
+                          suffixText: _info.symbol,
                           helperText: accountFormBalanceHelper,
                           helperMaxLines: 3,
                           errorText: _balanceError,

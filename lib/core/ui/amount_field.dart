@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/ui/amount_failure_text.dart';
@@ -12,8 +14,6 @@ import 'package:money_app/core/ui/theme/app_colors.dart';
 /// Настоящий минус (U+2212), а не дефис. Собран из кода, чтобы в исходнике не
 /// было символа, который легко спутать с обычным «-».
 final String _minusSign = String.fromCharCode(0x2212);
-
-const String _currencySymbol = '₽';
 
 /// Состояние поля суммы: текст, результат разбора и «была ли попытка продолжить».
 ///
@@ -25,12 +25,14 @@ const String _currencySymbol = '₽';
 ///
 /// Экран, который владеет контроллером, обязан вызвать [dispose].
 class AmountFieldController extends ChangeNotifier {
-  AmountFieldController() {
+  AmountFieldController({CurrencyInfo? currency})
+    : currency = currency ?? currencyInfoFor(rubCurrencyCode) {
     text.addListener(notifyListeners);
   }
 
-  // Пока везде рубль ([rubCurrencyCode]). Мультивалютность — позже: тогда
-  // здесь снова появится код валюты, а вместо «₽» — его символ.
+  /// Валюта поля: от неё зависят знаки после запятой, символ и озвучка.
+  /// По умолчанию рубль.
+  final CurrencyInfo currency;
 
   /// Текстовое поле внутри. Наружу отдано, чтобы можно было задать начальное
   /// значение (правка операции) или очистить поле.
@@ -43,7 +45,8 @@ class AmountFieldController extends ChangeNotifier {
   bool _attempted = false;
 
   /// Результат разбора текущего текста (без «мягкой» логики показа ошибок).
-  AmountParseResult get result => parseAmount(text.text);
+  AmountParseResult get result =>
+      parseAmount(text.text, currency: currency.code, currencyInfo: currency);
 
   /// Что показать под полем прямо сейчас: `null` — ничего.
   ///
@@ -112,7 +115,7 @@ class AmountField extends StatelessWidget {
   String _semanticLabel(AmountParseResult result) {
     final word = isIncome ? 'Доход' : 'Расход';
     if (result is AmountParsed) {
-      return '$word ${spokenMoney(result.amount)}';
+      return '$word ${spokenMoney(result.amount, currency: controller.currency)}';
     }
     return isIncome ? 'Сумма дохода' : 'Сумма расхода';
   }
@@ -227,8 +230,10 @@ class AmountField extends StatelessWidget {
                                         decimal: true,
                                       ),
                                   textInputAction: TextInputAction.next,
-                                  inputFormatters: const [
-                                    AmountInputFormatter(),
+                                  inputFormatters: [
+                                    AmountInputFormatter(
+                                      maxDecimals: controller.currency.digits,
+                                    ),
                                   ],
                                   // Свой обработчик вместо стандартного: клавиатура
                                   // остаётся открытой, если сумма не прошла проверку.
@@ -245,7 +250,7 @@ class AmountField extends StatelessWidget {
                           ),
                         ),
                         ExcludeSemantics(
-                          child: Text(_currencySymbol, style: style),
+                          child: Text(controller.currency.symbol, style: style),
                         ),
                       ],
                     ),
@@ -259,7 +264,10 @@ class AmountField extends StatelessWidget {
                 child: Semantics(
                   liveRegion: true,
                   child: Text(
-                    amountFailureMessage(failure),
+                    amountFailureMessage(
+                      failure,
+                      currency: controller.currency,
+                    ),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.error,

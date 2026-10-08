@@ -1,10 +1,15 @@
 import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 
 /// Наибольшая допустимая введённая сумма в основных единицах (рублях):
 /// 1 000 000 000 000 (триллион) включительно. Всё, что больше, — ошибка
 /// [AmountParseFailure.tooLarge].
 const int maxInputMajorUnits = 1000000000000;
+
+/// Предел ввода для любой валюты в минимальных единицах: 10^14 (ADR 0010,
+/// п. 16.5). Для рубля это прежний триллион, для BTC — миллион монет.
+const int maxInputMinorUnits = 100000000000000;
 
 /// Почему введённый текст не удалось разобрать в сумму.
 enum AmountParseFailure {
@@ -17,13 +22,13 @@ enum AmountParseFailure {
   /// Ведущий минус. Направление задаёт тип операции, а не знак суммы.
   negative,
 
-  /// После разделителя больше двух цифр.
+  /// После разделителя больше знаков, чем у валюты (у рубля — двух).
   tooManyDecimals,
 
   /// Запятых и точек в сумме вместе больше одной.
   tooManySeparators,
 
-  /// Сумма больше [maxInputMajorUnits].
+  /// Сумма больше [maxInputMinorUnits] минимальных единиц.
   tooLarge,
 }
 
@@ -78,12 +83,22 @@ const String _unicodeMinus = '\u2212';
 /// впереди (`00012,3`) не мешают. Разбор не «угадывает»: неоднозначный ввод
 /// вроде `1.234` — ошибка, а не 1,23 и не 1234.
 ///
+/// Знаков после разделителя — сколько у валюты ([currencyInfo], по умолчанию
+/// запись каталога по коду [currency]); для своей валюты передайте её
+/// [CurrencyInfo]. Сумма собирается целыми (`BigInt`), без дробных чисел.
+///
 /// Неверный код [currency] — ошибка программиста, а не пользователя:
 /// [Money] бросит `ArgumentError`.
 AmountParseResult parseAmount(
   String input, {
   String currency = rubCurrencyCode,
+  CurrencyInfo? currencyInfo,
 }) {
+  assert(
+    currencyInfo == null || currencyInfo.code == currency,
+    'currencyInfo ${currencyInfo.code} does not match currency $currency',
+  );
+  final digits = (currencyInfo ?? currencyInfoFor(currency)).digits;
   final text = input.replaceAll(_whitespace, '');
   if (text.isEmpty) {
     return const AmountParseFailed(AmountParseFailure.empty);
@@ -110,7 +125,7 @@ AmountParseResult parseAmount(
   final wholeText = parts[0];
   final decimalsText = parts.length > 1 ? parts[1] : '';
 
-  if (decimalsText.length > 2) {
+  if (decimalsText.length > digits) {
     return const AmountParseFailed(AmountParseFailure.tooManyDecimals);
   }
   if (wholeText.isEmpty && decimalsText.isEmpty) {
@@ -121,12 +136,13 @@ AmountParseResult parseAmount(
   // в BigInt (не переполняется) и только после проверки предела переходим
   // к обычному int.
   final whole = wholeText.isEmpty ? BigInt.zero : BigInt.parse(wholeText);
-  final minor = int.parse(decimalsText.padRight(2, '0'));
-  final totalMinor = whole * BigInt.from(100) + BigInt.from(minor);
-  final limitMinor = BigInt.from(maxInputMajorUnits) * BigInt.from(100);
-  if (totalMinor > limitMinor) {
+  final fraction = decimalsText.isEmpty
+      ? BigInt.zero
+      : BigInt.parse(decimalsText.padRight(digits, '0'));
+  final totalMinor = whole * BigInt.from(10).pow(digits) + fraction;
+  if (totalMinor > BigInt.from(maxInputMinorUnits)) {
     return const AmountParseFailed(AmountParseFailure.tooLarge);
   }
 
-  return AmountParsed(Money.fromMajorParts(whole.toInt(), minor, currency));
+  return AmountParsed(Money.fromMinor(totalMinor.toInt(), currency));
 }

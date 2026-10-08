@@ -1,5 +1,7 @@
 import 'package:money_app/core/csv/csv_codec.dart';
 import 'package:money_app/core/errors/data_corrupted_exception.dart';
+import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -77,15 +79,19 @@ String exportFileName(Clock clock) {
   return 'zuno-export-${clock.today()}.csv';
 }
 
-/// Сумма для Excel: `350,00` из 35000 копеек. Только целая арифметика.
-String formatCsvAmount(Money amount) {
+/// Сумма для Excel: `350,00` из 35000 копеек. Ровно столько знаков, сколько у
+/// валюты ([currency], по умолчанию запись каталога по коду суммы): `0,00150000`
+/// у BTC, `1500` у иены (без запятой). Только целая арифметика.
+String formatCsvAmount(Money amount, {CurrencyInfo? currency}) {
   final minor = amount.minorUnits;
   if (minor < 0) {
     throw ArgumentError.value(minor, 'amount', 'must not be negative');
   }
-  final major = minor ~/ 100;
-  final cents = (minor % 100).toString().padLeft(2, '0');
-  return '$major,$cents';
+  final digits = (currency ?? currencyInfoFor(amount.currency)).digits;
+  if (digits == 0) return '$minor';
+  final divisor = pow10(digits);
+  final fraction = (minor % divisor).toString().padLeft(digits, '0');
+  return '${minor ~/ divisor},$fraction';
 }
 
 /// Дата `ДД.ММ.ГГГГ`, например `04.10.2026`.

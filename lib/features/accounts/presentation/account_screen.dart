@@ -68,10 +68,13 @@ class _AccountScreenState extends State<AccountScreen> {
       );
   }
 
-  Future<void> _adjust(Money balance) async {
+  Future<void> _adjust(Account account, Money balance) async {
     final entered = await showDialog<Money>(
       context: context,
-      builder: (_) => AccountAdjustDialog(current: balance),
+      builder: (_) => AccountAdjustDialog(
+        current: balance,
+        currencyInfo: account.currencyInfo,
+      ),
     );
     if (entered == null || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -226,7 +229,7 @@ class _AccountScreenState extends State<AccountScreen> {
         OutlinedButton(
           key: AccountScreen.adjustKey,
           style: buttonStyle,
-          onPressed: () => unawaited(_guarded(() => _adjust(balance))),
+          onPressed: () => unawaited(_guarded(() => _adjust(account, balance))),
           child: const Text(accountAdjustButton),
         ),
         const SizedBox(height: 8),

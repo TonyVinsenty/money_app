@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 /// Символ собран из кода, а не набран, чтобы в исходнике не было невидимого.
 final String _groupSeparator = String.fromCharCode(0x00A0);
 
-const int _maxDecimals = 2;
-
 /// Форматтер поля суммы: приводит текст к виду «12 345,6», пока человек печатает.
 ///
 /// Правила:
@@ -16,8 +14,8 @@ const int _maxDecimals = 2;
 ///   молча пропадает;
 /// - точка превращается в запятую;
 /// - разряды целой части группируются по три через неразрывный пробел;
-/// - если в результате оказалось больше одного разделителя или больше двух цифр
-///   после него, ввод отклоняется целиком: возвращается прежнее значение;
+/// - если в результате оказалось больше одного разделителя или больше
+///   [maxDecimals] цифр после него (при 0 — любой разделитель), ввод отклоняется целиком: возвращается прежнее значение;
 /// - ведущие нули: «007» становится «7», «00» — «0» (лишние нули впереди
 ///   бесполезны, а цифра после единственного нуля заменяет его), «0» и «0,5»
 ///   остаются; голая «,5» дополняется до «0,5»;
@@ -33,7 +31,11 @@ const int _maxDecimals = 2;
 /// стирает соседнюю цифру, иначе пробел просто вернулся бы на место и курсор
 /// «завис» бы.
 class AmountInputFormatter extends TextInputFormatter {
-  const AmountInputFormatter();
+  /// [maxDecimals] — знаков после запятой у валюты (по умолчанию 2, как у
+  /// рубля); при 0 запятая и точка не вводятся.
+  const AmountInputFormatter({this.maxDecimals = 2});
+
+  final int maxDecimals;
 
   @override
   TextEditingValue formatEditUpdate(
@@ -83,8 +85,11 @@ class AmountInputFormatter extends TextInputFormatter {
     final parts = kept.split(',');
     if (parts.length > 2) return oldValue; // второй разделитель
     final hasSeparator = parts.length == 2;
-    if (hasSeparator && parts[1].length > _maxDecimals) {
-      return oldValue; // третья цифра после разделителя
+    if (hasSeparator && maxDecimals == 0) {
+      return oldValue; // у этой валюты нет дробной части
+    }
+    if (hasSeparator && parts[1].length > maxDecimals) {
+      return oldValue; // лишняя цифра после разделителя
     }
 
     // Ведущие нули целой части.

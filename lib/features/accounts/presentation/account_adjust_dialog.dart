@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/ui/amount_failure_text.dart';
@@ -10,7 +11,15 @@ import 'package:money_app/features/accounts/presentation/account_texts.dart';
 /// переключатель «Минус (долг)». Закрывается введённой суммой [Money] или
 /// `null` (отмена).
 class AccountAdjustDialog extends StatefulWidget {
-  const AccountAdjustDialog({required this.current, super.key});
+  const AccountAdjustDialog({
+    required this.current,
+    this.currencyInfo,
+    super.key,
+  });
+
+  /// Описание валюты счёта (знаки после запятой, символ); по умолчанию -
+  /// запись каталога по коду остатка.
+  final CurrencyInfo? currencyInfo;
 
   /// Текущий остаток: из него заполняются поле и переключатель.
   final Money current;
@@ -24,6 +33,9 @@ class AccountAdjustDialog extends StatefulWidget {
 }
 
 class _AccountAdjustDialogState extends State<AccountAdjustDialog> {
+  CurrencyInfo get _info =>
+      widget.currencyInfo ?? currencyInfoFor(widget.current.currency);
+
   late final TextEditingController _text;
   late bool _minus;
   String? _error;
@@ -36,6 +48,7 @@ class _AccountAdjustDialogState extends State<AccountAdjustDialog> {
     _text = TextEditingController(
       text: formatMoney(
         current.isNegative ? -current : current,
+        currency: _info,
         withCurrencySymbol: false,
       ),
     );
@@ -48,11 +61,17 @@ class _AccountAdjustDialogState extends State<AccountAdjustDialog> {
   }
 
   void _save() {
-    final parsed = parseAmount(_text.text, currency: widget.current.currency);
+    final parsed = parseAmount(
+      _text.text,
+      currency: widget.current.currency,
+      currencyInfo: _info,
+    );
     if (parsed is AmountParsed) {
       Navigator.of(context).pop(_minus ? -parsed.amount : parsed.amount);
     } else if (parsed is AmountParseFailed) {
-      setState(() => _error = amountFailureMessage(parsed.failure));
+      setState(
+        () => _error = amountFailureMessage(parsed.failure, currency: _info),
+      );
     }
   }
 
@@ -70,12 +89,12 @@ class _AccountAdjustDialogState extends State<AccountAdjustDialog> {
             controller: _text,
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: const [AmountInputFormatter()],
+            inputFormatters: [AmountInputFormatter(maxDecimals: _info.digits)],
             decoration: InputDecoration(
               labelText: accountFormBalanceLabel,
               floatingLabelBehavior: FloatingLabelBehavior.always,
               hintText: '0',
-              suffixText: currencySymbol(widget.current.currency),
+              suffixText: _info.symbol,
               helperText: accountAdjustHelper,
               helperMaxLines: 4,
               errorText: _error,
