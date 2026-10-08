@@ -62,20 +62,19 @@ abstract final class AppRoutes {
   static const account = '/account';
 }
 
-/// Аргументы маршрута [AppRoutes.account]: репозиторий, id счёта, валюта и
+/// Аргументы маршрута [AppRoutes.account]: репозиторий, id счёта и
 /// генератор id (он нужен форме правки, которую открывает экран счёта).
+/// Валюту экран берёт у самого счёта.
 final class AccountRouteArguments {
   const AccountRouteArguments({
     required this.accounts,
     required this.idGenerator,
     required this.accountId,
-    required this.currency,
   });
 
   final AccountsRepository accounts;
   final IdGenerator idGenerator;
   final String accountId;
-  final String currency;
 }
 
 /// Аргументы маршрута [AppRoutes.accountForm]. Если [editing] задан, форма
@@ -431,7 +430,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           arguments,
           'arguments',
           'Маршрут ${AppRoutes.account} ожидает аргумент '
-              'AccountRouteArguments (репозиторий, id счёта, валюта)',
+              'AccountRouteArguments (репозиторий, генератор id, id счёта)',
         );
       }
       return MaterialPageRoute<void>(
@@ -439,13 +438,12 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
         builder: (context) => AccountScreen(
           accounts: arguments.accounts,
           accountId: arguments.accountId,
-          currency: arguments.currency,
           onEdit: (account) => Navigator.of(context).pushNamed<void>(
             AppRoutes.accountForm,
             arguments: AccountFormRouteArguments(
               accounts: arguments.accounts,
               idGenerator: arguments.idGenerator,
-              currency: arguments.currency,
+              currency: account.currency,
               editing: account,
             ),
           ),

@@ -88,8 +88,8 @@ void main() {
     db.notifyUpdates({TableUpdate.onTable(db.transfers)});
   }
 
-  Future<Map<String, int>> balances([String currency = 'RUB']) async {
-    final map = await accounts.watchBalances(currency: currency).first;
+  Future<Map<String, int>> balances() async {
+    final map = await accounts.watchBalances().first;
     return {for (final e in map.entries) e.key: e.value.minorUnits};
   }
 
@@ -107,10 +107,27 @@ void main() {
       tx('t2', 500, type: TransactionType.income, accountId: 'a'),
     );
     await transactions.add(tx('t3', 999, accountId: 'usd', currency: 'USD'));
-    expect(await balances(), {'a': 1200});
-    expect(await balances('USD'), {'usd': -992});
-    expect(await balances('EUR'), isEmpty);
+    // Рублёвые операции не трогают счёт в USD, и наоборот.
+    expect(await balances(), {'a': 1200, 'usd': -992});
   });
+
+  test(
+    'USD accounts: opening plus a USD transfer, rubles do not leak',
+    () async {
+      await addAccount('u1', opening: 10000, currency: 'USD');
+      await addAccount('u2', opening: 500, currency: 'USD');
+      await addAccount('r', opening: 7);
+      await transfer('x1', 'u1', 'u2', 2500, currency: 'USD');
+      await transfer(
+        'x2',
+        'u1',
+        'u2',
+        999,
+      ); // рублёвый перевод между USD-счетами
+      await transactions.add(tx('t1', 300, accountId: 'u1', currency: 'USD'));
+      expect(await balances(), {'u1': 7200, 'u2': 3000, 'r': 7});
+    },
+  );
 
   test('transactions without account and deleted ones do not count', () async {
     await addAccount('a');
@@ -133,7 +150,7 @@ void main() {
     await addAccount('a', opening: 1000);
     await addAccount('b');
     final seen = <Map<String, int>>[];
-    final sub = accounts.watchBalances(currency: 'RUB').listen((m) {
+    final sub = accounts.watchBalances().listen((m) {
       seen.add({for (final e in m.entries) e.key: e.value.minorUnits});
     });
     addTearDown(sub.cancel);
@@ -230,7 +247,7 @@ void main() {
     await addAccount('a', opening: 1000);
     await addAccount('b', opening: 500, archivedAt: DateTime.utc(2026, 1, 1));
     final list = await accounts.watchAll().first;
-    final map = await accounts.watchBalances(currency: 'RUB').first;
+    final map = await accounts.watchBalances().first;
     expect(totalOnAccounts(list, map, currency: 'RUB').minorUnits, 1000);
   });
 }

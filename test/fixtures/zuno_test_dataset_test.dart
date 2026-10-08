@@ -189,7 +189,7 @@ void main() {
           "UPDATE transactions SET account_id = 'acc-all'",
         );
 
-        final balances = await accounts.watchBalances(currency: 'RUB').first;
+        final balances = await accounts.watchBalances().first;
         expect(
           balances['acc-all']!.minorUnits,
           _julyIncomeMinor +

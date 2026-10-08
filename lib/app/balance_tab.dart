@@ -32,7 +32,7 @@ class _BalanceTabState extends State<BalanceTab> {
     if (!identical(repository, _repository)) {
       _repository = repository;
       _accounts = repository.watchAll();
-      _balances = repository.watchBalances(currency: rubCurrencyCode);
+      _balances = repository.watchBalances();
     }
   }
 
@@ -44,7 +44,7 @@ class _BalanceTabState extends State<BalanceTab> {
         AccountsSection(
           accounts: _accounts,
           balances: _balances,
-          currency: rubCurrencyCode,
+          mainCurrency: rubCurrencyCode, // настройка появится в шаге 5.10m
           onOpenAccount: (account) {
             final services = AppScope.of(context);
             unawaited(
@@ -54,7 +54,6 @@ class _BalanceTabState extends State<BalanceTab> {
                   accounts: services.accounts,
                   idGenerator: services.idGenerator,
                   accountId: account.id,
-                  currency: rubCurrencyCode,
                 ),
               ),
             );

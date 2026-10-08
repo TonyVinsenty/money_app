@@ -7,6 +7,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -80,12 +81,41 @@ class _NeverLoadedRepository extends Fake implements AccountsRepository {
   Stream<List<Account>> watchAll() => StreamController<List<Account>>().stream;
 
   @override
-  Stream<Map<String, Money>> watchBalances({required String currency}) =>
+  Stream<Map<String, Money>> watchBalances() =>
       StreamController<Map<String, Money>>().stream;
 }
 
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
+
+  testWidgets('счёт в своей валюте с 4 знаками: экран в её знаках', (
+    tester,
+  ) async {
+    final abcInfo = currencyInfoFor('ABC', digits: 4);
+    final repo = InMemoryAccountsRepository([
+      Account(
+        id: 'c',
+        name: 'Своя',
+        iconKey: 'card',
+        currencyDigits: 4,
+        openingBalance: Money.fromMinor(15000, 'ABC'),
+        sortOrder: 0,
+      ),
+    ]);
+    await pumpTab(tester, repo);
+    await openAccount(tester, 'Своя');
+    expect(
+      tester.widget<Text>(find.byKey(AccountScreen.balanceKey)).data,
+      formatMoney(Money.fromMinor(15000, 'ABC'), currency: abcInfo),
+    );
+    await tapKey(tester, AccountScreen.archiveKey);
+    expect(
+      find.text(
+        accountArchiveDialogText(Money.fromMinor(15000, 'ABC'), abcInfo),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('показывает название и остаток живыми данными', (tester) async {
     final repo = InMemoryAccountsRepository([
@@ -229,7 +259,12 @@ void main() {
       await openAccount(tester, 'Карта');
       await tapKey(tester, AccountScreen.archiveKey);
       expect(find.text(accountArchiveDialogTitle('Карта')), findsOneWidget);
-      expect(find.text(accountArchiveDialogText(rub(1200000))), findsOneWidget);
+      expect(
+        find.text(
+          accountArchiveDialogText(rub(1200000), currencyInfoFor('RUB')),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text(accountCancelLabel));
       await tester.pumpAndSettle();
       expect(repo.all.first.isArchived, isFalse);
@@ -348,7 +383,6 @@ void main() {
         home: AccountScreen(
           accounts: _NeverLoadedRepository(),
           accountId: 'a',
-          currency: 'RUB',
           onEdit: (_) async {},
         ),
       ),

@@ -2,9 +2,11 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 
 import '../../support/fixed_clock.dart';
@@ -162,10 +164,22 @@ void main() {
       final spied = AppDatabase(NativeDatabase.memory().interceptWith(spy));
       addTearDown(spied.close);
       await spied.customSelect('SELECT 1').get();
-      await DriftAccountsRepository(
+      final accounts = DriftAccountsRepository(
         spied,
         clock: FixedClock(DateTime.utc(2026, 10, 8, 12)),
-      ).watchBalances(currency: 'RUB').first;
+      );
+      // Запросы сумм идут по валютам существующих счетов: нужен хотя бы один.
+      await accounts.create(
+        Account(
+          id: 'a',
+          name: 'Карта',
+          iconKey: 'card',
+          openingBalance: Money.zero('RUB'),
+          sortOrder: 0,
+        ),
+      );
+      spy.selects.clear();
+      await accounts.watchBalances().first;
 
       final sums = spy.selects.where((s) => s.sql.contains('SUM(')).toList();
       expect(sums, hasLength(3));

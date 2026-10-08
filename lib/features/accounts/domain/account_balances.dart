@@ -117,6 +117,26 @@ Money totalOnAccounts(
   return total;
 }
 
+/// «Всего на счетах» по каждой валюте (ADR 0010, п. 16.7): по одной сумме на
+/// валюту, в которой есть хотя бы один не архивный счёт. Порядок: [main]
+/// первой (если у неё есть счета), остальные по коду. Для не архивного счёта
+/// без записи в [balances] бросает [ArgumentError].
+List<Money> totalsByCurrency(
+  Iterable<Account> accounts,
+  Map<String, Money> balances,
+  String main,
+) {
+  final codes = <String>{
+    for (final account in accounts)
+      if (!account.isArchived) account.currency,
+  };
+  final ordered = [if (codes.remove(main)) main, ...(codes.toList()..sort())];
+  return [
+    for (final code in ordered)
+      totalOnAccounts(accounts, balances, currency: code),
+  ];
+}
+
 /// Стартовый остаток, при котором текущий остаток станет ровно [entered]
 /// («Поправить остаток»): введённое минус движения. Другая валюта движений
 /// — [ArgumentError].

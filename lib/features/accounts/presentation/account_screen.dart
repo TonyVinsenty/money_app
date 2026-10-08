@@ -21,14 +21,12 @@ class AccountScreen extends StatefulWidget {
   const AccountScreen({
     required this.accounts,
     required this.accountId,
-    required this.currency,
     required this.onEdit,
     super.key,
   });
 
   final AccountsRepository accounts;
   final String accountId;
-  final String currency;
 
   /// Открывает форму правки; завершается, когда форму закрыли.
   final Future<void> Function(Account account) onEdit;
@@ -45,7 +43,7 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   late final Stream<List<Account>> _accounts = widget.accounts.watchAll();
   late final Stream<Map<String, Money>> _balances = widget.accounts
-      .watchBalances(currency: widget.currency);
+      .watchBalances();
 
   // Защита от двойных тапов: пока идёт действие, новое не стартует.
   bool _busy = false;
@@ -109,7 +107,9 @@ class _AccountScreenState extends State<AccountScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: Text(accountArchiveDialogTitle(account.name)),
-          content: Text(accountArchiveDialogText(balance)),
+          content: Text(
+            accountArchiveDialogText(balance, account.currencyInfo),
+          ),
           scrollable: true,
           actions: [
             TextButton(
@@ -206,10 +206,14 @@ class _AccountScreenState extends State<AccountScreen> {
         const SizedBox(height: 4),
         Semantics(
           container: true,
-          label: accountRowSemantics(account.name, balance),
+          label: accountRowSemantics(
+            account.name,
+            balance,
+            account.currencyInfo,
+          ),
           excludeSemantics: true,
           child: Text(
-            formatMoney(balance),
+            formatMoney(balance, currency: account.currencyInfo),
             key: AccountScreen.balanceKey,
             style: theme.textTheme.headlineMedium?.copyWith(
               color: balance.isNegative ? context.appColors.expense : null,

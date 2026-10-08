@@ -27,6 +27,7 @@ AccountFlows flows({
 );
 
 void main() {
+  totalsByCurrencyTests();
   group('AccountFlows', () {
     test('net: доходы + переводы на - расходы - переводы со', () {
       expect(flows(income: 1000, expense: 300, inn: 50, out: 20).net, rub(730));
@@ -218,6 +219,92 @@ void main() {
     test('другая валюта — ArgumentError', () {
       expect(
         () => openingForCurrentBalance(rub(1), AccountFlows.none('USD')),
+        throwsArgumentError,
+      );
+    });
+  });
+}
+
+Account accIn(String id, String currency, {bool archived = false}) => Account(
+  id: id,
+  name: 'Счёт $id',
+  iconKey: 'card',
+  openingBalance: Money.zero(currency),
+  sortOrder: 0,
+  archivedAt: archived ? DateTime.utc(2026, 10, 7) : null,
+);
+
+void totalsByCurrencyTests() {
+  Money m(int minor, String c) => Money.fromMinor(minor, c);
+
+  group('totalsByCurrency', () {
+    test('одна валюта: одна сумма', () {
+      final list = [accIn('a', 'RUB'), accIn('b', 'RUB')];
+      expect(
+        totalsByCurrency(list, {'a': m(100, 'RUB'), 'b': m(50, 'RUB')}, 'RUB'),
+        [m(150, 'RUB')],
+      );
+    });
+
+    test('три валюты: основная первой, остальные по коду', () {
+      final list = [
+        accIn('u', 'USD'),
+        accIn('b', 'BTC'),
+        accIn('r', 'RUB'),
+        accIn('r2', 'RUB'),
+      ];
+      final balances = {
+        'u': m(15000, 'USD'),
+        'b': m(150000, 'BTC'),
+        'r': m(100, 'RUB'),
+        'r2': m(5, 'RUB'),
+      };
+      expect(totalsByCurrency(list, balances, 'RUB'), [
+        m(105, 'RUB'),
+        m(150000, 'BTC'),
+        m(15000, 'USD'),
+      ]);
+      expect(totalsByCurrency(list, balances, 'USD'), [
+        m(15000, 'USD'),
+        m(150000, 'BTC'),
+        m(105, 'RUB'),
+      ]);
+    });
+
+    test('архивный счёт своей валюты строки не даёт', () {
+      final list = [accIn('r', 'RUB'), accIn('u', 'USD', archived: true)];
+      expect(
+        totalsByCurrency(list, {'r': m(1, 'RUB'), 'u': m(9, 'USD')}, 'RUB'),
+        [m(1, 'RUB')],
+      );
+    });
+
+    test('основной валюты среди счетов нет: только остальные по коду', () {
+      final list = [accIn('u', 'USD'), accIn('e', 'EUR')];
+      expect(
+        totalsByCurrency(list, {'u': m(1, 'USD'), 'e': m(2, 'EUR')}, 'RUB'),
+        [m(2, 'EUR'), m(1, 'USD')],
+      );
+    });
+
+    test('минус в одной валюте при плюсе в другой', () {
+      final list = [accIn('r', 'RUB'), accIn('u', 'USD')];
+      final result = totalsByCurrency(list, {
+        'r': m(-500, 'RUB'),
+        'u': m(700, 'USD'),
+      }, 'RUB');
+      expect(result, [m(-500, 'RUB'), m(700, 'USD')]);
+      expect(result[0].isNegative, isTrue);
+      expect(result[1].isNegative, isFalse);
+    });
+
+    test('нет счетов: пусто', () {
+      expect(totalsByCurrency(const [], const {}, 'RUB'), isEmpty);
+    });
+
+    test('нет остатка не архивного счёта — ArgumentError', () {
+      expect(
+        () => totalsByCurrency([accIn('a', 'RUB')], const {}, 'RUB'),
         throwsArgumentError,
       );
     });

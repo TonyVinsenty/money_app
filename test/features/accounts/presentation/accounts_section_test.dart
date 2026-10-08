@@ -6,6 +6,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
@@ -24,12 +26,14 @@ Account acc(
   String name, {
   String icon = 'card',
   String currency = 'RUB',
+  int digits = 2,
   bool archived = false,
   int order = 0,
 }) => Account(
   id: id,
   name: name,
   iconKey: icon,
+  currencyDigits: digits,
   openingBalance: Money.zero(currency),
   sortOrder: order,
   archivedAt: archived ? DateTime.utc(2026, 9, 1) : null,
@@ -59,7 +63,7 @@ Future<void> pumpSection(
             child: AccountsSection(
               accounts: accounts,
               balances: balances,
-              currency: 'RUB',
+              mainCurrency: 'RUB',
               onAddAccount: onAdd ?? () {},
               onOpenAccount: (_) {},
             ),
@@ -256,7 +260,7 @@ void main() {
       balances: Stream.value({'a': rub(1200000), 'b': rub(-5000)}),
     );
     expect(
-      accountRowSemantics('Карта', rub(1200000)),
+      accountRowSemantics('Карта', rub(1200000), currencyInfoFor('RUB')),
       'Карта, остаток 12000 рублей',
     );
     expect(
@@ -289,6 +293,119 @@ void main() {
       expect(accountIconFor('card').label, 'Карта');
       expect(accountIconFor('nope').label, 'Другое');
       expect(accountIconFor('nope').icon, accountIconFor('other').icon);
+    });
+  });
+
+  group('несколько валют', () {
+    Money usd(int minor) => Money.fromMinor(minor, 'USD');
+    Money btc(int minor) => Money.fromMinor(minor, 'BTC');
+    Money abc(int minor) => Money.fromMinor(minor, 'ABC');
+    final abcInfo = currencyInfoFor('ABC', digits: 4);
+
+    Future<void> pumpMixed(WidgetTester tester, {double scale = 1}) {
+      return pumpSection(
+        tester,
+        scale: scale,
+        accounts: Stream.value([
+          acc('r', 'Карта'),
+          acc('u', 'Доллары', currency: 'USD', order: 1),
+          acc('b', 'Кошелёк', currency: 'BTC', order: 2),
+          acc('c', 'Своя', currency: 'ABC', digits: 4, order: 3),
+          acc('x', 'Старый евро', currency: 'EUR', archived: true, order: 4),
+        ]),
+        balances: Stream.value({
+          'r': rub(1200000),
+          'u': usd(15000),
+          'b': btc(150000),
+          'c': abc(15000),
+          'x': Money.fromMinor(999, 'EUR'),
+        }),
+      );
+    }
+
+    testWidgets('четыре строки «Всего» и суммы в знаках своих валют', (
+      tester,
+    ) async {
+      await pumpMixed(tester);
+      expect(find.text('+${formatMoney(rub(1200000))}'), findsOneWidget);
+      expect(find.text('+${formatMoney(usd(15000))}'), findsOneWidget);
+      expect(find.text('+${formatMoney(btc(150000))}'), findsOneWidget);
+      // Своя валюта с 4 знаками: 15000 минорных = 1,5 (два знака минимум).
+      final abcShown = formatMoney(abc(15000), currency: abcInfo);
+      expect(abcShown, isNot(formatMoney(rub(15000))));
+      expect(find.text('+$abcShown'), findsOneWidget);
+      expect(find.text(abcShown), findsOneWidget);
+      expect(find.text(formatMoney(usd(15000))), findsOneWidget);
+      expect(find.text(formatMoney(btc(150000))), findsOneWidget);
+      // Порядок: основная первой, остальные по коду.
+      final firstTop = tester.getTopLeft(find.byKey(AccountsSection.totalKey));
+      final order = ['ABC', 'BTC', 'USD']
+          .map(
+            (c) => tester.getTopLeft(find.byKey(ValueKey('accounts-total-$c'))),
+          )
+          .toList();
+      expect(find.byKey(const ValueKey('accounts-total-EUR')), findsNothing);
+      expect(firstTop.dy, lessThan(order[0].dy));
+      expect(order[0].dy, lessThan(order[1].dy));
+      expect(order[1].dy, lessThan(order[2].dy));
+      // Архивный счёт не показан.
+      expect(find.text('Старый евро'), findsNothing);
+    });
+
+    testWidgets('скринридер читает все строки «Всего»', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpMixed(tester);
+      final label =
+          '$accountsTotalLabel: плюс ${spokenMoney(rub(1200000))}, '
+          'плюс ${spokenMoney(abc(15000), currency: abcInfo)}, '
+          'плюс ${spokenMoney(btc(150000))}, '
+          'плюс ${spokenMoney(usd(15000))}';
+      expect(find.bySemanticsLabel(label), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(
+          'Своя, остаток ${spokenMoney(abc(15000), currency: abcInfo)}',
+        ),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
+
+    testWidgets('минус в одной валюте, плюс в другой: цвета свои', (
+      tester,
+    ) async {
+      await pumpSection(
+        tester,
+        accounts: Stream.value([
+          acc('r', 'Карта'),
+          acc('u', 'Доллары', currency: 'USD', order: 1),
+        ]),
+        balances: Stream.value({'r': rub(-5000), 'u': usd(100)}),
+      );
+      final colors = AppTheme.light().extension<AppColors>()!;
+      final rubText = tester.widget<Text>(find.byKey(AccountsSection.totalKey));
+      final usdText = tester.widget<Text>(
+        find.byKey(const ValueKey('accounts-total-USD')),
+      );
+      expect(rubText.data, formatMoney(rub(-5000)));
+      expect(rubText.style?.color, colors.expense);
+      expect(usdText.data, '+${formatMoney(usd(100))}');
+      expect(usdText.style?.color, colors.income);
+    });
+
+    testWidgets('360 dp и шрифт 200 %: огромный остаток BTC без переполнения', (
+      tester,
+    ) async {
+      await pumpSection(
+        tester,
+        scale: 2,
+        accounts: Stream.value([
+          acc('b', 'Очень длинное название кошелька', currency: 'BTC'),
+          acc('r', 'Карта', order: 1),
+        ]),
+        balances: Stream.value({'b': btc(-99999999999999), 'r': rub(1200000)}),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text(formatMoney(btc(-99999999999999))), findsNWidgets(2));
     });
   });
 

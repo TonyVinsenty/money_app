@@ -1,5 +1,6 @@
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
@@ -40,8 +41,8 @@ const String accountRestoreDuplicateText =
 
 String accountArchiveDialogTitle(String name) => 'Отправить «$name» в архив?';
 
-String accountArchiveDialogText(Money balance) =>
-    'На счёте ${formatMoney(balance)}. Счёт в архиве не входит во «Всего на '
+String accountArchiveDialogText(Money balance, CurrencyInfo currency) =>
+    'На счёте ${formatMoney(balance, currency: currency)}. Счёт в архиве не входит во «Всего на '
     'счетах». Операции счёта сохранятся';
 
 String accountArchivedMessage(String name) => 'Счёт «$name» в архиве';
@@ -70,11 +71,18 @@ String accountRuleMessage(AccountRule rule) {
 
 /// Строка счёта для скринридера: «Карта, остаток 12000 рублей». «Минус» для
 /// отрицательной суммы добавляет `spokenMoney`.
-String accountRowSemantics(String name, Money balance) =>
-    '$name, остаток ${spokenMoney(balance)}';
+String accountRowSemantics(String name, Money balance, CurrencyInfo currency) =>
+    '$name, остаток ${spokenMoney(balance, currency: currency)}';
 
-/// «Всего на счетах» для скринридера; для плюса приставку ставим тут, как в
+/// Одна сумма «Всего» для скринридера; для плюса приставку ставим тут, как в
 /// центре кольца «Главной».
-String accountsTotalSemantics(Money total) => total.isNegative || total.isZero
-    ? '$accountsTotalLabel: ${spokenMoney(total)}'
-    : '$accountsTotalLabel: плюс ${spokenMoney(total)}';
+String accountsTotalSpoken(Money total, CurrencyInfo currency) {
+  final spoken = spokenMoney(total, currency: currency);
+  return total.isNegative || total.isZero ? spoken : 'плюс $spoken';
+}
+
+/// «Всего на счетах» для скринридера, по валютам через запятую:
+/// «Всего на счетах: плюс 12000 рублей, плюс 150 долларов».
+String accountsTotalSemantics(List<(Money, CurrencyInfo)> totals) =>
+    '$accountsTotalLabel: '
+    '${totals.map((t) => accountsTotalSpoken(t.$1, t.$2)).join(', ')}';

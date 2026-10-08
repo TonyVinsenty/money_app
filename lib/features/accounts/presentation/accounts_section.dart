@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/async_view.dart';
@@ -9,8 +10,8 @@ import 'package:money_app/features/accounts/domain/account_balances.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 
 /// Секция «Счета» вкладки «Баланс»: «Всего на счетах», список счетов с
-/// остатками и кнопка «Добавить счёт». Архивные счета и счета другой валюты
-/// не показываются и в «Всего» не входят.
+/// остатками и кнопка «Добавить счёт». Показаны все не архивные счета в своих
+/// валютах; «Всего» - строкой на каждую валюту (основная первой).
 ///
 /// Потоки приносит вызывающий (`lib/app`, ADR 0002) и держит их одними и теми
 /// же между перерисовками.
@@ -18,7 +19,7 @@ class AccountsSection extends StatelessWidget {
   const AccountsSection({
     required this.accounts,
     required this.balances,
-    required this.currency,
+    required this.mainCurrency,
     required this.onAddAccount,
     required this.onOpenAccount,
     super.key,
@@ -27,8 +28,8 @@ class AccountsSection extends StatelessWidget {
   final Stream<List<Account>> accounts;
   final Stream<Map<String, Money>> balances;
 
-  /// Валюта, в которой показываем счета.
-  final String currency;
+  /// Основная валюта: её строка «Всего» идёт первой.
+  final String mainCurrency;
 
   /// Нажатие «Добавить счёт».
   final VoidCallback onAddAccount;
@@ -41,8 +42,12 @@ class AccountsSection extends StatelessWidget {
 
   List<Account> _visible(List<Account> all) => [
     for (final a in all)
-      if (!a.isArchived && a.currency == currency) a,
+      if (!a.isArchived) a,
   ];
+
+  // Знаки валюты берём у её счёта: у своей валюты их знает только счёт.
+  CurrencyInfo _infoOf(List<Account> accounts, String currency) =>
+      accounts.firstWhere((a) => a.currency == currency).currencyInfo;
 
   Widget _error(BuildContext context, Object error) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -99,8 +104,15 @@ class AccountsSection extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _Total(
-                    total: totalOnAccounts(shown, byId, currency: currency),
+                  _Totals(
+                    totals: [
+                      for (final total in totalsByCurrency(
+                        shown,
+                        byId,
+                        mainCurrency,
+                      ))
+                        (total, _infoOf(shown, total.currency)),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   for (final a in shown)
@@ -117,28 +129,41 @@ class AccountsSection extends StatelessWidget {
   }
 }
 
-class _Total extends StatelessWidget {
-  const _Total({required this.total});
+class _Totals extends StatelessWidget {
+  const _Totals({required this.totals});
 
-  final Money total;
+  /// Сумма и знаки её валюты; основная валюта первая.
+  final List<(Money, CurrencyInfo)> totals;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = context.appColors;
-    // Как «Всего» на «Главной»: плюс цветом дохода, минус цветом расхода,
-    // ноль нейтрально. Минус ставит formatMoney (U+2212).
-    final color = total.isZero
-        ? null
-        : total.isNegative
-        ? colors.expense
-        : colors.income;
-    final text = total.isZero || total.isNegative
-        ? formatMoney(total)
-        : '+${formatMoney(total)}';
+    final lines = <Widget>[];
+    for (final (index, (total, info)) in totals.indexed) {
+      // Как «Всего» на «Главной»: плюс цветом дохода, минус цветом расхода,
+      // ноль нейтрально. Минус ставит formatMoney (U+2212).
+      final color = total.isZero
+          ? null
+          : total.isNegative
+          ? colors.expense
+          : colors.income;
+      final shown = formatMoney(total, currency: info);
+      final text = total.isZero || total.isNegative ? shown : '+$shown';
+      lines.add(
+        Text(
+          text,
+          // Первая строка (основная валюта) - прежний ключ, остальные - по коду.
+          key: index == 0
+              ? AccountsSection.totalKey
+              : ValueKey('accounts-total-${total.currency}'),
+          style: theme.textTheme.titleLarge?.copyWith(color: color),
+        ),
+      );
+    }
     return Semantics(
       container: true,
-      label: accountsTotalSemantics(total),
+      label: accountsTotalSemantics(totals),
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -150,11 +175,7 @@ class _Total extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            text,
-            key: AccountsSection.totalKey,
-            style: theme.textTheme.titleLarge?.copyWith(color: color),
-          ),
+          ...lines,
         ],
       ),
     );
@@ -173,7 +194,7 @@ class _AccountRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       container: true,
-      label: accountRowSemantics(account.name, balance),
+      label: accountRowSemantics(account.name, balance, account.currencyInfo),
       button: true,
       onTap: onTap,
       excludeSemantics: true,
@@ -208,7 +229,7 @@ class _AccountRow extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      formatMoney(balance),
+                      formatMoney(balance, currency: account.currencyInfo),
                       softWrap: false,
                       textAlign: TextAlign.end,
                       style: theme.textTheme.bodyLarge?.copyWith(

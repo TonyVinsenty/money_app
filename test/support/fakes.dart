@@ -39,7 +39,7 @@ class FakeAccountsRepository extends Fake implements AccountsRepository {
       watchError != null ? Stream.error(watchError!) : Stream.value(accounts);
 
   @override
-  Stream<Map<String, Money>> watchBalances({required String currency}) =>
+  Stream<Map<String, Money>> watchBalances() =>
       watchError != null ? Stream.error(watchError!) : Stream.value(balances);
 }
 
@@ -74,13 +74,12 @@ class InMemoryAccountsRepository extends Fake implements AccountsRepository {
   final Map<String, Money> net = {};
 
   @override
-  Stream<Map<String, Money>> watchBalances({required String currency}) => _live(
+  Stream<Map<String, Money>> watchBalances() => _live(
     () => {
       for (final a in _all)
-        if (a.openingBalance.currency == currency)
-          a.id: net[a.id] == null
-              ? a.openingBalance
-              : a.openingBalance + net[a.id]!,
+        a.id: net[a.id] == null
+            ? a.openingBalance
+            : a.openingBalance + net[a.id]!,
     },
   );
 

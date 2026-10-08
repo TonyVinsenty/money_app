@@ -25,7 +25,7 @@ class DriftAccountsRepository implements AccountsRepository {
   }
 
   @override
-  Stream<Map<String, Money>> watchBalances({required String currency}) {
+  Stream<Map<String, Money>> watchBalances() {
     // Пустой SELECT нужен лишь как «подписка»: drift перезапускает его при
     // записи в любую из трёх таблиц, а сами суммы считает _loadBalances.
     return _db
@@ -34,20 +34,28 @@ class DriftAccountsRepository implements AccountsRepository {
           readsFrom: {_db.accounts, _db.transactions, _db.transfers},
         )
         .watch()
-        .asyncMap((_) => _db.transaction(() => _loadBalances(currency)));
+        .asyncMap((_) => _db.transaction(_loadBalances));
   }
 
-  Future<Map<String, Money>> _loadBalances(String currency) async {
+  Future<Map<String, Money>> _loadBalances() async {
     final accounts =
         (await (_db.select(_db.accounts)
                   ..where((a) => a.deletedAt.isNull())
                   ..orderBy(_stableOrder))
                 .get())
             .map(accountFromRow)
-            .where((a) => a.openingBalance.currency == currency)
             .toList();
 
-    final flows = await _loadFlows(accounts.map((a) => a.id), currency);
+    // Движения считаем отдельно для каждой валюты, которая есть у счетов.
+    final flows = <String, AccountFlows>{};
+    for (final currency in {for (final a in accounts) a.currency}) {
+      flows.addAll(
+        await _loadFlows([
+          for (final a in accounts)
+            if (a.currency == currency) a.id,
+        ], currency),
+      );
+    }
     return computeAccountBalances(accounts, flows);
   }
 
