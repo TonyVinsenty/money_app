@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
@@ -42,8 +45,19 @@ class _BalanceTabState extends State<BalanceTab> {
           accounts: _accounts,
           balances: _balances,
           currency: rubCurrencyCode,
-          // Форма счёта появится в шаге 5.9.
-          onAddAccount: () {},
+          onAddAccount: () {
+            final services = AppScope.of(context);
+            unawaited(
+              Navigator.of(context).pushNamed<void>(
+                AppRoutes.accountForm,
+                arguments: AccountFormRouteArguments(
+                  accounts: services.accounts,
+                  idGenerator: services.idGenerator,
+                  currency: rubCurrencyCode,
+                ),
+              ),
+            );
+          },
         ),
       ],
     );

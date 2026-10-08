@@ -43,6 +43,66 @@ class FakeAccountsRepository extends Fake implements AccountsRepository {
       watchError != null ? Stream.error(watchError!) : Stream.value(balances);
 }
 
+/// Фейк счетов «в памяти»: работают `watchAll`, `watchBalances` (только
+/// стартовые остатки), `nextSortOrder`, `create` (с проверкой дубля) и
+/// `update`. Остальное бросает ошибку.
+class InMemoryAccountsRepository extends Fake implements AccountsRepository {
+  InMemoryAccountsRepository([List<Account> initial = const []])
+    : _all = List.of(initial);
+
+  List<Account> _all;
+  final _changes = StreamController<void>.broadcast();
+
+  /// Если задан, `create` и `update` бросают его (сбой базы).
+  Exception? failWith;
+
+  /// Текущее содержимое «базы».
+  List<Account> get all => List.unmodifiable(_all);
+
+  Stream<T> _live<T>(T Function() read) => Stream.multi((c) {
+    c.add(read());
+    final sub = _changes.stream.listen((_) => c.add(read()));
+    c.onCancel = sub.cancel;
+  });
+
+  @override
+  Stream<List<Account>> watchAll() => _live(() => all);
+
+  @override
+  Stream<Map<String, Money>> watchBalances({required String currency}) =>
+      _live(() => {for (final a in _all) a.id: a.openingBalance});
+
+  @override
+  Future<int> nextSortOrder() async =>
+      _all.fold<int>(-1, (m, a) => a.sortOrder > m ? a.sortOrder : m) + 1;
+
+  @override
+  Future<void> create(Account account) async {
+    final error = failWith;
+    if (error != null) throw error;
+    Account.checkUniqueName(name: account.name, existing: _all);
+    _all = [..._all, account];
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> update(
+    String id, {
+    required String name,
+    required String iconKey,
+  }) async {
+    final error = failWith;
+    if (error != null) throw error;
+    final checked = Account.checkedName(name);
+    Account.checkUniqueName(name: checked, existing: _all, selfId: id);
+    _all = [
+      for (final a in _all)
+        if (a.id == id) a.withName(checked).withIcon(iconKey) else a,
+    ];
+    _changes.add(null);
+  }
+}
+
 /// Пустой фейк репозитория категорий: методы не реализованы, любой вызов
 /// бросит ошибку. Годится, когда тесту нужен лишь сам объект («тот же ли он»).
 ///

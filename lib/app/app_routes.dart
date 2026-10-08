@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -49,6 +52,26 @@ abstract final class AppRoutes {
   /// Экран «Загрузка из CSV». Аргумент маршрута — [CsvImportRouteArguments].
   /// Закрывается с числом добавленных операций (`int`) или с `null`.
   static const csvImport = '/csv-import';
+
+  /// Форма счёта (новый или правка). Аргумент маршрута —
+  /// [AccountFormRouteArguments].
+  static const accountForm = '/account-form';
+}
+
+/// Аргументы маршрута [AppRoutes.accountForm]. Если [editing] задан, форма
+/// правит имя и значок этого счёта, иначе создаёт новый в валюте [currency].
+final class AccountFormRouteArguments {
+  const AccountFormRouteArguments({
+    required this.accounts,
+    required this.idGenerator,
+    required this.currency,
+    this.editing,
+  });
+
+  final AccountsRepository accounts;
+  final IdGenerator idGenerator;
+  final String currency;
+  final Account? editing;
 }
 
 /// Аргументы маршрута [AppRoutes.csvImport]: путь к копии файла и сервисы
@@ -360,6 +383,25 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           today: arguments.today,
           transactions: arguments.transactions,
           categories: arguments.categories,
+        ),
+      );
+    case AppRoutes.accountForm:
+      final arguments = settings.arguments;
+      if (arguments is! AccountFormRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.accountForm} ожидает аргумент '
+              'AccountFormRouteArguments (репозиторий, генератор id, валюта)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => AccountFormScreen(
+          accounts: arguments.accounts,
+          idGenerator: arguments.idGenerator,
+          currency: arguments.currency,
+          editing: arguments.editing,
         ),
       );
     case AppRoutes.categoryForm:
