@@ -90,6 +90,7 @@ Future<void> _pump(WidgetTester tester, {double textScale = 1}) async {
       ),
       home: AppScope(
         services: AppServices(
+          accounts: FakeAccountsRepository(),
           categories: InMemoryCategoriesRepository([food]),
           transactions: repo,
           settings: settings,

@@ -14,6 +14,13 @@ abstract interface class AccountsRepository {
   /// список после каждой записи.
   Stream<List<Account>> watchAll();
 
+  /// Поток остатков по id счёта в валюте [currency] (ADR 0010, п. 3):
+  /// стартовый остаток + живые операции и переводы этой валюты. Ключи — все
+  /// не удалённые счета в [currency], включая архивные (для «Всего» годится
+  /// `totalOnAccounts`). Операции без счёта и счета другой валюты не входят.
+  /// Новое значение приходит после любой записи в счета, операции и переводы.
+  Stream<Map<String, Money>> watchBalances({required String currency});
+
   /// Находит счёт по [id] (архивные возвращаются) или возвращает `null`.
   Future<Account?> findById(String id);
 

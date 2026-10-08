@@ -130,6 +130,7 @@ Future<_Repo> _pump(WidgetTester tester) async {
       onGenerateRoute: onGenerateAppRoute,
       home: AppScope(
         services: AppServices(
+          accounts: FakeAccountsRepository(),
           categories: InMemoryCategoriesRepository([_food, _shop, _salary]),
           transactions: repo,
           settings: settings,

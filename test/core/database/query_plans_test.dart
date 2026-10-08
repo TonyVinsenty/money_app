@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 
 import '../../support/fixed_clock.dart';
@@ -154,6 +155,36 @@ void main() {
         expect(text, isNot(contains('SCAN transactions')));
       },
     );
+
+    test('account balances: every SUM query uses a partial account index, '
+        'no full scan', () async {
+      final spy = _SelectSpy();
+      final spied = AppDatabase(NativeDatabase.memory().interceptWith(spy));
+      addTearDown(spied.close);
+      await spied.customSelect('SELECT 1').get();
+      await DriftAccountsRepository(
+        spied,
+        clock: FixedClock(DateTime.utc(2026, 10, 8, 12)),
+      ).watchBalances(currency: 'RUB').first;
+
+      final sums = spy.selects.where((s) => s.sql.contains('SUM(')).toList();
+      expect(sums, hasLength(3));
+      final expected = [
+        'transactions_account',
+        'transfers_from_account',
+        'transfers_to_account',
+      ];
+      for (var i = 0; i < sums.length; i++) {
+        final rows = await spied
+            .customSelect(
+              'EXPLAIN QUERY PLAN ${sums[i].sql}',
+              variables: [for (final a in sums[i].args) Variable<Object>(a)],
+            )
+            .get();
+        final text = rows.map((r) => r.read<String>('detail')).join('\n');
+        expect(text, contains('INDEX ${expected[i]}'), reason: text);
+      }
+    });
 
     test('documentation: without "deleted_at IS NULL" the partial index is '
         'NOT used (every live-rows query must contain it)', () async {

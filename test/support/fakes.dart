@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app_services.dart';
+import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -15,6 +17,14 @@ import 'package:money_app/features/transactions/domain/transactions_repository.d
 
 import 'fake_id_generator.dart';
 import 'fixed_clock.dart';
+
+/// Пустой фейк репозитория счетов: любой вызов бросит ошибку. Исключение —
+/// `watchBalances`: пустой поток остатков (счетов нет).
+class FakeAccountsRepository extends Fake implements AccountsRepository {
+  @override
+  Stream<Map<String, Money>> watchBalances({required String currency}) =>
+      Stream.value(const {});
+}
 
 /// Пустой фейк репозитория категорий: методы не реализованы, любой вызов
 /// бросит ошибку. Годится, когда тесту нужен лишь сам объект («тот же ли он»).
@@ -248,12 +258,14 @@ AppServices fakeAppServices({
   required AppSettingsController settings,
   CategoriesRepository? categories,
   TransactionsRepository? transactions,
+  AccountsRepository? accounts,
   FixedClock? clock,
   CsvImportStore? csvImport,
 }) {
   return AppServices(
     categories: categories ?? FakeCategoriesRepository(),
     transactions: transactions ?? FakeTransactionsRepository(),
+    accounts: accounts ?? FakeAccountsRepository(),
     settings: settings,
     clock: clock ?? FixedClock(DateTime.utc(2026, 9, 20, 12)),
     idGenerator: FakeIdGenerator(),

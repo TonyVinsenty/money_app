@@ -4,6 +4,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/features/accounts/data/account_mapper.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/account_balances.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 
@@ -21,6 +22,79 @@ class DriftAccountsRepository implements AccountsRepository {
       ..where((a) => a.deletedAt.isNull())
       ..orderBy(_stableOrder);
     return query.watch().map((rows) => rows.map(accountFromRow).toList());
+  }
+
+  @override
+  Stream<Map<String, Money>> watchBalances({required String currency}) {
+    // Пустой SELECT нужен лишь как «подписка»: drift перезапускает его при
+    // записи в любую из трёх таблиц, а сами суммы считает _loadBalances.
+    return _db
+        .customSelect(
+          'SELECT 1',
+          readsFrom: {_db.accounts, _db.transactions, _db.transfers},
+        )
+        .watch()
+        .asyncMap((_) => _db.transaction(() => _loadBalances(currency)));
+  }
+
+  Future<Map<String, Money>> _loadBalances(String currency) async {
+    final accounts =
+        (await (_db.select(_db.accounts)
+                  ..where((a) => a.deletedAt.isNull())
+                  ..orderBy(_stableOrder))
+                .get())
+            .map(accountFromRow)
+            .where((a) => a.openingBalance.currency == currency)
+            .toList();
+
+    Future<List<QueryRow>> sums(String sql) {
+      return _db
+          .customSelect(sql, variables: [Variable<String>(currency)])
+          .get();
+    }
+
+    // `account_id IS NOT NULL` и `deleted_at IS NULL` нужны, чтобы SQLite
+    // взяла частичные индексы (transactions_account, transfers_*_account).
+    final operations = await sums(
+      'SELECT account_id AS id, type, SUM(amount_minor) AS total '
+      'FROM transactions WHERE deleted_at IS NULL '
+      'AND account_id IS NOT NULL AND currency = ? '
+      'GROUP BY account_id, type',
+    );
+    final outgoing = await sums(
+      'SELECT from_account_id AS id, SUM(amount_minor) AS total '
+      'FROM transfers WHERE deleted_at IS NULL AND currency = ? '
+      'GROUP BY from_account_id',
+    );
+    final incoming = await sums(
+      'SELECT to_account_id AS id, SUM(amount_minor) AS total '
+      'FROM transfers WHERE deleted_at IS NULL AND currency = ? '
+      'GROUP BY to_account_id',
+    );
+
+    final income = <String, int>{};
+    final expense = <String, int>{};
+    for (final row in operations) {
+      final target = row.read<String>('type') == 'income' ? income : expense;
+      target[row.read<String>('id')] = row.read<int>('total');
+    }
+    int sumOf(List<QueryRow> rows, String id) {
+      for (final row in rows) {
+        if (row.read<String>('id') == id) return row.read<int>('total');
+      }
+      return 0;
+    }
+
+    Money money(int minor) => Money.fromMinor(minor, currency);
+    return computeAccountBalances(accounts, {
+      for (final a in accounts)
+        a.id: AccountFlows(
+          income: money(income[a.id] ?? 0),
+          expense: money(expense[a.id] ?? 0),
+          transfersIn: money(sumOf(incoming, a.id)),
+          transfersOut: money(sumOf(outgoing, a.id)),
+        ),
+    });
   }
 
   @override
