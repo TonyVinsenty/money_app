@@ -93,6 +93,15 @@ void main() {
     });
   });
 
+  group('currencySymbol', () {
+    test('известные валюты — символ, неизвестная — сам код', () {
+      expect(currencySymbol('RUB'), '₽');
+      expect(currencySymbol('USD'), r'$');
+      expect(currencySymbol('EUR'), '€');
+      expect(currencySymbol('KZT'), 'KZT');
+    });
+  });
+
   group('formatMoney: без символа валюты', () {
     test('только число', () {
       expect(

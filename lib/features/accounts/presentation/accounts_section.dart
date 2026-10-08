@@ -74,6 +74,7 @@ class AccountsSection extends StatelessWidget {
         const SizedBox(height: 8),
         AsyncView<List<Account>>(
           stream: accounts,
+          loadingBuilder: (_) => const AsyncLoading(),
           errorBuilder: _error,
           isEmpty: (all) => _visible(all).isEmpty,
           emptyBuilder: (context) => Padding(
@@ -87,12 +88,13 @@ class AccountsSection extends StatelessWidget {
           ),
           dataBuilder: (context, all) => AsyncView<Map<String, Money>>(
             stream: balances,
+            loadingBuilder: (_) => const AsyncLoading(),
             errorBuilder: _error,
             dataBuilder: (context, byId) {
               final shown = _visible(all);
               // Счёт уже появился, а его остаток ещё считается: ждём.
               if (shown.any((a) => !byId.containsKey(a.id))) {
-                return const SizedBox.shrink();
+                return const AsyncLoading();
               }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -179,29 +181,46 @@ class _AccountRow extends StatelessWidget {
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 48),
-          child: Row(
-            children: [
-              Icon(
-                accountIconFor(account.iconKey).icon,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(account.name, style: theme.textTheme.bodyLarge),
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  formatMoney(balance),
-                  textAlign: TextAlign.end,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: balance.isNegative
-                        ? context.appColors.expense
-                        : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  accountIconFor(account.iconKey).icon,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    account.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyLarge,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                // Сумма не переносится: название уступает ей место, а
+                // совсем длинная сумма сжимается до 60 % ширины экрана.
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.sizeOf(context).width * 0.6,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      formatMoney(balance),
+                      softWrap: false,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: balance.isNegative
+                            ? context.appColors.expense
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

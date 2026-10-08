@@ -73,7 +73,9 @@ class _AccountAdjustDialogState extends State<AccountAdjustDialog> {
             inputFormatters: const [AmountInputFormatter()],
             decoration: InputDecoration(
               labelText: accountFormBalanceLabel,
-              suffixText: '₽',
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              hintText: '0',
+              suffixText: currencySymbol(widget.current.currency),
               helperText: accountAdjustHelper,
               helperMaxLines: 4,
               errorText: _error,
@@ -86,6 +88,7 @@ class _AccountAdjustDialogState extends State<AccountAdjustDialog> {
             key: AccountAdjustDialog.minusKey,
             contentPadding: EdgeInsets.zero,
             title: const Text(accountFormMinusTitle),
+            subtitle: const Text(accountFormMinusHelper),
             value: _minus,
             onChanged: (v) => setState(() => _minus = v),
           ),

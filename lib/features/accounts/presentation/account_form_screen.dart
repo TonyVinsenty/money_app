@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
@@ -182,18 +183,30 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                       style: theme.textTheme.titleSmall,
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: [
-                        for (final option in accountIconOptions)
-                          _IconChoice(
-                            key: ValueKey<String>('icon-${option.key}'),
-                            option: option,
-                            selected: option.key == _iconKey,
-                            onTap: () => setState(() => _iconKey = option.key),
-                          ),
-                      ],
+                    // Ровная сетка 4 в ряд: ширина ячейки считается из доступной
+                    // ширины (округляем вниз, чтобы ряд не «распух» на долю пикселя).
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cellWidth = (constraints.maxWidth / 4)
+                            .floorToDouble();
+                        return Wrap(
+                          children: [
+                            for (final option in accountIconOptions)
+                              SizedBox(
+                                width: cellWidth,
+                                child: Center(
+                                  child: _IconChoice(
+                                    key: ValueKey<String>('icon-${option.key}'),
+                                    option: option,
+                                    selected: option.key == _iconKey,
+                                    onTap: () =>
+                                        setState(() => _iconKey = option.key),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     ),
                     if (!_isEdit) ...[
                       const SizedBox(height: 16),
@@ -207,7 +220,10 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                         inputFormatters: const [AmountInputFormatter()],
                         decoration: InputDecoration(
                           labelText: accountFormBalanceLabel,
-                          suffixText: '₽',
+                          // Символ виден и при пустом поле без фокуса.
+                          floatingLabelBehavior: FloatingLabelBehavior.always,
+                          hintText: '0',
+                          suffixText: currencySymbol(widget.currency),
                           helperText: accountFormBalanceHelper,
                           helperMaxLines: 3,
                           errorText: _balanceError,
@@ -280,31 +296,36 @@ class _IconChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    // Выбранность говорит `selected`, в подпись слово «выбрана» не кладём.
     return Semantics(
-      label: accountFormIconSemantics(option.label, selected: selected),
+      label: accountFormIconSemantics(option.label),
       button: true,
       selected: selected,
       onTap: onTap,
       excludeSemantics: true,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: selected ? colors.primaryContainer : null,
-            border: Border.all(
-              color: selected ? colors.primary : Colors.transparent,
-              width: 2,
+      child: Tooltip(
+        message: option.label,
+        excludeFromSemantics: true,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? colors.primaryContainer : null,
+              border: Border.all(
+                color: selected ? colors.primary : Colors.transparent,
+                width: 2,
+              ),
             ),
-          ),
-          child: Icon(
-            option.icon,
-            color: selected
-                ? colors.onPrimaryContainer
-                : colors.onSurfaceVariant,
+            child: Icon(
+              option.icon,
+              color: selected
+                  ? colors.onPrimaryContainer
+                  : colors.onSurfaceVariant,
+            ),
           ),
         ),
       ),

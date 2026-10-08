@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -200,6 +202,48 @@ void main() {
       expect(find.byKey(AccountsSection.addButtonKey), findsOneWidget);
     });
   }
+
+  testWidgets('длинное имя и большая сумма, 360 dp и 200 %: без переполнения', (
+    tester,
+  ) async {
+    final name = List.filled(40, 'Ж').join();
+    await pumpSection(
+      tester,
+      scale: 2,
+      accounts: Stream.value([acc('a', name)]),
+      balances: Stream.value({'a': rub(123456789012)}),
+    );
+    expect(tester.takeException(), isNull);
+    final text = tester.widget<Text>(find.text(name));
+    expect(text.maxLines, 2);
+    expect(text.overflow, TextOverflow.ellipsis);
+    expect(
+      tester.widget<Text>(find.text(formatMoney(rub(123456789012)))).softWrap,
+      isFalse,
+    );
+  });
+
+  testWidgets('пока данные не пришли: индикатор загрузки', (tester) async {
+    final never = StreamController<List<Account>>();
+    addTearDown(never.close);
+    await pumpSection(
+      tester,
+      accounts: never.stream,
+      balances: Stream.value(const {}),
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    // Счета пришли, остатки ещё считаются.
+    final balances = StreamController<Map<String, Money>>();
+    addTearDown(balances.close);
+    await pumpSection(
+      tester,
+      accounts: Stream.value([acc('a', 'Карта')]),
+      balances: balances.stream,
+    );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('Карта'), findsNothing);
+  });
 
   testWidgets('семантика строки: имя и остаток; минус словом', (tester) async {
     final handle = tester.ensureSemantics();

@@ -155,21 +155,23 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget build(BuildContext context) {
     return AsyncView<List<Account>>(
       stream: _accounts,
+      loadingBuilder: (_) => _frame(null, const AsyncLoading()),
       errorBuilder: (context, _) => _frame(null, const Text(accountsLoadError)),
       dataBuilder: (context, all) {
         Account? account;
         for (final a in all) {
           if (a.id == widget.accountId && !a.isArchived) account = a;
         }
-        if (account == null) return _frame(null, const SizedBox.shrink());
+        if (account == null) return _frame(null, const AsyncLoading());
         final shown = account;
         return AsyncView<Map<String, Money>>(
           stream: _balances,
+          loadingBuilder: (_) => _frame(shown, const AsyncLoading()),
           errorBuilder: (context, _) =>
               _frame(shown, const Text(accountsLoadError)),
           dataBuilder: (context, byId) {
             final balance = byId[shown.id];
-            if (balance == null) return _frame(shown, const SizedBox.shrink());
+            if (balance == null) return _frame(shown, const AsyncLoading());
             return _frame(shown, _content(context, shown, balance));
           },
         );
@@ -186,6 +188,9 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Widget _content(BuildContext context, Account account, Money balance) {
     final theme = Theme.of(context);
+    final buttonStyle = ButtonStyle(
+      minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -209,20 +214,25 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ),
         const SizedBox(height: 24),
+        // Все три кнопки не ниже 48 dp (зона нажатия), вид у них разный
+        // намеренно: главное действие, второстепенное, редкое.
         FilledButton.tonal(
           key: AccountScreen.editKey,
+          style: buttonStyle,
           onPressed: () => unawaited(_guarded(() => widget.onEdit(account))),
           child: const Text(accountEditButton),
         ),
         const SizedBox(height: 8),
         OutlinedButton(
           key: AccountScreen.adjustKey,
+          style: buttonStyle,
           onPressed: () => unawaited(_guarded(() => _adjust(balance))),
           child: const Text(accountAdjustButton),
         ),
         const SizedBox(height: 8),
         TextButton(
           key: AccountScreen.archiveKey,
+          style: buttonStyle,
           onPressed: () =>
               unawaited(_guarded(() => _archive(account, balance))),
           child: const Text(accountArchiveButton),

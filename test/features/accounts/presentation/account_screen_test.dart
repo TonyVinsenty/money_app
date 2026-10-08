@@ -11,6 +11,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_adjust_dialog.dart';
 import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
 import 'package:money_app/features/accounts/presentation/account_screen.dart';
@@ -72,6 +73,16 @@ Future<void> tapKey(WidgetTester tester, Key key) async {
 
 String? totalText(WidgetTester tester) =>
     tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data;
+
+/// Репозиторий, потоки которого ничего не отдают: счёт «ещё грузится».
+class _NeverLoadedRepository extends Fake implements AccountsRepository {
+  @override
+  Stream<List<Account>> watchAll() => StreamController<List<Account>>().stream;
+
+  @override
+  Stream<Map<String, Money>> watchBalances({required String currency}) =>
+      StreamController<Map<String, Money>>().stream;
+}
 
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
@@ -277,6 +288,73 @@ void main() {
       expect(find.text(accountRestoreDuplicateText), findsOneWidget);
       expect(repo.all.first.isArchived, isTrue);
     });
+  });
+
+  testWidgets('кнопки экрана не ниже 48 dp', (tester) async {
+    final repo = InMemoryAccountsRepository([acc('a', 'Карта')]);
+    await pumpTab(tester, repo);
+    await openAccount(tester, 'Карта');
+    for (final key in [
+      AccountScreen.editKey,
+      AccountScreen.adjustKey,
+      AccountScreen.archiveKey,
+    ]) {
+      expect(
+        tester.getSize(find.byKey(key)).height,
+        greaterThanOrEqualTo(48),
+        reason: '$key',
+      );
+    }
+  });
+
+  testWidgets('диалог остатка: символ валюты виден, подзаголовок долга', (
+    tester,
+  ) async {
+    final repo = InMemoryAccountsRepository([acc('a', 'Карта')]);
+    await pumpTab(tester, repo);
+    await openAccount(tester, 'Карта');
+    await tapKey(tester, AccountScreen.adjustKey);
+    await tester.enterText(find.byKey(AccountAdjustDialog.fieldKey), '');
+    await tester.pump();
+    expect(find.text('₽'), findsOneWidget);
+    expect(find.text(accountFormMinusHelper), findsOneWidget);
+  });
+
+  testWidgets('«0» и «Минус (долг)» в диалоге: остаток 0 без минуса', (
+    tester,
+  ) async {
+    final repo = InMemoryAccountsRepository([acc('a', 'Карта', opening: 5000)]);
+    await pumpTab(tester, repo);
+    await openAccount(tester, 'Карта');
+    await tapKey(tester, AccountScreen.adjustKey);
+    await tester.enterText(find.byKey(AccountAdjustDialog.fieldKey), '0');
+    await tapKey(tester, AccountAdjustDialog.minusKey);
+    await tapKey(tester, AccountAdjustDialog.saveKey);
+    expect(repo.all.single.openingBalance.minorUnits, 0);
+    final shown = tester
+        .widget<Text>(find.byKey(AccountScreen.balanceKey))
+        .data!;
+    expect(shown, formatMoney(rub(0)));
+    expect(shown.contains('\u2212'), isFalse);
+  });
+
+  testWidgets('счёт ещё не загружен: индикатор загрузки', (tester) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: AccountScreen(
+          accounts: _NeverLoadedRepository(),
+          accountId: 'a',
+          currency: 'RUB',
+          onEdit: (_) async {},
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 
   testWidgets('360 dp и шрифт 200 %: экран и диалоги без переполнения', (

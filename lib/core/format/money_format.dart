@@ -22,6 +22,11 @@ const Map<String, String> _currencySymbols = <String, String>{
   'EUR': '€',
 };
 
+/// Символ валюты для показа: «₽» для RUB, «$» для USD, «€» для EUR; для
+/// остальных кодов — сам код.
+String currencySymbol(String currency) =>
+    _currencySymbols[currency] ?? currency;
+
 /// Форматирует сумму для показа: «12 345,67 ₽».
 ///
 /// Всегда две цифры после запятой и всегда разделитель разрядов. Отрицательная
@@ -53,7 +58,7 @@ String formatMoney(Money money, {bool withCurrencySymbol = true}) {
   if (withCurrencySymbol) {
     buffer
       ..write(_nbsp)
-      ..write(_currencySymbols[money.currency] ?? money.currency);
+      ..write(currencySymbol(money.currency));
   }
   return buffer.toString();
 }

@@ -46,9 +46,9 @@ String accountArchiveDialogText(Money balance) =>
 
 String accountArchivedMessage(String name) => 'Счёт «$name» в архиве';
 
-/// Подпись значка в сетке для скринридера: «Иконка: Карта, выбрана».
-String accountFormIconSemantics(String label, {required bool selected}) =>
-    selected ? 'Иконка: $label, выбрана' : 'Иконка: $label';
+/// Подпись значка в сетке для скринридера: «Иконка: Карта». Выбранность
+/// сообщает отдельный признак `selected`, в текст её не кладём.
+String accountFormIconSemantics(String label) => 'Иконка: $label';
 
 /// Текст ошибки по нарушенному правилу счёта. Про имя и значок — понятные
 /// фразы; «не должно случаться» — общий текст сбоя записи.

@@ -6,6 +6,7 @@ import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -150,6 +151,83 @@ void main() {
         tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data,
         formatMoney(rub(-100000)),
       );
+    });
+
+    testWidgets('«0» и «Минус (долг)» сохраняются как 0 без минуса', (
+      tester,
+    ) async {
+      final repo = InMemoryAccountsRepository();
+      await pumpTab(tester, repo);
+      await openForm(tester);
+      await typeName(tester, 'Копилка');
+      await tester.enterText(
+        find.byKey(AccountFormScreen.balanceFieldKey),
+        '0',
+      );
+      await tester.tap(find.byKey(AccountFormScreen.minusSwitchKey));
+      await tester.pump();
+      await save(tester);
+
+      expect(repo.all.single.openingBalance.minorUnits, 0);
+      final shown = tester
+          .widget<Text>(find.byKey(AccountsSection.totalKey))
+          .data!;
+      expect(shown, formatMoney(rub(0)));
+      expect(shown.contains('\u2212'), isFalse);
+    });
+
+    testWidgets('символ валюты виден при пустом поле; значки 4 x 2, подписи', (
+      tester,
+    ) async {
+      final repo = InMemoryAccountsRepository();
+      await pumpTab(tester, repo);
+      await openForm(tester);
+      expect(find.text('₽'), findsOneWidget);
+
+      double top(String key) =>
+          tester.getTopLeft(find.byKey(ValueKey('icon-$key'))).dy;
+      final firstRow = ['card', 'cash', 'wallet', 'bank'];
+      final secondRow = ['piggy', 'deposit', 'credit', 'other'];
+      for (final k in firstRow) {
+        expect(top(k), top('card'));
+      }
+      for (final k in secondRow) {
+        expect(top(k), top('piggy'));
+      }
+      expect(top('piggy'), greaterThan(top('card')));
+      for (final k in [...firstRow, ...secondRow]) {
+        final size = tester.getSize(find.byKey(ValueKey('icon-$k')));
+        expect(size.width, greaterThanOrEqualTo(48));
+        expect(size.height, greaterThanOrEqualTo(48));
+      }
+      // Подпись-подсказка у каждого значка.
+      for (final option in accountIconOptions) {
+        expect(find.byTooltip(option.label), findsOneWidget);
+      }
+    });
+
+    testWidgets('семантика значка: «выбрана» не в подписи, а в selected', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final repo = InMemoryAccountsRepository();
+      await pumpTab(tester, repo);
+      await openForm(tester);
+      expect(find.bySemanticsLabel('Иконка: Карта'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('выбрана')), findsNothing);
+      expect(
+        tester.getSemantics(find.byKey(const ValueKey('icon-card'))),
+        matchesSemantics(
+          label: 'Иконка: Карта',
+          isButton: true,
+          isSelected: true,
+          hasSelectedState: true,
+          hasTapAction: true,
+          hasEnabledState: false,
+          isEnabled: false,
+        ),
+      );
+      handle.dispose();
     });
 
     testWidgets('пустое имя: текст под полем, счёт не создан', (tester) async {

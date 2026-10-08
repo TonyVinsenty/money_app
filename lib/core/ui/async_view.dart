@@ -1,4 +1,20 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
+
+/// Индикатор загрузки по центру: для `loadingBuilder`, когда пустое место
+/// выглядело бы как зависший экран.
+class AsyncLoading extends StatelessWidget {
+  const AsyncLoading({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: CircularProgressIndicator(),
+      ),
+    );
+  }
+}
 
 /// Показывает данные из потока и берёт на себя три «служебных» состояния
 /// (ADR 0002, «`AsyncView`»).
