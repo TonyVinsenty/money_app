@@ -20,6 +20,7 @@ import 'package:money_app/features/categories/presentation/category_form_screen.
 import 'package:money_app/features/categories/presentation/subcategories_screen.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/presentation/csv_import_screen.dart';
+import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -72,11 +73,16 @@ final class AccountRouteArguments {
     required this.accounts,
     required this.idGenerator,
     required this.accountId,
+    this.settings,
   });
 
   final AccountsRepository accounts;
   final IdGenerator idGenerator;
   final String accountId;
+
+  /// Настройки: из них экран берёт основной счёт и основную валюту и в них
+  /// записывает выбор основного счёта. Без них кнопки «Сделать основным» нет.
+  final AppSettingsController? settings;
 }
 
 /// Аргументы маршрута [AppRoutes.accountForm]. Если [editing] задан, форма
@@ -87,12 +93,16 @@ final class AccountFormRouteArguments {
     required this.idGenerator,
     required this.currency,
     this.editing,
+    this.onCreated,
   });
 
   final AccountsRepository accounts;
   final IdGenerator idGenerator;
   final String currency;
   final Account? editing;
+
+  /// Вызывается после создания нового счёта (см. `AccountFormScreen`).
+  final Future<void> Function(Account created)? onCreated;
 }
 
 /// Аргументы маршрута [AppRoutes.csvImport]: путь к копии файла и сервисы
@@ -433,6 +443,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           idGenerator: arguments.idGenerator,
           currency: arguments.currency,
           editing: arguments.editing,
+          onCreated: arguments.onCreated,
         ),
       );
     case AppRoutes.account:
@@ -447,19 +458,38 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
       }
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (context) => AccountScreen(
-          accounts: arguments.accounts,
-          accountId: arguments.accountId,
-          onEdit: (account) => Navigator.of(context).pushNamed<void>(
-            AppRoutes.accountForm,
-            arguments: AccountFormRouteArguments(
-              accounts: arguments.accounts,
-              idGenerator: arguments.idGenerator,
-              currency: account.currency,
-              editing: account,
+        builder: (context) {
+          final appSettings = arguments.settings;
+          Widget screen(String? defaultId, String mainCurrency) =>
+              AccountScreen(
+                accounts: arguments.accounts,
+                accountId: arguments.accountId,
+                defaultAccountId: defaultId,
+                mainCurrency: mainCurrency,
+                onMakeDefault: appSettings == null
+                    ? null
+                    : (account) => appSettings.setDefaultAccountId(account.id),
+                onEdit: (account) => Navigator.of(context).pushNamed<void>(
+                  AppRoutes.accountForm,
+                  arguments: AccountFormRouteArguments(
+                    accounts: arguments.accounts,
+                    idGenerator: arguments.idGenerator,
+                    currency: account.currency,
+                    editing: account,
+                  ),
+                ),
+              );
+          if (appSettings == null) return screen(null, 'RUB');
+          // Экран следит за настройками: смена основного счёта или валюты
+          // видна сразу.
+          return ListenableBuilder(
+            listenable: appSettings,
+            builder: (_, _) => screen(
+              appSettings.defaultAccountId,
+              appSettings.mainCurrencyCode,
             ),
-          ),
-        ),
+          );
+        },
       );
     case AppRoutes.categoryForm:
       final arguments = settings.arguments;

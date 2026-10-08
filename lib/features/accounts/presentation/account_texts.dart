@@ -52,6 +52,12 @@ const String accountUndoAction = 'Вернуть';
 const String accountRestoreDuplicateText =
     'Счёт с таким именем уже есть. Переименуйте его или оставьте этот в архиве';
 
+// Основной счёт (тексты утверждены).
+const String accountDefaultLabel = 'Основной';
+const String accountMakeDefaultButton = 'Сделать основным';
+const String accountDefaultHint =
+    'Основной счёт — выбирается сам при вводе операции';
+
 String accountArchiveDialogTitle(String name) => 'Отправить «$name» в архив?';
 
 String accountArchiveDialogText(Money balance, CurrencyInfo currency) =>
@@ -86,8 +92,14 @@ String accountRuleMessage(AccountRule rule) {
 
 /// Строка счёта для скринридера: «Карта, остаток 12000 рублей». «Минус» для
 /// отрицательной суммы добавляет `spokenMoney`.
-String accountRowSemantics(String name, Money balance, CurrencyInfo currency) =>
-    '$name, остаток ${spokenMoney(balance, currency: currency)}';
+String accountRowSemantics(
+  String name,
+  Money balance,
+  CurrencyInfo currency, {
+  bool isDefault = false,
+}) =>
+    '$name, ${isDefault ? 'основной, ' : ''}'
+    'остаток ${spokenMoney(balance, currency: currency)}';
 
 /// Одна сумма «Всего» для скринридера; для плюса приставку ставим тут, как в
 /// центре кольца «Главной».

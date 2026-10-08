@@ -102,6 +102,57 @@ void main() {
     },
   );
 
+  group('основной счёт', () {
+    test('по умолчанию нет; запись и чтение; уведомление', () async {
+      final repo = _FakeSettingsRepository();
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      expect(controller.defaultAccountId, isNull);
+      var notified = 0;
+      controller.addListener(() => notified++);
+
+      expect(await controller.setDefaultAccountId('acc-1'), isTrue);
+      expect(controller.defaultAccountId, 'acc-1');
+      expect(repo.data[defaultAccountSettingKey], 'acc-1');
+      expect(notified, 1);
+      // То же значение: без записи и уведомления.
+      expect(await controller.setDefaultAccountId('acc-1'), isTrue);
+      expect(repo.writes, 1);
+      expect(notified, 1);
+
+      final second = AppSettingsController();
+      addTearDown(second.dispose);
+      await second.attach(repo);
+      expect(second.defaultAccountId, 'acc-1');
+    });
+
+    test('сбой записи: значение прежнее, результат false', () async {
+      final repo = _FakeSettingsRepository(failWrite: true);
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      expect(await controller.setDefaultAccountId('acc-1'), isFalse);
+      expect(controller.defaultAccountId, isNull);
+    });
+
+    test('пустое и испорченное значение в базе - основного нет', () async {
+      for (final bad in ['', null]) {
+        final repo = _FakeSettingsRepository();
+        if (bad != null) repo.data[defaultAccountSettingKey] = bad;
+        final controller = AppSettingsController();
+        addTearDown(controller.dispose);
+        await controller.attach(repo);
+        expect(controller.defaultAccountId, isNull, reason: '$bad');
+      }
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(_FakeSettingsRepository(failRead: true));
+      expect(controller.defaultAccountId, isNull);
+      expect(await controller.setDefaultAccountId(''), isFalse);
+    });
+  });
+
   test('по умолчанию тема следует системной', () {
     final controller = AppSettingsController();
     addTearDown(controller.dispose);

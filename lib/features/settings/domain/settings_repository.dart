@@ -5,6 +5,9 @@ const themeModeSettingKey = 'theme_mode';
 /// каталога (`RUB`, `USD`).
 const mainCurrencySettingKey = 'main_currency';
 
+/// Ключ настройки «основной счёт». Значение — id счёта.
+const defaultAccountSettingKey = 'default_account_id';
+
 /// Ключ настройки «последняя выгрузка CSV». Значение — локальный день
 /// ГГГГММДД строкой (например, `20261007`).
 const lastExportDaySettingKey = 'last_export_day';

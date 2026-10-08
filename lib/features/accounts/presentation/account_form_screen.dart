@@ -31,8 +31,13 @@ class AccountFormScreen extends StatefulWidget {
     required this.currency,
     this.currencyInfo,
     this.editing,
+    this.onCreated,
     super.key,
   });
+
+  /// Вызывается после сохранения нового счёта (не при правке); сбой в ней
+  /// форму не ломает.
+  final Future<void> Function(Account created)? onCreated;
 
   final AccountsRepository accounts;
   final IdGenerator idGenerator;
@@ -168,16 +173,18 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
         );
       } else {
         final sortOrder = await widget.accounts.nextSortOrder();
-        await widget.accounts.create(
-          Account(
-            id: widget.idGenerator.newId(),
-            name: _name.text,
-            iconKey: _iconKey,
-            openingBalance: opening,
-            sortOrder: sortOrder,
-            currencyDigits: _info.digits,
-          ),
+        final created = Account(
+          id: widget.idGenerator.newId(),
+          name: _name.text,
+          iconKey: _iconKey,
+          openingBalance: opening,
+          sortOrder: sortOrder,
+          currencyDigits: _info.digits,
         );
+        await widget.accounts.create(created);
+        // Счёт уже сохранён: форма не ждёт довеска (основной счёт) и не
+        // падает от его сбоя.
+        unawaited(widget.onCreated?.call(created).catchError((Object _) {}));
       }
       if (!mounted) return;
       navigator.pop();

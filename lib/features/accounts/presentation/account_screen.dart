@@ -10,6 +10,7 @@ import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/domain/default_account.dart';
 import 'package:money_app/features/accounts/presentation/account_adjust_dialog.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 
@@ -22,8 +23,22 @@ class AccountScreen extends StatefulWidget {
     required this.accounts,
     required this.accountId,
     required this.onEdit,
+    this.defaultAccountId,
+    this.mainCurrency = 'RUB',
+    this.onMakeDefault,
     super.key,
   });
+
+  /// Id основного счёта из настроек и основная валюта: вместе они решают,
+  /// основной ли этот счёт и можно ли его таким сделать.
+  final String? defaultAccountId;
+  final String mainCurrency;
+
+  /// Делает счёт основным; `false` - запись не удалась. Без неё кнопки нет.
+  final Future<bool> Function(Account account)? onMakeDefault;
+
+  static const makeDefaultKey = ValueKey('account-make-default');
+  static const defaultHintKey = ValueKey('account-default-hint');
 
   final AccountsRepository accounts;
   final String accountId;
@@ -81,6 +96,12 @@ class _AccountScreenState extends State<AccountScreen> {
     } on Object {
       _showMessage(messenger, categorySaveFailedText);
     }
+  }
+
+  Future<void> _makeDefault(Account account) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await widget.onMakeDefault!(account);
+    if (!ok && mounted) _showMessage(messenger, categorySaveFailedText);
   }
 
   Future<void> _restore(
@@ -194,6 +215,17 @@ class _AccountScreenState extends State<AccountScreen> {
     final buttonStyle = ButtonStyle(
       minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
     );
+    final isDefault =
+        resolveDefaultAccount(
+          [account],
+          widget.defaultAccountId,
+          widget.mainCurrency,
+        ) !=
+        null;
+    final canMakeDefault =
+        !isDefault &&
+        widget.onMakeDefault != null &&
+        account.currency == widget.mainCurrency;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -210,6 +242,7 @@ class _AccountScreenState extends State<AccountScreen> {
             account.name,
             balance,
             account.currencyInfo,
+            isDefault: isDefault,
           ),
           excludeSemantics: true,
           child: Text(
@@ -220,6 +253,16 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
           ),
         ),
+        if (isDefault) ...[
+          const SizedBox(height: 4),
+          Text(
+            accountDefaultHint,
+            key: AccountScreen.defaultHintKey,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         // Все три кнопки не ниже 48 dp (зона нажатия), вид у них разный
         // намеренно: главное действие, второстепенное, редкое.
@@ -236,6 +279,15 @@ class _AccountScreenState extends State<AccountScreen> {
           onPressed: () => unawaited(_guarded(() => _adjust(account, balance))),
           child: const Text(accountAdjustButton),
         ),
+        if (canMakeDefault) ...[
+          const SizedBox(height: 8),
+          OutlinedButton(
+            key: AccountScreen.makeDefaultKey,
+            style: buttonStyle,
+            onPressed: () => unawaited(_guarded(() => _makeDefault(account))),
+            child: const Text(accountMakeDefaultButton),
+          ),
+        ],
         const SizedBox(height: 8),
         TextButton(
           key: AccountScreen.archiveKey,

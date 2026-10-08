@@ -59,6 +59,7 @@ class AppSettingsController extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   DateOnly? _lastExportDay;
   CurrencyInfo _mainCurrency = _defaultMainCurrency;
+  String? _defaultAccountId;
   SettingsRepository? _repository;
 
   ThemeMode get themeMode => _themeMode;
@@ -93,6 +94,29 @@ class AppSettingsController extends ChangeNotifier {
     return true;
   }
 
+  /// Id основного счёта, как он записан (счёта может уже не быть, он может
+  /// быть в архиве или в другой валюте: годен ли он, решает вызывающий).
+  String? get defaultAccountId => _defaultAccountId;
+
+  /// Запоминает основной счёт после успешной записи; `false` - запись не
+  /// удалась, значение прежнее.
+  Future<bool> setDefaultAccountId(String id) async {
+    if (id.isEmpty) return false;
+    if (id == _defaultAccountId) return true;
+    final repository = _repository;
+    if (repository != null) {
+      try {
+        await repository.write(defaultAccountSettingKey, id);
+      } catch (error) {
+        debugPrint('Не удалось сохранить основной счёт: $error');
+        return false;
+      }
+    }
+    _defaultAccountId = id;
+    notifyListeners();
+    return true;
+  }
+
   /// День последней выгрузки CSV или `null`, если её ещё не было.
   DateOnly? get lastExportDay => _lastExportDay;
 
@@ -118,6 +142,17 @@ class AppSettingsController extends ChangeNotifier {
       }
     } catch (error) {
       debugPrint('Не удалось прочитать основную валюту из настроек: $error');
+    }
+    try {
+      final stored = await repository.read(defaultAccountSettingKey);
+      if (_repository != repository) return;
+      final id = (stored == null || stored.isEmpty) ? null : stored;
+      if (id != _defaultAccountId) {
+        _defaultAccountId = id;
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint('Не удалось прочитать основной счёт из настроек: $error');
     }
     try {
       final stored = await repository.read(lastExportDaySettingKey);

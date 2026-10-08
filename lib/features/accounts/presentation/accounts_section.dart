@@ -7,6 +7,7 @@ import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_balances.dart';
+import 'package:money_app/features/accounts/domain/default_account.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 
 /// Секция «Счета» вкладки «Баланс»: «Всего на счетах», список счетов с
@@ -22,8 +23,13 @@ class AccountsSection extends StatelessWidget {
     required this.mainCurrency,
     required this.onAddAccount,
     required this.onOpenAccount,
+    this.defaultAccountId,
     super.key,
   });
+
+  /// Id основного счёта из настроек; годен ли он, section решает сама
+  /// (не в архиве, основная валюта).
+  final String? defaultAccountId;
 
   final Stream<List<Account>> accounts;
   final Stream<Map<String, Money>> balances;
@@ -116,7 +122,18 @@ class AccountsSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   for (final a in shown)
-                    _AccountRow(a, byId[a.id]!, () => onOpenAccount(a)),
+                    _AccountRow(
+                      a,
+                      byId[a.id]!,
+                      () => onOpenAccount(a),
+                      isDefault:
+                          resolveDefaultAccount(
+                            shown,
+                            defaultAccountId,
+                            mainCurrency,
+                          )?.id ==
+                          a.id,
+                    ),
                 ],
               );
             },
@@ -189,8 +206,14 @@ class _Totals extends StatelessWidget {
 }
 
 class _AccountRow extends StatelessWidget {
-  const _AccountRow(this.account, this.balance, this.onTap);
+  const _AccountRow(
+    this.account,
+    this.balance,
+    this.onTap, {
+    required this.isDefault,
+  });
 
+  final bool isDefault;
   final Account account;
   final Money balance;
   final VoidCallback onTap;
@@ -200,7 +223,12 @@ class _AccountRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       container: true,
-      label: accountRowSemantics(account.name, balance, account.currencyInfo),
+      label: accountRowSemantics(
+        account.name,
+        balance,
+        account.currencyInfo,
+        isDefault: isDefault,
+      ),
       button: true,
       onTap: onTap,
       excludeSemantics: true,
@@ -218,11 +246,23 @@ class _AccountRow extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    account.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyLarge,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        account.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      if (isDefault)
+                        Text(
+                          accountDefaultLabel,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 12),
