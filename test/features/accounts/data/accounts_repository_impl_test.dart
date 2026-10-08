@@ -76,6 +76,42 @@ void main() {
       },
     );
 
+    test('an account with 4 decimals is saved, read back and kept by '
+        'update', () async {
+      final custom = Account(
+        id: 'c',
+        name: 'Custom',
+        iconKey: 'card',
+        openingBalance: Money.fromMinor(123456, 'ABC'),
+        sortOrder: 0,
+        currencyDigits: 4,
+      );
+      await repo.create(custom);
+      expect((await raw('c')).currencyDigits, 4);
+      expect(await repo.findById('c'), custom);
+      expect((await repo.findById('c'))!.currencyDigits, 4);
+
+      await repo.update('c', name: 'Renamed', iconKey: 'wallet');
+      expect((await raw('c')).currencyDigits, 4);
+      expect((await repo.findById('c'))!.currencyDigits, 4);
+    });
+
+    test('a USDT account with 8 decimals is saved', () async {
+      await repo.create(
+        Account(
+          id: 'u',
+          name: 'Tether',
+          iconKey: 'card',
+          openingBalance: Money.fromMinor(1, 'USDT'),
+          sortOrder: 0,
+          currencyDigits: 8,
+        ),
+      );
+      final row = await raw('u');
+      expect(row.currency, 'USDT');
+      expect(row.currencyDigits, 8);
+    });
+
     test('create rejects a duplicate name among live accounts', () async {
       await repo.create(account('a', name: 'Card'));
       await expectLater(
@@ -246,9 +282,9 @@ void main() {
 
     test('a corrupted row is DataCorruptedException', () async {
       await db.customStatement(
-        'INSERT INTO accounts (id, name, icon_key, currency, '
+        'INSERT INTO accounts (id, name, icon_key, currency, currency_digits, '
         'opening_balance_minor, sort_order, created_at, updated_at) '
-        "VALUES ('bad', 'Bad', 'card', 'RUB', 0, -1, 1, 1)",
+        "VALUES ('bad', 'Bad', 'card', 'RUB', 2, 0, -1, 1, 1)",
       );
       await expectLater(
         repo.findById('bad'),
@@ -270,6 +306,7 @@ void main() {
       name: 'Card',
       iconKey: iconKey,
       currency: 'RUB',
+      currencyDigits: 2,
       openingBalanceMinor: -1234,
       sortOrder: 2,
       archivedAt: archivedAt,
@@ -281,6 +318,7 @@ void main() {
       final a = accountFromRow(row(archivedAt: 1700000000000));
       expect(a.openingBalance, Money.fromMinor(-1234, 'RUB'));
       expect(a.sortOrder, 2);
+      expect(a.currencyDigits, 2);
       expect(a.archivedAt, DateTime.utc(2023, 11, 14, 22, 13, 20));
       expect(a.archivedAt!.isUtc, isTrue);
     });

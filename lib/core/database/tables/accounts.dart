@@ -21,8 +21,11 @@ class Accounts extends Table {
   /// Строковый ключ значка из постоянного набора.
   TextColumn get iconKey => text()();
 
-  /// Трёхбуквенный код валюты, например `RUB`.
+  /// Код валюты, 3-10 символов, например `RUB` или `USDT` (ADR 0010, п. 16.4).
   TextColumn get currency => text()();
+
+  /// Знаков после запятой у валюты счёта, 0-8 (ADR 0010, п. 16.4).
+  IntColumn get currencyDigits => integer()();
 
   /// Стартовый остаток в копейках; знак хранится в самом числе.
   IntColumn get openingBalanceMinor => integer()();
@@ -47,6 +50,9 @@ class Accounts extends Table {
   List<String> get customConstraints => [
     'CHECK (length(name) BETWEEN 1 AND 40)',
     "CHECK (icon_key <> '')",
-    "CHECK (currency GLOB '[A-Z][A-Z][A-Z]')",
+    // GLOB чувствителен к регистру; код: 3-10 символов, первая буква.
+    'CHECK (length(currency) BETWEEN 3 AND 10 '
+        "AND currency GLOB '[A-Z]*' AND currency NOT GLOB '*[^A-Z0-9]*')",
+    'CHECK (currency_digits BETWEEN 0 AND 8)',
   ];
 }

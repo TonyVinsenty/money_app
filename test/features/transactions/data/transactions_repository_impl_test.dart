@@ -183,6 +183,7 @@ void main() {
               name: 'Account $id',
               iconKey: 'icon',
               currency: currency,
+              currencyDigits: 2,
               openingBalanceMinor: 0,
               sortOrder: 0,
               archivedAt: Value(archived ? 5 : null),
@@ -547,6 +548,25 @@ void main() {
           );
           expect(await rowCount(), 1);
         });
+
+        test(
+          'a non-ISO currency (USDT) is ArgumentError before writing',
+          () async {
+            await repo.add(tx('b'));
+            final usdt = tx('b', currency: 'USDT');
+            await expectLater(
+              repo.add(tx('a', currency: 'USDT')),
+              throwsArgumentError,
+            );
+            await expectLater(repo.update(usdt), throwsArgumentError);
+            await expectLater(
+              repo.addImported(tx('c', currency: 'USDT')),
+              throwsArgumentError,
+            );
+            expect(await rowCount(), 1);
+            expect((await rowOf('b')).currency, 'RUB');
+          },
+        );
 
         test('add to an archived account is accountArchived', () async {
           await insertAccount('arch', archived: true);
@@ -1256,7 +1276,7 @@ void main() {
       });
 
       test('a wrong currency code is an ArgumentError at once', () {
-        for (final code in ['rub', 'RU', 'RUBL', '', 'R1B']) {
+        for (final code in ['rub', 'RU', '1RU', 'RU-B', '', 'ABCDEFGHIJK']) {
           expect(
             () => repo.watchTotal(
               type: TransactionType.expense,

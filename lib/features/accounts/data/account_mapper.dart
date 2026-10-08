@@ -18,6 +18,7 @@ Account accountFromRow(AccountRow row) {
       iconKey: row.iconKey,
       openingBalance: Money.fromMinor(row.openingBalanceMinor, row.currency),
       sortOrder: row.sortOrder,
+      currencyDigits: row.currencyDigits,
       archivedAt: archivedAt == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(archivedAt, isUtc: true),
@@ -46,6 +47,7 @@ AccountsCompanion accountToCompanion(
     name: account.name,
     iconKey: account.iconKey,
     currency: account.openingBalance.currency,
+    currencyDigits: account.currencyDigits,
     openingBalanceMinor: account.openingBalance.minorUnits,
     sortOrder: account.sortOrder,
     createdAt: createdAt.toUtc().millisecondsSinceEpoch,

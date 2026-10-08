@@ -60,7 +60,8 @@ class Transfers extends Table {
   List<String> get customConstraints => [
     'CHECK (from_account_id <> to_account_id)',
     'CHECK (amount_minor > 0)',
-    "CHECK (currency GLOB '[A-Z][A-Z][A-Z]')",
+    'CHECK (length(currency) BETWEEN 3 AND 10 '
+        "AND currency GLOB '[A-Z]*' AND currency NOT GLOB '*[^A-Z0-9]*')",
     'CHECK (occurred_on BETWEEN 10101 AND 99991231)',
     'CHECK (note IS NULL OR length(note) BETWEEN 1 AND 200)',
   ];

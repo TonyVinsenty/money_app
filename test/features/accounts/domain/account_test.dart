@@ -56,6 +56,40 @@ void main() {
     });
   });
 
+  group('знаки валюты', () {
+    Account withDigits(int digits) => Account(
+      id: '1',
+      name: 'Карта',
+      iconKey: 'card',
+      openingBalance: Money.fromMinor(0, 'BTC'),
+      sortOrder: 0,
+      currencyDigits: digits,
+    );
+
+    test('по умолчанию 2, границы 0 и 8 можно', () {
+      expect(acc('1', 'Карта').currencyDigits, 2);
+      expect(withDigits(0).currencyDigits, 0);
+      expect(withDigits(8).currencyDigits, 8);
+    });
+
+    test('-1 и 9 — ArgumentError', () {
+      expect(() => withDigits(-1), throwsArgumentError);
+      expect(() => withDigits(9), throwsArgumentError);
+    });
+
+    test('участвуют в равенстве, копиях и toString', () {
+      expect(withDigits(4), withDigits(4));
+      expect(withDigits(4), isNot(withDigits(8)));
+      expect(withDigits(4).hashCode, withDigits(4).hashCode);
+      expect(withDigits(4).withName('Другая').currencyDigits, 4);
+      expect(
+        withDigits(4).archived(DateTime.utc(2026)).restored(),
+        withDigits(4),
+      );
+      expect(withDigits(4).toString(), contains('currencyDigits: 4'));
+    });
+  });
+
   group('остальные поля', () {
     test('пустой значок — ошибка', () {
       expectRule(() => acc('1', 'A', iconKey: ' '), AccountRule.emptyIconKey);

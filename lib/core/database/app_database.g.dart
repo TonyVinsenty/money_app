@@ -937,6 +937,17 @@ class $AccountsTable extends Accounts
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _currencyDigitsMeta = const VerificationMeta(
+    'currencyDigits',
+  );
+  @override
+  late final GeneratedColumn<int> currencyDigits = GeneratedColumn<int>(
+    'currency_digits',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _openingBalanceMinorMeta =
       const VerificationMeta('openingBalanceMinor');
   @override
@@ -1008,6 +1019,7 @@ class $AccountsTable extends Accounts
     name,
     iconKey,
     currency,
+    currencyDigits,
     openingBalanceMinor,
     sortOrder,
     archivedAt,
@@ -1055,6 +1067,17 @@ class $AccountsTable extends Accounts
       );
     } else if (isInserting) {
       context.missing(_currencyMeta);
+    }
+    if (data.containsKey('currency_digits')) {
+      context.handle(
+        _currencyDigitsMeta,
+        currencyDigits.isAcceptableOrUnknown(
+          data['currency_digits']!,
+          _currencyDigitsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_currencyDigitsMeta);
     }
     if (data.containsKey('opening_balance_minor')) {
       context.handle(
@@ -1128,6 +1151,10 @@ class $AccountsTable extends Accounts
         DriftSqlType.string,
         data['${effectivePrefix}currency'],
       )!,
+      currencyDigits: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}currency_digits'],
+      )!,
       openingBalanceMinor: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}opening_balance_minor'],
@@ -1169,8 +1196,11 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
   /// Строковый ключ значка из постоянного набора.
   final String iconKey;
 
-  /// Трёхбуквенный код валюты, например `RUB`.
+  /// Код валюты, 3-10 символов, например `RUB` или `USDT` (ADR 0010, п. 16.4).
   final String currency;
+
+  /// Знаков после запятой у валюты счёта, 0-8 (ADR 0010, п. 16.4).
+  final int currencyDigits;
 
   /// Стартовый остаток в копейках; знак хранится в самом числе.
   final int openingBalanceMinor;
@@ -1190,6 +1220,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     required this.name,
     required this.iconKey,
     required this.currency,
+    required this.currencyDigits,
     required this.openingBalanceMinor,
     required this.sortOrder,
     this.archivedAt,
@@ -1204,6 +1235,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     map['name'] = Variable<String>(name);
     map['icon_key'] = Variable<String>(iconKey);
     map['currency'] = Variable<String>(currency);
+    map['currency_digits'] = Variable<int>(currencyDigits);
     map['opening_balance_minor'] = Variable<int>(openingBalanceMinor);
     map['sort_order'] = Variable<int>(sortOrder);
     if (!nullToAbsent || archivedAt != null) {
@@ -1223,6 +1255,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       name: Value(name),
       iconKey: Value(iconKey),
       currency: Value(currency),
+      currencyDigits: Value(currencyDigits),
       openingBalanceMinor: Value(openingBalanceMinor),
       sortOrder: Value(sortOrder),
       archivedAt: archivedAt == null && nullToAbsent
@@ -1246,6 +1279,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       name: serializer.fromJson<String>(json['name']),
       iconKey: serializer.fromJson<String>(json['iconKey']),
       currency: serializer.fromJson<String>(json['currency']),
+      currencyDigits: serializer.fromJson<int>(json['currencyDigits']),
       openingBalanceMinor: serializer.fromJson<int>(
         json['openingBalanceMinor'],
       ),
@@ -1264,6 +1298,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       'name': serializer.toJson<String>(name),
       'iconKey': serializer.toJson<String>(iconKey),
       'currency': serializer.toJson<String>(currency),
+      'currencyDigits': serializer.toJson<int>(currencyDigits),
       'openingBalanceMinor': serializer.toJson<int>(openingBalanceMinor),
       'sortOrder': serializer.toJson<int>(sortOrder),
       'archivedAt': serializer.toJson<int?>(archivedAt),
@@ -1278,6 +1313,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     String? name,
     String? iconKey,
     String? currency,
+    int? currencyDigits,
     int? openingBalanceMinor,
     int? sortOrder,
     Value<int?> archivedAt = const Value.absent(),
@@ -1289,6 +1325,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     name: name ?? this.name,
     iconKey: iconKey ?? this.iconKey,
     currency: currency ?? this.currency,
+    currencyDigits: currencyDigits ?? this.currencyDigits,
     openingBalanceMinor: openingBalanceMinor ?? this.openingBalanceMinor,
     sortOrder: sortOrder ?? this.sortOrder,
     archivedAt: archivedAt.present ? archivedAt.value : this.archivedAt,
@@ -1302,6 +1339,9 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
       name: data.name.present ? data.name.value : this.name,
       iconKey: data.iconKey.present ? data.iconKey.value : this.iconKey,
       currency: data.currency.present ? data.currency.value : this.currency,
+      currencyDigits: data.currencyDigits.present
+          ? data.currencyDigits.value
+          : this.currencyDigits,
       openingBalanceMinor: data.openingBalanceMinor.present
           ? data.openingBalanceMinor.value
           : this.openingBalanceMinor,
@@ -1322,6 +1362,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           ..write('name: $name, ')
           ..write('iconKey: $iconKey, ')
           ..write('currency: $currency, ')
+          ..write('currencyDigits: $currencyDigits, ')
           ..write('openingBalanceMinor: $openingBalanceMinor, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('archivedAt: $archivedAt, ')
@@ -1338,6 +1379,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
     name,
     iconKey,
     currency,
+    currencyDigits,
     openingBalanceMinor,
     sortOrder,
     archivedAt,
@@ -1353,6 +1395,7 @@ class AccountRow extends DataClass implements Insertable<AccountRow> {
           other.name == this.name &&
           other.iconKey == this.iconKey &&
           other.currency == this.currency &&
+          other.currencyDigits == this.currencyDigits &&
           other.openingBalanceMinor == this.openingBalanceMinor &&
           other.sortOrder == this.sortOrder &&
           other.archivedAt == this.archivedAt &&
@@ -1366,6 +1409,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
   final Value<String> name;
   final Value<String> iconKey;
   final Value<String> currency;
+  final Value<int> currencyDigits;
   final Value<int> openingBalanceMinor;
   final Value<int> sortOrder;
   final Value<int?> archivedAt;
@@ -1378,6 +1422,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     this.name = const Value.absent(),
     this.iconKey = const Value.absent(),
     this.currency = const Value.absent(),
+    this.currencyDigits = const Value.absent(),
     this.openingBalanceMinor = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.archivedAt = const Value.absent(),
@@ -1391,6 +1436,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     required String name,
     required String iconKey,
     required String currency,
+    required int currencyDigits,
     required int openingBalanceMinor,
     required int sortOrder,
     this.archivedAt = const Value.absent(),
@@ -1402,6 +1448,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
        name = Value(name),
        iconKey = Value(iconKey),
        currency = Value(currency),
+       currencyDigits = Value(currencyDigits),
        openingBalanceMinor = Value(openingBalanceMinor),
        sortOrder = Value(sortOrder),
        createdAt = Value(createdAt),
@@ -1411,6 +1458,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     Expression<String>? name,
     Expression<String>? iconKey,
     Expression<String>? currency,
+    Expression<int>? currencyDigits,
     Expression<int>? openingBalanceMinor,
     Expression<int>? sortOrder,
     Expression<int>? archivedAt,
@@ -1424,6 +1472,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
       if (name != null) 'name': name,
       if (iconKey != null) 'icon_key': iconKey,
       if (currency != null) 'currency': currency,
+      if (currencyDigits != null) 'currency_digits': currencyDigits,
       if (openingBalanceMinor != null)
         'opening_balance_minor': openingBalanceMinor,
       if (sortOrder != null) 'sort_order': sortOrder,
@@ -1440,6 +1489,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     Value<String>? name,
     Value<String>? iconKey,
     Value<String>? currency,
+    Value<int>? currencyDigits,
     Value<int>? openingBalanceMinor,
     Value<int>? sortOrder,
     Value<int?>? archivedAt,
@@ -1453,6 +1503,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
       name: name ?? this.name,
       iconKey: iconKey ?? this.iconKey,
       currency: currency ?? this.currency,
+      currencyDigits: currencyDigits ?? this.currencyDigits,
       openingBalanceMinor: openingBalanceMinor ?? this.openingBalanceMinor,
       sortOrder: sortOrder ?? this.sortOrder,
       archivedAt: archivedAt ?? this.archivedAt,
@@ -1477,6 +1528,9 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
     }
     if (currency.present) {
       map['currency'] = Variable<String>(currency.value);
+    }
+    if (currencyDigits.present) {
+      map['currency_digits'] = Variable<int>(currencyDigits.value);
     }
     if (openingBalanceMinor.present) {
       map['opening_balance_minor'] = Variable<int>(openingBalanceMinor.value);
@@ -1509,6 +1563,7 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
           ..write('name: $name, ')
           ..write('iconKey: $iconKey, ')
           ..write('currency: $currency, ')
+          ..write('currencyDigits: $currencyDigits, ')
           ..write('openingBalanceMinor: $openingBalanceMinor, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('archivedAt: $archivedAt, ')
@@ -3872,6 +3927,7 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   required String name,
   required String iconKey,
   required String currency,
+  required int currencyDigits,
   required int openingBalanceMinor,
   required int sortOrder,
   Value<int?> archivedAt,
@@ -3885,6 +3941,7 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<String> name,
   Value<String> iconKey,
   Value<String> currency,
+  Value<int> currencyDigits,
   Value<int> openingBalanceMinor,
   Value<int> sortOrder,
   Value<int?> archivedAt,
@@ -3981,6 +4038,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<String> get currency => $composableBuilder(
     column: $table.currency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get currencyDigits => $composableBuilder(
+    column: $table.currencyDigits,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4119,6 +4181,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get currencyDigits => $composableBuilder(
+    column: $table.currencyDigits,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get openingBalanceMinor => $composableBuilder(
     column: $table.openingBalanceMinor,
     builder: (column) => ColumnOrderings(column),
@@ -4170,6 +4237,11 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<String> get currency =>
       $composableBuilder(column: $table.currency, builder: (column) => column);
+
+  GeneratedColumn<int> get currencyDigits => $composableBuilder(
+    column: $table.currencyDigits,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get openingBalanceMinor => $composableBuilder(
     column: $table.openingBalanceMinor,
@@ -4305,6 +4377,7 @@ class $$AccountsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> iconKey = const Value.absent(),
                 Value<String> currency = const Value.absent(),
+                Value<int> currencyDigits = const Value.absent(),
                 Value<int> openingBalanceMinor = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<int?> archivedAt = const Value.absent(),
@@ -4317,6 +4390,7 @@ class $$AccountsTableTableManager
                 name: name,
                 iconKey: iconKey,
                 currency: currency,
+                currencyDigits: currencyDigits,
                 openingBalanceMinor: openingBalanceMinor,
                 sortOrder: sortOrder,
                 archivedAt: archivedAt,
@@ -4331,6 +4405,7 @@ class $$AccountsTableTableManager
                 required String name,
                 required String iconKey,
                 required String currency,
+                required int currencyDigits,
                 required int openingBalanceMinor,
                 required int sortOrder,
                 Value<int?> archivedAt = const Value.absent(),
@@ -4343,6 +4418,7 @@ class $$AccountsTableTableManager
                 name: name,
                 iconKey: iconKey,
                 currency: currency,
+                currencyDigits: currencyDigits,
                 openingBalanceMinor: openingBalanceMinor,
                 sortOrder: sortOrder,
                 archivedAt: archivedAt,

@@ -238,6 +238,16 @@
             "dsl_features": []
           },
           {
+            "name": "currency_digits",
+            "getter_name": "currencyDigits",
+            "moor_type": "int",
+            "nullable": false,
+            "customConstraints": null,
+            "default_dart": null,
+            "default_client_dart": null,
+            "dsl_features": []
+          },
+          {
             "name": "opening_balance_minor",
             "getter_name": "openingBalanceMinor",
             "moor_type": "int",
@@ -303,7 +313,8 @@
         "constraints": [
           "CHECK (length(name) BETWEEN 1 AND 40)",
           "CHECK (icon_key <> '')",
-          "CHECK (currency GLOB '[A-Z][A-Z][A-Z]')"
+          "CHECK (length(currency) BETWEEN 3 AND 10 AND currency GLOB '[A-Z]*' AND currency NOT GLOB '*[^A-Z0-9]*')",
+          "CHECK (currency_digits BETWEEN 0 AND 8)"
         ],
         "explicit_pk": [
           "id"
@@ -684,7 +695,7 @@
         "constraints": [
           "CHECK (from_account_id <> to_account_id)",
           "CHECK (amount_minor > 0)",
-          "CHECK (currency GLOB '[A-Z][A-Z][A-Z]')",
+          "CHECK (length(currency) BETWEEN 3 AND 10 AND currency GLOB '[A-Z]*' AND currency NOT GLOB '*[^A-Z0-9]*')",
           "CHECK (occurred_on BETWEEN 10101 AND 99991231)",
           "CHECK (note IS NULL OR length(note) BETWEEN 1 AND 200)"
         ],
@@ -844,7 +855,7 @@
       "sql": [
         {
           "dialect": "sqlite",
-          "sql": "CREATE TABLE IF NOT EXISTS \"accounts\" (\"id\" TEXT NOT NULL, \"name\" TEXT NOT NULL, \"icon_key\" TEXT NOT NULL, \"currency\" TEXT NOT NULL, \"opening_balance_minor\" INTEGER NOT NULL, \"sort_order\" INTEGER NOT NULL, \"archived_at\" INTEGER NULL, \"created_at\" INTEGER NOT NULL, \"updated_at\" INTEGER NOT NULL, \"deleted_at\" INTEGER NULL, PRIMARY KEY (\"id\"), CHECK (length(name) BETWEEN 1 AND 40), CHECK (icon_key <> ''), CHECK (currency GLOB '[A-Z][A-Z][A-Z]'));"
+          "sql": "CREATE TABLE IF NOT EXISTS \"accounts\" (\"id\" TEXT NOT NULL, \"name\" TEXT NOT NULL, \"icon_key\" TEXT NOT NULL, \"currency\" TEXT NOT NULL, \"currency_digits\" INTEGER NOT NULL, \"opening_balance_minor\" INTEGER NOT NULL, \"sort_order\" INTEGER NOT NULL, \"archived_at\" INTEGER NULL, \"created_at\" INTEGER NOT NULL, \"updated_at\" INTEGER NOT NULL, \"deleted_at\" INTEGER NULL, PRIMARY KEY (\"id\"), CHECK (length(name) BETWEEN 1 AND 40), CHECK (icon_key <> ''), CHECK (length(currency) BETWEEN 3 AND 10 AND currency GLOB '[A-Z]*' AND currency NOT GLOB '*[^A-Z0-9]*'), CHECK (currency_digits BETWEEN 0 AND 8));"
         }
       ]
     },
@@ -862,7 +873,7 @@
       "sql": [
         {
           "dialect": "sqlite",
-          "sql": "CREATE TABLE IF NOT EXISTS \"transfers\" (\"id\" TEXT NOT NULL, \"from_account_id\" TEXT NOT NULL REFERENCES accounts (id), \"to_account_id\" TEXT NOT NULL REFERENCES accounts (id), \"amount_minor\" INTEGER NOT NULL, \"currency\" TEXT NOT NULL, \"occurred_on\" INTEGER NOT NULL, \"occurred_at\" INTEGER NOT NULL, \"note\" TEXT NULL, \"created_at\" INTEGER NOT NULL, \"updated_at\" INTEGER NOT NULL, \"deleted_at\" INTEGER NULL, PRIMARY KEY (\"id\"), CHECK (from_account_id <> to_account_id), CHECK (amount_minor > 0), CHECK (currency GLOB '[A-Z][A-Z][A-Z]'), CHECK (occurred_on BETWEEN 10101 AND 99991231), CHECK (note IS NULL OR length(note) BETWEEN 1 AND 200));"
+          "sql": "CREATE TABLE IF NOT EXISTS \"transfers\" (\"id\" TEXT NOT NULL, \"from_account_id\" TEXT NOT NULL REFERENCES accounts (id), \"to_account_id\" TEXT NOT NULL REFERENCES accounts (id), \"amount_minor\" INTEGER NOT NULL, \"currency\" TEXT NOT NULL, \"occurred_on\" INTEGER NOT NULL, \"occurred_at\" INTEGER NOT NULL, \"note\" TEXT NULL, \"created_at\" INTEGER NOT NULL, \"updated_at\" INTEGER NOT NULL, \"deleted_at\" INTEGER NULL, PRIMARY KEY (\"id\"), CHECK (from_account_id <> to_account_id), CHECK (amount_minor > 0), CHECK (length(currency) BETWEEN 3 AND 10 AND currency GLOB '[A-Z]*' AND currency NOT GLOB '*[^A-Z0-9]*'), CHECK (occurred_on BETWEEN 10101 AND 99991231), CHECK (note IS NULL OR length(note) BETWEEN 1 AND 200));"
         }
       ]
     },

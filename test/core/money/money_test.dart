@@ -82,7 +82,20 @@ void main() {
     });
 
     test('невалидный код валюты это ошибка во всех конструкторах', () {
-      for (final code in ['', 'rub', 'RU', 'RUBL', '1AB', 'RU ', 'РУБ']) {
+      const bad = [
+        '',
+        'rub',
+        'RU',
+        'US',
+        'usdt',
+        '1AB',
+        '1BTC',
+        'US-D',
+        'RU ',
+        'РУБ',
+        'ABCDEFGHIJK', // 11 символов
+      ];
+      for (final code in bad) {
         expect(
           () => Money.fromMinor(1, code),
           throwsA(isA<ArgumentError>()),
@@ -99,6 +112,22 @@ void main() {
           reason: 'fromMajorParts с кодом "$code"',
         );
       }
+    });
+
+    test('Money принимает коды из 3-10 символов: USDT, TON, BTC2', () {
+      for (final code in ['USDT', 'TON', 'BTC2', 'ABCDEFGHIJ']) {
+        expect(Money.fromMinor(5, code).currency, code);
+        expect(Money.zero(code).currency, code);
+      }
+    });
+
+    test('isIsoCurrencyCode: ровно три заглавные буквы', () {
+      expect(isIsoCurrencyCode('RUB'), isTrue);
+      expect(isIsoCurrencyCode('USDT'), isFalse);
+      expect(isIsoCurrencyCode('BTC2'), isFalse);
+      expect(isIsoCurrencyCode('rub'), isFalse);
+      expect(isIsoCurrencyCode('RU'), isFalse);
+      expect(isIsoCurrencyCode('RUB\n'), isFalse);
     });
 
     test('rubCurrencyCode и isValidCurrencyCode', () {

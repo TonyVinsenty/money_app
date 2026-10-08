@@ -13,18 +13,27 @@ final class Account {
   ///
   /// Бросает [AccountRuleException] (пустое или слишком длинное имя, пустой
   /// [iconKey], отрицательный [sortOrder]) и [ArgumentError], если
-  /// [archivedAt] не в UTC. Имя сохраняется без пробелов по краям.
+  /// [archivedAt] не в UTC или [currencyDigits] не от 0 до 8. Имя сохраняется без пробелов по краям.
   Account({
     required this.id,
     required String name,
     required String iconKey,
     required this.openingBalance,
     required int sortOrder,
+    this.currencyDigits = 2,
     DateTime? archivedAt,
   }) : name = checkedName(name),
        iconKey = _checkedIconKey(iconKey),
        sortOrder = _checkedSortOrder(sortOrder),
-       archivedAt = _checkedArchivedAt(archivedAt);
+       archivedAt = _checkedArchivedAt(archivedAt) {
+    if (currencyDigits < 0 || currencyDigits > 8) {
+      throw ArgumentError.value(
+        currencyDigits,
+        'currencyDigits',
+        'must be between 0 and 8',
+      );
+    }
+  }
 
   /// Занято ли [name] среди [existing]: есть ли там не архивный счёт с тем же
   /// именем (см. [accountNameKey]). Счёт с id [selfId] не считается.
@@ -72,6 +81,9 @@ final class Account {
   /// Момент архивации в UTC; `null`, если счёт не в архиве.
   final DateTime? archivedAt;
 
+  /// Знаков после запятой у валюты счёта (0-8, ADR 0010, п. 16.4).
+  final int currencyDigits;
+
   /// Код валюты счёта.
   String get currency => openingBalance.currency;
 
@@ -101,6 +113,7 @@ final class Account {
     iconKey: iconKey,
     openingBalance: openingBalance,
     sortOrder: sortOrder,
+    currencyDigits: currencyDigits,
   );
 
   Account _copy({
@@ -116,6 +129,7 @@ final class Account {
       iconKey: iconKey ?? this.iconKey,
       openingBalance: openingBalance ?? this.openingBalance,
       sortOrder: sortOrder ?? this.sortOrder,
+      currencyDigits: currencyDigits,
       archivedAt: archivedAt ?? this.archivedAt,
     );
   }
@@ -129,18 +143,26 @@ final class Account {
             other.iconKey == iconKey &&
             other.openingBalance == openingBalance &&
             other.sortOrder == sortOrder &&
+            other.currencyDigits == currencyDigits &&
             other.archivedAt == archivedAt;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, iconKey, openingBalance, sortOrder, archivedAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    iconKey,
+    openingBalance,
+    sortOrder,
+    currencyDigits,
+    archivedAt,
+  );
 
   @override
   String toString() {
     return 'Account(id: $id, name: $name, iconKey: $iconKey, '
         'openingBalance: $openingBalance, sortOrder: $sortOrder, '
-        'archivedAt: $archivedAt)';
+        'currencyDigits: $currencyDigits, archivedAt: $archivedAt)';
   }
 
   /// Проверяет имя и возвращает его без пробелов по краям.

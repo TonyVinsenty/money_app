@@ -20,8 +20,8 @@ const _schemaQuery =
     "AND name NOT LIKE 'sqlite_%' ORDER BY name";
 
 const _accountCols =
-    'id, name, icon_key, currency, opening_balance_minor, sort_order, '
-    'created_at, updated_at';
+    'id, name, icon_key, currency, currency_digits, opening_balance_minor, '
+    'sort_order, created_at, updated_at';
 
 void main() {
   late SchemaVerifier verifier;
@@ -85,16 +85,52 @@ void main() {
     test('accounts CHECK rejects bad currency, name and icon', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
-      Future<void> insert(String name, String icon, String currency) =>
-          db.customStatement(
-            'INSERT INTO accounts ($_accountCols) '
-            "VALUES ('a', '$name', '$icon', '$currency', -500, 0, 1, 1)",
-          );
+      Future<void> insert(
+        String name,
+        String icon,
+        String currency, {
+        int digits = 2,
+      }) => db.customStatement(
+        'INSERT INTO accounts ($_accountCols) '
+        "VALUES ('a', '$name', '$icon', '$currency', $digits, -500, 0, 1, 1)",
+      );
 
       // Отрицательный остаток (долг) разрешён.
       await insert('Card', 'card', 'RUB');
       await db.customStatement('DELETE FROM accounts');
-      await expectLater(insert('Card', 'card', 'rub'), throwsA(anything));
+      // Длинные коды и цифры в коде (не первой) разрешены.
+      for (final ok in ['USDT', 'TON', 'BTC2', 'ABCDEFGHIJ']) {
+        await insert('Card', 'card', ok);
+        await db.customStatement('DELETE FROM accounts');
+      }
+      for (final bad in [
+        'rub',
+        'usdt',
+        'US',
+        '1BTC',
+        'US-D',
+        'AB CD',
+        'ABCDEFGHIJK', // 11 символов
+        '',
+      ]) {
+        await expectLater(
+          insert('Card', 'card', bad),
+          throwsA(anything),
+          reason: 'code "$bad"',
+        );
+      }
+      // Знаки валюты: 0 и 8 можно, -1 и 9 нельзя.
+      for (final ok in [0, 8]) {
+        await insert('Card', 'card', 'RUB', digits: ok);
+        await db.customStatement('DELETE FROM accounts');
+      }
+      for (final bad in [-1, 9]) {
+        await expectLater(
+          insert('Card', 'card', 'RUB', digits: bad),
+          throwsA(anything),
+          reason: 'digits $bad',
+        );
+      }
       await expectLater(insert('', 'card', 'RUB'), throwsA(anything));
       await expectLater(insert('N' * 41, 'card', 'RUB'), throwsA(anything));
       await expectLater(insert('Card', '', 'RUB'), throwsA(anything));
@@ -106,7 +142,7 @@ void main() {
       for (final id in ['a', 'b']) {
         await db.customStatement(
           'INSERT INTO accounts ($_accountCols) '
-          "VALUES ('$id', 'N$id', 'card', 'RUB', 0, 0, 1, 1)",
+          "VALUES ('$id', 'N$id', 'card', 'RUB', 2, 0, 0, 1, 1)",
         );
       }
       Future<void> insert({
@@ -125,7 +161,15 @@ void main() {
       // Корректная строка проходит.
       await insert();
       await db.customStatement('DELETE FROM transfers');
-      await expectLater(insert(currency: 'rub'), throwsA(anything));
+      await insert(currency: 'USDT');
+      await db.customStatement('DELETE FROM transfers');
+      for (final bad in ['rub', 'usdt', 'US', '1BTC', 'US-D', 'ABCDEFGHIJK']) {
+        await expectLater(
+          insert(currency: bad),
+          throwsA(anything),
+          reason: 'code "$bad"',
+        );
+      }
       await expectLater(insert(amount: 0), throwsA(anything));
       await expectLater(insert(to: 'a'), throwsA(anything));
       await expectLater(insert(note: "''"), throwsA(anything));

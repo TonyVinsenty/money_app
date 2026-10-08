@@ -217,7 +217,17 @@ void main() {
     test('currency must be exactly three uppercase Latin letters', () async {
       await insertCategory('food');
 
-      for (final bad in ['rub', 'Rub', 'РУБ', '123', 'RU', 'RUBL', '']) {
+      for (final bad in [
+        'rub',
+        'Rub',
+        'РУБ',
+        '123',
+        'RU',
+        'RUBL',
+        'USDT',
+        'BTC2',
+        '',
+      ]) {
         await expectLater(
           insert('bad', currency: bad),
           throwsSqlite('CHECK constraint failed'),

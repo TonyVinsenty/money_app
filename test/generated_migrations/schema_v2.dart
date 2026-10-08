@@ -219,6 +219,14 @@ class Accounts extends Table with TableInfo {
     requiredDuringInsert: true,
     $customConstraints: 'NOT NULL',
   );
+  late final GeneratedColumn<int> currencyDigits = GeneratedColumn<int>(
+    'currency_digits',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    $customConstraints: 'NOT NULL',
+  );
   late final GeneratedColumn<int> openingBalanceMinor = GeneratedColumn<int>(
     'opening_balance_minor',
     aliasedName,
@@ -273,6 +281,7 @@ class Accounts extends Table with TableInfo {
     name,
     iconKey,
     currency,
+    currencyDigits,
     openingBalanceMinor,
     sortOrder,
     archivedAt,
@@ -302,7 +311,8 @@ class Accounts extends Table with TableInfo {
     'PRIMARY KEY(id)',
     'CHECK(length(name) BETWEEN 1 AND 40)',
     'CHECK(icon_key <> \'\')',
-    'CHECK(currency GLOB \'[A-Z][A-Z][A-Z]\')',
+    'CHECK(length(currency) BETWEEN 3 AND 10 AND currency GLOB \'[A-Z]*\' AND currency NOT GLOB \'*[^A-Z0-9]*\')',
+    'CHECK(currency_digits BETWEEN 0 AND 8)',
   ];
   @override
   bool get dontWriteConstraints => true;
@@ -592,7 +602,7 @@ class Transfers extends Table with TableInfo {
     'PRIMARY KEY(id)',
     'CHECK(from_account_id <> to_account_id)',
     'CHECK(amount_minor > 0)',
-    'CHECK(currency GLOB \'[A-Z][A-Z][A-Z]\')',
+    'CHECK(length(currency) BETWEEN 3 AND 10 AND currency GLOB \'[A-Z]*\' AND currency NOT GLOB \'*[^A-Z0-9]*\')',
     'CHECK(occurred_on BETWEEN 10101 AND 99991231)',
     'CHECK(note IS NULL OR length(note) BETWEEN 1 AND 200)',
   ];

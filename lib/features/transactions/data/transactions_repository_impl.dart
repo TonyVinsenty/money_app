@@ -55,6 +55,7 @@ class DriftTransactionsRepository implements TransactionsRepository {
   /// [isImport] - импорт CSV: архивные категории и счёт разрешены.
   Future<void> _insert(Transaction transaction, {required bool isImport}) {
     return _db.transaction(() async {
+      _checkIsoCurrency(transaction);
       await _checkLinks(
         transaction,
         checkCategoryArchived: !isImport,
@@ -81,6 +82,7 @@ class DriftTransactionsRepository implements TransactionsRepository {
   @override
   Future<void> update(Transaction transaction) {
     return _db.transaction(() async {
+      _checkIsoCurrency(transaction);
       final state = await _requireState(transaction.id);
       if (state.isDeleted) {
         throw ArgumentError.value(
@@ -284,6 +286,19 @@ class DriftTransactionsRepository implements TransactionsRepository {
         .map(
           (rows) => Money.fromMinor(rows.single.read<int>('total'), currency),
         );
+  }
+
+  /// Операции хранятся только в обычных валютах из трёх букв (ADR 0010,
+  /// п. 16.9): таблица `transactions` другого кода не пустит.
+  void _checkIsoCurrency(Transaction transaction) {
+    final currency = transaction.amount.currency;
+    if (!isIsoCurrencyCode(currency)) {
+      throw ArgumentError.value(
+        currency,
+        'transaction.amount.currency',
+        'must be a three-letter ISO currency code',
+      );
+    }
   }
 
   /// Данные строки без чтения преобразуемых колонок: удалять и править можно
