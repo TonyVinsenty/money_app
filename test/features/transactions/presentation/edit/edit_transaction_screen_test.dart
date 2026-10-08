@@ -245,6 +245,47 @@ void main() {
     expect(find.text('Изменения сохранены'), findsOneWidget);
   });
 
+  testWidgets(
+    'правка идёт в валюте самой операции: USD - с запятой, JPY - без',
+    (tester) async {
+      Transaction inCurrency(String code, int minor) => Transaction(
+        id: 'tx',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(minor, code),
+        occurredOn: DateOnly(2026, 9, 18),
+        occurredAt: DateTime.utc(2026, 9, 18, 7, 45),
+        categoryId: 'food',
+      );
+
+      final usdRepo = _Transactions();
+      await tester.pumpWidget(
+        _app(usdRepo, transaction: inCurrency('USD', 1250)),
+      );
+      await _open(tester);
+      await tester.enterText(_amountInput, '40,25');
+      expect(tester.widget<TextField>(_amountInput).controller!.text, '40,25');
+      await tester.tap(_saveButton);
+      await tester.pumpAndSettle();
+      expect(usdRepo.updated.single.amount, Money.fromMinor(4025, 'USD'));
+
+      final jpyRepo = _Transactions();
+      await tester.pumpWidget(
+        _app(jpyRepo, transaction: inCurrency('JPY', 1500)),
+      );
+      await _open(tester);
+      // Запятая не вводится: ввод с дробной частью отклоняется целиком.
+      await tester.enterText(_amountInput, '2000,5');
+      expect(
+        tester.widget<TextField>(_amountInput).controller!.text,
+        isNot(contains(',')),
+      );
+      await tester.enterText(_amountInput, '2000');
+      await tester.tap(_saveButton);
+      await tester.pumpAndSettle();
+      expect(jpyRepo.updated.single.amount, Money.fromMinor(2000, 'JPY'));
+    },
+  );
+
   testWidgets('двойной тап по «Сохранить»: одна запись изменения', (
     tester,
   ) async {

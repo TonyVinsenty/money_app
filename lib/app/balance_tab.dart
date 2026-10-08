@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
-import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
@@ -44,7 +43,7 @@ class _BalanceTabState extends State<BalanceTab> {
         AccountsSection(
           accounts: _accounts,
           balances: _balances,
-          mainCurrency: rubCurrencyCode, // настройка появится в шаге 5.10m
+          mainCurrency: AppScope.of(context).settings.mainCurrencyCode,
           onOpenAccount: (account) {
             final services = AppScope.of(context);
             unawaited(
@@ -66,7 +65,7 @@ class _BalanceTabState extends State<BalanceTab> {
                 arguments: AccountFormRouteArguments(
                   accounts: services.accounts,
                   idGenerator: services.idGenerator,
-                  currency: rubCurrencyCode,
+                  currency: services.settings.mainCurrencyCode,
                 ),
               ),
             );

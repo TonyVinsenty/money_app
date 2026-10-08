@@ -4,7 +4,6 @@ import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/format/percent_format.dart';
-import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
@@ -436,9 +435,7 @@ class _TransactionTile extends StatelessWidget {
   final String dayText;
   final VoidCallback onTap;
 
-  static String _spoken(Money money) => money.currency == rubCurrencyCode
-      ? spokenMoney(money)
-      : formatMoney(money);
+  static String _spoken(Money money) => spokenMoney(money);
 
   @override
   Widget build(BuildContext context) {
@@ -950,9 +947,7 @@ class _FilteredTotal extends StatelessWidget {
     return DateRange(first, last);
   }
 
-  static String _spoken(Money money) => money.currency == rubCurrencyCode
-      ? spokenMoney(money)
-      : formatMoney(money);
+  static String _spoken(Money money) => spokenMoney(money);
 
   @override
   Widget build(BuildContext context) {

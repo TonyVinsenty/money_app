@@ -29,7 +29,7 @@ import '../support/in_memory_database.dart';
 import '../support/settle_database.dart';
 
 /// Основная валюта (шаг 5.10n): быстрый ввод, «Главная» и правка операции на
-/// настоящей базе в памяти. «История» в этом шаге остаётся рублёвой.
+/// настоящей базе в памяти. «История» — в шаге 5.10o (отдельный файл).
 late AppDatabase _db;
 late FixedClock _clock;
 late AppSettingsController _settings;
@@ -179,38 +179,55 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('основная USD: правка рублёвой операции сохраняет RUB', (
-    tester,
-  ) async {
-    await _pumpApp(tester);
-    _settings.setMainCurrency(_usd);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'основная USD: правка долларовой операции из «Истории» сохраняет USD',
+    (tester) async {
+      await _pumpApp(tester);
+      final category =
+          await (_db.select(_db.categories)..where(
+                (c) => c.name.equals('Продукты') & c.kind.equals('expense'),
+              ))
+              .getSingle();
+      await DriftTransactionsRepository(_db, clock: _clock).add(
+        Transaction(
+          id: 'usd-tx',
+          type: TransactionType.expense,
+          amount: Money.fromMinor(1250, 'USD'),
+          occurredOn: DateOnly(2026, 9, 20),
+          occurredAt: DateTime(2026, 9, 20, 16).toUtc(),
+          categoryId: category.id,
+          note: 'кофе',
+        ),
+      );
+      _settings.setMainCurrency(_usd);
+      await tester.pumpAndSettle();
 
-    // «История» пока рублёвая (шаг 5.10o): рублёвая операция в ней видна.
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('История'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('молоко'));
-    await tester.pumpAndSettle();
-    expect(find.byType(EditTransactionScreen), findsOneWidget);
+      // В «Истории» при основной USD видна долларовая операция.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('История'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('кофе'));
+      await tester.pumpAndSettle();
+      expect(find.byType(EditTransactionScreen), findsOneWidget);
 
-    final field = find.descendant(
-      of: find.byType(AmountField),
-      matching: find.byType(TextField),
-    );
-    await tester.enterText(field, '400,25');
-    await tester.tap(find.widgetWithText(FilledButton, 'Сохранить'));
-    await tester.pumpAndSettle();
+      final field = find.descendant(
+        of: find.byType(AmountField),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(field, '40,25');
+      await tester.tap(find.widgetWithText(FilledButton, 'Сохранить'));
+      await tester.pumpAndSettle();
 
-    final row = await (_db.select(
-      _db.transactions,
-    )..where((t) => t.id.equals('seed-tx'))).getSingle();
-    expect(row.currency, 'RUB');
-    expect(row.amountMinor, 40025);
-    await tester.pumpWidget(const SizedBox());
-  });
+      final row = await (_db.select(
+        _db.transactions,
+      )..where((t) => t.id.equals('usd-tx'))).getSingle();
+      expect(row.currency, 'USD');
+      expect(row.amountMinor, 4025);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

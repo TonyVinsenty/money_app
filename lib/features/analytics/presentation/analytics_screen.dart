@@ -67,8 +67,12 @@ class AnalyticsScreen extends StatelessWidget {
     this.firstDay,
     this.firstDayKnown = false,
     this.onCustomRangeSelected,
+    this.currency = rubCurrencyCode,
     super.key,
   });
+
+  /// Код основной валюты: в ней считаются итоги и разбивка по категориям.
+  final String currency;
 
   final AnalyticsPeriod period;
   final DateOnly today;
@@ -185,7 +189,7 @@ class AnalyticsScreen extends StatelessWidget {
                 summary: summarizePeriod(
                   data.transactions,
                   data.range,
-                  currency: rubCurrencyCode,
+                  currency: currency,
                 ),
               ),
               const SizedBox(height: 16),
@@ -193,6 +197,7 @@ class AnalyticsScreen extends StatelessWidget {
                 stream: categories,
                 errorBuilder: (context, error) => const _SummaryError(),
                 dataBuilder: (context, all) => CategoryBreakdownCard(
+                  currency: currency,
                   transactions: data.transactions,
                   range: data.range,
                   categories: all,

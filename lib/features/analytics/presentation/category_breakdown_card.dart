@@ -37,8 +37,12 @@ class CategoryBreakdownCard extends StatefulWidget {
     this.type = TransactionType.expense,
     this.onTypeSelected,
     this.onOpenCategory,
+    this.currency = rubCurrencyCode,
     super.key,
   });
+
+  /// Код валюты, в которой считаются суммы (основная валюта).
+  final String currency;
 
   /// Операции периода [range].
   final List<Transaction> transactions;
@@ -95,7 +99,7 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
       widget.transactions,
       widget.range,
       type: type,
-      currency: rubCurrencyCode,
+      currency: widget.currency,
     );
     final byId = {for (final c in widget.categories) c.id: c};
     final open = widget.onOpenCategory;
@@ -176,7 +180,7 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
     final isExpense = type == TransactionType.expense;
     final total = Money.fromMinor(
       totals.fold<int>(0, (sum, t) => sum + t.amount.minorUnits),
-      rubCurrencyCode,
+      widget.currency,
     );
 
     // Цвет категории: цвет её сектора, у попавших в «Остальное» — серый.

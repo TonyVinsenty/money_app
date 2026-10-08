@@ -36,8 +36,12 @@ class CategoryBreakdownScreen extends StatefulWidget {
     required this.today,
     required this.transactions,
     required this.categories,
+    this.currency = rubCurrencyCode,
     super.key,
   });
+
+  /// Код валюты, в которой считаются суммы (основная валюта).
+  final String currency;
 
   final Category category;
   final AnalyticsPeriod period;
@@ -133,7 +137,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
       transactions,
       widget.period.range,
       categoryId: widget.category.id,
-      currency: rubCurrencyCode,
+      currency: widget.currency,
     );
     if (totals.isEmpty) {
       return Padding(
@@ -152,7 +156,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
 
     final names = {for (final c in categories) c.id: c.name};
     final shares = percentShares([for (final t in totals) t.amount]);
-    var total = Money.zero(rubCurrencyCode);
+    var total = Money.zero(widget.currency);
     for (final t in totals) {
       total += t.amount;
     }

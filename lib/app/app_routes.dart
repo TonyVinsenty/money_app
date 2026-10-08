@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -120,7 +121,11 @@ final class CategoryBreakdownRouteArguments {
     required this.today,
     required this.transactions,
     required this.categories,
+    this.currency = rubCurrencyCode,
   });
+
+  /// Код основной валюты, в которой считаются суммы.
+  final String currency;
 
   final Category category;
   final AnalyticsPeriod period;
@@ -408,6 +413,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           today: arguments.today,
           transactions: arguments.transactions,
           categories: arguments.categories,
+          currency: arguments.currency,
         ),
       );
     case AppRoutes.accountForm:

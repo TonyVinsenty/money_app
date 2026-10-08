@@ -262,6 +262,7 @@ class HistoryTab extends StatefulWidget {
 
 class _HistoryTabState extends State<HistoryTab> {
   TransactionsRepository? _transactionsRepository;
+  String? _currency;
   CategoriesRepository? _categoriesRepository;
   DateRange? _month;
   bool _searching = false;
@@ -282,21 +283,26 @@ class _HistoryTabState extends State<HistoryTab> {
     final browse = BrowseScope.of(context);
     final month = browse.month;
     final searching = browse.isSearchingHistory;
+    // Основная валюта из настроек: только её операции; при смене поток новый.
+    final currency = services.settings.mainCurrencyCode;
     final repositoriesChanged =
         !identical(services.transactions, _transactionsRepository) ||
         !identical(services.categories, _categoriesRepository);
     // Во время поиска смена месяца поток не трогает: он и так за все месяцы.
     final sourceChanged =
-        searching != _searching || (!searching && month != _month);
+        searching != _searching ||
+        currency != _currency ||
+        (!searching && month != _month);
     _month = month;
     if (repositoriesChanged || sourceChanged) {
       _transactionsRepository = services.transactions;
       _categoriesRepository = services.categories;
       _searching = searching;
+      _currency = currency;
       // Фильтр, порядок и сам запрос применяет экран: поток от них не зависит.
       _transactions = searching
-          ? services.transactions.watchAll()
-          : services.transactions.watchInPeriod(month);
+          ? services.transactions.watchAll(currency: currency)
+          : services.transactions.watchInPeriod(month, currency: currency);
     }
     if (repositoriesChanged) _categories = services.categories.watchAll();
   }
@@ -351,6 +357,8 @@ class AnalyticsTab extends StatefulWidget {
 }
 
 class _AnalyticsTabState extends State<AnalyticsTab> {
+  String? _currency;
+  String? _streamCurrency;
   AnalyticsController? _controller;
   TransactionsRepository? _transactionsRepository;
   CategoriesRepository? _categoriesRepository;
@@ -368,10 +376,10 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
     super.didChangeDependencies();
     final services = AppScope.of(context);
     final browse = BrowseScope.of(context);
-    final servicesChanged = !identical(
-      services.transactions,
-      _transactionsRepository,
-    );
+    final servicesChanged =
+        !identical(services.transactions, _transactionsRepository) ||
+        services.settings.mainCurrencyCode != _currency;
+    _currency = services.settings.mainCurrencyCode;
     _transactionsRepository = services.transactions;
     if (!identical(services.categories, _categoriesRepository)) {
       _categoriesRepository = services.categories;
@@ -395,14 +403,18 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
   void _refreshTransactions() {
     final period = _controller!.period;
     final repository = _transactionsRepository!;
-    if (period == _streamPeriod && identical(repository, _streamRepository)) {
+    final currency = _currency!;
+    if (period == _streamPeriod &&
+        identical(repository, _streamRepository) &&
+        currency == _streamCurrency) {
       return;
     }
     _streamPeriod = period;
     _streamRepository = repository;
+    _streamCurrency = currency;
     final range = period.range;
     _transactions = repository
-        .watchInPeriod(range)
+        .watchInPeriod(range, currency: currency)
         .map((list) => (range: range, transactions: list));
   }
 
@@ -431,6 +443,7 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         type: controller.type,
         onTypeSelected: controller.selectType,
         onCustomRangeSelected: controller.selectCustomRange,
+        currency: _currency!,
       ),
     );
   }
@@ -448,8 +461,10 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         today: controller.today,
         transactions: services.transactions.watchInPeriod(
           controller.period.range,
+          currency: services.settings.mainCurrencyCode,
         ),
         categories: services.categories.watchAll(),
+        currency: services.settings.mainCurrencyCode,
       ),
     );
   }
