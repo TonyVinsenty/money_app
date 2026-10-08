@@ -15,6 +15,7 @@ import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
+import 'package:money_app/features/accounts/presentation/custom_currency_dialog.dart';
 
 /// Форма счёта: новый счёт или правка имени и значка существующего.
 ///
@@ -78,7 +79,24 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
       currencyInfoFor(widget.currency);
 
   Future<void> _pickCurrency() async {
-    final picked = await showCurrencyPicker(context, selected: _info.code);
+    var all = <Account>[];
+    try {
+      // Все счета, в том числе архивные: из них собираются «Ваши валюты».
+      all = await widget.accounts.watchAll().first;
+    } on Object {
+      // Без списка счетов лист работает, просто без «Ваших валют».
+    }
+    if (!mounted) return;
+    final yours = <String, CurrencyInfo>{
+      for (final a in all)
+        if (catalogCurrency(a.currency) == null) a.currency: a.currencyInfo,
+    };
+    final picked = await showCurrencyPicker(
+      context,
+      selected: _info.code,
+      yourCurrencies: yours.values.toList(),
+      onCustom: () => showCustomCurrencyDialog(context, accounts: all),
+    );
     if (picked == null || !mounted) return;
     setState(() {
       _picked = picked;

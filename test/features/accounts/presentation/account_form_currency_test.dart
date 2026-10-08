@@ -9,6 +9,7 @@ import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
+import 'package:money_app/features/accounts/presentation/custom_currency_dialog.dart';
 
 import '../../../support/fake_id_generator.dart';
 import '../../../support/fakes.dart';
@@ -34,9 +35,17 @@ Future<void> pumpForm(
   );
 }
 
-Future<void> pick(WidgetTester tester, String query, String name) async {
+/// Нажимает строку валюты. Список счетов читается из потока (нужен настоящий
+/// тик), поэтому после нажатия даём ему отработать.
+Future<void> openPicker(WidgetTester tester) async {
   await tester.tap(find.byKey(AccountFormScreen.currencyRowKey));
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pump();
   await tester.pumpAndSettle();
+}
+
+Future<void> pick(WidgetTester tester, String query, String name) async {
+  await openPicker(tester);
   await tester.enterText(
     find.widgetWithText(TextField, currencyPickerSearchHint),
     query,
@@ -137,8 +146,172 @@ void main() {
       editing: account,
     );
     expect(find.text('Биткоин, BTC — не меняется'), findsOneWidget);
-    await tester.tap(find.byKey(AccountFormScreen.currencyRowKey));
-    await tester.pumpAndSettle();
+    await openPicker(tester);
     expect(find.text(currencyPickerSearchHint), findsNothing);
+  });
+
+  Future<void> openCustom(WidgetTester tester) async {
+    await openPicker(tester);
+    await tester.enterText(
+      find.widgetWithText(TextField, currencyPickerSearchHint),
+      'qqq',
+    );
+    await tester.pump();
+    await tester.tap(find.text(currencyPickerCustom));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> fillCustom(WidgetTester tester, String code, [String? digits]) {
+    return () async {
+      await tester.enterText(
+        find.byKey(CustomCurrencyDialog.codeFieldKey),
+        code,
+      );
+      if (digits != null) {
+        await tester.enterText(
+          find.byKey(CustomCurrencyDialog.digitsFieldKey),
+          digits,
+        );
+      }
+      await tester.pump();
+    }();
+  }
+
+  Future<void> done(WidgetTester tester) async {
+    await tester.tap(find.byKey(CustomCurrencyDialog.doneKey));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('custom: abc becomes ABC, 4 digits, account with 12,3456', (
+    tester,
+  ) async {
+    final repo = InMemoryAccountsRepository();
+    await pumpForm(tester, repo);
+    await openCustom(tester);
+    expect(find.text(customCurrencyTitle), findsOneWidget);
+    expect(find.text(customCurrencyExplain), findsOneWidget);
+    await fillCustom(tester, 'abc', '4');
+    expect(
+      tester
+          .widget<TextField>(find.byKey(CustomCurrencyDialog.codeFieldKey))
+          .controller!
+          .text,
+      'ABC',
+    );
+    await done(tester);
+    expect(find.text('ABC, ABC'), findsOneWidget);
+
+    await tester.enterText(find.byKey(AccountFormScreen.nameFieldKey), 'Свой');
+    await tester.enterText(
+      find.byKey(AccountFormScreen.balanceFieldKey),
+      '12,3456',
+    );
+    await tester.tap(find.byKey(AccountFormScreen.saveButtonKey));
+    await tester.pumpAndSettle();
+    final saved = repo.all.single;
+    expect(saved.openingBalance, Money.fromMinor(123456, 'ABC'));
+    expect(saved.currencyDigits, 4);
+  });
+
+  for (final bad in ['US', '1AB', 'AB-C']) {
+    testWidgets('custom: code $bad is an error', (tester) async {
+      await pumpForm(tester, InMemoryAccountsRepository());
+      await openCustom(tester);
+      await fillCustom(tester, bad);
+      await done(tester);
+      expect(find.text(customCurrencyCodeError), findsOneWidget);
+      expect(find.text(customCurrencyTitle), findsOneWidget);
+    });
+  }
+
+  testWidgets('custom: digits out of range is an error', (tester) async {
+    await pumpForm(tester, InMemoryAccountsRepository());
+    await openCustom(tester);
+    await fillCustom(tester, 'abc', '9');
+    await done(tester);
+    expect(find.text(customCurrencyDigitsError), findsOneWidget);
+    await fillCustom(tester, 'abc', '');
+    await done(tester);
+    expect(find.text(customCurrencyDigitsError), findsOneWidget);
+  });
+
+  testWidgets('custom: usdt gives the catalog entry silently', (tester) async {
+    await pumpForm(tester, InMemoryAccountsRepository());
+    await openCustom(tester);
+    await fillCustom(tester, 'usdt', '3');
+    expect(find.textContaining('Как у счёта'), findsNothing);
+    await done(tester);
+    expect(find.text('Tether, USDT'), findsOneWidget);
+    await tester.enterText(find.byKey(AccountFormScreen.nameFieldKey), 'T');
+    await tester.enterText(
+      find.byKey(AccountFormScreen.balanceFieldKey),
+      '0,12345678',
+    );
+    expect(balanceField(tester).controller!.text, '0,12345678');
+  });
+
+  testWidgets('custom: code of an (archived) account locks digits; yours '
+      'group and search find it', (tester) async {
+    final existing = Account(
+      id: 'a',
+      name: 'Кошелёк',
+      iconKey: 'card',
+      openingBalance: Money.zero('ABC'),
+      sortOrder: 0,
+      currencyDigits: 4,
+      archivedAt: DateTime.utc(2026, 1, 1),
+    );
+    final repo = InMemoryAccountsRepository([existing]);
+    await pumpForm(tester, repo);
+
+    // «Ваши валюты» и поиск.
+    await openPicker(tester);
+    expect(find.text(currencyPickerYours), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, currencyPickerSearchHint),
+      'abc',
+    );
+    await tester.pump();
+    expect(find.text('ABC'), findsNWidgets(2)); // название и подпись
+    await tester.tapAt(const Offset(10, 10)); // закрыть лист по фону
+    await tester.pumpAndSettle();
+
+    await openCustom(tester);
+    await fillCustom(tester, 'abc');
+    final digits = tester.widget<TextField>(
+      find.byKey(CustomCurrencyDialog.digitsFieldKey),
+    );
+    expect(digits.enabled, isFalse);
+    expect(digits.controller!.text, '4');
+    expect(find.text(customCurrencyLikeAccount('Кошелёк')), findsOneWidget);
+    await done(tester);
+    expect(find.text('ABC, ABC'), findsOneWidget);
+    await tester.enterText(find.byKey(AccountFormScreen.nameFieldKey), 'Ещё');
+    await tester.enterText(
+      find.byKey(AccountFormScreen.balanceFieldKey),
+      '1,2345',
+    );
+    await tester.tap(find.byKey(AccountFormScreen.saveButtonKey));
+    await tester.pumpAndSettle();
+    expect(repo.all.last.currencyDigits, 4);
+  });
+
+  testWidgets('custom dialog scrolls at font 200 %', (tester) async {
+    tester.view.physicalSize = const Size(360, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: const Scaffold(body: CustomCurrencyDialog(accounts: [])),
+      ),
+    );
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

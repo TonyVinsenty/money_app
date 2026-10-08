@@ -100,3 +100,19 @@ String accountsTotalSpoken(Money total, CurrencyInfo currency) {
 String accountsTotalSemantics(List<(Money, CurrencyInfo)> totals) =>
     '$accountsTotalLabel: '
     '${totals.map((t) => accountsTotalSpoken(t.$1, t.$2)).join(', ')}';
+
+// Диалог «Своя валюта» (тексты утверждены).
+const String customCurrencyTitle = 'Своя валюта';
+const String customCurrencyExplain =
+    'Код и число знаков после запятой потом не поменять';
+const String customCurrencyCodeLabel = 'Код';
+const String customCurrencyCodeHint = 'Например, ABC';
+const String customCurrencyCodeError =
+    'Код — от 3 до 10 латинских букв и цифр, первая — буква';
+const String customCurrencyDigitsLabel = 'Знаков после запятой';
+const String customCurrencyDigitsHelper = 'От 0 до 8';
+const String customCurrencyDigitsError = 'Введите число от 0 до 8';
+const String customCurrencyDone = 'Готово';
+
+/// Подсказка под заблокированным полем знаков: «Как у счёта «Кошелёк»».
+String customCurrencyLikeAccount(String name) => 'Как у счёта «$name»';
