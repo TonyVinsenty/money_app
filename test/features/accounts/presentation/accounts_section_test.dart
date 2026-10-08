@@ -59,6 +59,7 @@ Future<void> pumpSection(
               balances: balances,
               currency: 'RUB',
               onAddAccount: onAdd ?? () {},
+              onOpenAccount: (_) {},
             ),
           ),
         ),

@@ -7,6 +7,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
+import 'package:money_app/features/accounts/presentation/account_screen.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -56,6 +57,25 @@ abstract final class AppRoutes {
   /// Форма счёта (новый или правка). Аргумент маршрута —
   /// [AccountFormRouteArguments].
   static const accountForm = '/account-form';
+
+  /// Экран счёта. Аргумент маршрута — [AccountRouteArguments].
+  static const account = '/account';
+}
+
+/// Аргументы маршрута [AppRoutes.account]: репозиторий, id счёта, валюта и
+/// генератор id (он нужен форме правки, которую открывает экран счёта).
+final class AccountRouteArguments {
+  const AccountRouteArguments({
+    required this.accounts,
+    required this.idGenerator,
+    required this.accountId,
+    required this.currency,
+  });
+
+  final AccountsRepository accounts;
+  final IdGenerator idGenerator;
+  final String accountId;
+  final String currency;
 }
 
 /// Аргументы маршрута [AppRoutes.accountForm]. Если [editing] задан, форма
@@ -402,6 +422,33 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           idGenerator: arguments.idGenerator,
           currency: arguments.currency,
           editing: arguments.editing,
+        ),
+      );
+    case AppRoutes.account:
+      final arguments = settings.arguments;
+      if (arguments is! AccountRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.account} ожидает аргумент '
+              'AccountRouteArguments (репозиторий, id счёта, валюта)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (context) => AccountScreen(
+          accounts: arguments.accounts,
+          accountId: arguments.accountId,
+          currency: arguments.currency,
+          onEdit: (account) => Navigator.of(context).pushNamed<void>(
+            AppRoutes.accountForm,
+            arguments: AccountFormRouteArguments(
+              accounts: arguments.accounts,
+              idGenerator: arguments.idGenerator,
+              currency: arguments.currency,
+              editing: account,
+            ),
+          ),
         ),
       );
     case AppRoutes.categoryForm:

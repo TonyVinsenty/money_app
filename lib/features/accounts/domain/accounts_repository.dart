@@ -47,6 +47,12 @@ abstract interface class AccountsRepository {
   /// Валюта должна совпадать с валютой счёта, иначе — [ArgumentError].
   Future<void> setOpeningBalance(String id, Money openingBalance);
 
+  /// «Поправить остаток»: подбирает стартовый остаток счёта [id] так, чтобы
+  /// текущий остаток стал ровно [entered] (операции и переводы не меняются).
+  /// Движения считаются в той же транзакции, что и запись. Валюта не совпала
+  /// с валютой счёта — [ArgumentError].
+  Future<void> adjustCurrentBalance(String id, Money entered);
+
   /// Переставляет не удалённые счета (правило как у категорий).
   ///
   /// [orderedIds] — подмножество счетов без повторов; иначе `ArgumentError`.

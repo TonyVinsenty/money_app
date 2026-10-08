@@ -176,6 +176,56 @@ void main() {
     expect(seen.last, {'a': -100, 'b': -300});
   });
 
+  group('adjustCurrentBalance', () {
+    Future<void> setUpMovements() async {
+      await addAccount('a', opening: 1000);
+      await addAccount('b', opening: 100);
+      await transactions.add(tx('t1', 300, accountId: 'a'));
+      await transactions.add(
+        tx('t2', 50, type: TransactionType.income, accountId: 'a'),
+      );
+      await transfer('x1', 'a', 'b', 400);
+      await transfer('x2', 'b', 'a', 70);
+    }
+
+    test(
+      'balance becomes exactly the entered amount, rows untouched',
+      () async {
+        await setUpMovements();
+        expect(await balances(), {'a': 420, 'b': 430});
+        await accounts.adjustCurrentBalance('a', Money.fromMinor(12345, 'RUB'));
+        expect(await balances(), {'a': 12345, 'b': 430});
+        final list = await accounts.watchAll().first;
+        expect(
+          list.firstWhere((a) => a.id == 'a').openingBalance.minorUnits,
+          12345 - (420 - 1000),
+        );
+        final rows = await transactions.watchAll().first;
+        expect(rows.map((t) => t.amount.minorUnits).toSet(), {300, 50});
+      },
+    );
+
+    test('negative and zero targets', () async {
+      await setUpMovements();
+      await accounts.adjustCurrentBalance('a', Money.fromMinor(-500, 'RUB'));
+      expect((await balances())['a'], -500);
+      await accounts.adjustCurrentBalance('a', Money.zero('RUB'));
+      expect((await balances())['a'], 0);
+    });
+
+    test('other currency and unknown id are rejected', () async {
+      await addAccount('a');
+      await expectLater(
+        accounts.adjustCurrentBalance('a', Money.fromMinor(1, 'USD')),
+        throwsArgumentError,
+      );
+      await expectLater(
+        accounts.adjustCurrentBalance('nope', Money.zero('RUB')),
+        throwsArgumentError,
+      );
+    });
+  });
+
   test('balances feed totalOnAccounts (archived excluded)', () async {
     await addAccount('a', opening: 1000);
     await addAccount('b', opening: 500, archivedAt: DateTime.utc(2026, 1, 1));

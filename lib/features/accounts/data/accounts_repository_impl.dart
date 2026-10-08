@@ -47,6 +47,16 @@ class DriftAccountsRepository implements AccountsRepository {
             .where((a) => a.openingBalance.currency == currency)
             .toList();
 
+    final flows = await _loadFlows(accounts.map((a) => a.id), currency);
+    return computeAccountBalances(accounts, flows);
+  }
+
+  /// Движения по счетам [ids] в валюте [currency]: SUM-запросы по операциям и
+  /// переводам. Для счёта без движений в карте лежат нули.
+  Future<Map<String, AccountFlows>> _loadFlows(
+    Iterable<String> ids,
+    String currency,
+  ) async {
     Future<List<QueryRow>> sums(String sql) {
       return _db
           .customSelect(sql, variables: [Variable<String>(currency)])
@@ -86,15 +96,15 @@ class DriftAccountsRepository implements AccountsRepository {
     }
 
     Money money(int minor) => Money.fromMinor(minor, currency);
-    return computeAccountBalances(accounts, {
-      for (final a in accounts)
-        a.id: AccountFlows(
-          income: money(income[a.id] ?? 0),
-          expense: money(expense[a.id] ?? 0),
-          transfersIn: money(sumOf(incoming, a.id)),
-          transfersOut: money(sumOf(outgoing, a.id)),
+    return {
+      for (final id in ids)
+        id: AccountFlows(
+          income: money(income[id] ?? 0),
+          expense: money(expense[id] ?? 0),
+          transfersIn: money(sumOf(incoming, id)),
+          transfersOut: money(sumOf(outgoing, id)),
         ),
-    });
+    };
   }
 
   @override
@@ -167,6 +177,31 @@ class DriftAccountsRepository implements AccountsRepository {
         id,
         AccountsCompanion(
           openingBalanceMinor: Value(openingBalance.minorUnits),
+          updatedAt: Value(_nowMs()),
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<void> adjustCurrentBalance(String id, Money entered) {
+    return _db.transaction(() async {
+      final row = await _requireRow(id);
+      if (row.currency != entered.currency) {
+        throw ArgumentError.value(
+          entered.currency,
+          'entered',
+          'currency differs from the account currency',
+        );
+      }
+      // Движения и запись — в одной транзакции: между ними ничего не вклинится.
+      final flows = (await _loadFlows([id], row.currency))[id]!;
+      await _updateRow(
+        id,
+        AccountsCompanion(
+          openingBalanceMinor: Value(
+            openingForCurrentBalance(entered, flows).minorUnits,
+          ),
           updatedAt: Value(_nowMs()),
         ),
       );

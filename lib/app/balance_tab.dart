@@ -45,6 +45,20 @@ class _BalanceTabState extends State<BalanceTab> {
           accounts: _accounts,
           balances: _balances,
           currency: rubCurrencyCode,
+          onOpenAccount: (account) {
+            final services = AppScope.of(context);
+            unawaited(
+              Navigator.of(context).pushNamed<void>(
+                AppRoutes.account,
+                arguments: AccountRouteArguments(
+                  accounts: services.accounts,
+                  idGenerator: services.idGenerator,
+                  accountId: account.id,
+                  currency: rubCurrencyCode,
+                ),
+              ),
+            );
+          },
           onAddAccount: () {
             final services = AppScope.of(context);
             unawaited(

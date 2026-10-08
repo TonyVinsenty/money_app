@@ -20,6 +20,7 @@ class AccountsSection extends StatelessWidget {
     required this.balances,
     required this.currency,
     required this.onAddAccount,
+    required this.onOpenAccount,
     super.key,
   });
 
@@ -31,6 +32,9 @@ class AccountsSection extends StatelessWidget {
 
   /// Нажатие «Добавить счёт».
   final VoidCallback onAddAccount;
+
+  /// Нажатие на строку счёта.
+  final ValueChanged<Account> onOpenAccount;
 
   static const totalKey = ValueKey('accounts-total');
   static const addButtonKey = ValueKey('accounts-add');
@@ -97,7 +101,8 @@ class AccountsSection extends StatelessWidget {
                     total: totalOnAccounts(shown, byId, currency: currency),
                   ),
                   const SizedBox(height: 8),
-                  for (final a in shown) _AccountRow(a, byId[a.id]!),
+                  for (final a in shown)
+                    _AccountRow(a, byId[a.id]!, () => onOpenAccount(a)),
                 ],
               );
             },
@@ -155,10 +160,11 @@ class _Total extends StatelessWidget {
 }
 
 class _AccountRow extends StatelessWidget {
-  const _AccountRow(this.account, this.balance);
+  const _AccountRow(this.account, this.balance, this.onTap);
 
   final Account account;
   final Money balance;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -166,30 +172,37 @@ class _AccountRow extends StatelessWidget {
     return Semantics(
       container: true,
       label: accountRowSemantics(account.name, balance),
+      button: true,
+      onTap: onTap,
       excludeSemantics: true,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: Row(
-          children: [
-            Icon(
-              accountIconFor(account.iconKey).icon,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(account.name, style: theme.textTheme.bodyLarge),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Text(
-                formatMoney(balance),
-                textAlign: TextAlign.end,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: balance.isNegative ? context.appColors.expense : null,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Row(
+            children: [
+              Icon(
+                accountIconFor(account.iconKey).icon,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(account.name, style: theme.textTheme.bodyLarge),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  formatMoney(balance),
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: balance.isNegative
+                        ? context.appColors.expense
+                        : null,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

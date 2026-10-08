@@ -44,8 +44,9 @@ class FakeAccountsRepository extends Fake implements AccountsRepository {
 }
 
 /// Фейк счетов «в памяти»: работают `watchAll`, `watchBalances` (только
-/// стартовые остатки), `nextSortOrder`, `create` (с проверкой дубля) и
-/// `update`. Остальное бросает ошибку.
+/// стартовые остатки плюс [net]), `nextSortOrder`, `create` (с проверкой
+/// дубля), `update`, `adjustCurrentBalance`, `archive` и `restore`. Остальное
+/// бросает ошибку.
 class InMemoryAccountsRepository extends Fake implements AccountsRepository {
   InMemoryAccountsRepository([List<Account> initial = const []])
     : _all = List.of(initial);
@@ -68,9 +69,46 @@ class InMemoryAccountsRepository extends Fake implements AccountsRepository {
   @override
   Stream<List<Account>> watchAll() => _live(() => all);
 
+  /// «Движения» по счетам (чистое изменение остатка): так тест имитирует
+  /// операции, которых в фейке нет.
+  final Map<String, Money> net = {};
+
   @override
-  Stream<Map<String, Money>> watchBalances({required String currency}) =>
-      _live(() => {for (final a in _all) a.id: a.openingBalance});
+  Stream<Map<String, Money>> watchBalances({required String currency}) => _live(
+    () => {
+      for (final a in _all)
+        a.id: net[a.id] == null
+            ? a.openingBalance
+            : a.openingBalance + net[a.id]!,
+    },
+  );
+
+  void _replace(String id, Account Function(Account) change) {
+    final error = failWith;
+    if (error != null) throw error;
+    _all = [
+      for (final a in _all)
+        if (a.id == id) change(a) else a,
+    ];
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> adjustCurrentBalance(String id, Money entered) async {
+    final move = net[id] ?? Money.zero(entered.currency);
+    _replace(id, (a) => a.withOpeningBalance(entered - move));
+  }
+
+  @override
+  Future<void> archive(String id) async =>
+      _replace(id, (a) => a.archived(DateTime.utc(2026, 10, 8)));
+
+  @override
+  Future<void> restore(String id) async {
+    final account = _all.firstWhere((a) => a.id == id);
+    Account.checkUniqueName(name: account.name, existing: _all, selfId: id);
+    _replace(id, (a) => a.restored());
+  }
 
   @override
   Future<int> nextSortOrder() async =>

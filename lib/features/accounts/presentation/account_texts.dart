@@ -1,3 +1,4 @@
+import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
@@ -23,6 +24,27 @@ const String accountFormBalanceHelper = 'Можно оставить пусты�
 const String accountFormMinusTitle = 'Минус (долг)';
 const String accountFormMinusHelper = 'Например, долг по кредитной карте';
 const String accountFormSaveLabel = 'Сохранить';
+
+// Экран счёта (тексты утверждены).
+const String accountBalanceCaption = 'Остаток';
+const String accountEditButton = 'Изменить';
+const String accountAdjustButton = 'Поправить остаток';
+const String accountArchiveButton = 'В архив';
+const String accountAdjustTitle = 'Поправить остаток';
+const String accountAdjustHelper =
+    'Операции не изменятся — поменяется только стартовый остаток счёта';
+const String accountCancelLabel = 'Отмена';
+const String accountUndoAction = 'Вернуть';
+const String accountRestoreDuplicateText =
+    'Счёт с таким именем уже есть. Переименуйте его или оставьте этот в архиве';
+
+String accountArchiveDialogTitle(String name) => 'Отправить «$name» в архив?';
+
+String accountArchiveDialogText(Money balance) =>
+    'На счёте ${formatMoney(balance)}. Счёт в архиве не входит во «Всего на '
+    'счетах». Операции счёта сохранятся';
+
+String accountArchivedMessage(String name) => 'Счёт «$name» в архиве';
 
 /// Подпись значка в сетке для скринридера: «Иконка: Карта, выбрана».
 String accountFormIconSemantics(String label, {required bool selected}) =>
