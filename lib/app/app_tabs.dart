@@ -357,6 +357,7 @@ class _HistoryTabState extends State<HistoryTab> {
           clock: services.clock,
           categories: services.categories,
           transactions: services.transactions,
+          accounts: services.accounts.watchAll(),
           // Перенос в другой месяц: «История» идёт за операцией.
           onSaved: (day) {
             browse.updateToday(services.clock.today());

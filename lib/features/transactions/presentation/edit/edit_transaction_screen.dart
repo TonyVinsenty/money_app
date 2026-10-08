@@ -15,6 +15,7 @@ import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/edited_transaction.dart';
@@ -24,6 +25,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/edit/edit_category_picker_screen.dart';
 import 'package:money_app/features/transactions/presentation/edit/edit_subcategory_picker_screen.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/account_chip.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 
@@ -46,8 +48,16 @@ class EditTransactionScreen extends StatefulWidget {
     required this.categories,
     required this.transactions,
     this.onSaved,
+    this.accounts,
     super.key,
   });
+
+  /// Поток счетов (все, фильтруем здесь). Без него строки «Счёт» нет.
+  final Stream<List<Account>>? accounts;
+
+  static const accountLabel = 'Счёт';
+  static const accountArchivedSuffix = ' (в архиве)';
+  static const accountRowKey = ValueKey('edit-account-row');
 
   /// Правка сохранена, операция теперь на этот день (удаление и «Назад» его
   /// не вызывают; «Отменить» в сообщении месяц не возвращает).
@@ -148,9 +158,49 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   /// перекрыл бы саму кнопку «Сохранить».
   String? _error;
 
+  /// Счета из потока (null - ещё не пришли) и выбранный счёт операции.
+  List<Account>? _allAccounts;
+  StreamSubscription<List<Account>>? _accountsSub;
+  late String? _accountId = widget.transaction.accountId;
+
+  /// Счета, на которые можно перенести операцию: не архивные, в её валюте.
+  List<Account> get _accountOptions => [
+    for (final a in _allAccounts ?? const <Account>[])
+      if (!a.isArchived && a.currency == widget.transaction.amount.currency) a,
+  ];
+
+  String _accountTitle() {
+    final id = _accountId;
+    if (id == null) return accountChipNone;
+    for (final a in _allAccounts ?? const <Account>[]) {
+      if (a.id == id) {
+        return a.isArchived
+            ? '${a.name}${EditTransactionScreen.accountArchivedSuffix}'
+            : a.name;
+      }
+    }
+    return EditTransactionScreen.categoryLoadingLabel;
+  }
+
+  Future<void> _pickAccount() async {
+    final picked = await showAccountSheet(
+      context,
+      accounts: _accountOptions,
+      selectedId: _accountId,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _accountId = picked.id;
+      _error = null;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    _accountsSub = widget.accounts?.listen((all) {
+      if (mounted) setState(() => _allAccounts = all);
+    }, onError: (Object _) {});
     final t = widget.transaction;
     _today = widget.clock.today();
     _day = t.occurredOn;
@@ -174,6 +224,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
 
   @override
   void dispose() {
+    unawaited(_accountsSub?.cancel());
     _amount.text.removeListener(_onAmountTextChanged);
     _note.removeListener(_onNoteTextChanged);
     _amount.focusNode.removeListener(_onAmountFocusChanged);
@@ -420,7 +471,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         newType: type,
         newSubcategory: _pickedSub,
         clearSubcategory: _subOverridden && _pickedSub == null,
-      );
+      ).withAccount(_accountId);
       // Операцию могли удалить, пока экран был открыт: репозиторий на такое
       // отвечает общей ArgumentError, а человеку нужно объяснение.
       if (await widget.transactions.findById(edited.id) == null) {
@@ -713,6 +764,12 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         subcategory: subcategory,
                         onTap: () => unawaited(_pickSubcategory()),
                       ),
+                    // Есть счета этой валюты или у операции уже есть счёт.
+                    if (_accountOptions.isNotEmpty || _accountId != null)
+                      _AccountRow(
+                        title: _accountTitle(),
+                        onTap: () => unawaited(_pickAccount()),
+                      ),
                     NoteField(controller: _note, focusNode: _noteFocus),
                   ],
                 ),
@@ -744,6 +801,45 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
             ),
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Строка «Счёт» под категорией: «Карта», «Без счёта» или «Карта (в
+/// архиве)». Скринридер читает «Счёт: Карта» как кнопку.
+class _AccountRow extends StatelessWidget {
+  const _AccountRow({required this.title, required this.onTap});
+
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Semantics(
+        button: true,
+        label: '${EditTransactionScreen.accountLabel}: $title',
+        onTap: onTap,
+        excludeSemantics: true,
+        child: Material(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            key: EditTransactionScreen.accountRowKey,
+            leading: Icon(
+              Icons.account_balance_wallet_outlined,
+              color: theme.colorScheme.primary,
+            ),
+            title: Text(title),
+            subtitle: const Text(EditTransactionScreen.accountLabel),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: onTap,
+          ),
         ),
       ),
     );

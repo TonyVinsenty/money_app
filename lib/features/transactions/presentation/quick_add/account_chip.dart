@@ -10,6 +10,56 @@ const String accountSheetTitle = 'Счёт';
 String accountChipSemantics(String? name) =>
     'Счёт: ${name ?? accountChipNone.toLowerCase()}, изменить';
 
+ValueKey<String> accountOptionKey(String? id) =>
+    ValueKey('account-option-${id ?? 'none'}');
+
+/// Лист выбора счёта: [accounts] (уже отобранные вызывающим) и «Без счёта»
+/// последним. Возвращает выбор (`id == null` - без счёта) или `null`, если
+/// лист закрыли без выбора. Общий для быстрого ввода и правки операции.
+Future<({String? id})?> showAccountSheet(
+  BuildContext context, {
+  required List<Account> accounts,
+  required String? selectedId,
+}) {
+  Widget option(BuildContext context, String? id, String name, IconData icon) {
+    final selected = id == selectedId;
+    return ListTile(
+      key: accountOptionKey(id),
+      leading: Icon(icon),
+      title: Text(name),
+      trailing: selected ? const Icon(Icons.check) : null,
+      selected: selected,
+      onTap: () => Navigator.of(context).pop((id: id)),
+    );
+  }
+
+  return showModalBottomSheet<({String? id})>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Text(
+                accountSheetTitle,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            for (final a in accounts)
+              option(context, a.id, a.name, accountIconFor(a.iconKey).icon),
+            option(context, null, accountChipNone, Icons.block),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 /// Плашка счёта операции рядом с плашкой даты: имя счёта или «Без счёта».
 /// Тап открывает лист выбора среди [accounts] (уже отобранных вызывающим) и
 /// «Без счёта» последним. Выбор уходит в [onChanged] (`null` - без счёта).
@@ -27,8 +77,7 @@ class AccountChip extends StatelessWidget {
 
   static const chipKey = ValueKey('account-chip');
 
-  static ValueKey<String> optionKey(String? id) =>
-      ValueKey('account-option-${id ?? 'none'}');
+  static ValueKey<String> optionKey(String? id) => accountOptionKey(id);
 
   Account? get _selected {
     for (final a in accounts) {
@@ -38,44 +87,12 @@ class AccountChip extends StatelessWidget {
   }
 
   Future<void> _pick(BuildContext context) async {
-    final picked = await showModalBottomSheet<({String? id})>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                child: Text(
-                  accountSheetTitle,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              for (final a in accounts)
-                _option(context, a.id, a.name, accountIconFor(a.iconKey).icon),
-              _option(context, null, accountChipNone, Icons.block),
-            ],
-          ),
-        ),
-      ),
+    final picked = await showAccountSheet(
+      context,
+      accounts: accounts,
+      selectedId: _selected?.id,
     );
     if (picked != null) onChanged(picked.id);
-  }
-
-  Widget _option(BuildContext context, String? id, String name, IconData icon) {
-    final selected = id == _selected?.id;
-    return ListTile(
-      key: optionKey(id),
-      leading: Icon(icon),
-      title: Text(name),
-      trailing: selected ? const Icon(Icons.check) : null,
-      selected: selected,
-      onTap: () => Navigator.of(context).pop((id: id)),
-    );
   }
 
   @override

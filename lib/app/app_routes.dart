@@ -250,7 +250,11 @@ final class EditTransactionRouteArguments {
     required this.categories,
     required this.transactions,
     this.onSaved,
+    this.accounts,
   });
+
+  /// Поток счетов для строки «Счёт».
+  final Stream<List<Account>>? accounts;
 
   /// Правка сохранена; операция теперь на этом дне.
   final ValueChanged<DateOnly>? onSaved;
@@ -321,6 +325,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           categories: arguments.categories,
           transactions: arguments.transactions,
           onSaved: arguments.onSaved,
+          accounts: arguments.accounts,
         ),
       );
     case AppRoutes.categories:
