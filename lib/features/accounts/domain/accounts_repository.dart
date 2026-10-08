@@ -1,0 +1,58 @@
+import 'package:money_app/core/money/money.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
+
+/// Хранилище счетов: что можно попросить, но не как это устроено.
+///
+/// Общие ошибки методов:
+/// - `AccountRuleException` — нарушено правило счёта;
+/// - `DataCorruptedException` — данные в хранилище испорчены и не
+///   превращаются в корректный `Account`;
+/// - `ArgumentError` — счёта с таким id нет (или он удалён).
+abstract interface class AccountsRepository {
+  /// Поток всех не удалённых счетов, **включая архивные**, по `sortOrder`
+  /// (при равенстве — по времени создания и `id`). Поток сам выдаёт новый
+  /// список после каждой записи.
+  Stream<List<Account>> watchAll();
+
+  /// Находит счёт по [id] (архивные возвращаются) или возвращает `null`.
+  Future<Account?> findById(String id);
+
+  /// Порядок для нового счёта: на единицу больше самого большого `sortOrder`
+  /// среди не удалённых счетов (архивные тоже); для пустого списка — 0.
+  /// Читает сырые строки: испорченный сосед не мешает добавить счёт.
+  Future<int> nextSortOrder();
+
+  /// Сохраняет новый [account]. Если среди не архивных счетов уже есть такое
+  /// имя (без учёта регистра), бросает `AccountRuleException` с правилом
+  /// `duplicateName`.
+  Future<void> create(Account account);
+
+  /// Меняет имя и значок счёта [id]. Имя и значок проверяются как при
+  /// создании, имя ещё и на дубль среди не архивных счетов. Испорченную
+  /// строку так можно починить.
+  Future<void> update(
+    String id, {
+    required String name,
+    required String iconKey,
+  });
+
+  /// Меняет стартовый остаток счёта [id] (может быть отрицательным).
+  /// Валюта должна совпадать с валютой счёта, иначе — [ArgumentError].
+  Future<void> setOpeningBalance(String id, Money openingBalance);
+
+  /// Переставляет не удалённые счета (правило как у категорий).
+  ///
+  /// [orderedIds] — подмножество счетов без повторов; иначе `ArgumentError`.
+  /// Переданные получают `sortOrder` `0..n-1` в заданном порядке, остальные
+  /// (например, архивные) сохраняют относительное положение и идут следом.
+  /// После вызова порядок уникален и непрерывен. Записываются только
+  /// изменившиеся строки. Всё в одной транзакции.
+  Future<void> reorder(List<String> orderedIds);
+
+  /// Отправляет счёт [id] в архив (уже архивный не меняется).
+  Future<void> archive(String id);
+
+  /// Возвращает счёт [id] из архива. Если его имя занято другим не архивным
+  /// счётом, бросает `AccountRuleException` с правилом `duplicateName`.
+  Future<void> restore(String id);
+}
