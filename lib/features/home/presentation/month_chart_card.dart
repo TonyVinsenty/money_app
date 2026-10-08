@@ -80,8 +80,13 @@ class MonthChartCard extends StatefulWidget {
     required this.ringSize,
     this.onOpenCategory,
     this.isCurrentMonth = true,
+    this.currency = rubCurrencyCode,
     super.key,
   });
+
+  /// Код валюты кольца (основная валюта); операции других валют в поток не
+  /// приходят.
+  final String currency;
 
   /// Показан текущий месяц: от этого зависит текст пустого состояния.
   final bool isCurrentMonth;
@@ -111,6 +116,7 @@ class MonthChartCard extends StatefulWidget {
 typedef _MonthData = ({
   DateOnly month,
   bool isCurrentMonth,
+  String currency,
   List<Transaction> transactions,
 });
 
@@ -121,10 +127,14 @@ class _MonthChartCardState extends State<MonthChartCard> {
   Stream<_MonthData> _tag() {
     final month = widget.month;
     final isCurrentMonth = widget.isCurrentMonth;
+    // Валюта едет вместе с операциями: после смены основной валюты старые
+    // рублёвые операции не должны считаться в новой валюте.
+    final currency = widget.currency;
     return widget.transactions.map(
       (transactions) => (
         month: month,
         isCurrentMonth: isCurrentMonth,
+        currency: currency,
         transactions: transactions,
       ),
     );
@@ -134,7 +144,8 @@ class _MonthChartCardState extends State<MonthChartCard> {
   void didUpdateWidget(MonthChartCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Новый поток — новый месяц (или репозиторий): сектор под пальцем устарел.
-    if (!identical(oldWidget.transactions, widget.transactions)) {
+    if (!identical(oldWidget.transactions, widget.transactions) ||
+        oldWidget.currency != widget.currency) {
       _data = _tag();
       _highlight = null;
     }
@@ -211,14 +222,14 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final balance = summarizePeriod(
       transactions,
       range,
-      currency: rubCurrencyCode,
+      currency: data.currency,
     ).balance;
     final slices = chartSlices(
       totalsByCategory(
         transactions,
         range,
         type: TransactionType.expense,
-        currency: rubCurrencyCode,
+        currency: data.currency,
       ),
     );
     final byId = {for (final c in categories) c.id: c};
@@ -250,7 +261,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final highlighted = lit != null && lit < slices.length ? lit : null;
 
     // spokenMoney сам добавляет «минус»; для плюса приставку ставим тут.
-    final balanceSpoken = balance > Money.zero(rubCurrencyCode)
+    final balanceSpoken = balance > Money.zero(data.currency)
         ? 'плюс ${spokenMoney(balance)}'
         : spokenMoney(balance);
     final label =

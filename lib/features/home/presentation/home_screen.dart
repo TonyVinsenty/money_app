@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/font_scale.dart';
@@ -28,8 +29,12 @@ class HomeScreen extends StatelessWidget {
     this.isCurrentMonth = true,
     this.onPreviousMonth,
     this.onNextMonth,
+    this.currency = rubCurrencyCode,
     super.key,
   });
+
+  /// Код основной валюты: в ней кольцо считает операции [monthTransactions].
+  final String currency;
 
   /// Показан текущий месяц (для текста пустой диаграммы).
   final bool isCurrentMonth;
@@ -98,6 +103,7 @@ class HomeScreen extends StatelessWidget {
                   categories: categories,
                   month: month,
                   isCurrentMonth: isCurrentMonth,
+                  currency: currency,
                   ringSize: ring,
                   onOpenCategory: onOpenCategory,
                 ),

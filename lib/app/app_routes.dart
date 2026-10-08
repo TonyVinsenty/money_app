@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -189,7 +190,11 @@ final class QuickAddRouteArguments {
     required this.transactions,
     required this.idGenerator,
     this.onSaved,
+    this.currency,
   });
+
+  /// Основная валюта: в ней вводится сумма и сохраняется операция; `null` — рубль.
+  final CurrencyInfo? currency;
 
   /// Операция сохранена на этот день (отмена записи месяц не возвращает).
   final ValueChanged<DateOnly>? onSaved;
@@ -249,6 +254,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           transactions: arguments.transactions,
           idGenerator: arguments.idGenerator,
           onSaved: arguments.onSaved,
+          currency: arguments.currency,
           // «Добавить категорию» в пустом выборе категории: форма нужного вида.
           onCreateCategory: () => unawaited(
             Navigator.of(context).pushNamed(

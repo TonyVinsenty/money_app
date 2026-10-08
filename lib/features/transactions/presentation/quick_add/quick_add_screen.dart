@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -35,8 +36,12 @@ class QuickAddScreen extends StatefulWidget {
     required this.idGenerator,
     this.onCreateCategory,
     this.onSaved,
+    this.currency,
     super.key,
   });
+
+  /// Валюта новой операции (основная валюта из настроек); `null` — рубль.
+  final CurrencyInfo? currency;
 
   final TransactionType type;
 
@@ -73,7 +78,7 @@ class QuickAddScreen extends StatefulWidget {
 }
 
 class _QuickAddScreenState extends State<QuickAddScreen> {
-  final _amount = AmountFieldController();
+  late final _amount = AmountFieldController(currency: widget.currency);
 
   /// «Сегодня» на момент открытия экрана. Если экран простоит открытым через
   /// полночь, «сегодня» и выбранный день намеренно не обновляются: ввод

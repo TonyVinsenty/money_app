@@ -146,6 +146,7 @@ class HomeTab extends StatefulWidget {
 class _HomeTabState extends State<HomeTab> {
   TransactionsRepository? _repository;
   DateRange? _month;
+  String? _currency;
   late Stream<Money> _monthExpenses;
   late Stream<Money> _monthIncome;
   late Stream<List<Transaction>> _monthTransactions;
@@ -165,18 +166,28 @@ class _HomeTabState extends State<HomeTab> {
     super.didChangeDependencies();
     final services = AppScope.of(context);
     final month = BrowseScope.of(context).month;
-    if (!identical(services.transactions, _repository) || month != _month) {
+    // Основная валюта из настроек: при её смене потоки создаются заново.
+    final currency = services.settings.mainCurrencyCode;
+    if (!identical(services.transactions, _repository) ||
+        month != _month ||
+        currency != _currency) {
       _repository = services.transactions;
       _month = month;
+      _currency = currency;
       _monthExpenses = services.transactions.watchTotal(
         type: TransactionType.expense,
         period: month,
+        currency: currency,
       );
       _monthIncome = services.transactions.watchTotal(
         type: TransactionType.income,
         period: month,
+        currency: currency,
       );
-      _monthTransactions = services.transactions.watchInPeriod(month);
+      _monthTransactions = services.transactions.watchInPeriod(
+        month,
+        currency: currency,
+      );
     }
     if (!identical(services.categories, _categoriesRepository)) {
       _categoriesRepository = services.categories;
@@ -195,6 +206,7 @@ class _HomeTabState extends State<HomeTab> {
       categories: _categories,
       month: month.start,
       isCurrentMonth: month == monthRange(browse.today),
+      currency: _currency!,
       onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,
       onNextMonth: browse.canGoForward ? browse.nextMonth : null,
       // Месяц и порядок «Истории» не меняются; новый экран не открывается.
@@ -226,6 +238,7 @@ class HomeActions extends StatelessWidget {
           categories: services.categories,
           transactions: services.transactions,
           idGenerator: services.idGenerator,
+          currency: services.settings.mainCurrency,
           // Общий месяц переключается на месяц новой операции.
           onSaved: (day) {
             // Приложение могло пережить полночь: сначала свежее «сегодня».

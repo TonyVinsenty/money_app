@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
@@ -85,7 +86,12 @@ class EditTransactionScreen extends StatefulWidget {
 }
 
 class _EditTransactionScreenState extends State<EditTransactionScreen> {
-  final _amount = AmountFieldController();
+  // Правка идёт в валюте самой операции, а не основной.
+  late final _amount = AmountFieldController(
+    currency:
+        catalogCurrency(widget.transaction.amount.currency) ??
+        currencyInfoFor(widget.transaction.amount.currency, digits: 2),
+  );
   late final TextEditingController _note;
 
   /// «Сегодня» на момент открытия (как в быстром вводе: через полночь не
