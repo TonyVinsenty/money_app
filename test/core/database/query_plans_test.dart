@@ -183,6 +183,11 @@ void main() {
             .get();
         final text = rows.map((r) => r.read<String>('detail')).join('\n');
         expect(text, contains('INDEX ${expected[i]}'), reason: text);
+        for (final line in text.split('\n')) {
+          if (line.contains('SCAN')) {
+            expect(line, contains('INDEX'), reason: 'full scan: $text');
+          }
+        }
       }
     });
 

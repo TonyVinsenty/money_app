@@ -77,15 +77,29 @@ class InMemoryAccountsRepository extends Fake implements AccountsRepository {
   Stream<Map<String, Money>> watchBalances({required String currency}) => _live(
     () => {
       for (final a in _all)
-        a.id: net[a.id] == null
-            ? a.openingBalance
-            : a.openingBalance + net[a.id]!,
+        if (a.openingBalance.currency == currency)
+          a.id: net[a.id] == null
+              ? a.openingBalance
+              : a.openingBalance + net[a.id]!,
     },
   );
+
+  Account _require(String id) {
+    final found = _all.where((a) => a.id == id);
+    if (found.isEmpty) {
+      throw ArgumentError.value(id, 'id', 'account not found');
+    }
+    return found.first;
+  }
+
+  /// Если задан, `archive` ждёт его завершения перед записью (имитация
+  /// долгой записи).
+  Completer<void>? archiveGate;
 
   void _replace(String id, Account Function(Account) change) {
     final error = failWith;
     if (error != null) throw error;
+    _require(id);
     _all = [
       for (final a in _all)
         if (a.id == id) change(a) else a,
@@ -100,12 +114,16 @@ class InMemoryAccountsRepository extends Fake implements AccountsRepository {
   }
 
   @override
-  Future<void> archive(String id) async =>
-      _replace(id, (a) => a.archived(DateTime.utc(2026, 10, 8)));
+  Future<void> archive(String id) async {
+    await archiveGate?.future;
+    if (_require(id).isArchived) return;
+    _replace(id, (a) => a.archived(DateTime.utc(2026, 10, 8)));
+  }
 
   @override
   Future<void> restore(String id) async {
-    final account = _all.firstWhere((a) => a.id == id);
+    final account = _require(id);
+    if (!account.isArchived) return;
     Account.checkUniqueName(name: account.name, existing: _all, selfId: id);
     _replace(id, (a) => a.restored());
   }
@@ -131,6 +149,7 @@ class InMemoryAccountsRepository extends Fake implements AccountsRepository {
   }) async {
     final error = failWith;
     if (error != null) throw error;
+    _require(id);
     final checked = Account.checkedName(name);
     Account.checkUniqueName(name: checked, existing: _all, selfId: id);
     _all = [

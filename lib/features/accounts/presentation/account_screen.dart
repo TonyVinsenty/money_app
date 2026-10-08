@@ -132,7 +132,8 @@ class _AccountScreenState extends State<AccountScreen> {
       _showMessage(messenger, categorySaveFailedText);
       return;
     }
-    navigator.pop();
+    // Пользователь мог уйти назад во время записи: тогда закрывать нечего.
+    if (mounted) navigator.pop();
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -6,6 +8,7 @@ import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/presentation/account_adjust_dialog.dart';
@@ -151,6 +154,18 @@ void main() {
       expect(totalText(tester), '+${formatMoney(rub(150050))}');
     });
 
+    testWidgets('сбой записи: сообщение, экран остаётся', (tester) async {
+      final repo = InMemoryAccountsRepository([acc('a', 'Карта')]);
+      await pumpTab(tester, repo);
+      await openAccount(tester, 'Карта');
+      await tapKey(tester, AccountScreen.adjustKey);
+      await tester.enterText(find.byKey(AccountAdjustDialog.fieldKey), '50');
+      repo.failWith = Exception('db');
+      await tapKey(tester, AccountAdjustDialog.saveKey);
+      expect(find.text(categorySaveFailedText), findsOneWidget);
+      expect(find.byType(AccountScreen), findsOneWidget);
+    });
+
     testWidgets('«Минус (долг)», ошибка суммы и отмена', (tester) async {
       final repo = InMemoryAccountsRepository([acc('a', 'Карта')]);
       await pumpTab(tester, repo);
@@ -216,6 +231,36 @@ void main() {
       expect(find.text('Карта'), findsNothing);
       expect(totalText(tester), '+${formatMoney(rub(5000))}'); // без «Карты»
       expect(find.text(accountArchivedMessage('Карта')), findsOneWidget);
+    });
+
+    testWidgets('«Назад» во время записи: экран под ним не закрывается', (
+      tester,
+    ) async {
+      final repo = InMemoryAccountsRepository([acc('a', 'Карта')])
+        ..archiveGate = Completer<void>();
+      await pumpTab(tester, repo);
+      await openAccount(tester, 'Карта');
+      await tester.ensureVisible(find.byKey(AccountScreen.archiveKey));
+      await tester.tap(find.byKey(AccountScreen.archiveKey));
+      await tester.pump();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(AccountScreen), findsNothing);
+      expect(find.byType(BalanceTab), findsOneWidget);
+      repo.archiveGate!.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(BalanceTab), findsOneWidget);
+      expect(find.text(accountArchivedMessage('Карта')), findsOneWidget);
+    });
+
+    testWidgets('сбой записи: сообщение, экран остаётся', (tester) async {
+      final repo = InMemoryAccountsRepository([acc('a', 'Карта')]);
+      await pumpTab(tester, repo);
+      await openAccount(tester, 'Карта');
+      repo.failWith = Exception('db');
+      await tapKey(tester, AccountScreen.archiveKey);
+      expect(find.text(categorySaveFailedText), findsOneWidget);
+      expect(find.byType(AccountScreen), findsOneWidget);
     });
 
     testWidgets('«Вернуть» при занятом имени объясняет причину', (
