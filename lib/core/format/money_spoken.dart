@@ -1,4 +1,6 @@
+import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 
 /// Сумма словами для скринридера: «1234 рубля 50 копеек».
@@ -8,24 +10,24 @@ import 'package:money_app/core/money/money.dart';
 /// читает «1234» как одно число, а «1 234» с пробелом может прочитать как два
 /// («один, двести тридцать четыре»), особенно если пробел неразрывный.
 ///
-/// Правила:
+/// Рубль:
 /// - копейки не читаются, если их нет: «5 рублей», а не «5 рублей 0 копеек»;
 /// - если есть только копейки, рубли всё равно называются: «0 рублей 50 копеек»
 ///   (на слух однозначнее, чем «50 копеек»);
 /// - ноль читается «0 рублей»;
 /// - отрицательная сумма получает приставку «минус ».
 ///
-/// Поддерживается только рубль: склонения других валют не заведены, поэтому
-/// для них бросается [ArgumentError]. Считается целыми числами, без дробных.
-/// Только для показа и озвучки в UI (ADR 0004).
-String spokenMoney(Money money) {
-  if (money.currency != rubCurrencyCode) {
-    throw ArgumentError.value(
-      money.currency,
-      'money.currency',
-      'Only RUB is supported',
-    );
-  }
+/// Остальные валюты (ADR 0010, п. 16.6), [currency] по умолчанию берётся из
+/// каталога по коду суммы:
+/// - со словами: число с запятой (нули в конце срезаны) и слово: целое - по
+///   правилу 1/2/5 («2 доллара»), дробное - вторая форма («12,5 доллара»);
+/// - без слов (и своя валюта): «число, название» - «1500, ABC».
+///
+/// Считается целыми числами, без дробных. Только для показа и озвучки в UI
+/// (ADR 0004).
+String spokenMoney(Money money, {CurrencyInfo? currency}) {
+  final info = currency ?? currencyInfoFor(money.currency, digits: 2);
+  if (info.code != rubCurrencyCode) return _spokenOther(money, info);
 
   final minor = money.minorUnits;
   // Модуль берём у каждой части отдельно: у самого маленького int модуль всей
@@ -61,4 +63,32 @@ String _plural(int n, String one, String few, String many) {
     2 || 3 || 4 => few,
     _ => many,
   };
+}
+
+/// Не рубль: число без разделителя разрядов и слово или название.
+String _spokenOther(Money money, CurrencyInfo info) {
+  final minor = money.minorUnits;
+  final divisor = pow10(info.digits);
+  final whole = (minor ~/ divisor).abs();
+  // Дробная часть без нулей в конце: «0,0015», а не «0,00150000».
+  var fraction = info.digits == 0
+      ? ''
+      : minor.remainder(divisor).abs().toString().padLeft(info.digits, '0');
+  var end = fraction.length;
+  while (end > 0 && fraction[end - 1] == '0') {
+    end--;
+  }
+  fraction = fraction.substring(0, end);
+
+  final number = fraction.isEmpty ? '$whole' : '$whole,$fraction';
+  final forms = info.forms;
+  final String tail;
+  if (forms == null) {
+    tail = ', ${info.name}';
+  } else if (fraction.isNotEmpty) {
+    tail = ' ${forms.few}';
+  } else {
+    tail = ' ${_plural(whole, forms.one, forms.few, forms.many)}';
+  }
+  return '${minor < 0 ? 'минус ' : ''}$number$tail';
 }

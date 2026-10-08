@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 
 Money rub(int minor) => Money.fromMinor(minor, 'RUB');
@@ -83,11 +84,45 @@ void main() {
       expect(spokenMoney(rub(100000000000000)), '1000000000000 рублей');
     });
 
-    test('чужая валюта — ArgumentError', () {
-      expect(
-        () => spokenMoney(Money.fromMinor(100, 'USD')),
-        throwsArgumentError,
-      );
+    test('код не из каталога без знаков — 2 знака, число и код', () {
+      expect(spokenMoney(Money.fromMinor(150, 'GBP')), '1,5, GBP');
+    });
+  });
+
+  group('spokenMoney: другие валюты (ADR 0010, п. 16.6)', () {
+    Money m(int minor, String code) => Money.fromMinor(minor, code);
+
+    test('доллар: 1 / 2 / 5 / 11', () {
+      expect(spokenMoney(m(100, 'USD')), '1 доллар');
+      expect(spokenMoney(m(200, 'USD')), '2 доллара');
+      expect(spokenMoney(m(500, 'USD')), '5 долларов');
+      expect(spokenMoney(m(1100, 'USD')), '11 долларов');
+      expect(spokenMoney(m(0, 'USD')), '0 долларов');
+    });
+
+    test('дробная сумма — вторая форма, нули срезаны', () {
+      expect(spokenMoney(m(1250, 'USD')), '12,5 доллара');
+      expect(spokenMoney(m(150000, 'BTC')), '0,0015 биткоина');
+    });
+
+    test('минус и евро', () {
+      expect(spokenMoney(m(-300, 'EUR')), 'минус 3 евро');
+    });
+
+    test('крупная сумма без разделителя разрядов', () {
+      expect(spokenMoney(m(123456700, 'USD')), '1234567 долларов');
+    });
+
+    test('каталожная валюта без слов — число, название', () {
+      expect(spokenMoney(m(150000000, 'USDT')), '1,5, Tether');
+      expect(spokenMoney(m(-100000000, 'TON')), 'минус 1, Toncoin');
+    });
+
+    test('своя валюта — число, код', () {
+      final abc0 = currencyInfoFor('ABC', digits: 0);
+      final abc4 = currencyInfoFor('ABC', digits: 4);
+      expect(spokenMoney(m(1500, 'ABC'), currency: abc0), '1500, ABC');
+      expect(spokenMoney(m(125000, 'ABC'), currency: abc4), '12,5, ABC');
     });
   });
 }

@@ -1,3 +1,4 @@
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 
@@ -86,6 +87,10 @@ final class Account {
 
   /// Код валюты счёта.
   String get currency => openingBalance.currency;
+
+  /// Описание валюты счёта: каталог или своя валюта со знаками из базы.
+  CurrencyInfo get currencyInfo =>
+      currencyInfoFor(currency, digits: currencyDigits);
 
   /// Счёт в архиве.
   bool get isArchived => archivedAt != null;

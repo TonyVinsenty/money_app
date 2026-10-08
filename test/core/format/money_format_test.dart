@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 
@@ -155,5 +156,47 @@ void main() {
         }
       });
     }
+  });
+
+  group('formatMoney: валюты каталога и свои (ADR 0010, п. 16.5)', () {
+    Money m(int minor, String code) => Money.fromMinor(minor, code);
+
+    test('обычная валюта — все знаки', () {
+      expect(formatMoney(m(15000, 'USD')), nb(r'150,00 $'));
+    });
+
+    test('крипта: нули срезаются, но не меньше двух знаков', () {
+      expect(formatMoney(m(150000, 'BTC')), nb('0,0015 BTC'));
+      expect(formatMoney(m(100000000, 'BTC')), nb('1,00 BTC'));
+      expect(formatMoney(m(-50000000, 'ETH')), nb('${minus}0,50 ETH'));
+      expect(formatMoney(m(1, 'BTC')), nb('0,00000001 BTC'));
+    });
+
+    test('10^14 единиц USDT', () {
+      expect(formatMoney(m(100000000000000, 'USDT')), nb('1 000 000,00 USDT'));
+    });
+
+    test('своя валюта: 0 знаков — без запятой', () {
+      final abc = currencyInfoFor('ABC', digits: 0);
+      expect(formatMoney(m(1500, 'ABC'), currency: abc), nb('1 500 ABC'));
+    });
+
+    test('своя валюта: 4 знака', () {
+      final abc = currencyInfoFor('ABC', digits: 4);
+      expect(formatMoney(m(125000, 'ABC'), currency: abc), nb('12,50 ABC'));
+      expect(formatMoney(m(1, 'ABC'), currency: abc), nb('0,0001 ABC'));
+    });
+
+    test('без символа — только число', () {
+      expect(
+        formatMoney(m(150000, 'BTC'), withCurrencySymbol: false),
+        '0,0015',
+      );
+    });
+
+    test('currencySymbol берёт символ из каталога', () {
+      expect(currencySymbol('CNY'), '¥');
+      expect(currencySymbol('BTC'), 'BTC');
+    });
   });
 }

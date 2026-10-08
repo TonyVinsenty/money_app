@@ -220,4 +220,18 @@ void main() {
     }
     expect(AccountRuleException(AccountRule.emptyName, 'x').message, 'x');
   });
+
+  test('currencyInfo: валюта каталога и своя со знаками счёта', () {
+    expect(acc('1', 'A').currencyInfo.symbol, '₽');
+    final custom = Account(
+      id: '2',
+      name: 'B',
+      iconKey: 'card',
+      openingBalance: Money.fromMinor(0, 'ABC'),
+      sortOrder: 0,
+      currencyDigits: 4,
+    );
+    expect(custom.currencyInfo.digits, 4);
+    expect(custom.currencyInfo.code, 'ABC');
+  });
 }
