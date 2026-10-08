@@ -4,6 +4,7 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
@@ -68,8 +69,17 @@ class AnalyticsScreen extends StatelessWidget {
     this.firstDayKnown = false,
     this.onCustomRangeSelected,
     this.currency = rubCurrencyCode,
+    this.hasOtherCurrencies,
+    this.currencySymbol = '₽',
     super.key,
   });
+
+  /// Есть ли операции в других валютах (подсказка в пустом периоде);
+  /// `null` — подсказки нет.
+  final Stream<bool>? hasOtherCurrencies;
+
+  /// Знак основной валюты для подсказки.
+  final String currencySymbol;
 
   /// Код основной валюты: в ней считаются итоги и разбивка по категориям.
   final String currency;
@@ -184,6 +194,8 @@ class AnalyticsScreen extends StatelessWidget {
           isEmpty: (data) => data.transactions.isEmpty,
           emptyBuilder: (_) => _EmptyPeriod(
             noOperationsAtAll: firstDayKnown && firstDay == null,
+            hasOtherCurrencies: hasOtherCurrencies,
+            symbol: currencySymbol,
           ),
           dataBuilder: (context, data) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -218,24 +230,35 @@ class AnalyticsScreen extends StatelessWidget {
 }
 
 class _EmptyPeriod extends StatelessWidget {
-  const _EmptyPeriod({required this.noOperationsAtAll});
+  const _EmptyPeriod({
+    required this.noOperationsAtAll,
+    required this.hasOtherCurrencies,
+    required this.symbol,
+  });
 
   /// Операций нет вообще (а не только в этом периоде).
   final bool noOperationsAtAll;
+  final Stream<bool>? hasOtherCurrencies;
+  final String symbol;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Text(
-        noOperationsAtAll
-            ? 'Операций пока нет. Добавьте первую — и здесь появится статистика'
-            : 'За этот период операций нет',
-        textAlign: TextAlign.center,
-        style: theme.textTheme.bodyLarge?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
+      child: Column(
+        children: [
+          Text(
+            noOperationsAtAll
+                ? 'Операций пока нет. Добавьте первую — и здесь появится статистика'
+                : 'За этот период операций нет',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          OtherCurrenciesHint(hasOther: hasOtherCurrencies, symbol: symbol),
+        ],
       ),
     );
   }

@@ -112,4 +112,8 @@ abstract interface class TransactionsRepository {
   /// Нужен, чтобы знать, как далеко можно листать месяцы назад. Мягко
   /// удалённые не учитываются. Валюта не важна.
   Stream<DateOnly?> watchFirstDay();
+
+  /// Поток «есть ли «живые» операции не в валюте [currency]». Нужен, чтобы
+  /// пустой экран объяснил, куда делись операции других валют.
+  Stream<bool> watchHasOtherCurrency(String currency);
 }

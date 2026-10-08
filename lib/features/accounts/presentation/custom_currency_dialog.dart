@@ -77,7 +77,12 @@ class _CustomCurrencyDialogState extends State<CustomCurrencyDialog> {
       _codeError = null;
       _digitsError = null;
       final same = _sameCode;
-      _digits.text = same == null ? _typedDigits : '${same.currencyDigits}';
+      final known = catalogCurrency(_code.text);
+      _digits.text = known != null
+          ? '${known.digits}'
+          : same == null
+          ? _typedDigits
+          : '${same.currencyDigits}';
     });
   }
 
@@ -108,6 +113,7 @@ class _CustomCurrencyDialogState extends State<CustomCurrencyDialog> {
   @override
   Widget build(BuildContext context) {
     final same = _sameCode;
+    final known = catalogCurrency(_code.text);
     return AlertDialog(
       scrollable: true,
       title: const Text(customCurrencyTitle),
@@ -136,7 +142,7 @@ class _CustomCurrencyDialogState extends State<CustomCurrencyDialog> {
           TextField(
             key: CustomCurrencyDialog.digitsFieldKey,
             controller: _digits,
-            enabled: same == null,
+            enabled: same == null && known == null,
             keyboardType: TextInputType.number,
             textInputAction: TextInputAction.done,
             inputFormatters: [
@@ -145,7 +151,9 @@ class _CustomCurrencyDialogState extends State<CustomCurrencyDialog> {
             ],
             decoration: InputDecoration(
               labelText: customCurrencyDigitsLabel,
-              helperText: same == null
+              helperText: known != null
+                  ? customCurrencyInCatalog(known.name, known.digits)
+                  : same == null
                   ? customCurrencyDigitsHelper
                   : customCurrencyLikeAccount(same.name),
               helperMaxLines: 3,

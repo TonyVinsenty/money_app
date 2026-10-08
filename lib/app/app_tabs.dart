@@ -110,13 +110,18 @@ class SettingsTab extends StatelessWidget {
       mainCurrency: settings.mainCurrency,
       onMainCurrencyChanged: (currency) async {
         final messenger = ScaffoldMessenger.of(context);
-        if (!await settings.setMainCurrency(currency)) {
-          messenger
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              const SnackBar(content: Text(transactionSaveFailedText)),
-            );
-        }
+        final saved = await settings.setMainCurrency(currency);
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                saved
+                    ? 'Основная валюта: ${currency.name}'
+                    : transactionSaveFailedText,
+              ),
+            ),
+          );
       },
       lastExportDay: settings.lastExportDay,
       today: services.clock.today(),
@@ -278,6 +283,7 @@ class _HistoryTabState extends State<HistoryTab> {
   bool _searching = false;
   late Stream<List<Transaction>> _transactions;
   late Stream<List<Category>> _categories;
+  late Stream<bool> _hasOther;
 
   // Потоки создаём один раз (и заново только при смене сервисов, выбранного
   // месяца или при начале и конце поиска): в build каждая перерисовка
@@ -303,6 +309,9 @@ class _HistoryTabState extends State<HistoryTab> {
         searching != _searching ||
         currency != _currency ||
         (!searching && month != _month);
+    if (repositoriesChanged || currency != _currency) {
+      _hasOther = services.transactions.watchHasOtherCurrency(currency);
+    }
     _month = month;
     if (repositoriesChanged || sourceChanged) {
       _transactionsRepository = services.transactions;
@@ -337,6 +346,8 @@ class _HistoryTabState extends State<HistoryTab> {
       onSearchChanged: browse.setHistorySearch,
       onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,
       onNextMonth: browse.canGoForward ? browse.nextMonth : null,
+      hasOtherCurrencies: _hasOther,
+      currencySymbol: services.settings.mainCurrency.symbol,
       onTransactionTap: (transaction) => Navigator.of(context).pushNamed(
         AppRoutes.editTransaction,
         arguments: EditTransactionRouteArguments(
@@ -373,6 +384,7 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
   TransactionsRepository? _transactionsRepository;
   CategoriesRepository? _categoriesRepository;
   late Stream<PeriodTransactions> _transactions;
+  late Stream<bool> _hasOther;
   late Stream<List<Category>> _categories;
   AnalyticsPeriod? _streamPeriod;
   TransactionsRepository? _streamRepository;
@@ -389,6 +401,11 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
     final servicesChanged =
         !identical(services.transactions, _transactionsRepository) ||
         services.settings.mainCurrencyCode != _currency;
+    if (servicesChanged) {
+      _hasOther = services.transactions.watchHasOtherCurrency(
+        services.settings.mainCurrencyCode,
+      );
+    }
     _currency = services.settings.mainCurrencyCode;
     _transactionsRepository = services.transactions;
     if (!identical(services.categories, _categoriesRepository)) {
@@ -454,6 +471,8 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         onTypeSelected: controller.selectType,
         onCustomRangeSelected: controller.selectCustomRange,
         currency: _currency!,
+        hasOtherCurrencies: _hasOther,
+        currencySymbol: AppScope.of(context).settings.mainCurrency.symbol,
       ),
     );
   }

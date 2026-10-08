@@ -151,13 +151,19 @@ class _Totals extends StatelessWidget {
       final shown = formatMoney(total, currency: info);
       final text = total.isZero || total.isNegative ? shown : '+$shown';
       lines.add(
-        Text(
-          text,
-          // Первая строка (основная валюта) - прежний ключ, остальные - по коду.
-          key: index == 0
-              ? AccountsSection.totalKey
-              : ValueKey('accounts-total-${total.currency}'),
-          style: theme.textTheme.titleLarge?.copyWith(color: color),
+        // Длинная сумма (BTC) при крупном шрифте уменьшается, а не обрезается.
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            text,
+            // Первая строка (основная валюта) - прежний ключ, остальные - по
+            // коду.
+            key: index == 0
+                ? AccountsSection.totalKey
+                : ValueKey('accounts-total-${total.currency}'),
+            style: theme.textTheme.titleLarge?.copyWith(color: color),
+          ),
         ),
       );
     }

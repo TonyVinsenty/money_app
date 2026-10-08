@@ -153,6 +153,19 @@ void main() {
     expect(row.style?.color, expense);
   });
 
+  testWidgets('«Всего» в BTC при шрифте 200 % на 360 dp: без переполнения', (
+    tester,
+  ) async {
+    await pumpSection(
+      tester,
+      scale: 2,
+      accounts: Stream.value([acc('a', 'Кошелёк', currency: 'BTC', digits: 8)]),
+      balances: Stream.value({'a': Money.fromMinor(123456789012345678, 'BTC')}),
+    );
+    expect(find.byKey(AccountsSection.totalKey), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('архивные счета не видны и не входят во «Всего»', (tester) async {
     await pumpSection(
       tester,

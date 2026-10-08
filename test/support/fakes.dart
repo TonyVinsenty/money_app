@@ -364,6 +364,11 @@ class FakeTransactionsRepository extends Fake
     }
   }
 
+  /// Операций в других валютах у фейка нет.
+  @override
+  Stream<bool> watchHasOtherCurrency(String currency) =>
+      Stream<bool>.multi((controller) => controller.add(false));
+
   @override
   Stream<DateOnly?> watchFirstDay() {
     late StreamController<DateOnly?> controller;

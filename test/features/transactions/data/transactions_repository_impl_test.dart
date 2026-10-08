@@ -1356,6 +1356,28 @@ void main() {
       );
     });
 
+    group('watchHasOtherCurrency', () {
+      test('only own currency or none: false; USD for RUB: true; '
+          'soft-deleted ignored; live updates', () async {
+        expect(await repo.watchHasOtherCurrency('RUB').first, isFalse);
+        await repo.add(tx('rub'));
+        expect(await repo.watchHasOtherCurrency('RUB').first, isFalse);
+
+        final emitted = <bool>[];
+        final sub = repo.watchHasOtherCurrency('RUB').listen(emitted.add);
+        addTearDown(sub.cancel);
+        await pumpEventQueue();
+        await repo.add(tx('usd', currency: 'USD'));
+        await pumpEventQueue();
+        expect(emitted, [false, true]);
+        expect(await repo.watchHasOtherCurrency('USD').first, isTrue);
+
+        await repo.softDelete('usd');
+        await pumpEventQueue();
+        expect(emitted.last, isFalse);
+      });
+    });
+
     group('watchFirstDay', () {
       test('no operations: null', () async {
         expect(await repo.watchFirstDay().first, isNull);

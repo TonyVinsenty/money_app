@@ -10,6 +10,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
@@ -55,8 +56,17 @@ class HistoryScreen extends StatefulWidget {
     this.onFilterChanged,
     this.searchQuery = '',
     this.onSearchChanged,
+    this.hasOtherCurrencies,
+    this.currencySymbol = '₽',
     super.key,
   });
+
+  /// Есть ли операции в других валютах (пустой месяц объясняет, почему их не
+  /// видно). `null` — подсказки нет.
+  final Stream<bool>? hasOtherCurrencies;
+
+  /// Знак основной валюты для подсказки.
+  final String currencySymbol;
 
   /// Текст поиска как набран. Непустой (не из одних пробелов) — режим поиска:
   /// [transactions] тогда отдаёт операции всех месяцев, а экран оставляет те,
@@ -247,6 +257,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               final empty = _EmptyState(
                 hasAnyTransactions: hasAny,
                 month: data.month,
+                hasOtherCurrencies: widget.hasOtherCurrencies,
+                currencySymbol: widget.currencySymbol,
               );
               return hasAny ? withBar(empty, showSort: false) : empty;
             }
@@ -540,10 +552,17 @@ class _TransactionTile extends StatelessWidget {
 /// Пустое состояние: спросили базу, и операций нет. Либо их нет вообще, либо
 /// пуст только выбранный [month].
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.hasAnyTransactions, required this.month});
+  const _EmptyState({
+    required this.hasAnyTransactions,
+    required this.month,
+    required this.hasOtherCurrencies,
+    required this.currencySymbol,
+  });
 
   final bool hasAnyTransactions;
   final DateOnly month;
+  final Stream<bool>? hasOtherCurrencies;
+  final String currencySymbol;
 
   @override
   Widget build(BuildContext context) {
@@ -573,6 +592,10 @@ class _EmptyState extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
+            ),
+            OtherCurrenciesHint(
+              hasOther: hasOtherCurrencies,
+              symbol: currencySymbol,
             ),
           ],
         ),

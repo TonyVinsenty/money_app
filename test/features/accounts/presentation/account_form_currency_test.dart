@@ -238,7 +238,7 @@ void main() {
   testWidgets('custom: usdt gives the catalog entry silently', (tester) async {
     await pumpForm(tester, InMemoryAccountsRepository());
     await openCustom(tester);
-    await fillCustom(tester, 'usdt', '3');
+    await fillCustom(tester, 'usdt');
     expect(find.textContaining('Как у счёта'), findsNothing);
     await done(tester);
     expect(find.text('Tether, USDT'), findsOneWidget);
@@ -294,6 +294,43 @@ void main() {
     await tester.tap(find.byKey(AccountFormScreen.saveButtonKey));
     await tester.pumpAndSettle();
     expect(repo.all.last.currencyDigits, 4);
+  });
+
+  testWidgets('custom dialog: catalog code shows a hint, unknown code not', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: const Scaffold(body: CustomCurrencyDialog(accounts: [])),
+      ),
+    );
+    const hint = 'Есть в списке: Доллар США. Знаков после запятой: 2';
+    await tester.enterText(
+      find.byKey(CustomCurrencyDialog.codeFieldKey),
+      'USD',
+    );
+    await tester.pump();
+    expect(find.text(hint), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(CustomCurrencyDialog.digitsFieldKey))
+          .enabled,
+      isFalse,
+    );
+
+    await tester.enterText(
+      find.byKey(CustomCurrencyDialog.codeFieldKey),
+      'ABC',
+    );
+    await tester.pump();
+    expect(find.textContaining('Есть в списке'), findsNothing);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(CustomCurrencyDialog.digitsFieldKey))
+          .enabled,
+      isTrue,
+    );
   });
 
   testWidgets('custom dialog scrolls at font 200 %', (tester) async {

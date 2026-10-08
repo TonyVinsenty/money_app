@@ -117,3 +117,7 @@ const String customCurrencyDone = 'Готово';
 
 /// Подсказка под заблокированным полем знаков: «Как у счёта «Кошелёк»».
 String customCurrencyLikeAccount(String name) => 'Как у счёта «$name»';
+
+/// Подсказка под заблокированным полем знаков, если код есть в каталоге.
+String customCurrencyInCatalog(String name, int digits) =>
+    'Есть в списке: $name. Знаков после запятой: $digits';

@@ -298,6 +298,23 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets(
+    'смена основной валюты: после подтверждения - сообщение с названием',
+    (tester) async {
+      await _pumpApp(tester);
+      await _openTab(tester, 'Настройки');
+      await tester.tap(find.text('Основная валюта'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Доллар США').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Сменить'));
+      await tester.pumpAndSettle();
+      expect(_settings.mainCurrencyCode, 'USD');
+      expect(find.text('Основная валюта: Доллар США'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('основная USD: «Баланс» - сумма в долларах первой строкой, '
       'новый счёт по умолчанию в долларах', (tester) async {
     await _pumpApp(tester);

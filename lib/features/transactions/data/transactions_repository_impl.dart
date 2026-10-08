@@ -252,6 +252,20 @@ class DriftTransactionsRepository implements TransactionsRepository {
         .transform(_translateErrors<DateOnly?>());
   }
 
+  @override
+  Stream<bool> watchHasOtherCurrency(String currency) {
+    final code = Money.zero(currency).currency;
+    return _db
+        .customSelect(
+          'SELECT EXISTS(SELECT 1 FROM transactions '
+          'WHERE deleted_at IS NULL AND currency != ?) AS other',
+          variables: [Variable<String>(code)],
+          readsFrom: {_db.transactions},
+        )
+        .watch()
+        .map((rows) => rows.single.read<int>('other') != 0);
+  }
+
   /// Итог считается прямо в SQL и ТОЛЬКО в валюте [currency]: `SUM` без
   /// условия по валюте сложил бы рубли с долларами (ADR 0004).
   ///
