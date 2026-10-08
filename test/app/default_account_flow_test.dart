@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app_routes.dart';
@@ -58,7 +59,8 @@ Future<void> _createAccount(WidgetTester tester, String name) async {
   await _tapKey(tester, AccountsSection.addButtonKey);
   await tester.enterText(find.byKey(AccountFormScreen.nameFieldKey), name);
   await _tapKey(tester, AccountFormScreen.saveButtonKey);
-  // Форма не ждёт «довеска» с основным счётом: даём ему закончиться.
+  // «Довесок» с основным счётом идёт в фоне на настоящем времени (fakeAsync
+  // его не двигает), поэтому ждём 20 мс настоящего времени.
   await tester.runAsync(
     () => Future<void>.delayed(const Duration(milliseconds: 20)),
   );
@@ -162,11 +164,90 @@ void main() {
     expect(find.text(accountDefaultChangedMessage('Наличные')), findsOneWidget);
     expect(_label, findsOneWidget);
 
-    // Вернули «Карту»: основным остаётся «Наличные».
+    // «Вернуть» отменяет всё: «Карта» снова в списке и снова основная.
     await tester.tap(find.text(accountUndoAction));
     await tester.pumpAndSettle();
-    expect(_settings.defaultAccountId, 'b');
+    expect(repo.all.firstWhere((a) => a.id == 'a').isArchived, isFalse);
+    expect(_settings.defaultAccountId, 'a');
     expect(_label, findsOneWidget);
+  });
+
+  testWidgets('«Вернуть» не трогает основной, если его уже выбрали руками', (
+    tester,
+  ) async {
+    final repo = InMemoryAccountsRepository([
+      _acc('a', 'Карта'),
+      _acc('b', 'Наличные'),
+      _acc('c', 'Копилка'),
+    ]);
+    await _pump(tester, repo);
+    await _settings.setDefaultAccountId('a');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Карта'));
+    await tester.pumpAndSettle();
+    await _tapKey(tester, AccountScreen.archiveKey);
+    expect(_settings.defaultAccountId, 'b');
+
+    await _settings.setDefaultAccountId('c');
+    await tester.tap(find.text(accountUndoAction));
+    await tester.pumpAndSettle();
+    expect(_settings.defaultAccountId, 'c');
+  });
+
+  testWidgets('«Сделать основным» озвучивается', (tester) async {
+    final announcements = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
+      SystemChannels.accessibility,
+      (message) async {
+        final map = message as Map<Object?, Object?>;
+        if (map['type'] == 'announce') {
+          final data = map['data']! as Map<Object?, Object?>;
+          announcements.add(data['message']! as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger
+          .setMockDecodedMessageHandler<dynamic>(
+            SystemChannels.accessibility,
+            null,
+          ),
+    );
+    final repo = InMemoryAccountsRepository([_acc('a', 'Карта')]);
+    await _pump(tester, repo);
+    await tester.tap(find.text('Карта'));
+    await tester.pumpAndSettle();
+    await _tapKey(tester, AccountScreen.makeDefaultKey);
+    expect(announcements, [accountMadeDefaultAnnouncement('Карта')]);
+  });
+
+  testWidgets('двойной тап по «Операции» вызывает переход один раз', (
+    tester,
+  ) async {
+    var calls = 0;
+    final repo = InMemoryAccountsRepository([_acc('a', 'Карта')]);
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: AccountScreen(
+          accounts: repo,
+          accountId: 'a',
+          onEdit: (_) async {},
+          onShowTransactions: (_) => calls++,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final button = find.byKey(AccountScreen.operationsKey);
+    await tester.tap(button);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(calls, 1);
   });
 
   testWidgets('архив основного без замены: ключ остаётся, сообщение '

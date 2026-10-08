@@ -86,7 +86,7 @@ final class AccountRouteArguments {
     required this.accounts,
     required this.idGenerator,
     required this.accountId,
-    this.settings,
+    required this.settings,
     this.onShowTransactions,
   });
 
@@ -98,8 +98,8 @@ final class AccountRouteArguments {
   final String accountId;
 
   /// Настройки: из них экран берёт основной счёт и основную валюту и в них
-  /// записывает выбор основного счёта. Без них кнопки «Сделать основным» нет.
-  final AppSettingsController? settings;
+  /// записывает выбор основного счёта.
+  final AppSettingsController settings;
 }
 
 /// Аргументы маршрута [AppRoutes.accountForm]. Если [editing] задан, форма
@@ -510,19 +510,24 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
                 accountId: arguments.accountId,
                 defaultAccountId: defaultId,
                 mainCurrency: mainCurrency,
-                onArchivedDefault: appSettings == null
-                    ? null
-                    : (archived, before) async {
-                        if (appSettings.defaultAccountId != archived.id) {
-                          return null;
-                        }
-                        final next = nextDefaultAfterArchive(archived, before);
-                        if (next == null) return null;
-                        final ok = await appSettings.setDefaultAccountId(
-                          next.id,
-                        );
-                        return ok ? next.name : null;
-                      },
+                onArchivedDefault: (archived, before) async {
+                  final previous = appSettings.defaultAccountId;
+                  if (previous != archived.id) return null;
+                  final next = nextDefaultAfterArchive(archived, before);
+                  if (next == null) return null;
+                  if (!await appSettings.setDefaultAccountId(next.id)) {
+                    return null;
+                  }
+                  return (
+                    name: next.name,
+                    // «Вернуть»: прежний основной, если его не меняли руками.
+                    undo: () async {
+                      if (appSettings.defaultAccountId == next.id) {
+                        await appSettings.setDefaultAccountId(previous!);
+                      }
+                    },
+                  );
+                },
                 onShowTransactions: arguments.onShowTransactions == null
                     ? null
                     : (account) {
@@ -530,9 +535,8 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
                         Navigator.of(context).pop();
                         arguments.onShowTransactions!(account.id);
                       },
-                onMakeDefault: appSettings == null
-                    ? null
-                    : (account) => appSettings.setDefaultAccountId(account.id),
+                onMakeDefault: (account) =>
+                    appSettings.setDefaultAccountId(account.id),
                 onEdit: (account) => Navigator.of(context).pushNamed<void>(
                   AppRoutes.accountForm,
                   arguments: AccountFormRouteArguments(
@@ -543,7 +547,6 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
                   ),
                 ),
               );
-          if (appSettings == null) return screen(null, 'RUB');
           // Экран следит за настройками: смена основного счёта или валюты
           // видна сразу.
           return ListenableBuilder(

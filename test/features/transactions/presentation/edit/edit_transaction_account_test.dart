@@ -70,7 +70,8 @@ Account _acc(
 Future<_Transactions> _open(
   WidgetTester tester, {
   required Transaction transaction,
-  required List<Account> accounts,
+  List<Account> accounts = const [],
+  Stream<List<Account>>? stream,
   double textScale = 1,
 }) async {
   tester.view.physicalSize = const Size(360, 800);
@@ -99,7 +100,7 @@ Future<_Transactions> _open(
                     clock: FixedClock(DateTime(2026, 9, 20, 15, 30)),
                     categories: _Categories(),
                     transactions: repo,
-                    accounts: Stream.value(accounts),
+                    accounts: stream ?? Stream.value(accounts),
                   ),
                 ),
               ),
@@ -229,5 +230,18 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(_row, findsOneWidget);
+  });
+
+  testWidgets('поток счетов упал: в строке «не найден», сохранение без '
+      'изменения счёта', (tester) async {
+    final repo = await _open(
+      tester,
+      transaction: _tx(accountId: 'a'),
+      stream: Stream<List<Account>>.error(StateError('db')),
+    );
+    expect(find.text(EditTransactionScreen.accountUnknownText), findsOneWidget);
+    expect(find.text('Загрузка…'), findsNothing);
+    await _save(tester);
+    expect(repo.updated.single.accountId, 'a');
   });
 }

@@ -178,4 +178,26 @@ void main() {
     expect(find.byKey(AccountScreen.operationsKey), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('фильтр по счёту сохраняется при выборе типа в листе фильтра', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    await _openAccount(tester, 'Карта');
+    await tester.tap(find.byKey(AccountScreen.operationsKey));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Фильтр'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Расходы'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Готово'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Фильтр: Расходы · Счёт: Карта'), findsOneWidget);
+    expect(find.text('note-card'), findsOneWidget);
+    expect(find.text('note-cash'), findsNothing);
+    expect(find.text('note-none'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
 }

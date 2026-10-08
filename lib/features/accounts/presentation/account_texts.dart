@@ -6,7 +6,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 
-// Черновик текстов раздела «Счета»: пользователь их ещё утверждает.
+// Тексты раздела «Счета» (утверждены).
 
 const String accountsSectionTitle = 'Счета';
 const String accountsTotalLabel = 'Всего на счетах';
@@ -67,6 +67,12 @@ String accountMovedAnnouncement(String name, int position, int total) =>
     '$name: позиция $position из $total';
 
 const String accountOperationsButton = 'Операции';
+
+/// Озвучка после «Сделать основным».
+String accountMadeDefaultAnnouncement(String name) => '$name — основной счёт';
+
+/// Кнопка «Вернуть из архива» для скринридера: «Вернуть из архива: Карта».
+String accountRestoreLabel(String name) => '$accountRestoreAction: $name';
 
 String accountDefaultChangedMessage(String name) =>
     'Основной счёт теперь «$name»';

@@ -221,11 +221,17 @@ class _ArchiveTile extends StatelessWidget {
                   padding: const EdgeInsets.only(left: 40),
                   child: Align(
                     alignment: AlignmentDirectional.centerStart,
-                    child: TextButton.icon(
-                      key: AccountsSection.restoreKey(a.id),
-                      onPressed: () => onRestore(a),
-                      icon: const Icon(Icons.unarchive_outlined),
-                      label: const Text(accountRestoreAction),
+                    child: Semantics(
+                      label: accountRestoreLabel(a.name),
+                      button: true,
+                      excludeSemantics: true,
+                      onTap: () => onRestore(a),
+                      child: TextButton.icon(
+                        key: AccountsSection.restoreKey(a.id),
+                        onPressed: () => onRestore(a),
+                        icon: const Icon(Icons.unarchive_outlined),
+                        label: const Text(accountRestoreAction),
+                      ),
                     ),
                   ),
                 ),

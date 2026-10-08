@@ -338,4 +338,36 @@ void main() {
       expect(c.historyFilter, HistoryFilter.expenseCategories({'a'}));
     });
   });
+
+  group('showAccountTransactions', () {
+    test('ставит временный фильтр по счёту, месяц не меняется', () {
+      final month = c.month;
+      c.showAccountTransactions('acc');
+      expect(c.historyFilter, HistoryFilter.account('acc'));
+      expect(c.hasTemporaryFilter, isTrue);
+      expect(c.month, month);
+      expect(notifications, 1);
+    });
+
+    test('повтор с тем же счётом не уведомляет', () {
+      c.showAccountTransactions('acc');
+      c.showAccountTransactions('acc');
+      expect(notifications, 1);
+    });
+
+    test('заменяет временный фильтр по категориям и наоборот', () {
+      c.showCategoryExpenses({'a'});
+      c.showAccountTransactions('acc');
+      expect(c.historyFilter, HistoryFilter.account('acc'));
+      c.showCategoryExpenses({'b'});
+      expect(c.historyFilter, HistoryFilter.expenseCategories({'b'}));
+    });
+
+    test('уход из «Истории» снимает фильтр, ручной возвращается', () {
+      c.setHistoryFilter(HistoryFilter(type: HistoryTypeFilter.income));
+      c.showAccountTransactions('acc');
+      c.leaveHistory();
+      expect(c.historyFilter, HistoryFilter(type: HistoryTypeFilter.income));
+    });
+  });
 }

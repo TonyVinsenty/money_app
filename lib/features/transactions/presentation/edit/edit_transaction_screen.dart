@@ -57,6 +57,7 @@ class EditTransactionScreen extends StatefulWidget {
 
   static const accountLabel = 'Счёт';
   static const accountArchivedSuffix = ' (в архиве)';
+  static const accountUnknownText = 'не найден';
   static const accountRowKey = ValueKey('edit-account-row');
 
   /// Правка сохранена, операция теперь на этот день (удаление и «Назад» его
@@ -161,6 +162,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   /// Счета из потока (null - ещё не пришли) и выбранный счёт операции.
   List<Account>? _allAccounts;
   StreamSubscription<List<Account>>? _accountsSub;
+  bool _accountsFailed = false;
   late String? _accountId = widget.transaction.accountId;
 
   /// Счета, на которые можно перенести операцию: не архивные, в её валюте.
@@ -179,7 +181,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
             : a.name;
       }
     }
-    return EditTransactionScreen.categoryLoadingLabel;
+    // Счетов нет в ответе или поток упал: не вечная «Загрузка…». Сохранение
+    // счёт не трогает.
+    return _allAccounts != null || _accountsFailed
+        ? EditTransactionScreen.accountUnknownText
+        : EditTransactionScreen.categoryLoadingLabel;
   }
 
   Future<void> _pickAccount() async {
@@ -204,6 +210,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
       },
       onError: (Object error) {
         debugPrint('Не удалось загрузить счета для правки: $error');
+        if (mounted) setState(() => _accountsFailed = true);
       },
     );
     final t = widget.transaction;

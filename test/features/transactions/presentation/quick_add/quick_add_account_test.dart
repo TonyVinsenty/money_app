@@ -307,4 +307,13 @@ void _raceTests() {
       findsOneWidget,
     );
   });
+
+  testWidgets('плашка без счёта читается «Счёт не выбран, изменить»', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _open(tester, accounts: [_acc('a', 'Карта')]);
+    expect(find.bySemanticsLabel('Счёт не выбран, изменить'), findsOneWidget);
+    handle.dispose();
+  });
 }

@@ -6,9 +6,9 @@ import 'package:money_app/features/accounts/domain/account.dart';
 const String accountChipNone = 'Без счёта';
 const String accountSheetTitle = 'Счёт';
 
-/// Скринридеру: «Счёт: Карта, изменить».
+/// Скринридеру: «Счёт: Карта, изменить» или «Счёт не выбран, изменить».
 String accountChipSemantics(String? name) =>
-    'Счёт: ${name ?? accountChipNone.toLowerCase()}, изменить';
+    name == null ? 'Счёт не выбран, изменить' : 'Счёт: $name, изменить';
 
 ValueKey<String> accountOptionKey(String? id) =>
     ValueKey('account-option-${id ?? 'none'}');

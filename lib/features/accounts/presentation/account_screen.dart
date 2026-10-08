@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/async_view.dart';
@@ -13,6 +14,10 @@ import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
 import 'package:money_app/features/accounts/presentation/account_adjust_dialog.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
+
+/// Новый основной счёт после архивации прежнего: его `name` для сообщения и
+/// `undo`, которое возвращает прежний основной (зовётся после «Вернуть»).
+typedef ArchivedDefault = ({String name, Future<void> Function() undo});
 
 /// Экран одного счёта: название, крупный остаток и три действия — «Изменить»,
 /// «Поправить остаток», «В архив». Данные живые (потоки репозитория). Если
@@ -32,8 +37,12 @@ class AccountScreen extends StatefulWidget {
   });
 
   /// Вызывается после архивации счёта со списком счетов до неё. Если архивный
-  /// счёт был основным, выбирает нового и возвращает его имя; иначе `null`.
-  final Future<String?> Function(Account archived, List<Account> before)?
+  /// счёт был основным, выбирает нового и возвращает его имя и действие
+  /// `undo` (вернуть прежний основной); иначе `null`.
+  final Future<ArchivedDefault?> Function(
+    Account archived,
+    List<Account> before,
+  )?
   onArchivedDefault;
 
   /// «Операции»: показать операции счёта в «Истории». Кнопка есть только у
@@ -76,6 +85,9 @@ class _AccountScreenState extends State<AccountScreen> {
   // Последний список счетов (для выбора нового основного при архивации).
   List<Account> _latestAccounts = const [];
 
+  // «Операции» уже нажаты: экран закрывается, повторный тап игнорируется.
+  bool _operationsOpened = false;
+
   // Защита от двойных тапов: пока идёт действие, новое не стартует.
   bool _busy = false;
 
@@ -116,16 +128,30 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _makeDefault(Account account) async {
     final messenger = ScaffoldMessenger.of(context);
+    final view = View.of(context);
+    final direction = Directionality.of(context);
     final ok = await widget.onMakeDefault!(account);
-    if (!ok && mounted) _showMessage(messenger, categorySaveFailedText);
+    if (!ok) {
+      if (mounted) _showMessage(messenger, categorySaveFailedText);
+      return;
+    }
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        view,
+        accountMadeDefaultAnnouncement(account.name),
+        direction,
+      ),
+    );
   }
 
-  Future<void> _restore(
+  /// `true`, если счёт вернулся из архива (иначе сообщение уже показано).
+  Future<bool> _restore(
     Account account,
     ScaffoldMessengerState messenger,
   ) async {
     try {
       await widget.accounts.restore(account.id);
+      return true;
     } on AccountRuleException catch (error) {
       _showMessage(
         messenger,
@@ -135,6 +161,23 @@ class _AccountScreenState extends State<AccountScreen> {
       );
     } on Object {
       _showMessage(messenger, categorySaveFailedText);
+    }
+    return false;
+  }
+
+  /// «Вернуть» в сообщении об архиве: счёт возвращается, а если архив сменил
+  /// основной счёт - и прежний основной тоже.
+  Future<void> _undoArchive(
+    Account account,
+    ScaffoldMessengerState messenger,
+    ArchivedDefault? changedDefault,
+  ) async {
+    final restored = await _restore(account, messenger);
+    if (!restored || changedDefault == null) return;
+    try {
+      await changedDefault.undo();
+    } on Object catch (error) {
+      debugPrint('Не удалось вернуть прежний основной счёт: $error');
     }
   }
 
@@ -176,9 +219,9 @@ class _AccountScreenState extends State<AccountScreen> {
     }
     // Ушёл в архив основной счёт: приложение само выбирает нового и называет
     // его (`null` - основной не менялся).
-    String? newDefaultName;
+    ArchivedDefault? changedDefault;
     try {
-      newDefaultName = await widget.onArchivedDefault?.call(account, before);
+      changedDefault = await widget.onArchivedDefault?.call(account, before);
     } on Object catch (error) {
       debugPrint('Не удалось выбрать новый основной счёт: $error');
     }
@@ -190,16 +233,17 @@ class _AccountScreenState extends State<AccountScreen> {
         SnackBar(
           content: TapToDismissSnackContent(
             child: Text(
-              newDefaultName == null
+              changedDefault == null
                   ? accountArchivedMessage(account.name)
-                  : accountDefaultChangedMessage(newDefaultName),
+                  : accountDefaultChangedMessage(changedDefault.name),
             ),
           ),
           duration: const Duration(seconds: 6),
           persist: false,
           action: SnackBarAction(
             label: accountUndoAction,
-            onPressed: () => unawaited(_restore(account, messenger)),
+            onPressed: () =>
+                unawaited(_undoArchive(account, messenger, changedDefault)),
           ),
         ),
       );
@@ -309,7 +353,13 @@ class _AccountScreenState extends State<AccountScreen> {
           OutlinedButton(
             key: AccountScreen.operationsKey,
             style: buttonStyle,
-            onPressed: () => widget.onShowTransactions!(account),
+            onPressed: () {
+              // Переход закрывает этот экран: второй тап не должен закрыть
+              // ещё и экран под ним.
+              if (_operationsOpened) return;
+              _operationsOpened = true;
+              widget.onShowTransactions!(account);
+            },
             child: const Text(accountOperationsButton),
           ),
           const SizedBox(height: 8),

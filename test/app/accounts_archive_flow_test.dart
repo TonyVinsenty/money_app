@@ -130,4 +130,20 @@ void main() {
     await _restore(tester, 'a');
     expect(find.text(accountDefaultLabel), findsOneWidget);
   });
+
+  testWidgets('кнопка возврата читается «Вернуть из архива: Старая»', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _pump(
+      tester,
+      InMemoryAccountsRepository([
+        _acc('a', 'Карта'),
+        _acc('b', 'Старая', archived: true),
+      ]),
+    );
+    await _expandArchive(tester);
+    expect(find.bySemanticsLabel('Вернуть из архива: Старая'), findsOneWidget);
+    handle.dispose();
+  });
 }
