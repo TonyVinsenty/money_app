@@ -11,6 +11,10 @@ abstract final class SavedSnackBar {
   static const undoLabel = 'Отменить';
   static const undoFailedText = 'Не удалось отменить. Попробуйте ещё раз';
 
+  /// Второй строкой, если счета не загрузились и операция ушла без счёта.
+  static const accountsFailedText =
+      'Не удалось загрузить счета. Операция сохранена без счёта';
+
   /// Сколько сообщение висит на экране.
   static const duration = Duration(seconds: 6);
 

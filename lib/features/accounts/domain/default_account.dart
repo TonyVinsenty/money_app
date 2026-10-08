@@ -19,3 +19,16 @@ Account? resolveDefaultAccount(
   }
   return null;
 }
+
+/// Кто становится основным, когда в архив уходит основной счёт [archived]:
+/// первый по порядку (`sortOrder`) активный счёт той же валюты среди
+/// [accounts]; `null`, если такого нет.
+Account? nextDefaultAfterArchive(Account archived, Iterable<Account> accounts) {
+  Account? best;
+  for (final a in accounts) {
+    if (a.id == archived.id || a.isArchived) continue;
+    if (a.currency != archived.currency) continue;
+    if (best == null || a.sortOrder < best.sortOrder) best = a;
+  }
+  return best;
+}

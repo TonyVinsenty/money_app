@@ -68,6 +68,9 @@ String accountMovedAnnouncement(String name, int position, int total) =>
 
 const String accountOperationsButton = 'Операции';
 
+String accountDefaultChangedMessage(String name) =>
+    'Основной счёт теперь «$name»';
+
 // Основной счёт (тексты утверждены).
 const String accountDefaultLabel = 'Основной';
 const String accountMakeDefaultButton = 'Сделать основным';

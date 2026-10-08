@@ -198,9 +198,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   @override
   void initState() {
     super.initState();
-    _accountsSub = widget.accounts?.listen((all) {
-      if (mounted) setState(() => _allAccounts = all);
-    }, onError: (Object _) {});
+    _accountsSub = widget.accounts?.listen(
+      (all) {
+        if (mounted) setState(() => _allAccounts = all);
+      },
+      onError: (Object error) {
+        debugPrint('Не удалось загрузить счета для правки: $error');
+      },
+    );
     final t = widget.transaction;
     _today = widget.clock.today();
     _day = t.occurredOn;

@@ -104,6 +104,15 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   List<Account> _accountOptions = const [];
   StreamSubscription<List<Account>>? _accountsSub;
 
+  /// Поток счетов ответил (или упал): до этого сохранение ждёт, чтобы
+  /// операция не потеряла основной счёт. Завершается один раз.
+  bool _accountsReceived = false;
+  bool _accountsFailed = false;
+  final Completer<void> _accountsReady = Completer<void>();
+
+  /// Сколько сохранение ждёт первый ответ потока счетов.
+  static const _accountsWait = Duration(seconds: 2);
+
   /// Счёт выбран руками (в том числе «Без счёта»); до этого берётся основной.
   bool _accountPicked = false;
   String? _pickedAccountId;
@@ -126,15 +135,24 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   @override
   void initState() {
     super.initState();
-    _accountsSub = widget.accounts?.listen((all) {
-      if (!mounted) return;
-      setState(
-        () => _accountOptions = [
-          for (final a in all)
-            if (!a.isArchived && a.currency == _currencyCode) a,
-        ],
-      );
-    }, onError: (Object _) {});
+    _accountsSub = widget.accounts?.listen(
+      (all) {
+        _accountsReceived = true;
+        if (!_accountsReady.isCompleted) _accountsReady.complete();
+        if (!mounted) return;
+        setState(
+          () => _accountOptions = [
+            for (final a in all)
+              if (!a.isArchived && a.currency == _currencyCode) a,
+          ],
+        );
+      },
+      onError: (Object error) {
+        debugPrint('Не удалось загрузить счета для быстрого ввода: $error');
+        _accountsFailed = true;
+        if (!_accountsReady.isCompleted) _accountsReady.complete();
+      },
+    );
     _today = widget.clock.today();
     _day = _today;
     // Сообщение о прошлом сохранении с кнопкой «Отменить» осталось бы висеть
@@ -275,7 +293,17 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     final navigator = Navigator.of(context);
     final transactions = widget.transactions;
     final type = widget.type;
+    var accountsLost = false;
     try {
+      // Поток счетов передан, но ещё молчит: ждём первый ответ, иначе
+      // основной счёт потерялся бы. Не дождались или поток упал - сохраняем
+      // без счёта и скажем об этом.
+      if (widget.accounts != null && !_accountsReceived) {
+        if (!_accountsFailed) {
+          await _accountsReady.future.timeout(_accountsWait, onTimeout: () {});
+        }
+        accountsLost = !_accountsReceived;
+      }
       // День и момент выводятся вместе из выбранного дня и часов.
       final occurrence = Occurrence.onDay(_day, clock: widget.clock);
       final transaction = Transaction.create(
@@ -290,18 +318,22 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         accountId: _accountId,
       );
       // Тексты собираем до записи: если они не соберутся, ничего не сохранено.
-      final text = SavedSnackBar.text(
+      var text = SavedSnackBar.text(
         type: type,
         amount: amount,
         categoryName: category.name,
         subcategoryName: subcategory?.name,
       );
-      final spokenText = SavedSnackBar.spokenText(
+      var spokenText = SavedSnackBar.spokenText(
         type: type,
         amount: amount,
         categoryName: category.name,
         subcategoryName: subcategory?.name,
       );
+      if (accountsLost) {
+        text = '$text\n${SavedSnackBar.accountsFailedText}';
+        spokenText = '$spokenText. ${SavedSnackBar.accountsFailedText}';
+      }
       await transactions.add(transaction);
       widget.onSaved?.call(occurrence.occurredOn);
 

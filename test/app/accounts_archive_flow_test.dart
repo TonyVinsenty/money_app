@@ -115,10 +115,11 @@ void main() {
     expect(find.text('Архив (1)'), findsOneWidget);
   });
 
-  testWidgets('вернули бывший основной - он снова основной', (tester) async {
+  testWidgets('вернули бывший основной без замены - он снова основной', (
+    tester,
+  ) async {
     final repo = InMemoryAccountsRepository([
       _acc('a', 'Карта', archived: true),
-      _acc('b', 'Наличные'),
     ]);
     await _pump(tester, repo);
     await _settings.setDefaultAccountId('a');

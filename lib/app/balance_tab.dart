@@ -11,7 +11,6 @@ import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
-import 'package:money_app/features/accounts/domain/default_account.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -26,13 +25,14 @@ Future<void> adoptFirstAccountAsDefault(
 ) async {
   if (created.currency != settings.mainCurrencyCode) return;
   final all = await accounts.watchAll().first;
-  final others = all.where((a) => a.id != created.id);
-  final current = resolveDefaultAccount(
-    others,
-    settings.defaultAccountId,
-    settings.mainCurrencyCode,
-  );
-  if (current == null) await settings.setDefaultAccountId(created.id);
+  // Ключ не стираем (ADR 0010, п. 16.9): пишем, только если его нет или он
+  // указывает на несуществующий либо архивный счёт. Живой счёт другой валюты
+  // остаётся основным «про запас»: вернут валюту - он снова основной.
+  final stored = settings.defaultAccountId;
+  final storedIsLive =
+      stored != null &&
+      all.any((a) => a.id == stored && a.id != created.id && !a.isArchived);
+  if (!storedIsLive) await settings.setDefaultAccountId(created.id);
 }
 
 /// Вкладка «Баланс»: берёт потоки счетов и остатков из репозитория и отдаёт

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -12,6 +14,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/account_chip.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/fakes.dart';
@@ -56,7 +59,8 @@ Account _acc(
 
 Future<_Transactions> _open(
   WidgetTester tester, {
-  required List<Account> accounts,
+  List<Account> accounts = const [],
+  Stream<List<Account>>? stream,
   String? defaultId,
   String currency = 'RUB',
   double textScale = 1,
@@ -89,7 +93,7 @@ Future<_Transactions> _open(
                     transactions: transactions,
                     idGenerator: FakeIdGenerator(),
                     currency: catalogCurrency(currency),
-                    accounts: Stream.value(accounts),
+                    accounts: stream ?? Stream.value(accounts),
                     defaultAccountId: defaultId,
                   ),
                 ),
@@ -120,6 +124,7 @@ Future<void> _openSheet(WidgetTester tester) async {
 }
 
 void main() {
+  _raceTests();
   setUpAll(() async {
     await initializeDateFormatting('ru');
   });
@@ -243,5 +248,63 @@ void main() {
     expect(find.bySemanticsLabel('Счёт: Карта, изменить'), findsOneWidget);
     expect(tester.takeException(), isNull);
     handle.dispose();
+  });
+}
+
+/// Поток счетов ещё не ответил или упал (шаг 5.15b).
+void _raceTests() {
+  testWidgets('поток счетов молчит в момент сохранения: ждём ответ и '
+      'берём основной', (tester) async {
+    final controller = StreamController<List<Account>>();
+    addTearDown(controller.close);
+    final tx = await _open(tester, stream: controller.stream, defaultId: 'a');
+    expect(find.byKey(AccountChip.chipKey), findsNothing);
+    await tester.enterText(find.byType(TextField), '350');
+    await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Продукты'));
+    await tester.pump();
+    expect(tx.added, isEmpty);
+
+    controller.add([_acc('a', 'Карта')]);
+    await tester.pumpAndSettle();
+    expect(tx.added.single.accountId, 'a');
+    expect(find.textContaining(SavedSnackBar.accountsFailedText), findsNothing);
+  });
+
+  testWidgets('поток счетов упал: операция без счёта и сообщение', (
+    tester,
+  ) async {
+    final tx = await _open(
+      tester,
+      stream: Stream<List<Account>>.error(StateError('db')),
+      defaultId: 'a',
+    );
+    await _saveExpense(tester);
+    expect(tx.added.single.accountId, isNull);
+    expect(
+      find.textContaining(SavedSnackBar.accountsFailedText),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('поток счетов не ответил за 2 секунды: без счёта и сообщение', (
+    tester,
+  ) async {
+    final controller = StreamController<List<Account>>();
+    addTearDown(controller.close);
+    final tx = await _open(tester, stream: controller.stream, defaultId: 'a');
+    await tester.enterText(find.byType(TextField), '350');
+    await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Продукты'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(tx.added.single.accountId, isNull);
+    expect(
+      find.textContaining(SavedSnackBar.accountsFailedText),
+      findsOneWidget,
+    );
   });
 }

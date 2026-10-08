@@ -8,6 +8,7 @@ import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/domain/default_account.dart';
 import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
 import 'package:money_app/features/accounts/presentation/account_screen.dart';
 import 'package:money_app/features/accounts/presentation/accounts_order_screen.dart';
@@ -509,6 +510,19 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
                 accountId: arguments.accountId,
                 defaultAccountId: defaultId,
                 mainCurrency: mainCurrency,
+                onArchivedDefault: appSettings == null
+                    ? null
+                    : (archived, before) async {
+                        if (appSettings.defaultAccountId != archived.id) {
+                          return null;
+                        }
+                        final next = nextDefaultAfterArchive(archived, before);
+                        if (next == null) return null;
+                        final ok = await appSettings.setDefaultAccountId(
+                          next.id,
+                        );
+                        return ok ? next.name : null;
+                      },
                 onShowTransactions: arguments.onShowTransactions == null
                     ? null
                     : (account) {

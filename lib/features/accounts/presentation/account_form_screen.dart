@@ -184,7 +184,11 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
         await widget.accounts.create(created);
         // Счёт уже сохранён: форма не ждёт довеска (основной счёт) и не
         // падает от его сбоя.
-        unawaited(widget.onCreated?.call(created).catchError((Object _) {}));
+        unawaited(
+          widget.onCreated?.call(created).catchError((Object error) {
+            debugPrint('Не удалось выбрать основной счёт: $error');
+          }),
+        );
       }
       if (!mounted) return;
       navigator.pop();

@@ -157,11 +157,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _listenAccounts() {
     unawaited(_accountsSub?.cancel());
-    _accountsSub = widget.accounts?.listen((all) {
-      if (mounted) {
-        setState(() => _accountNames = {for (final a in all) a.id: a.name});
-      }
-    }, onError: (Object _) {});
+    _accountsSub = widget.accounts?.listen(
+      (all) {
+        if (mounted) {
+          setState(() => _accountNames = {for (final a in all) a.id: a.name});
+        }
+      },
+      onError: (Object error) {
+        debugPrint('Не удалось загрузить имена счетов: $error');
+      },
+    );
   }
 
   @override

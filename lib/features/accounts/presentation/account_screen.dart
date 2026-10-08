@@ -27,8 +27,14 @@ class AccountScreen extends StatefulWidget {
     this.mainCurrency = 'RUB',
     this.onMakeDefault,
     this.onShowTransactions,
+    this.onArchivedDefault,
     super.key,
   });
+
+  /// Вызывается после архивации счёта со списком счетов до неё. Если архивный
+  /// счёт был основным, выбирает нового и возвращает его имя; иначе `null`.
+  final Future<String?> Function(Account archived, List<Account> before)?
+  onArchivedDefault;
 
   /// «Операции»: показать операции счёта в «Истории». Кнопка есть только у
   /// счетов основной валюты («История» показывает только её).
@@ -66,6 +72,9 @@ class _AccountScreenState extends State<AccountScreen> {
   late final Stream<List<Account>> _accounts = widget.accounts.watchAll();
   late final Stream<Map<String, Money>> _balances = widget.accounts
       .watchBalances();
+
+  // Последний список счетов (для выбора нового основного при архивации).
+  List<Account> _latestAccounts = const [];
 
   // Защита от двойных тапов: пока идёт действие, новое не стартует.
   bool _busy = false;
@@ -157,11 +166,21 @@ class _AccountScreenState extends State<AccountScreen> {
     // с «Вернуть» должно жить дальше.
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
+    // Список до архивации: из него выбирается новый основной счёт.
+    final before = _latestAccounts;
     try {
       await widget.accounts.archive(account.id);
     } on Object {
       _showMessage(messenger, categorySaveFailedText);
       return;
+    }
+    // Ушёл в архив основной счёт: приложение само выбирает нового и называет
+    // его (`null` - основной не менялся).
+    String? newDefaultName;
+    try {
+      newDefaultName = await widget.onArchivedDefault?.call(account, before);
+    } on Object catch (error) {
+      debugPrint('Не удалось выбрать новый основной счёт: $error');
     }
     // Пользователь мог уйти назад во время записи: тогда закрывать нечего.
     if (mounted) navigator.pop();
@@ -170,7 +189,11 @@ class _AccountScreenState extends State<AccountScreen> {
       ..showSnackBar(
         SnackBar(
           content: TapToDismissSnackContent(
-            child: Text(accountArchivedMessage(account.name)),
+            child: Text(
+              newDefaultName == null
+                  ? accountArchivedMessage(account.name)
+                  : accountDefaultChangedMessage(newDefaultName),
+            ),
           ),
           duration: const Duration(seconds: 6),
           persist: false,
@@ -189,6 +212,7 @@ class _AccountScreenState extends State<AccountScreen> {
       loadingBuilder: (_) => _frame(null, const AsyncLoading()),
       errorBuilder: (context, _) => _frame(null, const Text(accountsLoadError)),
       dataBuilder: (context, all) {
+        _latestAccounts = all;
         Account? account;
         for (final a in all) {
           if (a.id == widget.accountId && !a.isArchived) account = a;

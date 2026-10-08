@@ -142,20 +142,68 @@ void main() {
     expect(find.text(accountDefaultHint), findsNothing);
   });
 
-  testWidgets('архив основного снимает пометку', (tester) async {
+  testWidgets('архив основного: основным становится следующий счёт той же '
+      'валюты, сообщение; бывший основной после возврата не основной', (
+    tester,
+  ) async {
     final repo = InMemoryAccountsRepository([
+      _acc('u', 'Доллары', currency: 'USD'),
       _acc('a', 'Карта'),
       _acc('b', 'Наличные'),
     ]);
     await _pump(tester, repo);
     await _settings.setDefaultAccountId('a');
     await tester.pumpAndSettle();
-    expect(_label, findsOneWidget);
 
     await tester.tap(find.text('Карта'));
     await tester.pumpAndSettle();
     await _tapKey(tester, AccountScreen.archiveKey);
+    expect(_settings.defaultAccountId, 'b');
+    expect(find.text(accountDefaultChangedMessage('Наличные')), findsOneWidget);
+    expect(_label, findsOneWidget);
+
+    // Вернули «Карту»: основным остаётся «Наличные».
+    await tester.tap(find.text(accountUndoAction));
+    await tester.pumpAndSettle();
+    expect(_settings.defaultAccountId, 'b');
+    expect(_label, findsOneWidget);
+  });
+
+  testWidgets('архив основного без замены: ключ остаётся, сообщение '
+      'обычное', (tester) async {
+    final repo = InMemoryAccountsRepository([
+      _acc('a', 'Карта'),
+      _acc('u', 'Доллары', currency: 'USD'),
+    ]);
+    await _pump(tester, repo);
+    await _settings.setDefaultAccountId('a');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Карта'));
+    await tester.pumpAndSettle();
+    await _tapKey(tester, AccountScreen.archiveKey);
+    expect(_settings.defaultAccountId, 'a');
+    expect(find.text(accountArchivedMessage('Карта')), findsOneWidget);
     expect(_label, findsNothing);
+  });
+
+  testWidgets('новый USD-счёт не отнимает основной у живого RUB-счёта', (
+    tester,
+  ) async {
+    final repo = InMemoryAccountsRepository([_acc('a', 'Карта')]);
+    await _pump(tester, repo);
+    await _settings.setDefaultAccountId('a');
+    await _settings.setMainCurrency(catalogCurrency('USD')!);
+    final usd = _acc('u', 'Доллары', currency: 'USD');
+    await tester.runAsync(() async {
+      await repo.create(usd);
+      await adoptFirstAccountAsDefault(usd, repo, _settings);
+    });
+    expect(_settings.defaultAccountId, 'a');
+
+    await _settings.setMainCurrency(catalogCurrency('RUB')!);
+    await tester.pumpAndSettle();
+    expect(_label, findsOneWidget);
   });
 
   testWidgets('основная валюта сменилась: пометки нет, вернули - есть', (
