@@ -161,6 +161,9 @@ void main() {
         'Отдых и хобби',
         'Деньги и работа',
         'Семья и разное',
+        'Русские буквы',
+        'Латинские буквы',
+        'Цифры',
       ],
     );
     for (final group in categoryIconGroups) {
@@ -171,9 +174,35 @@ void main() {
 
   test('каждый ключ состоит ровно в одной группе', () {
     final all = [for (final g in categoryIconGroups) ...g.keys];
-    expect(all.length, categoryIconKeys.length);
     expect(all.toSet().length, all.length);
-    expect(all, categoryIconKeys);
+    final icons = all.where((k) => !k.startsWith('glyph:')).toList();
+    expect(icons, categoryIconKeys);
+  });
+
+  test('группы символов: 33 русские с Ё, 26 латинских, 10 цифр', () {
+    List<String> keysOf(String title) =>
+        categoryIconGroups.firstWhere((g) => g.title == title).keys;
+
+    final ru = keysOf('Русские буквы');
+    expect(ru.length, 33);
+    expect(ru.first, 'glyph:А');
+    expect(ru.last, 'glyph:Я');
+    // Ё стоит сразу после Е, как в алфавите.
+    final e = ru.indexOf('glyph:Е');
+    expect(ru[e + 1], 'glyph:${String.fromCharCode(0x401)}');
+    expect(ru[e + 2], 'glyph:Ж');
+
+    final la = keysOf('Латинские буквы');
+    expect(la.length, 26);
+    expect(la.first, 'glyph:A');
+    expect(la.last, 'glyph:Z');
+
+    expect(keysOf('Цифры'), [for (var d = 0; d <= 9; d++) 'glyph:$d']);
+
+    for (final key in [...ru, ...la, ...keysOf('Цифры')]) {
+      expect(categoryGlyphFor(key), isNotNull, reason: key);
+      expect(isKnownCategoryIconKey(key), isTrue, reason: key);
+    }
   });
 
   test('новые значки: ключи, названия и группы из списка пользователя', () {

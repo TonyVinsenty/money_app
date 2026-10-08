@@ -749,6 +749,69 @@ void main() {
     expect(repository.all.last.iconKey, 'gavel');
   });
 
+  testWidgets('буквы и цифры в конце сетки: выбор символа сохраняется', (
+    tester,
+  ) async {
+    await _openForm(tester, repository);
+    await _type(tester, 'Буква');
+
+    for (final title in ['Русские буквы', 'Латинские буквы', 'Цифры']) {
+      expect(find.text(title), findsOneWidget, reason: title);
+    }
+    expect(
+      tester.getTopLeft(find.text('Русские буквы')).dy,
+      greaterThan(tester.getTopLeft(find.text('Семья и разное')).dy),
+    );
+
+    await tester.ensureVisible(_icon('glyph:Ж'));
+    await tester.tap(_icon('glyph:Ж'));
+    await tester.pump();
+    await _save(tester);
+
+    expect(_formIsOpen(), isFalse);
+    expect(repository.all.last.iconKey, 'glyph:Ж');
+  });
+
+  testWidgets('символ: подпись для скринридера, selected один раз', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _openForm(tester, repository);
+
+    await tester.ensureVisible(_icon('glyph:D'));
+    await tester.pump();
+    expect(find.bySemanticsLabel('Иконка: Латинская буква D'), findsOneWidget);
+    await tester.tap(_icon('glyph:D'));
+    await tester.pump();
+
+    expect(find.bySemanticsLabel('Иконка: Латинская буква D'), findsOneWidget);
+    expect(
+      tester.getSemantics(_icon('glyph:D')),
+      isSemantics(
+        label: 'Иконка: Латинская буква D',
+        isButton: true,
+        isSelected: true,
+        hasTapAction: true,
+      ),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('символ: подсказка при долгом нажатии', (tester) async {
+    await _openForm(tester, repository);
+    await tester.ensureVisible(_icon('glyph:Ж'));
+    await tester.pump();
+
+    final tooltip = find.descendant(
+      of: _icon('glyph:Ж'),
+      matching: find.byType(Tooltip),
+    );
+    expect(tester.widget<Tooltip>(tooltip).message, 'Буква Ж');
+    await tester.longPress(_icon('glyph:Ж'));
+    await tester.pump();
+    expect(find.text('Буква Ж'), findsOneWidget);
+  });
+
   testWidgets('группы: 360 dp и шрифт 200 % без переполнения', (tester) async {
     await _openForm(tester, repository, textScale: 2);
     await tester.ensureVisible(find.text(categoryIconGroups.last.title));

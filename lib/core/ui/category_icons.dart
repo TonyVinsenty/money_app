@@ -156,17 +156,35 @@ final Map<String, _IconEntry> _categoryIcons =
       for (final group in _iconGroups) ...group.icons,
     });
 
-/// Группы значков для сетки выбора, в порядке показа.
+/// Ключи иконок Material для выбора, в порядке показа (по группам). Первый —
+/// иконка по умолчанию. Символов (`glyph:`) здесь нет: они идут отдельными
+/// группами в [categoryIconGroups].
+final List<String> categoryIconKeys = List<String>.unmodifiable([
+  for (final group in _iconGroups) ...group.icons.keys,
+]);
+
+/// Группы значков для сетки выбора, в порядке показа: сначала иконки, в конце
+/// прокрутки — русские буквы, латинские буквы и цифры.
 final List<CategoryIconGroup> categoryIconGroups =
     List<CategoryIconGroup>.unmodifiable([
       for (final group in _iconGroups)
         (title: group.title, keys: List<String>.unmodifiable(group.icons.keys)),
+      (title: 'Русские буквы', keys: _glyphKeys(_russianLetterCodes)),
+      (title: 'Латинские буквы', keys: _glyphKeys(_latinLetterCodes)),
+      (title: 'Цифры', keys: _glyphKeys(_digitCodes)),
     ]);
 
-/// Ключи иконок для выбора, в порядке показа (по группам). Первый — иконка по
-/// умолчанию.
-final List<String> categoryIconKeys = List<String>.unmodifiable([
-  for (final group in categoryIconGroups) ...group.keys,
+// Ё (U+0401) стоит после Е (U+0415), как в алфавите.
+final List<int> _russianLetterCodes = [
+  for (var c = 0x410; c <= 0x415; c++) c,
+  0x401,
+  for (var c = 0x416; c <= 0x42F; c++) c,
+];
+final List<int> _latinLetterCodes = [for (var c = 0x41; c <= 0x5A; c++) c];
+final List<int> _digitCodes = [for (var c = 0x30; c <= 0x39; c++) c];
+
+List<String> _glyphKeys(List<int> codes) => List<String>.unmodifiable([
+  for (final code in codes) '$glyphIconKeyPrefix${String.fromCharCode(code)}',
 ]);
 
 /// Префикс ключа «символ вместо иконки»: `glyph:Ж`, `glyph:D`, `glyph:5`.
