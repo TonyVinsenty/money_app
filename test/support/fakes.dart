@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app_services.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -18,12 +19,28 @@ import 'package:money_app/features/transactions/domain/transactions_repository.d
 import 'fake_id_generator.dart';
 import 'fixed_clock.dart';
 
-/// Пустой фейк репозитория счетов: любой вызов бросит ошибку. Исключение —
-/// `watchBalances`: пустой поток остатков (счетов нет).
+/// Фейк репозитория счетов: отдаёт заданные [accounts] и [balances] (по
+/// умолчанию пусто), остальные вызовы бросают ошибку.
 class FakeAccountsRepository extends Fake implements AccountsRepository {
+  FakeAccountsRepository({
+    this.accounts = const [],
+    this.balances = const {},
+    this.watchError,
+  });
+
+  final List<Account> accounts;
+  final Map<String, Money> balances;
+
+  /// Если задан, потоки отдают эту ошибку.
+  final Object? watchError;
+
+  @override
+  Stream<List<Account>> watchAll() =>
+      watchError != null ? Stream.error(watchError!) : Stream.value(accounts);
+
   @override
   Stream<Map<String, Money>> watchBalances({required String currency}) =>
-      Stream.value(const {});
+      watchError != null ? Stream.error(watchError!) : Stream.value(balances);
 }
 
 /// Пустой фейк репозитория категорий: методы не реализованы, любой вызов

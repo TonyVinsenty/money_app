@@ -6,6 +6,7 @@ import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_services.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tab_indices.dart';
+import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
@@ -52,9 +53,7 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
     label: 'Баланс',
     icon: Icons.account_balance_wallet_outlined,
     selectedIcon: Icons.account_balance_wallet,
-    builder: (_) => const TabPlaceholder(
-      'Здесь будут источники денег и регулярные платежи',
-    ),
+    builder: (_) => const BalanceTab(),
   ),
   AppTab(
     label: 'Настройки',

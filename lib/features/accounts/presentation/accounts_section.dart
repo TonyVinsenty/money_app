@@ -1,0 +1,197 @@
+import 'package:flutter/material.dart';
+import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/ui/account_icons.dart';
+import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/account_balances.dart';
+import 'package:money_app/features/accounts/presentation/account_texts.dart';
+
+/// Секция «Счета» вкладки «Баланс»: «Всего на счетах», список счетов с
+/// остатками и кнопка «Добавить счёт». Архивные счета и счета другой валюты
+/// не показываются и в «Всего» не входят.
+///
+/// Потоки приносит вызывающий (`lib/app`, ADR 0002) и держит их одними и теми
+/// же между перерисовками.
+class AccountsSection extends StatelessWidget {
+  const AccountsSection({
+    required this.accounts,
+    required this.balances,
+    required this.currency,
+    required this.onAddAccount,
+    super.key,
+  });
+
+  final Stream<List<Account>> accounts;
+  final Stream<Map<String, Money>> balances;
+
+  /// Валюта, в которой показываем счета.
+  final String currency;
+
+  /// Нажатие «Добавить счёт».
+  final VoidCallback onAddAccount;
+
+  static const totalKey = ValueKey('accounts-total');
+  static const addButtonKey = ValueKey('accounts-add');
+
+  List<Account> _visible(List<Account> all) => [
+    for (final a in all)
+      if (!a.isArchived && a.currency == currency) a,
+  ];
+
+  Widget _error(BuildContext context, Object error) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.error_outline, color: Theme.of(context).colorScheme.error),
+        const SizedBox(width: 8),
+        const Expanded(child: Text(accountsLoadError)),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final addButton = FilledButton.tonalIcon(
+      key: addButtonKey,
+      onPressed: onAddAccount,
+      icon: const Icon(Icons.add),
+      label: const Text(accountsAddButton),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          accountsSectionTitle,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        AsyncView<List<Account>>(
+          stream: accounts,
+          errorBuilder: _error,
+          isEmpty: (all) => _visible(all).isEmpty,
+          emptyBuilder: (context) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              accountsEmptyText,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          dataBuilder: (context, all) => AsyncView<Map<String, Money>>(
+            stream: balances,
+            errorBuilder: _error,
+            dataBuilder: (context, byId) {
+              final shown = _visible(all);
+              // Счёт уже появился, а его остаток ещё считается: ждём.
+              if (shown.any((a) => !byId.containsKey(a.id))) {
+                return const SizedBox.shrink();
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _Total(
+                    total: totalOnAccounts(shown, byId, currency: currency),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final a in shown) _AccountRow(a, byId[a.id]!),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        addButton,
+      ],
+    );
+  }
+}
+
+class _Total extends StatelessWidget {
+  const _Total({required this.total});
+
+  final Money total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = context.appColors;
+    // Как «Всего» на «Главной»: плюс цветом дохода, минус цветом расхода,
+    // ноль нейтрально. Минус ставит formatMoney (U+2212).
+    final color = total.isZero
+        ? null
+        : total.isNegative
+        ? colors.expense
+        : colors.income;
+    final text = total.isZero || total.isNegative
+        ? formatMoney(total)
+        : '+${formatMoney(total)}';
+    return Semantics(
+      container: true,
+      label: accountsTotalSemantics(total),
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            accountsTotalLabel,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            text,
+            key: AccountsSection.totalKey,
+            style: theme.textTheme.titleLarge?.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountRow extends StatelessWidget {
+  const _AccountRow(this.account, this.balance);
+
+  final Account account;
+  final Money balance;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      container: true,
+      label: accountRowSemantics(account.name, balance),
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Row(
+          children: [
+            Icon(
+              accountIconFor(account.iconKey).icon,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(account.name, style: theme.textTheme.bodyLarge),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                formatMoney(balance),
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: balance.isNegative ? context.appColors.expense : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

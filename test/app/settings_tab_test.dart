@@ -11,6 +11,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
@@ -164,19 +165,20 @@ void main() {
     );
   });
 
-  for (final tab in ['Баланс']) {
-    testWidgets('вкладка «$tab» подписана «В разработке»', (tester) async {
-      await _pump(tester);
+  testWidgets('вкладка «Баланс» показывает счета, а не заглушку', (
+    tester,
+  ) async {
+    await _pump(tester);
 
-      await tester.tap(
-        find.descendant(
-          of: find.byType(NavigationBar),
-          matching: find.text(tab),
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text('Баланс'),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.text(tabInDevelopmentLabel), findsOneWidget);
-    });
-  }
+    expect(find.text(tabInDevelopmentLabel), findsNothing);
+    expect(find.text(accountsSectionTitle), findsOneWidget);
+  });
 }
