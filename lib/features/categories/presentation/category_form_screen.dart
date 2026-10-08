@@ -42,9 +42,9 @@ String categoryFormIconLabel(String iconName) => 'Иконка: $iconName';
 /// При переименовании ([renaming] задана) есть только имя: тип показан строкой
 /// «Тип: Расход» без выбора, вид и иконку репозиторий не меняет.
 ///
-/// Если задан [parent], форма работает с подкатегорией этой категории: есть
-/// только поле имени (вид и иконка наследуются от родителя, порядок — в конец
-/// списка подкатегорий родителя).
+/// Если задан [parent], форма работает с подкатегорией этой категории: имя и
+/// значок (по умолчанию значок родителя; при правке — свой), вид наследуется,
+/// порядок — в конец списка подкатегорий родителя.
 ///
 /// Правила проверяет `domain` и репозиторий (пустое или длинное имя, дубль);
 /// форма только показывает их текстом под полем. Успех закрывает экран, ошибка
@@ -108,7 +108,12 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     _name = TextEditingController(text: widget.renaming?.name ?? '');
     _kind = widget.renaming?.kind ?? widget.initialKind;
     final renaming = widget.renaming;
-    if (renaming != null && !_isSubcategory) {
+    final parent = widget.parent;
+    if (renaming == null && parent != null) {
+      // Новая подкатегория: по умолчанию значок родителя.
+      _iconKey = parent.iconKey;
+    }
+    if (renaming != null) {
       // Ключ берём как есть: неизвестный не выбирает ни одну ячейку, и без
       // выбора «Сохранить» оставляет его прежним.
       _iconKey = renaming.iconKey;
@@ -166,15 +171,11 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
       final renaming = widget.renaming;
       final parent = widget.parent;
       if (renaming != null) {
-        if (_isSubcategory) {
-          await widget.categories.rename(renaming.id, _name.text);
-        } else {
-          await widget.categories.update(
-            renaming.id,
-            newName: _name.text,
-            iconKey: _iconKey,
-          );
-        }
+        await widget.categories.update(
+          renaming.id,
+          newName: _name.text,
+          iconKey: _iconKey,
+        );
       } else if (parent != null) {
         final sortOrder = await widget.categories.nextSortOrder(
           parent.kind,
@@ -185,7 +186,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
             id: widget.idGenerator.newId(),
             parent: parent,
             name: _name.text,
-            iconKey: parent.iconKey,
+            iconKey: _iconKey,
             sortOrder: sortOrder,
           ),
         );
@@ -277,7 +278,6 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                       onChanged: (_) => setState(() => _nameError = null),
                       onSubmitted: (_) => unawaited(_save()),
                     ),
-                    // У подкатегории только имя: вид и иконка от родителя.
                     if (_isRename && !_isSubcategory) ...[
                       const SizedBox(height: 16),
                       Text(
@@ -309,8 +309,8 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                             setState(() => _kind = selection.first),
                       ),
                     ],
-                    // Значок выбирается при создании и при правке категории.
-                    if (!_isSubcategory) ...[
+                    // Значок выбирается и у категории, и у подкатегории.
+                    ...[
                       const SizedBox(height: 16),
                       Text(
                         categoryFormIconTitle,

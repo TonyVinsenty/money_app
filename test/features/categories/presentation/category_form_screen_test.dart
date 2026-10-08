@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -10,6 +11,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/categories/presentation/category_form_screen.dart';
+import 'package:money_app/features/transactions/presentation/category_grid.dart';
 
 import '../../../support/fake_id_generator.dart';
 import '../../../support/fakes.dart';
@@ -122,6 +124,10 @@ Finder _icon(String key) => find.byKey(ValueKey<String>('icon-$key'));
 
 bool _formIsOpen() => find.text(categoryFormSaveLabel).evaluate().isNotEmpty;
 
+bool isSelected(WidgetTester tester, String key) =>
+    tester.getSemantics(_icon(key)).flagsCollection.isSelected ==
+    ui.Tristate.isTrue;
+
 void main() {
   late InMemoryCategoriesRepository repository;
 
@@ -207,7 +213,7 @@ void main() {
       );
       expect(find.text(categoryFormCreateTitle), findsNothing);
       expect(find.text(categoryFormKindTitle), findsNothing);
-      expect(find.text(categoryFormIconTitle), findsNothing);
+      expect(find.text(categoryFormIconTitle), findsOneWidget);
       expect(find.byType(SegmentedButton<CategoryKind>), findsNothing);
       expect(find.textContaining('Тип:'), findsNothing);
       // Автофокус, как в форме категории.
@@ -341,6 +347,143 @@ void main() {
       expect(slow.all.where((c) => c.parentId == 'food'), hasLength(1));
     });
 
+    testWidgets('создание: выбран значок родителя, выбор другого пишется', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(tester, repository, kind: parent.kind, parent: parent);
+      expect(isSelected(tester, 'restaurant'), isTrue);
+
+      await _type(tester, 'Эспрессо');
+      await tester.ensureVisible(_icon('local_cafe'));
+      await tester.tap(_icon('local_cafe'));
+      await tester.pump();
+      expect(isSelected(tester, 'local_cafe'), isTrue);
+      expect(isSelected(tester, 'restaurant'), isFalse);
+      await _save(tester);
+
+      final created = repository.all.last;
+      expect(created.name, 'Эспрессо');
+      expect(created.iconKey, 'local_cafe');
+      expect(created.parentId, 'food');
+      expect(
+        repository.all.firstWhere((c) => c.id == 'food').iconKey,
+        'restaurant',
+      );
+
+      // Плитка подкатегории в листе быстрого ввода берёт значок из записи.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                CategoryGrid(categories: [created], onSelected: (_) {}),
+              ],
+            ),
+          ),
+        ),
+      );
+      final view = tester.widget<CategoryIconView>(
+        find.byType(CategoryIconView),
+      );
+      expect(view.iconKey, 'local_cafe');
+      handle.dispose();
+    });
+
+    testWidgets('правка: выбран свой значок, смена не трогает родителя', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final parent = _c('food', 'Продукты', 0);
+      final milk = Category.subcategoryOf(
+        id: 'milk2',
+        parent: parent,
+        name: 'Молоко2',
+        iconKey: 'movie',
+        sortOrder: 7,
+      );
+      repository = _repo([..._fixture(), milk]);
+      addTearDown(repository.dispose);
+      await _openForm(
+        tester,
+        repository,
+        kind: parent.kind,
+        parent: parent,
+        renaming: milk,
+      );
+      expect(find.text(subcategoryFormRenameTitle), findsOneWidget);
+      expect(isSelected(tester, 'movie'), isTrue);
+
+      await tester.ensureVisible(_icon('local_cafe'));
+      await tester.tap(_icon('local_cafe'));
+      await tester.pump();
+      await _save(tester);
+
+      final edited = repository.all.firstWhere((c) => c.id == 'milk2');
+      expect(edited.iconKey, 'local_cafe');
+      expect(edited.name, 'Молоко2');
+      expect(edited.sortOrder, 7);
+      expect(
+        repository.all.firstWhere((c) => c.id == 'food').iconKey,
+        'restaurant',
+      );
+      handle.dispose();
+    });
+
+    testWidgets('правка: подкатегория из импорта (more_horiz) получает «Ж»', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final parent = _c('food', 'Продукты', 0);
+      final imported = Category.subcategoryOf(
+        id: 'imp',
+        parent: parent,
+        name: 'Импортная',
+        iconKey: 'more_horiz',
+        sortOrder: 8,
+      );
+      repository = _repo([..._fixture(), imported]);
+      addTearDown(repository.dispose);
+      await _openForm(
+        tester,
+        repository,
+        kind: parent.kind,
+        parent: parent,
+        renaming: imported,
+      );
+      expect(isSelected(tester, 'more_horiz'), isTrue);
+
+      await tester.ensureVisible(_icon('glyph:Ж'));
+      await tester.tap(_icon('glyph:Ж'));
+      await tester.pump();
+      await _save(tester);
+
+      expect(
+        repository.all.firstWhere((c) => c.id == 'imp').iconKey,
+        'glyph:Ж',
+      );
+      handle.dispose();
+    });
+
+    testWidgets('правка: 360 dp и шрифт 200 % без переполнения', (
+      tester,
+    ) async {
+      final parent = _c('food', 'Продукты', 0);
+      await _openForm(
+        tester,
+        repository,
+        kind: parent.kind,
+        parent: parent,
+        renaming: sub('milk', 'Молоко', 0),
+        textScale: 2,
+      );
+      await tester.ensureVisible(_icon(categoryIconKeys.last));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('масштаб 200 %: без переполнения', (tester) async {
       final parent = _c('food', 'Продукты', 0);
       await _openForm(
@@ -452,10 +595,6 @@ void main() {
     expect(_formIsOpen(), isFalse);
     expect(repository.all.last.name, 'Кафе 2');
   });
-
-  bool isSelected(WidgetTester tester, String key) =>
-      tester.getSemantics(_icon(key)).flagsCollection.isSelected ==
-      ui.Tristate.isTrue;
 
   testWidgets('правка: имя и значок меняются, вид и порядок нет', (
     tester,
