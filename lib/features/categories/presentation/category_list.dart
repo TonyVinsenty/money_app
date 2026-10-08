@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:money_app/core/ui/category_icons.dart';
+import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 
 /// Кнопки у строки категории (и подкатегории).
@@ -310,7 +310,7 @@ class _CategoryRow extends StatelessWidget {
           // ширину с кнопками, поэтому длинное название читается целиком.
           Row(
             children: [
-              Icon(categoryIconFor(category.iconKey)),
+              CategoryIconView(category.iconKey),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(

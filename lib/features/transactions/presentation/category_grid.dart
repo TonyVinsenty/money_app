@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:money_app/core/ui/category_icons.dart';
+import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 
 /// Сетка плиток «иконка + название» в три колонки.
@@ -50,7 +50,7 @@ class CategoryGrid extends StatelessWidget {
           if (skip != null && index == 0) {
             return _CategoryTile(
               label: skipText,
-              icon: Icons.remove_circle_outline,
+              skipIcon: Icons.remove_circle_outline,
               onTap: skip,
               isSkip: true,
             );
@@ -58,7 +58,7 @@ class CategoryGrid extends StatelessWidget {
           final category = categories[index - offset];
           return _CategoryTile(
             label: category.name,
-            icon: categoryIconFor(category.iconKey),
+            iconKey: category.iconKey,
             onTap: () => onSelected(category),
           );
         }, childCount: categories.length + offset),
@@ -70,13 +70,17 @@ class CategoryGrid extends StatelessWidget {
 class _CategoryTile extends StatelessWidget {
   const _CategoryTile({
     required this.label,
-    required this.icon,
     required this.onTap,
+    this.iconKey,
+    this.skipIcon,
     this.isSkip = false,
   });
 
   final String label;
-  final IconData icon;
+
+  /// Ключ значка категории; у плитки «Без подкатегории» его нет.
+  final String? iconKey;
+  final IconData? skipIcon;
   final VoidCallback onTap;
 
   /// Плитка «Без подкатегории»: контурная, а не залитая, чтобы не выглядеть
@@ -138,11 +142,17 @@ class _CategoryTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ExcludeSemantics(
-                  child: Icon(
-                    icon,
-                    size: _iconSize,
-                    color: isSkip ? scheme.onSurfaceVariant : scheme.primary,
-                  ),
+                  child: skipIcon != null
+                      ? Icon(
+                          skipIcon,
+                          size: _iconSize,
+                          color: scheme.onSurfaceVariant,
+                        )
+                      : CategoryIconView(
+                          iconKey,
+                          size: _iconSize,
+                          color: scheme.primary,
+                        ),
                 ),
                 const SizedBox(height: _gap),
                 Text(

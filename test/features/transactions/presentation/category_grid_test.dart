@@ -19,6 +19,30 @@ Widget _app(Widget sliver) => MaterialApp(
 );
 
 void main() {
+  testWidgets('плитка категории с ключом glyph:Ж показывает букву', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        CategoryGrid(
+          categories: [
+            Category.topLevel(
+              id: 'z',
+              kind: CategoryKind.expense,
+              name: 'Жильё',
+              iconKey: 'glyph:Ж',
+              sortOrder: 0,
+            ),
+          ],
+          onSelected: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('Ж'), findsOneWidget);
+    expect(find.byIcon(Icons.category_outlined), findsNothing);
+  });
+
   testWidgets('подпись плитки пропуска по умолчанию — «Без подкатегории»', (
     tester,
   ) async {

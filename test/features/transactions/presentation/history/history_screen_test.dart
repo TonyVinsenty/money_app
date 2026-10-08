@@ -215,6 +215,20 @@ void main() {
     expect(find.text('Продукты'), findsOneWidget);
   });
 
+  testWidgets('строка с категорией glyph:Ж показывает букву', (tester) async {
+    final cats = [_category('z', 'Жильё', iconKey: 'glyph:Ж')];
+    await tester.pumpWidget(
+      _app(
+        transactions: Stream.value([_tx('a', _today, categoryId: 'z')]),
+        categories: Stream.value(cats),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ж'), findsOneWidget);
+    expect(find.byIcon(Icons.category_outlined), findsNothing);
+  });
+
   testWidgets('комментарий вторым мелким текстом в одну строку', (
     tester,
   ) async {

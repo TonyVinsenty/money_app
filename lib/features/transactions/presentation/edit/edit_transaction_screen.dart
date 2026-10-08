@@ -8,7 +8,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
-import 'package:money_app/core/ui/category_icons.dart';
+import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/date_chip.dart';
@@ -749,10 +749,8 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: ListTile(
-                          leading: Icon(
-                            category == null
-                                ? fallbackCategoryIcon
-                                : categoryIconFor(category.iconKey),
+                          leading: CategoryIconView(
+                            category?.iconKey,
                             color: theme.colorScheme.primary,
                           ),
                           title: Text(
@@ -884,8 +882,8 @@ class _SubcategoryRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           clipBehavior: Clip.antiAlias,
           child: ListTile(
-            leading: Icon(
-              sub == null ? fallbackCategoryIcon : categoryIconFor(sub.iconKey),
+            leading: CategoryIconView(
+              sub?.iconKey,
               color: theme.colorScheme.primary,
             ),
             title: Text(sub?.name ?? EditTransactionScreen.subcategoryNoneText),

@@ -54,16 +54,52 @@ final List<String> categoryIconKeys = List<String>.unmodifiable(
   _categoryIcons.keys,
 );
 
-/// Иконка по ключу из `Category.iconKey`; для неизвестного ключа —
+/// Префикс ключа «символ вместо иконки»: `glyph:Ж`, `glyph:D`, `glyph:5`.
+const String glyphIconKeyPrefix = 'glyph:';
+
+/// Разрешённые символы: 33 русские заглавные (с Ё), 26 латинских, цифры 0-9.
+/// Коды заданы числами, чтобы похожие русские и латинские буквы не спутались.
+final Map<String, String> _glyphNames = _buildGlyphNames();
+
+Map<String, String> _buildGlyphNames() {
+  final names = <String, String>{};
+  void addRange(int from, int to, String prefix) {
+    for (var code = from; code <= to; code++) {
+      final char = String.fromCharCode(code);
+      names[char] = '$prefix $char';
+    }
+  }
+
+  // А-Я (U+0410..U+042F), затем Ё (U+0401).
+  addRange(0x410, 0x42F, 'Буква');
+  names[String.fromCharCode(0x401)] = 'Буква ${String.fromCharCode(0x401)}';
+  addRange(0x41, 0x5A, 'Латинская буква');
+  addRange(0x30, 0x39, 'Цифра');
+  return Map<String, String>.unmodifiable(names);
+}
+
+/// Символ из ключа `glyph:<символ>`, если ключ именно такой и символ
+/// разрешён; иначе `null`.
+String? categoryGlyphFor(String iconKey) {
+  if (!iconKey.startsWith(glyphIconKeyPrefix)) return null;
+  final char = iconKey.substring(glyphIconKeyPrefix.length);
+  return _glyphNames.containsKey(char) ? char : null;
+}
+
+/// Иконка по ключу из `Category.iconKey`; для неизвестного ключа (и для
+/// символа, который рисует `CategoryIconView`, а не шрифт иконок) —
 /// [fallbackCategoryIcon].
 IconData categoryIconFor(String iconKey) =>
     _categoryIcons[iconKey]?.icon ?? fallbackCategoryIcon;
 
 /// Русское название иконки по ключу (для скринридера); для неизвестного ключа —
 /// [fallbackCategoryIconName].
-String categoryIconName(String iconKey) =>
-    _categoryIcons[iconKey]?.name ?? fallbackCategoryIconName;
+String categoryIconName(String iconKey) {
+  final glyph = categoryGlyphFor(iconKey);
+  if (glyph != null) return _glyphNames[glyph]!;
+  return _categoryIcons[iconKey]?.name ?? fallbackCategoryIconName;
+}
 
-/// Известен ли ключ таблице.
+/// Известен ли ключ таблице (иконка Material или разрешённый символ).
 bool isKnownCategoryIconKey(String iconKey) =>
-    _categoryIcons.containsKey(iconKey);
+    _categoryIcons.containsKey(iconKey) || categoryGlyphFor(iconKey) != null;

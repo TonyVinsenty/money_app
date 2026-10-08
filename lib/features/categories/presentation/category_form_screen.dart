@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/runes_length_formatter.dart';
@@ -374,8 +375,8 @@ class _IconChoice extends StatelessWidget {
                 width: 2,
               ),
             ),
-            child: Icon(
-              categoryIconFor(iconKey),
+            child: CategoryIconView(
+              iconKey,
               color: selected
                   ? colors.onPrimaryContainer
                   : colors.onSurfaceVariant,

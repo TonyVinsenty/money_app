@@ -10,7 +10,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
-import 'package:money_app/core/ui/category_icons.dart';
+import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
@@ -544,12 +544,7 @@ class _TransactionTile extends StatelessWidget {
                     color: theme.colorScheme.surfaceContainerHighest,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    iconKey == null
-                        ? fallbackCategoryIcon
-                        : categoryIconFor(iconKey!),
-                    size: 24,
-                  ),
+                  child: CategoryIconView(iconKey, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
