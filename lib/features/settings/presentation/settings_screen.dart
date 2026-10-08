@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:money_app/core/format/currency_label.dart';
 import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/percent_format.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/currency_picker.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
@@ -16,6 +19,20 @@ const themeSectionTitle = 'Тема';
 
 /// Пункт, ведущий к управлению категориями.
 const categoriesItemLabel = 'Категории';
+
+/// Пункт выбора основной валюты (его подпись и заголовок листа).
+const mainCurrencyItemLabel = 'Основная валюта';
+
+/// Подтверждение смены основной валюты (тексты утверждены).
+String mainCurrencyConfirmTitle(String name) =>
+    'Сделать основной валютой «$name»?';
+const mainCurrencyConfirmText =
+    'Новые доходы и расходы будут вноситься в этой валюте. '
+    '«Главная», «История» и «Аналитика» покажут только операции в ней. '
+    'Операции в других валютах сохранятся и снова появятся, '
+    'если вернуть их валюту.';
+const mainCurrencyConfirmCancel = 'Отмена';
+const mainCurrencyConfirmAccept = 'Сменить';
 
 /// Пункт, запускающий выгрузку всех операций в CSV-файл.
 const exportCsvItemLabel = 'Экспорт в CSV';
@@ -66,6 +83,8 @@ class SettingsScreen extends StatefulWidget {
     required this.themeMode,
     required this.onThemeModeChanged,
     required this.onOpenCategories,
+    required this.mainCurrency,
+    required this.onMainCurrencyChanged,
     required this.onExportCsv,
     required this.lastExportDay,
     required this.today,
@@ -78,6 +97,10 @@ class SettingsScreen extends StatefulWidget {
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final VoidCallback onOpenCategories;
+
+  /// Текущая основная валюта и обработчик подтверждённой смены.
+  final CurrencyInfo mainCurrency;
+  final ValueChanged<CurrencyInfo> onMainCurrencyChanged;
 
   /// Готовит файл экспорта и возвращает путь к нему. Бросает исключение,
   /// если подготовить не удалось.
@@ -167,6 +190,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _pickMainCurrency() async {
+    final picked = await showCurrencyPicker(
+      context,
+      fiatOnly: true,
+      selected: widget.mainCurrency.code,
+      title: mainCurrencyItemLabel,
+    );
+    if (picked == null || picked.code == widget.mainCurrency.code) return;
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(mainCurrencyConfirmTitle(picked.name)),
+        content: const Text(mainCurrencyConfirmText),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(mainCurrencyConfirmCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(mainCurrencyConfirmAccept),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) widget.onMainCurrencyChanged(picked);
+  }
+
   void _showMessage(String text) {
     if (!mounted) return;
     // Прежнее сообщение могло остаться (persist ниже): новое его заменяет,
@@ -223,6 +275,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text(categoriesItemLabel),
           trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
           onTap: widget.onOpenCategories,
+        ),
+        ListTile(
+          title: const Text(mainCurrencyItemLabel),
+          subtitle: Text(currencyNameWithSymbol(widget.mainCurrency)),
+          trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+          onTap: _pickMainCurrency,
         ),
         const Divider(),
         ListTile(

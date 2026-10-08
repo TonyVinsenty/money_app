@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/settings/domain/settings_repository.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -30,6 +31,43 @@ class _FakeSettingsRepository implements SettingsRepository {
 }
 
 void main() {
+  test('основная валюта: по умолчанию RUB, USD пишется и читается', () async {
+    final repo = _FakeSettingsRepository();
+    final controller = AppSettingsController();
+    addTearDown(controller.dispose);
+    await controller.attach(repo);
+    expect(controller.mainCurrency.code, 'RUB');
+
+    controller.setMainCurrency(catalogCurrency('USD')!);
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.mainCurrencyCode, 'USD');
+    expect(repo.data[mainCurrencySettingKey], 'USD');
+
+    final second = AppSettingsController();
+    addTearDown(second.dispose);
+    await second.attach(repo);
+    expect(second.mainCurrency.code, 'USD');
+  });
+
+  test('основная валюта: испорченное значение даёт RUB', () {
+    for (final bad in ['usd', 'USDT', 'BTC', 'XYZ', '', null]) {
+      expect(mainCurrencyFromStored(bad).code, 'RUB', reason: '$bad');
+    }
+    expect(mainCurrencyFromStored('USD').code, 'USD');
+  });
+
+  test(
+    'основная валюта: испорченное значение в базе не ломает attach',
+    () async {
+      final repo = _FakeSettingsRepository()
+        ..data[mainCurrencySettingKey] = 'BTC';
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      expect(controller.mainCurrency.code, 'RUB');
+    },
+  );
+
   test('по умолчанию тема следует системной', () {
     final controller = AppSettingsController();
     addTearDown(controller.dispose);

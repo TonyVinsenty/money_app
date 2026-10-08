@@ -106,6 +106,8 @@ class SettingsTab extends StatelessWidget {
     return SettingsScreen(
       themeMode: settings.themeMode,
       onThemeModeChanged: settings.setThemeMode,
+      mainCurrency: settings.mainCurrency,
+      onMainCurrencyChanged: settings.setMainCurrency,
       lastExportDay: settings.lastExportDay,
       today: services.clock.today(),
       onExportShared: () => settings.setLastExportDay(services.clock.today()),

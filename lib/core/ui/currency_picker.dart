@@ -38,6 +38,7 @@ Future<CurrencyInfo?> showCurrencyPicker(
   bool fiatOnly = false,
   List<CurrencyInfo> yourCurrencies = const [],
   Future<CurrencyInfo?> Function()? onCustom,
+  String title = currencyPickerTitle,
 }) {
   return showModalBottomSheet<CurrencyInfo>(
     context: context,
@@ -45,6 +46,7 @@ Future<CurrencyInfo?> showCurrencyPicker(
     showDragHandle: true,
     useSafeArea: true,
     builder: (context) => _CurrencyPickerSheet(
+      title: title,
       selected: selected,
       fiatOnly: fiatOnly,
       yourCurrencies: fiatOnly ? const [] : yourCurrencies,
@@ -77,12 +79,14 @@ class _Custom extends _Item {
 
 class _CurrencyPickerSheet extends StatefulWidget {
   const _CurrencyPickerSheet({
+    required this.title,
     required this.selected,
     required this.fiatOnly,
     required this.yourCurrencies,
     required this.onCustom,
   });
 
+  final String title;
   final String? selected;
   final bool fiatOnly;
   final List<CurrencyInfo> yourCurrencies;
@@ -186,10 +190,7 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
               child: Semantics(
                 header: true,
-                child: Text(
-                  currencyPickerTitle,
-                  style: theme.textTheme.titleMedium,
-                ),
+                child: Text(widget.title, style: theme.textTheme.titleMedium),
               ),
             ),
             Padding(

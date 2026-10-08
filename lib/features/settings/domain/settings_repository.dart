@@ -1,6 +1,10 @@
 /// Ключ настройки «тема оформления». Значения: `system`, `light`, `dark`.
 const themeModeSettingKey = 'theme_mode';
 
+/// Ключ настройки «основная валюта». Значение — код обычной валюты из
+/// каталога (`RUB`, `USD`).
+const mainCurrencySettingKey = 'main_currency';
+
 /// Ключ настройки «последняя выгрузка CSV». Значение — локальный день
 /// ГГГГММДД строкой (например, `20261007`).
 const lastExportDaySettingKey = 'last_export_day';

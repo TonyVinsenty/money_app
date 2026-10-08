@@ -1,3 +1,4 @@
+import 'package:money_app/core/format/currency_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
@@ -32,7 +33,7 @@ const String accountCurrencyDigitsMismatchText =
 /// Валюта строкой: «Российский рубль, ₽»; если символ совпадает с кодом -
 /// «Биткоин, BTC».
 String accountFormCurrencyValue(CurrencyInfo currency) =>
-    '${currency.name}, ${currency.symbol}';
+    currencyNameWithSymbol(currency);
 
 /// То же для формы правки: валюта не меняется.
 String accountFormCurrencyLocked(CurrencyInfo currency) =>

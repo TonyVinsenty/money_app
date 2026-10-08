@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show ChangeNotifier, debugPrint;
 import 'package:flutter/material.dart' show ThemeMode;
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/settings/domain/settings_repository.dart';
 
@@ -19,6 +20,19 @@ ThemeMode themeModeFromStored(String? value) => switch (value) {
   'dark' => ThemeMode.dark,
   _ => ThemeMode.system,
 };
+
+/// Строка для записи в базу: код валюты.
+String mainCurrencyToStored(CurrencyInfo currency) => currency.code;
+
+/// Обратное преобразование. Пусто, испорчено, не из каталога или не обычная
+/// валюта (крипта, своя) — рубль: основной валютой может быть только fiat.
+CurrencyInfo mainCurrencyFromStored(String? value) {
+  final info = value == null ? null : catalogCurrency(value);
+  if (info != null && info.kind == CurrencyKind.fiat) return info;
+  return _defaultMainCurrency;
+}
+
+final CurrencyInfo _defaultMainCurrency = catalogCurrency('RUB')!;
 
 /// Строка для записи в базу: день как ГГГГММДД.
 String lastExportDayToStored(DateOnly day) => day.toInt().toString();
@@ -44,9 +58,39 @@ DateOnly? lastExportDayFromStored(String? value) {
 class AppSettingsController extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   DateOnly? _lastExportDay;
+  CurrencyInfo _mainCurrency = _defaultMainCurrency;
   SettingsRepository? _repository;
 
   ThemeMode get themeMode => _themeMode;
+
+  /// Основная валюта (по умолчанию рубль).
+  CurrencyInfo get mainCurrency => _mainCurrency;
+
+  /// Код основной валюты.
+  String get mainCurrencyCode => _mainCurrency.code;
+
+  /// Меняет основную валюту сразу, запись в базу идёт в фоне; ошибка записи
+  /// только попадает в лог. Не обычная валюта каталога превращается в рубль.
+  void setMainCurrency(CurrencyInfo value) {
+    final next = mainCurrencyFromStored(value.code);
+    if (next.code == _mainCurrency.code) return;
+    _mainCurrency = next;
+    notifyListeners();
+    unawaited(_persistMainCurrency(next));
+  }
+
+  Future<void> _persistMainCurrency(CurrencyInfo value) async {
+    final repository = _repository;
+    if (repository == null) return;
+    try {
+      await repository.write(
+        mainCurrencySettingKey,
+        mainCurrencyToStored(value),
+      );
+    } catch (error) {
+      debugPrint('Не удалось сохранить основную валюту: $error');
+    }
+  }
 
   /// День последней выгрузки CSV или `null`, если её ещё не было.
   DateOnly? get lastExportDay => _lastExportDay;
@@ -62,6 +106,17 @@ class AppSettingsController extends ChangeNotifier {
       _apply(themeModeFromStored(stored));
     } catch (error) {
       debugPrint('Не удалось прочитать тему из настроек: $error');
+    }
+    try {
+      final stored = await repository.read(mainCurrencySettingKey);
+      if (_repository != repository) return;
+      final currency = mainCurrencyFromStored(stored);
+      if (currency.code != _mainCurrency.code) {
+        _mainCurrency = currency;
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint('Не удалось прочитать основную валюту из настроек: $error');
     }
     try {
       final stored = await repository.read(lastExportDaySettingKey);

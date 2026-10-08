@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
@@ -17,9 +18,11 @@ Widget _app({
   DateOnly? lastExportDay,
   VoidCallback? onExportShared,
   Future<int?> Function()? onImportCsv,
+  ValueChanged<CurrencyInfo>? onMainCurrency,
   double textScale = 1,
   bool screenReader = false,
 }) {
+  var main = catalogCurrency('RUB')!;
   return MaterialApp(
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
@@ -29,16 +32,23 @@ Widget _app({
       child: child!,
     ),
     home: Scaffold(
-      body: SettingsScreen(
-        themeMode: mode,
-        onThemeModeChanged: onChanged ?? (_) {},
-        onOpenCategories: onCategories ?? () {},
-        onExportCsv: onExport ?? () async => '/tmp/zuno-export.csv',
-        shareFile: shareFile ?? (_) async => true,
-        lastExportDay: lastExportDay,
-        today: DateOnly(2026, 10, 7),
-        onExportShared: onExportShared ?? () {},
-        onImportCsv: onImportCsv ?? () async => null,
+      body: StatefulBuilder(
+        builder: (context, setState) => SettingsScreen(
+          themeMode: mode,
+          onThemeModeChanged: onChanged ?? (_) {},
+          onOpenCategories: onCategories ?? () {},
+          mainCurrency: main,
+          onMainCurrencyChanged: (value) {
+            onMainCurrency?.call(value);
+            setState(() => main = value);
+          },
+          onExportCsv: onExport ?? () async => '/tmp/zuno-export.csv',
+          shareFile: shareFile ?? (_) async => true,
+          lastExportDay: lastExportDay,
+          today: DateOnly(2026, 10, 7),
+          onExportShared: onExportShared ?? () {},
+          onImportCsv: onImportCsv ?? () async => null,
+        ),
       ),
     ),
   );
@@ -84,6 +94,99 @@ void main() {
     await tester.tap(find.text('Категории'));
 
     expect(opened, 1);
+  });
+
+  group('основная валюта', () {
+    Future<void> openPicker(WidgetTester tester) async {
+      await tester.tap(find.text('Основная валюта'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('подпись пункта по умолчанию', (tester) async {
+      await tester.pumpWidget(_app());
+
+      expect(find.text('Основная валюта'), findsOneWidget);
+      expect(find.text('Российский рубль, ₽'), findsOneWidget);
+    });
+
+    testWidgets('лист: заголовок «Основная валюта», крипты нет', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app());
+      await openPicker(tester);
+
+      // Один текст в пункте настроек под листом и один заголовок листа.
+      expect(find.text('Основная валюта'), findsNWidgets(2));
+      expect(find.text('Криптовалюты'), findsNothing);
+      expect(find.text('Своя валюта…'), findsNothing);
+      expect(find.text('Биткоин'), findsNothing);
+    });
+
+    testWidgets('выбор USD: подтверждение с утверждёнными текстами', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app());
+      await openPicker(tester);
+
+      await tester.tap(find.text('Доллар США').first);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Сделать основной валютой «Доллар США»?'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Новые доходы и расходы будут вноситься в этой валюте. '
+          '«Главная», «История» и «Аналитика» покажут только операции в ней. '
+          'Операции в других валютах сохранятся и снова появятся, '
+          'если вернуть их валюту.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Отмена'), findsOneWidget);
+      expect(find.text('Сменить'), findsOneWidget);
+    });
+
+    testWidgets('«Отмена»: остаётся рубль', (tester) async {
+      final changes = <CurrencyInfo>[];
+      await tester.pumpWidget(_app(onMainCurrency: changes.add));
+      await openPicker(tester);
+      await tester.tap(find.text('Доллар США').first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+
+      expect(changes, isEmpty);
+      expect(find.text('Российский рубль, ₽'), findsOneWidget);
+    });
+
+    testWidgets('«Сменить»: подпись «Доллар США, \$»', (tester) async {
+      final changes = <CurrencyInfo>[];
+      await tester.pumpWidget(_app(onMainCurrency: changes.add));
+      await openPicker(tester);
+      await tester.tap(find.text('Доллар США').first);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Сменить'));
+      await tester.pumpAndSettle();
+
+      expect(changes.map((c) => c.code), ['USD']);
+      expect(find.text('Доллар США, \$'), findsOneWidget);
+    });
+
+    testWidgets('та же валюта: диалога нет', (tester) async {
+      final changes = <CurrencyInfo>[];
+      await tester.pumpWidget(_app(onMainCurrency: changes.add));
+      await openPicker(tester);
+
+      await tester.tap(find.text('Российский рубль').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Сменить'), findsNothing);
+      expect(changes, isEmpty);
+    });
   });
 
   testWidgets('заглушки «Здесь будут…» на экране нет', (tester) async {
