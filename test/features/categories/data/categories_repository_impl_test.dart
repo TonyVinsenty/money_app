@@ -928,6 +928,121 @@ void main() {
       });
     });
 
+    group('update', () {
+      test('changes name and icon, bumps updatedAt via clock', () async {
+        await repo.create(top('a'));
+        clock.advance(const Duration(hours: 1));
+
+        await repo.update('a', newName: '  Food ', iconKey: 'cake');
+
+        final found = await repo.findById('a');
+        expect(found!.name, 'Food');
+        expect(found.iconKey, 'cake');
+        expect(
+          (await rowOf('a')).updatedAt,
+          DateTime.utc(2026, 9, 20, 13).millisecondsSinceEpoch,
+        );
+      });
+
+      test('children with the old parent icon follow, others stay', () async {
+        await repo.create(top('p'));
+        await repo.create(child('same', 'p'));
+        await repo.create(child('archived', 'p'));
+        await repo.archive('archived');
+        await rawInsert('own', parentId: 'p', iconKey: 'bolt');
+        await rawInsert('gone', parentId: 'p', deletedAt: 5);
+        await repo.create(top('other'));
+        await repo.create(child('foreign', 'other'));
+        clock.advance(const Duration(hours: 1));
+
+        await repo.update('p', newName: 'P', iconKey: 'cake');
+
+        expect((await rowOf('same')).iconKey, 'cake');
+        expect((await rowOf('archived')).iconKey, 'cake');
+        expect((await rowOf('own')).iconKey, 'bolt');
+        expect((await rowOf('gone')).iconKey, 'icon');
+        expect((await rowOf('foreign')).iconKey, 'icon');
+        expect(
+          (await rowOf('same')).updatedAt,
+          DateTime.utc(2026, 9, 20, 13).millisecondsSinceEpoch,
+        );
+        expect((await rowOf('own')).updatedAt, 1);
+      });
+
+      test('a subcategory update does not touch anything else', () async {
+        await repo.create(top('p'));
+        await repo.create(child('c', 'p'));
+        await repo.create(child('d', 'p'));
+
+        await repo.update('c', newName: 'C', iconKey: 'cake');
+
+        expect((await rowOf('c')).iconKey, 'cake');
+        expect((await rowOf('d')).iconKey, 'icon');
+        expect((await rowOf('p')).iconKey, 'icon');
+      });
+
+      test('same icon: only the name changes, children untouched', () async {
+        await repo.create(top('p'));
+        await repo.create(child('c', 'p'));
+        clock.advance(const Duration(hours: 1));
+
+        await repo.update('p', newName: 'New', iconKey: 'icon');
+
+        expect((await rowOf('p')).name, 'New');
+        expect(
+          (await rowOf('c')).updatedAt,
+          DateTime.utc(2026, 9, 20, 12).millisecondsSinceEpoch,
+        );
+      });
+
+      test('a rule violation changes nothing (rolled back)', () async {
+        await repo.create(top('a', name: 'Food'));
+        await repo.create(top('b', name: 'Fun'));
+        await repo.create(child('c', 'a'));
+
+        await expectLater(
+          repo.update('a', newName: 'fun', iconKey: 'cake'),
+          throwsA(
+            isA<CategoryRuleException>().having(
+              (e) => e.rule,
+              'rule',
+              CategoryRule.duplicateName,
+            ),
+          ),
+        );
+        await expectLater(
+          repo.update('a', newName: 'X', iconKey: '  '),
+          throwsA(
+            isA<CategoryRuleException>().having(
+              (e) => e.rule,
+              'rule',
+              CategoryRule.emptyIconKey,
+            ),
+          ),
+        );
+        await expectLater(
+          repo.update('a', newName: ' ', iconKey: 'cake'),
+          throwsA(isA<CategoryRuleException>()),
+        );
+        expect((await rowOf('a')).iconKey, 'icon');
+        expect((await rowOf('a')).name, 'Food');
+        expect((await rowOf('c')).iconKey, 'icon');
+      });
+
+      test('a missing or deleted category is an ArgumentError', () async {
+        await rawInsert('gone', deletedAt: 5);
+
+        await expectLater(
+          repo.update('missing', newName: 'X', iconKey: 'k'),
+          throwsArgumentError,
+        );
+        await expectLater(
+          repo.update('gone', newName: 'X', iconKey: 'k'),
+          throwsArgumentError,
+        );
+      });
+    });
+
     group('duplicate names', () {
       Matcher isDuplicate() => throwsA(
         isA<CategoryRuleException>().having(

@@ -283,7 +283,37 @@ class InMemoryCategoriesRepository extends FakeCategoriesRepository {
     ];
   }
 
-  /// Аргументы всех вызовов `reorder` (в том числе неудачных).
+  @override
+  Future<void> update(
+    String id, {
+    required String newName,
+    required String iconKey,
+  }) async {
+    writes++;
+    final error = failWith;
+    if (error != null) throw error;
+    final name = Category.checkedName(newName);
+    final target = _state.value.firstWhere((c) => c.id == id);
+    Category.checkUniqueName(
+      name: name,
+      kind: target.kind,
+      parentId: target.parentId,
+      existing: _state.value,
+      selfId: id,
+    );
+    final oldIcon = target.iconKey;
+    _state.value = [
+      for (final c in _state.value)
+        if (c.id == id)
+          c.copyWith(name: name, iconKey: iconKey)
+        else if (target.isTopLevel && c.parentId == id && c.iconKey == oldIcon)
+          c.copyWith(iconKey: iconKey)
+        else
+          c,
+    ];
+  }
+
+  /// Аргументы всех вызовов `reorder`(в том числе неудачных).
   final reorderCalls = <List<String>>[];
 
   /// Если задан, `reorder` ждёт его, прежде чем записать (запись «в пути»).

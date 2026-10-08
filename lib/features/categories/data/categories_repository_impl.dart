@@ -152,6 +152,54 @@ class DriftCategoriesRepository implements CategoriesRepository {
   }
 
   @override
+  Future<void> update(
+    String id, {
+    required String newName,
+    required String iconKey,
+  }) {
+    return _db.transaction(() async {
+      // Как в rename: строку в Category не собираем (она может быть испорчена).
+      final row = await _requireRow(id);
+      final name = Category.checkedName(newName);
+      if (iconKey.trim().isEmpty) {
+        throw CategoryRuleException(CategoryRule.emptyIconKey);
+      }
+      await _checkUniqueName(
+        name: name,
+        kind: categoryKindFromDb(row.kind),
+        parentId: row.parentId,
+        selfId: id,
+      );
+      final now = _nowMs();
+      if (row.name != name || row.iconKey != iconKey) {
+        await _updateRow(
+          id,
+          CategoriesCompanion(
+            name: Value(name),
+            iconKey: Value(iconKey),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+      // Подкатегории со старым значком родителя следуют за ним.
+      if (row.parentId == null && row.iconKey != iconKey) {
+        await (_db.update(_db.categories)..where(
+              (c) =>
+                  c.deletedAt.isNull() &
+                  c.parentId.equals(id) &
+                  c.iconKey.equals(row.iconKey),
+            ))
+            .write(
+              CategoriesCompanion(
+                iconKey: Value(iconKey),
+                updatedAt: Value(now),
+              ),
+            );
+      }
+    });
+  }
+
+  @override
   Future<void> reorder(List<String> orderedIds) {
     if (orderedIds.isEmpty) {
       return Future<void>.value();
