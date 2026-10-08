@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/features/categories/domain/default_categories.dart';
+import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
 
 void main() {
   test('все ключи иконок из набора по умолчанию входят в набор для выбора', () {
@@ -15,8 +16,8 @@ void main() {
     }
   });
 
-  test('набор около 30 иконок, ключи без повторов и в snake_case', () {
-    expect(categoryIconKeys.length, inInclusiveRange(28, 32));
+  test('набор около 80 иконок, ключи без повторов и в snake_case', () {
+    expect(categoryIconKeys.length, inInclusiveRange(75, 90));
     expect(categoryIconKeys.toSet().length, categoryIconKeys.length);
     for (final key in categoryIconKeys) {
       expect(key, matches(RegExp(r'^[a-z][a-z0-9]*(_[a-z0-9]+)*$')));
@@ -84,7 +85,8 @@ void main() {
       'local_pharmacy': 'Аптека',
       'shopping_bag': 'Сумка',
     };
-    expect(categoryIconKeys, expected.keys.toList());
+    expect(categoryIconKeys.first, 'shopping_cart');
+    expect(categoryIconKeys, containsAll(expected.keys));
     expected.forEach((key, name) => expect(categoryIconName(key), name));
   });
 
@@ -146,5 +148,70 @@ void main() {
     expect(categoryIconFor('no_such_icon'), fallbackCategoryIcon);
     expect(categoryIconFor(''), fallbackCategoryIcon);
     expect(categoryIconName('no_such_icon'), fallbackCategoryIconName);
+  });
+
+  test('группы идут в утверждённом порядке и непусты', () {
+    expect(
+      [for (final g in categoryIconGroups) g.title],
+      [
+        'Покупки и еда',
+        'Дом и связь',
+        'Транспорт и поездки',
+        'Здоровье и красота',
+        'Отдых и хобби',
+        'Деньги и работа',
+        'Семья и разное',
+      ],
+    );
+    for (final group in categoryIconGroups) {
+      expect(group.keys, isNotEmpty, reason: group.title);
+    }
+    expect(categoryIconGroups.first.keys.first, 'shopping_cart');
+  });
+
+  test('каждый ключ состоит ровно в одной группе', () {
+    final all = [for (final g in categoryIconGroups) ...g.keys];
+    expect(all.length, categoryIconKeys.length);
+    expect(all.toSet().length, all.length);
+    expect(all, categoryIconKeys);
+  });
+
+  test('новые значки: ключи, названия и группы из списка пользователя', () {
+    const expected = <String, String>{
+      'fastfood': 'Фастфуд',
+      'storefront': 'Магазин',
+      'key': 'Ключ',
+      'computer': 'Компьютер',
+      'local_taxi': 'Такси',
+      'beach_access': 'Пляж',
+      'favorite': 'Сердце',
+      'self_improvement': 'Йога',
+      'music_note': 'Музыка',
+      'subscriptions': 'Подписки',
+      'credit_card': 'Кредитка',
+      'volunteer_activism': 'Благотворительность',
+      'family_restroom': 'Семья',
+      'star': 'Звезда',
+    };
+    expected.forEach((key, name) {
+      expect(categoryIconName(key), name);
+      expect(categoryIconFor(key), isNot(fallbackCategoryIcon), reason: key);
+    });
+    final group = {
+      for (final g in categoryIconGroups)
+        for (final k in g.keys) k: g.title,
+    };
+    expect(group['fastfood'], 'Покупки и еда');
+    expect(group['bolt'], 'Дом и связь');
+    expect(group['hotel'], 'Транспорт и поездки');
+    expect(group['pool'], 'Здоровье и красота');
+    expect(group['palette'], 'Отдых и хобби');
+    expect(group['percent'], 'Деньги и работа');
+    expect(group['gavel'], 'Семья и разное');
+    expect(group['more_horiz'], 'Семья и разное');
+  });
+
+  test('ключ импорта CSV известен', () {
+    expect(isKnownCategoryIconKey(csvImportCategoryIconKey), isTrue);
   });
 }

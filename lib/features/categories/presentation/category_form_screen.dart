@@ -278,21 +278,41 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                           );
                           final cellWidth = (constraints.maxWidth / columns)
                               .floorToDouble();
-                          return Wrap(
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              for (final key in categoryIconKeys)
-                                SizedBox(
-                                  width: cellWidth,
-                                  child: Center(
-                                    child: _IconChoice(
-                                      key: ValueKey<String>('icon-$key'),
-                                      iconKey: key,
-                                      selected: key == _iconKey,
-                                      onTap: () =>
-                                          setState(() => _iconKey = key),
+                              for (final group in categoryIconGroups) ...[
+                                Semantics(
+                                  header: true,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                      top: 12,
+                                      bottom: 4,
+                                    ),
+                                    child: Text(
+                                      group.title,
+                                      style: theme.textTheme.labelLarge,
                                     ),
                                   ),
                                 ),
+                                Wrap(
+                                  children: [
+                                    for (final key in group.keys)
+                                      SizedBox(
+                                        width: cellWidth,
+                                        child: Center(
+                                          child: _IconChoice(
+                                            key: ValueKey<String>('icon-$key'),
+                                            iconKey: key,
+                                            selected: key == _iconKey,
+                                            onTap: () =>
+                                                setState(() => _iconKey = key),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ],
                           );
                         },

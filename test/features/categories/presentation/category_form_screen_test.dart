@@ -665,7 +665,7 @@ void main() {
 
     // 360 - 32 (поля) = 328 dp -> 5 столбцов по 65 dp.
     final cells = [
-      for (final key in categoryIconKeys)
+      for (final key in categoryIconGroups.first.keys)
         tester.getRect(
           find.ancestor(of: _icon(key), matching: find.byType(SizedBox)).first,
         ),
@@ -680,8 +680,8 @@ void main() {
       expect(cells[i].left, cells[i - columns].left, reason: 'иконка $i');
     }
     expect(
-      tester.getTopLeft(_icon(categoryIconKeys[columns])).dx,
-      tester.getTopLeft(_icon(categoryIconKeys.first)).dx,
+      tester.getTopLeft(_icon(categoryIconGroups.first.keys[columns])).dx,
+      tester.getTopLeft(_icon(categoryIconGroups.first.keys.first)).dx,
     );
   });
 
@@ -705,5 +705,59 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(_icon(categoryIconKeys.last), findsOneWidget);
+  });
+
+  testWidgets('сетка иконок: заголовки групп по порядку и как заголовки', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _openForm(tester, repository);
+
+    var previousTop = double.negativeInfinity;
+    for (final group in categoryIconGroups) {
+      final title = find.text(group.title);
+      expect(title, findsOneWidget, reason: group.title);
+      await tester.ensureVisible(title);
+      await tester.pump();
+      expect(
+        tester.getSemantics(title),
+        matchesSemantics(label: group.title, isHeader: true),
+        reason: group.title,
+      );
+      // Порядок в прокрутке: каждый следующий заголовок ниже по списку.
+      final scrollable = tester.state<ScrollableState>(
+        find.byType(Scrollable).first,
+      );
+      final offset = scrollable.position.pixels;
+      expect(offset, greaterThanOrEqualTo(previousTop));
+      previousTop = offset;
+    }
+    handle.dispose();
+  });
+
+  testWidgets('прокрутка до последней группы, выбор значка из неё', (
+    tester,
+  ) async {
+    await _openForm(tester, repository);
+    await _type(tester, 'Штрафы');
+
+    await tester.ensureVisible(_icon('gavel'));
+    await tester.tap(_icon('gavel'));
+    await _save(tester);
+
+    expect(_formIsOpen(), isFalse);
+    expect(repository.all.last.iconKey, 'gavel');
+  });
+
+  testWidgets('группы: 360 dp и шрифт 200 % без переполнения', (tester) async {
+    await _openForm(tester, repository, textScale: 2);
+    await tester.ensureVisible(find.text(categoryIconGroups.last.title));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    for (final group in categoryIconGroups) {
+      await tester.ensureVisible(find.text(group.title));
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: group.title);
+    }
   });
 }

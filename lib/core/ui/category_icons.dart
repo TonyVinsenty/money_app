@@ -10,49 +10,164 @@ const String fallbackCategoryIconName = 'Категория';
 /// Иконка и её русское название (название читает скринридер).
 typedef _IconEntry = ({IconData icon, String name});
 
-/// Фиксированный набор иконок для категорий: «ключ -> иконка и название».
+/// Группа значков в сетке выбора: заголовок и ключи в порядке показа.
+typedef CategoryIconGroup = ({String title, List<String> keys});
+
+typedef _IconGroupData = ({String title, Map<String, _IconEntry> icons});
+
+/// Фиксированный набор иконок для категорий по группам: «ключ -> иконка и
+/// название».
 ///
 /// В базе хранится только строковый ключ (snake_case), а не код иконки: так
-/// иконка не «ломается» в релизной сборке. Порядок записей — порядок в сетке
-/// выбора; первая иконка используется по умолчанию. Ключи 13 категорий по
-/// умолчанию менять нельзя: они уже лежат в базе.
-const Map<String, _IconEntry> _categoryIcons = <String, _IconEntry>{
-  'shopping_cart': (icon: Icons.shopping_cart, name: 'Корзина'),
-  'restaurant': (icon: Icons.restaurant, name: 'Ресторан'),
-  'directions_bus': (icon: Icons.directions_bus, name: 'Автобус'),
-  'house': (icon: Icons.house, name: 'Дом'),
-  'medical_services': (icon: Icons.medical_services, name: 'Медицина'),
-  'checkroom': (icon: Icons.checkroom, name: 'Одежда'),
-  'sports_esports': (icon: Icons.sports_esports, name: 'Игры'),
-  'phone_android': (icon: Icons.phone_android, name: 'Телефон'),
-  'card_giftcard': (icon: Icons.card_giftcard, name: 'Карта'),
-  'more_horiz': (icon: Icons.more_horiz, name: 'Другое'),
-  'payments': (icon: Icons.payments, name: 'Деньги'),
-  'work': (icon: Icons.work, name: 'Работа'),
-  'redeem': (icon: Icons.redeem, name: 'Подарок'),
-  'local_cafe': (icon: Icons.local_cafe, name: 'Кофе'),
-  'local_gas_station': (icon: Icons.local_gas_station, name: 'Заправка'),
-  'directions_car': (icon: Icons.directions_car, name: 'Машина'),
-  'flight': (icon: Icons.flight, name: 'Самолёт'),
-  'school': (icon: Icons.school, name: 'Учёба'),
-  'fitness_center': (icon: Icons.fitness_center, name: 'Спорт'),
-  'pets': (icon: Icons.pets, name: 'Питомцы'),
-  'child_care': (icon: Icons.child_care, name: 'Дети'),
-  'movie': (icon: Icons.movie, name: 'Кино'),
-  'savings': (icon: Icons.savings, name: 'Копилка'),
-  'account_balance': (icon: Icons.account_balance, name: 'Банк'),
-  'trending_up': (icon: Icons.trending_up, name: 'График'),
-  'wifi': (icon: Icons.wifi, name: 'Интернет'),
-  'build': (icon: Icons.build, name: 'Инструменты'),
-  'spa': (icon: Icons.spa, name: 'Красота'),
-  'local_pharmacy': (icon: Icons.local_pharmacy, name: 'Аптека'),
-  'shopping_bag': (icon: Icons.shopping_bag, name: 'Сумка'),
-};
+/// иконка не «ломается» в релизной сборке. Порядок групп и записей — порядок в
+/// сетке выбора; первая иконка (`shopping_cart`) используется по умолчанию.
+/// Ключи 13 категорий по умолчанию и прежних 30 иконок менять нельзя: они уже
+/// лежат в базе.
+const List<_IconGroupData> _iconGroups = <_IconGroupData>[
+  (
+    title: 'Покупки и еда',
+    icons: <String, _IconEntry>{
+      'shopping_cart': (icon: Icons.shopping_cart, name: 'Корзина'),
+      'shopping_bag': (icon: Icons.shopping_bag, name: 'Сумка'),
+      'checkroom': (icon: Icons.checkroom, name: 'Одежда'),
+      'restaurant': (icon: Icons.restaurant, name: 'Ресторан'),
+      'local_cafe': (icon: Icons.local_cafe, name: 'Кофе'),
+      'fastfood': (icon: Icons.fastfood, name: 'Фастфуд'),
+      'local_pizza': (icon: Icons.local_pizza, name: 'Пицца'),
+      'bakery_dining': (icon: Icons.bakery_dining, name: 'Выпечка'),
+      'cake': (icon: Icons.cake, name: 'Торт'),
+      'icecream': (icon: Icons.icecream, name: 'Мороженое'),
+      'local_bar': (icon: Icons.local_bar, name: 'Бар'),
+      'storefront': (icon: Icons.storefront, name: 'Магазин'),
+    },
+  ),
+  (
+    title: 'Дом и связь',
+    icons: <String, _IconEntry>{
+      'house': (icon: Icons.house, name: 'Дом'),
+      'build': (icon: Icons.build, name: 'Инструменты'),
+      'phone_android': (icon: Icons.phone_android, name: 'Телефон'),
+      'wifi': (icon: Icons.wifi, name: 'Интернет'),
+      'key': (icon: Icons.key, name: 'Ключ'),
+      'bolt': (icon: Icons.bolt, name: 'Электричество'),
+      'water_drop': (icon: Icons.water_drop, name: 'Вода'),
+      'lightbulb': (icon: Icons.lightbulb, name: 'Лампа'),
+      'chair': (icon: Icons.chair, name: 'Мебель'),
+      'cleaning_services': (icon: Icons.cleaning_services, name: 'Уборка'),
+      'local_laundry_service': (
+        icon: Icons.local_laundry_service,
+        name: 'Стирка',
+      ),
+      'tv': (icon: Icons.tv, name: 'Телевизор'),
+      'computer': (icon: Icons.computer, name: 'Компьютер'),
+    },
+  ),
+  (
+    title: 'Транспорт и поездки',
+    icons: <String, _IconEntry>{
+      'directions_bus': (icon: Icons.directions_bus, name: 'Автобус'),
+      'directions_car': (icon: Icons.directions_car, name: 'Машина'),
+      'local_gas_station': (icon: Icons.local_gas_station, name: 'Заправка'),
+      'flight': (icon: Icons.flight, name: 'Самолёт'),
+      'local_taxi': (icon: Icons.local_taxi, name: 'Такси'),
+      'train': (icon: Icons.train, name: 'Поезд'),
+      'subway': (icon: Icons.subway, name: 'Метро'),
+      'pedal_bike': (icon: Icons.pedal_bike, name: 'Велосипед'),
+      'local_parking': (icon: Icons.local_parking, name: 'Парковка'),
+      'hotel': (icon: Icons.hotel, name: 'Отель'),
+      'luggage': (icon: Icons.luggage, name: 'Чемодан'),
+      'beach_access': (icon: Icons.beach_access, name: 'Пляж'),
+    },
+  ),
+  (
+    title: 'Здоровье и красота',
+    icons: <String, _IconEntry>{
+      'medical_services': (icon: Icons.medical_services, name: 'Медицина'),
+      'local_pharmacy': (icon: Icons.local_pharmacy, name: 'Аптека'),
+      'fitness_center': (icon: Icons.fitness_center, name: 'Спорт'),
+      'spa': (icon: Icons.spa, name: 'Красота'),
+      'favorite': (icon: Icons.favorite, name: 'Сердце'),
+      'content_cut': (icon: Icons.content_cut, name: 'Стрижка'),
+      'sports_soccer': (icon: Icons.sports_soccer, name: 'Футбол'),
+      'pool': (icon: Icons.pool, name: 'Бассейн'),
+      'self_improvement': (icon: Icons.self_improvement, name: 'Йога'),
+    },
+  ),
+  (
+    title: 'Отдых и хобби',
+    icons: <String, _IconEntry>{
+      'sports_esports': (icon: Icons.sports_esports, name: 'Игры'),
+      'movie': (icon: Icons.movie, name: 'Кино'),
+      'music_note': (icon: Icons.music_note, name: 'Музыка'),
+      'menu_book': (icon: Icons.menu_book, name: 'Книги'),
+      'theater_comedy': (icon: Icons.theater_comedy, name: 'Театр'),
+      'palette': (icon: Icons.palette, name: 'Рисование'),
+      'photo_camera': (icon: Icons.photo_camera, name: 'Фото'),
+      'celebration': (icon: Icons.celebration, name: 'Праздник'),
+      'park': (icon: Icons.park, name: 'Парк'),
+      'subscriptions': (icon: Icons.subscriptions, name: 'Подписки'),
+    },
+  ),
+  (
+    title: 'Деньги и работа',
+    icons: <String, _IconEntry>{
+      'payments': (icon: Icons.payments, name: 'Деньги'),
+      'work': (icon: Icons.work, name: 'Работа'),
+      'account_balance': (icon: Icons.account_balance, name: 'Банк'),
+      'savings': (icon: Icons.savings, name: 'Копилка'),
+      'trending_up': (icon: Icons.trending_up, name: 'График'),
+      'card_giftcard': (icon: Icons.card_giftcard, name: 'Карта'),
+      'credit_card': (icon: Icons.credit_card, name: 'Кредитка'),
+      'account_balance_wallet': (
+        icon: Icons.account_balance_wallet,
+        name: 'Кошелёк',
+      ),
+      'receipt_long': (icon: Icons.receipt_long, name: 'Чек'),
+      'percent': (icon: Icons.percent, name: 'Проценты'),
+      'currency_bitcoin': (icon: Icons.currency_bitcoin, name: 'Крипта'),
+      'sell': (icon: Icons.sell, name: 'Скидка'),
+      'volunteer_activism': (
+        icon: Icons.volunteer_activism,
+        name: 'Благотворительность',
+      ),
+    },
+  ),
+  (
+    title: 'Семья и разное',
+    icons: <String, _IconEntry>{
+      'child_care': (icon: Icons.child_care, name: 'Дети'),
+      'pets': (icon: Icons.pets, name: 'Питомцы'),
+      'school': (icon: Icons.school, name: 'Учёба'),
+      'redeem': (icon: Icons.redeem, name: 'Подарок'),
+      'more_horiz': (icon: Icons.more_horiz, name: 'Другое'),
+      'family_restroom': (icon: Icons.family_restroom, name: 'Семья'),
+      'toys': (icon: Icons.toys, name: 'Игрушки'),
+      'local_florist': (icon: Icons.local_florist, name: 'Цветы'),
+      'smoking_rooms': (icon: Icons.smoking_rooms, name: 'Сигареты'),
+      'gavel': (icon: Icons.gavel, name: 'Штраф'),
+      'local_shipping': (icon: Icons.local_shipping, name: 'Доставка'),
+      'star': (icon: Icons.star, name: 'Звезда'),
+    },
+  ),
+];
 
-/// Ключи иконок для выбора, в порядке показа. Первый — иконка по умолчанию.
-final List<String> categoryIconKeys = List<String>.unmodifiable(
-  _categoryIcons.keys,
-);
+final Map<String, _IconEntry> _categoryIcons =
+    Map<String, _IconEntry>.unmodifiable({
+      for (final group in _iconGroups) ...group.icons,
+    });
+
+/// Группы значков для сетки выбора, в порядке показа.
+final List<CategoryIconGroup> categoryIconGroups =
+    List<CategoryIconGroup>.unmodifiable([
+      for (final group in _iconGroups)
+        (title: group.title, keys: List<String>.unmodifiable(group.icons.keys)),
+    ]);
+
+/// Ключи иконок для выбора, в порядке показа (по группам). Первый — иконка по
+/// умолчанию.
+final List<String> categoryIconKeys = List<String>.unmodifiable([
+  for (final group in categoryIconGroups) ...group.keys,
+]);
 
 /// Префикс ключа «символ вместо иконки»: `glyph:Ж`, `glyph:D`, `glyph:5`.
 const String glyphIconKeyPrefix = 'glyph:';
