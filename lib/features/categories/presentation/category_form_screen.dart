@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
@@ -29,9 +30,9 @@ const categoryFormSaveLabel = 'Сохранить';
 String categoryFormKindReadOnly(CategoryKind kind) =>
     '$categoryFormKindTitle: ${kind == CategoryKind.income ? categoryFormKindIncome : categoryFormKindExpense}';
 
-/// Подпись иконки в сетке для скринридера: «Иконка: Кофе, выбрана».
-String categoryFormIconLabel(String iconName, {required bool selected}) =>
-    selected ? 'Иконка: $iconName, выбрана' : 'Иконка: $iconName';
+/// Подпись иконки в сетке для скринридера: «Иконка: Кофе». Выбранность
+/// говорит признак `selected`, в подпись её не кладём.
+String categoryFormIconLabel(String iconName) => 'Иконка: $iconName';
 
 /// Форма категории: создание новой или переименование существующей.
 ///
@@ -266,18 +267,34 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                         style: theme.textTheme.titleSmall,
                       ),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          for (final key in categoryIconKeys)
-                            _IconChoice(
-                              key: ValueKey<String>('icon-$key'),
-                              iconKey: key,
-                              selected: key == _iconKey,
-                              onTap: () => setState(() => _iconKey = key),
-                            ),
-                        ],
+                      // Ровная сетка: столбцов сколько влезает по 56 dp (не меньше
+                      // 4), ширина ячейки считается из доступной ширины.
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final columns = math.max(
+                            4,
+                            (constraints.maxWidth / 56).floor(),
+                          );
+                          final cellWidth = (constraints.maxWidth / columns)
+                              .floorToDouble();
+                          return Wrap(
+                            children: [
+                              for (final key in categoryIconKeys)
+                                SizedBox(
+                                  width: cellWidth,
+                                  child: Center(
+                                    child: _IconChoice(
+                                      key: ValueKey<String>('icon-$key'),
+                                      iconKey: key,
+                                      selected: key == _iconKey,
+                                      onTap: () =>
+                                          setState(() => _iconKey = key),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ],
@@ -333,34 +350,36 @@ class _IconChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final name = categoryIconName(iconKey);
     return Semantics(
-      label: categoryFormIconLabel(
-        categoryIconName(iconKey),
-        selected: selected,
-      ),
+      label: categoryFormIconLabel(name),
       button: true,
       selected: selected,
       onTap: onTap,
       excludeSemantics: true,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: selected ? colors.primaryContainer : null,
-            border: Border.all(
-              color: selected ? colors.primary : Colors.transparent,
-              width: 2,
+      child: Tooltip(
+        message: name,
+        excludeFromSemantics: true,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? colors.primaryContainer : null,
+              border: Border.all(
+                color: selected ? colors.primary : Colors.transparent,
+                width: 2,
+              ),
             ),
-          ),
-          child: Icon(
-            categoryIconFor(iconKey),
-            color: selected
-                ? colors.onPrimaryContainer
-                : colors.onSurfaceVariant,
+            child: Icon(
+              categoryIconFor(iconKey),
+              color: selected
+                  ? colors.onPrimaryContainer
+                  : colors.onSurfaceVariant,
+            ),
           ),
         ),
       ),

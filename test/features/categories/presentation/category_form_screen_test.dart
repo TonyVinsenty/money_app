@@ -624,18 +624,16 @@ void main() {
 
     final first = categoryIconKeys.first;
     expect(
-      find.bySemanticsLabel(
-        categoryFormIconLabel(categoryIconName(first), selected: true),
-      ),
+      find.bySemanticsLabel(categoryFormIconLabel(categoryIconName(first))),
       findsOneWidget,
     );
     expect(
       find.bySemanticsLabel(
-        categoryFormIconLabel(categoryIconName('local_cafe'), selected: false),
+        categoryFormIconLabel(categoryIconName('local_cafe')),
       ),
       findsOneWidget,
     );
-    expect(find.bySemanticsLabel('Иконка: Кофе, выбрана'), findsNothing);
+    expect(find.bySemanticsLabel(RegExp('выбрана')), findsNothing);
 
     for (final key in categoryIconKeys) {
       final size = tester.getSize(_icon(key));
@@ -646,17 +644,66 @@ void main() {
     await tester.ensureVisible(_icon('local_cafe'));
     await tester.tap(_icon('local_cafe'));
     await tester.pump();
-    expect(find.bySemanticsLabel('Иконка: Кофе, выбрана'), findsOneWidget);
+    expect(find.bySemanticsLabel('Иконка: Кофе'), findsOneWidget);
     expect(find.bySemanticsLabel('Иконка: Корзина'), findsOneWidget);
     expect(
       tester.getSemantics(_icon('local_cafe')),
       isSemantics(
-        label: 'Иконка: Кофе, выбрана',
+        label: 'Иконка: Кофе',
         isButton: true,
         isSelected: true,
         hasTapAction: true,
       ),
     );
     handle.dispose();
+  });
+
+  testWidgets('сетка иконок: ячейки одной ширины, столбцы на одном x', (
+    tester,
+  ) async {
+    await _openForm(tester, repository);
+
+    // 360 - 32 (поля) = 328 dp -> 5 столбцов по 65 dp.
+    final cells = [
+      for (final key in categoryIconKeys)
+        tester.getRect(
+          find.ancestor(of: _icon(key), matching: find.byType(SizedBox)).first,
+        ),
+    ];
+    final width = cells.first.width;
+    expect(width, greaterThanOrEqualTo(56));
+    for (final r in cells) {
+      expect(r.width, width);
+    }
+    const columns = 5;
+    for (var i = columns; i < cells.length; i++) {
+      expect(cells[i].left, cells[i - columns].left, reason: 'иконка $i');
+    }
+    expect(
+      tester.getTopLeft(_icon(categoryIconKeys[columns])).dx,
+      tester.getTopLeft(_icon(categoryIconKeys.first)).dx,
+    );
+  });
+
+  testWidgets('сетка иконок: подсказка с названием значка', (tester) async {
+    await _openForm(tester, repository);
+
+    final tooltip = find.descendant(
+      of: _icon('local_cafe'),
+      matching: find.byType(Tooltip),
+    );
+    expect(tooltip, findsOneWidget);
+    expect(tester.widget<Tooltip>(tooltip).message, 'Кофе');
+  });
+
+  testWidgets('сетка иконок: 360 dp и шрифт 200 % без переполнения', (
+    tester,
+  ) async {
+    await _openForm(tester, repository, textScale: 2);
+    await tester.ensureVisible(_icon(categoryIconKeys.last));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(_icon(categoryIconKeys.last), findsOneWidget);
   });
 }
