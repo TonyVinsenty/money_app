@@ -254,6 +254,8 @@ class HomeActions extends StatelessWidget {
           transactions: services.transactions,
           idGenerator: services.idGenerator,
           currency: services.settings.mainCurrency,
+          accounts: services.accounts.watchAll(),
+          defaultAccountId: services.settings.defaultAccountId,
           // Общий месяц переключается на месяц новой операции.
           onSaved: (day) {
             // Приложение могло пережить полночь: сначала свежее «сегодня».

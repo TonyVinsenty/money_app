@@ -218,7 +218,13 @@ final class QuickAddRouteArguments {
     required this.idGenerator,
     this.onSaved,
     this.currency,
+    this.accounts,
+    this.defaultAccountId,
   });
+
+  /// Поток счетов и id основного счёта из настроек (плашка счёта).
+  final Stream<List<Account>>? accounts;
+  final String? defaultAccountId;
 
   /// Основная валюта: в ней вводится сумма и сохраняется операция; `null` — рубль.
   final CurrencyInfo? currency;
@@ -282,6 +288,8 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           idGenerator: arguments.idGenerator,
           onSaved: arguments.onSaved,
           currency: arguments.currency,
+          accounts: arguments.accounts,
+          defaultAccountId: arguments.defaultAccountId,
           // «Добавить категорию» в пустом выборе категории: форма нужного вида.
           onCreateCategory: () => unawaited(
             Navigator.of(context).pushNamed(

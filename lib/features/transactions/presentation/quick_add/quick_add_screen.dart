@@ -11,6 +11,8 @@ import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/default_account.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/occurrence.dart';
@@ -18,6 +20,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/account_chip.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/category_picker_screen.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/subcategory_picker_screen.dart';
@@ -37,8 +40,15 @@ class QuickAddScreen extends StatefulWidget {
     this.onCreateCategory,
     this.onSaved,
     this.currency,
+    this.accounts,
+    this.defaultAccountId,
     super.key,
   });
+
+  /// Поток счетов (все, фильтруем здесь) и id основного из настроек. Без
+  /// потока плашки счёта нет.
+  final Stream<List<Account>>? accounts;
+  final String? defaultAccountId;
 
   /// Валюта новой операции (основная валюта из настроек); `null` — рубль.
   final CurrencyInfo? currency;
@@ -90,9 +100,41 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   /// величины операции: `Occurrence.onDay(_day, clock: ...)`.
   late DateOnly _day;
 
+  /// Не архивные счета валюты операции (пока поток не ответил - пусто).
+  List<Account> _accountOptions = const [];
+  StreamSubscription<List<Account>>? _accountsSub;
+
+  /// Счёт выбран руками (в том числе «Без счёта»); до этого берётся основной.
+  bool _accountPicked = false;
+  String? _pickedAccountId;
+
+  String get _currencyCode => widget.currency?.code ?? 'RUB';
+
+  /// Счёт, который получит операция: выбранный или основной; `null` -
+  /// без счёта. Счёт, которого нет среди доступных, не годится.
+  String? get _accountId {
+    final id = _accountPicked
+        ? _pickedAccountId
+        : resolveDefaultAccount(
+            _accountOptions,
+            widget.defaultAccountId,
+            _currencyCode,
+          )?.id;
+    return _accountOptions.any((a) => a.id == id) ? id : null;
+  }
+
   @override
   void initState() {
     super.initState();
+    _accountsSub = widget.accounts?.listen((all) {
+      if (!mounted) return;
+      setState(
+        () => _accountOptions = [
+          for (final a in all)
+            if (!a.isArchived && a.currency == _currencyCode) a,
+        ],
+      );
+    }, onError: (Object _) {});
     _today = widget.clock.today();
     _day = _today;
     // Сообщение о прошлом сохранении с кнопкой «Отменить» осталось бы висеть
@@ -106,6 +148,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
 
   @override
   void dispose() {
+    unawaited(_accountsSub?.cancel());
     _amount.dispose();
     super.dispose();
   }
@@ -244,6 +287,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         category: category,
         subcategory: subcategory,
         note: note,
+        accountId: _accountId,
       );
       // Тексты собираем до записи: если они не соберутся, ничего не сохранено.
       final text = SavedSnackBar.text(
@@ -356,10 +400,26 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                       onSubmitted: _openCategoryPicker,
                     ),
                     const SizedBox(height: 8),
-                    DateChip(
-                      value: _day,
-                      today: _today,
-                      onChanged: (day) => setState(() => _day = day),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      children: [
+                        DateChip(
+                          value: _day,
+                          today: _today,
+                          onChanged: (day) => setState(() => _day = day),
+                        ),
+                        // Нет счетов основной валюты - плашки нет.
+                        if (_accountOptions.isNotEmpty)
+                          AccountChip(
+                            accounts: _accountOptions,
+                            selectedId: _accountId,
+                            onChanged: (id) => setState(() {
+                              _accountPicked = true;
+                              _pickedAccountId = id;
+                            }),
+                          ),
+                      ],
                     ),
                   ],
                 ),
