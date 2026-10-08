@@ -14,10 +14,10 @@ import 'package:money_app/features/categories/domain/category_rules.dart';
 
 /// Заголовки экрана формы.
 const categoryFormCreateTitle = 'Новая категория';
-const categoryFormRenameTitle = 'Переименовать категорию';
+const categoryFormEditTitle = 'Изменить категорию';
 String subcategoryFormCreateTitle(String parentName) =>
     'Новая подкатегория · $parentName';
-const subcategoryFormRenameTitle = 'Переименовать подкатегорию';
+const subcategoryFormRenameTitle = 'Изменить подкатегорию';
 
 /// Подписи полей и кнопок формы.
 const categoryFormNameLabel = 'Название';
@@ -107,7 +107,44 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     super.initState();
     _name = TextEditingController(text: widget.renaming?.name ?? '');
     _kind = widget.renaming?.kind ?? widget.initialKind;
+    final renaming = widget.renaming;
+    if (renaming != null && !_isSubcategory) {
+      // Ключ берём как есть: неизвестный не выбирает ни одну ячейку, и без
+      // выбора «Сохранить» оставляет его прежним.
+      _iconKey = renaming.iconKey;
+      // Прокручиваем сетку к выбранному значку, когда экран открылся: раньше
+      // поле имени (autofocus) само возвращает прокрутку наверх.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final animation = ModalRoute.of(context)?.animation;
+        if (animation == null || animation.isCompleted) {
+          _scrollToSelected();
+          return;
+        }
+        void onStatus(AnimationStatus status) {
+          if (status != AnimationStatus.completed) return;
+          animation.removeStatusListener(onStatus);
+          // Фокус поля успевает отработать в следующем кадре.
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _scrollToSelected(),
+          );
+        }
+
+        animation.addStatusListener(onStatus);
+      });
+    }
   }
+
+  void _scrollToSelected() {
+    if (!mounted) return;
+    final target = _selectedCellKey.currentContext;
+    if (target != null) {
+      unawaited(Scrollable.ensureVisible(target, alignment: 0.5));
+    }
+  }
+
+  /// Ячейка выбранного при открытии значка (для прокрутки сетки к ней).
+  final GlobalKey _selectedCellKey = GlobalKey();
 
   @override
   void dispose() {
@@ -129,7 +166,15 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
       final renaming = widget.renaming;
       final parent = widget.parent;
       if (renaming != null) {
-        await widget.categories.rename(renaming.id, _name.text);
+        if (_isSubcategory) {
+          await widget.categories.rename(renaming.id, _name.text);
+        } else {
+          await widget.categories.update(
+            renaming.id,
+            newName: _name.text,
+            iconKey: _iconKey,
+          );
+        }
       } else if (parent != null) {
         final sortOrder = await widget.categories.nextSortOrder(
           parent.kind,
@@ -201,7 +246,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
               ? (_isRename
                     ? subcategoryFormRenameTitle
                     : subcategoryFormCreateTitle(widget.parent!.name))
-              : (_isRename ? categoryFormRenameTitle : categoryFormCreateTitle),
+              : (_isRename ? categoryFormEditTitle : categoryFormCreateTitle),
         ),
       ),
       body: SafeArea(
@@ -239,7 +284,8 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                         categoryFormKindReadOnly(_kind),
                         style: theme.textTheme.bodyLarge,
                       ),
-                    ] else if (!_isRename && !_isSubcategory) ...[
+                    ],
+                    if (!_isRename && !_isSubcategory) ...[
                       const SizedBox(height: 16),
                       Text(
                         categoryFormKindTitle,
@@ -262,6 +308,9 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                         onSelectionChanged: (selection) =>
                             setState(() => _kind = selection.first),
                       ),
+                    ],
+                    // Значок выбирается при создании и при правке категории.
+                    if (!_isSubcategory) ...[
                       const SizedBox(height: 16),
                       Text(
                         categoryFormIconTitle,
@@ -299,6 +348,11 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                                   children: [
                                     for (final key in group.keys)
                                       SizedBox(
+                                        key:
+                                            _isRename &&
+                                                key == widget.renaming!.iconKey
+                                            ? _selectedCellKey
+                                            : null,
                                         width: cellWidth,
                                         child: Center(
                                           child: _IconChoice(

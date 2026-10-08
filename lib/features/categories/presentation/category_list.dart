@@ -19,7 +19,7 @@ const categoriesUndoAction = 'Вернуть';
 const categoriesArchivedDuration = Duration(seconds: 6);
 
 /// Подпись кнопки-карандаша у строки: имя нужно скринридеру и подсказке.
-String categoriesRenameLabel(String name) => 'Переименовать: $name';
+String categoriesRenameLabel(String name) => 'Изменить: $name';
 
 /// Подпись кнопки перехода к подкатегориям (и подсказка к ней).
 String categoriesSubcategoriesLabel(String name) => 'Подкатегории: $name';

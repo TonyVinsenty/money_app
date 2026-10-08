@@ -123,7 +123,7 @@ void main() {
     // Переименование.
     await tester.tap(find.byTooltip(categoriesRenameLabel('Тренажёрка')));
     await tester.pumpAndSettle();
-    expect(find.text(categoryFormRenameTitle), findsOneWidget);
+    expect(find.text(categoryFormEditTitle), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Бассейн');
     await tester.tap(find.text(categoryFormSaveLabel));
     await _waitForDatabase(tester);

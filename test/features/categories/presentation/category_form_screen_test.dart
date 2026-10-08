@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -452,29 +453,127 @@ void main() {
     expect(repository.all.last.name, 'Кафе 2');
   });
 
-  testWidgets('переименование: только имя, вид и иконка не трогаются', (
+  bool isSelected(WidgetTester tester, String key) =>
+      tester.getSemantics(_icon(key)).flagsCollection.isSelected ==
+      ui.Tristate.isTrue;
+
+  testWidgets('правка: имя и значок меняются, вид и порядок нет', (
     tester,
   ) async {
+    final handle = tester.ensureSemantics();
     final cafe = repository.all.firstWhere((c) => c.id == 'cafe');
     await _openForm(tester, repository, renaming: cafe);
 
-    expect(find.text(categoryFormRenameTitle), findsOneWidget);
+    expect(find.text(categoryFormEditTitle), findsOneWidget);
     expect(find.text('Кафе'), findsOneWidget);
     expect(find.byType(SegmentedButton<CategoryKind>), findsNothing);
-    expect(_icon('movie'), findsNothing);
-    // Тип виден, но только для чтения.
     expect(find.text('Тип: Расход'), findsOneWidget);
+    // Текущий значок выбран, остальные нет.
+    expect(isSelected(tester, 'restaurant'), isTrue);
+    expect(isSelected(tester, 'movie'), isFalse);
+
+    await _type(tester, 'Ресторан');
+    await tester.ensureVisible(_icon('movie'));
+    await tester.pump();
+    await tester.tap(_icon('movie'));
+    await tester.pump();
+    expect(isSelected(tester, 'movie'), isTrue);
+    expect(isSelected(tester, 'restaurant'), isFalse);
+    await _save(tester);
+
+    expect(_formIsOpen(), isFalse);
+    final edited = repository.all.firstWhere((c) => c.id == 'cafe');
+    expect(edited.name, 'Ресторан');
+    expect(edited.iconKey, 'movie');
+    expect(edited.kind, CategoryKind.expense);
+    expect(edited.sortOrder, 1);
+    expect(repository.all, hasLength(4));
+    handle.dispose();
+  });
+
+  testWidgets('правка только имени: значок прежний', (tester) async {
+    final cafe = repository.all.firstWhere((c) => c.id == 'cafe');
+    await _openForm(tester, repository, renaming: cafe);
 
     await _type(tester, 'Ресторан');
     await _save(tester);
 
-    expect(_formIsOpen(), isFalse);
-    final renamed = repository.all.firstWhere((c) => c.id == 'cafe');
-    expect(renamed.name, 'Ресторан');
-    expect(renamed.iconKey, 'restaurant');
-    expect(renamed.kind, CategoryKind.expense);
-    expect(renamed.sortOrder, 1);
-    expect(repository.all, hasLength(4));
+    final edited = repository.all.firstWhere((c) => c.id == 'cafe');
+    expect(edited.name, 'Ресторан');
+    expect(edited.iconKey, 'restaurant');
+  });
+
+  testWidgets(
+    'правка: неизвестный ключ — ничего не выбрано, ключ сохраняется',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      final odd = _c('odd', 'Странная', 7, iconKey: 'no_such_icon');
+      final repo = _repo([..._fixture(), odd]);
+      addTearDown(repo.dispose);
+      await _openForm(tester, repo, renaming: odd);
+
+      await tester.ensureVisible(_icon('movie'));
+      expect(isSelected(tester, 'movie'), isFalse);
+      expect(isSelected(tester, 'restaurant'), isFalse);
+
+      await _type(tester, 'Странная 2');
+      await _save(tester);
+
+      final edited = repo.all.firstWhere((c) => c.id == 'odd');
+      expect(edited.name, 'Странная 2');
+      expect(edited.iconKey, 'no_such_icon');
+      handle.dispose();
+    },
+  );
+
+  testWidgets('правка: сетка прокручена к выбранному значку glyph:Я', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final ya = _c('ya', 'Яблоки', 8, iconKey: 'glyph:Я');
+    final repo = _repo([..._fixture(), ya]);
+    addTearDown(repo.dispose);
+    await _openForm(tester, repo, renaming: ya);
+
+    final rect = tester.getRect(_icon('glyph:Я'));
+    expect(rect.top, greaterThanOrEqualTo(0));
+    expect(rect.bottom, lessThanOrEqualTo(740));
+    expect(isSelected(tester, 'glyph:Я'), isTrue);
+    handle.dispose();
+  });
+
+  testWidgets('правка: дубль имени — ошибка под полем, выбранный значок '
+      'остаётся', (tester) async {
+    final handle = tester.ensureSemantics();
+    final cafe = repository.all.firstWhere((c) => c.id == 'cafe');
+    await _openForm(tester, repository, renaming: cafe);
+
+    await tester.ensureVisible(_icon('movie'));
+    await tester.tap(_icon('movie'));
+    await tester.pump();
+    await _type(tester, 'продукты');
+    await _save(tester);
+
+    expect(
+      find.text(categoryRuleMessage(CategoryRule.duplicateName)),
+      findsOneWidget,
+    );
+    expect(_formIsOpen(), isTrue);
+    expect(isSelected(tester, 'movie'), isTrue);
+    expect(
+      repository.all.firstWhere((c) => c.id == 'cafe').iconKey,
+      'restaurant',
+    );
+    handle.dispose();
+  });
+
+  testWidgets('правка: 360 dp и шрифт 200 % без переполнения', (tester) async {
+    final cafe = repository.all.firstWhere((c) => c.id == 'cafe');
+    await _openForm(tester, repository, renaming: cafe, textScale: 2);
+    await tester.ensureVisible(_icon(categoryIconKeys.last));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('переименование доходной категории: «Тип: Доход»', (

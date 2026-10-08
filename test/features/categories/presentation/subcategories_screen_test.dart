@@ -242,9 +242,7 @@ void main() {
     },
   );
 
-  testWidgets('карандаш «Переименовать: X» есть у живых и архивных', (
-    tester,
-  ) async {
+  testWidgets('карандаш «Изменить: X» есть у живых и архивных', (tester) async {
     await _pump(tester, _fixture());
 
     Finder pencil(String id, String name) => find.descendant(

@@ -454,7 +454,7 @@ void main() {
     expect(created, [CategoryKind.expense, CategoryKind.income]);
   });
 
-  testWidgets('«Переименовать» есть и у живых категорий, и у архивных', (
+  testWidgets('«Изменить» есть и у живых категорий, и у архивных', (
     tester,
   ) async {
     await _pump(tester, _fixture());
