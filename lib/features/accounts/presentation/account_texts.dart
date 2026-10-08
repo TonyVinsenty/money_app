@@ -52,6 +52,13 @@ const String accountUndoAction = 'Вернуть';
 const String accountRestoreDuplicateText =
     'Счёт с таким именем уже есть. Переименуйте его или оставьте этот в архиве';
 
+// Архив счетов (тексты утверждены).
+const String accountRestoreAction = 'Вернуть из архива';
+
+String accountsArchiveTitle(int count) => 'Архив ($count)';
+
+String accountRestoredMessage(String name) => 'Счёт «$name» снова в списке';
+
 // Основной счёт (тексты утверждены).
 const String accountDefaultLabel = 'Основной';
 const String accountMakeDefaultButton = 'Сделать основным';

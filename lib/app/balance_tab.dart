@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/ui/category_rule_text.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
+import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
@@ -56,6 +60,27 @@ class _BalanceTabState extends State<BalanceTab> {
     }
   }
 
+  Future<void> _restore(Account account) async {
+    final messenger = ScaffoldMessenger.of(context);
+    void say(String text) => messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: TapToDismissSnackContent(child: Text(text))),
+      );
+    try {
+      await _repository!.restore(account.id);
+      say(accountRestoredMessage(account.name));
+    } on AccountRuleException catch (error) {
+      say(
+        error.rule == AccountRule.duplicateName
+            ? accountRestoreDuplicateText
+            : accountRuleMessage(error.rule),
+      );
+    } on Object {
+      say(categorySaveFailedText);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -66,6 +91,7 @@ class _BalanceTabState extends State<BalanceTab> {
           balances: _balances,
           mainCurrency: AppScope.of(context).settings.mainCurrencyCode,
           defaultAccountId: AppScope.of(context).settings.defaultAccountId,
+          onRestoreAccount: (account) => unawaited(_restore(account)),
           onOpenAccount: (account) {
             final services = AppScope.of(context);
             unawaited(

@@ -24,8 +24,16 @@ class AccountsSection extends StatelessWidget {
     required this.onAddAccount,
     required this.onOpenAccount,
     this.defaultAccountId,
+    this.onRestoreAccount,
     super.key,
   });
+
+  /// «Вернуть из архива» у счёта из раздела «Архив»; без него раздела нет.
+  final ValueChanged<Account>? onRestoreAccount;
+
+  static const archiveKey = ValueKey('accounts-archive');
+  static ValueKey<String> restoreKey(String id) =>
+      ValueKey('accounts-restore-$id');
 
   /// Id основного счёта из настроек; годен ли он, section решает сама
   /// (не в архиве, основная валюта).
@@ -87,22 +95,20 @@ class AccountsSection extends StatelessWidget {
           stream: accounts,
           loadingBuilder: (_) => const AsyncLoading(),
           errorBuilder: _error,
-          isEmpty: (all) => _visible(all).isEmpty,
-          emptyBuilder: (context) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              accountsEmptyText,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
+          // Пусто - когда нет вообще никаких счетов: если все в архиве, раздел
+          // «Архив» всё равно нужен.
+          isEmpty: (all) => all.isEmpty,
+          emptyBuilder: _emptyText,
           dataBuilder: (context, all) => AsyncView<Map<String, Money>>(
             stream: balances,
             loadingBuilder: (_) => const AsyncLoading(),
             errorBuilder: _error,
             dataBuilder: (context, byId) {
               final shown = _visible(all);
+              final archived = [
+                for (final a in all)
+                  if (a.isArchived) a,
+              ];
               // Счёт уже появился, а его остаток ещё считается: ждём.
               if (shown.any((a) => !byId.containsKey(a.id))) {
                 return const AsyncLoading();
@@ -110,30 +116,36 @@ class AccountsSection extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _Totals(
-                    totals: [
-                      for (final total in totalsByCurrency(
-                        shown,
-                        byId,
-                        mainCurrency,
-                      ))
-                        (total, _infoOf(shown, total.currency)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  for (final a in shown)
-                    _AccountRow(
-                      a,
-                      byId[a.id]!,
-                      () => onOpenAccount(a),
-                      isDefault:
-                          resolveDefaultAccount(
-                            shown,
-                            defaultAccountId,
-                            mainCurrency,
-                          )?.id ==
-                          a.id,
+                  if (shown.isEmpty)
+                    _emptyText(context)
+                  else ...[
+                    _Totals(
+                      totals: [
+                        for (final total in totalsByCurrency(
+                          shown,
+                          byId,
+                          mainCurrency,
+                        ))
+                          (total, _infoOf(shown, total.currency)),
+                      ],
                     ),
+                    const SizedBox(height: 8),
+                    for (final a in shown)
+                      _AccountRow(
+                        a,
+                        byId[a.id]!,
+                        () => onOpenAccount(a),
+                        isDefault:
+                            resolveDefaultAccount(
+                              shown,
+                              defaultAccountId,
+                              mainCurrency,
+                            )?.id ==
+                            a.id,
+                      ),
+                  ],
+                  if (archived.isNotEmpty && onRestoreAccount != null)
+                    _ArchiveTile(archived, onRestoreAccount!),
                 ],
               );
             },
@@ -141,6 +153,68 @@ class AccountsSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         addButton,
+      ],
+    );
+  }
+
+  Widget _emptyText(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Text(
+      accountsEmptyText,
+      style: Theme.of(context).textTheme.bodyLarge
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    ),
+  );
+}
+
+/// Свёрнутый раздел «Архив (N)» внизу списка, как у категорий: у каждого
+/// счёта под названием кнопка «Вернуть из архива».
+class _ArchiveTile extends StatelessWidget {
+  const _ArchiveTile(this.accounts, this.onRestore);
+
+  final List<Account> accounts;
+  final ValueChanged<Account> onRestore;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ExpansionTile(
+      key: AccountsSection.archiveKey,
+      title: Text(accountsArchiveTitle(accounts.length)),
+      children: [
+        for (final a in accounts)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      accountIconFor(a.iconKey).icon,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(a.name, style: theme.textTheme.bodyLarge),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 40),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      key: AccountsSection.restoreKey(a.id),
+                      onPressed: () => onRestore(a),
+                      icon: const Icon(Icons.unarchive_outlined),
+                      label: const Text(accountRestoreAction),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
