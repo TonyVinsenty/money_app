@@ -18,6 +18,7 @@ Account acc(
   iconKey: iconKey,
   openingBalance: Money.fromMinor(opening, 'RUB'),
   sortOrder: sortOrder,
+  currencyDigits: 2,
   archivedAt: archivedAt,
 );
 

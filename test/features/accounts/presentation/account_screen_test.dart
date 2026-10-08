@@ -30,6 +30,7 @@ Account acc(String id, String name, {int opening = 0}) => Account(
   iconKey: 'card',
   openingBalance: rub(opening),
   sortOrder: 0,
+  currencyDigits: 2,
 );
 
 Future<void> pumpTab(
@@ -161,6 +162,7 @@ void main() {
   for (final (code, digits, typed, expected) in [
     ('ABC', 4, '12,3456', 123456),
     ('BTC', 8, '0,0015', 150000),
+    ('USDT', 8, '12,5', 1250000000),
   ]) {
     testWidgets('валюта $code с $digits знаками: ввод $typed', (tester) async {
       final repo = InMemoryAccountsRepository([

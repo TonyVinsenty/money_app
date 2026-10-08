@@ -46,6 +46,7 @@ void main() {
         iconKey: 'card',
         openingBalance: Money.fromMinor(opening, currency),
         sortOrder: 0,
+        currencyDigits: 2,
         archivedAt: archivedAt,
       ),
     );

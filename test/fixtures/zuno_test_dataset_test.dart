@@ -183,6 +183,7 @@ void main() {
             iconKey: 'card',
             openingBalance: Money.zero('RUB'),
             sortOrder: 0,
+            currencyDigits: 2,
           ),
         );
         await db.customStatement(

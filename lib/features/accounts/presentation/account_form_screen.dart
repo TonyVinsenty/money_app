@@ -9,6 +9,7 @@ import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/amount_failure_text.dart';
 import 'package:money_app/core/ui/amount_input_formatter.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
+import 'package:money_app/core/ui/currency_picker.dart';
 import 'package:money_app/core/ui/runes_length_formatter.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
@@ -35,7 +36,8 @@ class AccountFormScreen extends StatefulWidget {
   final AccountsRepository accounts;
   final IdGenerator idGenerator;
 
-  /// Валюта нового счёта.
+  /// Валюта нового счёта по умолчанию (позже - основная валюта); пользователь
+  /// может выбрать другую.
   final String currency;
 
   /// Описание валюты (знаки, символ); по умолчанию - счёта в правке или
@@ -49,6 +51,7 @@ class AccountFormScreen extends StatefulWidget {
   static const balanceFieldKey = ValueKey('account-form-balance');
   static const minusSwitchKey = ValueKey('account-form-minus');
   static const saveButtonKey = ValueKey('account-form-save');
+  static const currencyRowKey = ValueKey('account-form-currency');
 
   @override
   State<AccountFormScreen> createState() => _AccountFormScreenState();
@@ -66,10 +69,32 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
 
   bool get _isEdit => widget.editing != null;
 
+  CurrencyInfo? _picked;
+
   CurrencyInfo get _info =>
+      _picked ??
       widget.currencyInfo ??
       widget.editing?.currencyInfo ??
       currencyInfoFor(widget.currency);
+
+  Future<void> _pickCurrency() async {
+    final picked = await showCurrencyPicker(context, selected: _info.code);
+    if (picked == null || !mounted) return;
+    setState(() {
+      _picked = picked;
+      // Сумма не обрезается: лишние знаки - обычная ошибка поля.
+      _balanceError = null;
+      final parsed = parseAmount(
+        _balance.text,
+        currency: picked.code,
+        currencyInfo: picked,
+      );
+      if (parsed is AmountParseFailed &&
+          parsed.failure != AmountParseFailure.empty) {
+        _balanceError = amountFailureMessage(parsed.failure, currency: picked);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -88,11 +113,11 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
   Future<void> _save() async {
     if (_saving) return;
     // Сумма нужна только новому счёту; пусто — 0.
-    var opening = Money.zero(widget.currency);
+    var opening = Money.zero(_info.code);
     if (!_isEdit) {
       final parsed = parseAmount(
         _balance.text,
-        currency: widget.currency,
+        currency: _info.code,
         currencyInfo: _info,
       );
       if (parsed is AmountParsed) {
@@ -132,6 +157,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
             iconKey: _iconKey,
             openingBalance: opening,
             sortOrder: sortOrder,
+            currencyDigits: _info.digits,
           ),
         );
       }
@@ -148,6 +174,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
           case AccountRule.duplicateName:
             _nameError = text;
           case AccountRule.emptyIconKey:
+          case AccountRule.currencyDigitsMismatch:
           case AccountRule.negativeSortOrder:
             _saveError = text;
         }
@@ -227,13 +254,28 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                         );
                       },
                     ),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      key: AccountFormScreen.currencyRowKey,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(accountFormCurrencyTitle),
+                      subtitle: Text(
+                        _isEdit
+                            ? accountFormCurrencyLocked(_info)
+                            : accountFormCurrencyValue(_info),
+                      ),
+                      trailing: _isEdit
+                          ? null
+                          : const Icon(Icons.chevron_right),
+                      onTap: _isEdit ? null : () => unawaited(_pickCurrency()),
+                    ),
                     if (!_isEdit) ...[
                       const SizedBox(height: 16),
                       TextField(
                         key: AccountFormScreen.balanceFieldKey,
                         controller: _balance,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                        keyboardType: TextInputType.numberWithOptions(
+                          decimal: _info.digits > 0,
                         ),
                         textInputAction: TextInputAction.done,
                         inputFormatters: [

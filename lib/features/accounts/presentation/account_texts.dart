@@ -25,6 +25,18 @@ const String accountFormBalanceHelper = 'Можно оставить пусты�
 const String accountFormMinusTitle = 'Минус (долг)';
 const String accountFormMinusHelper = 'Например, долг по кредитной карте';
 const String accountFormSaveLabel = 'Сохранить';
+const String accountFormCurrencyTitle = 'Валюта';
+const String accountCurrencyDigitsMismatchText =
+    'У счёта с этой валютой другое число знаков после запятой';
+
+/// Валюта строкой: «Российский рубль, ₽»; если символ совпадает с кодом -
+/// «Биткоин, BTC».
+String accountFormCurrencyValue(CurrencyInfo currency) =>
+    '${currency.name}, ${currency.symbol}';
+
+/// То же для формы правки: валюта не меняется.
+String accountFormCurrencyLocked(CurrencyInfo currency) =>
+    '${accountFormCurrencyValue(currency)} — не меняется';
 
 // Экран счёта (тексты утверждены).
 const String accountBalanceCaption = 'Остаток';
@@ -62,6 +74,8 @@ String accountRuleMessage(AccountRule rule) {
           'символов';
     case AccountRule.duplicateName:
       return 'Такой счёт уже есть. Выберите другое название';
+    case AccountRule.currencyDigitsMismatch:
+      return accountCurrencyDigitsMismatchText;
     case AccountRule.emptyIconKey:
       return 'Выберите иконку';
     case AccountRule.negativeSortOrder:

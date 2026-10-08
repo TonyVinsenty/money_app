@@ -11,6 +11,7 @@ Account acc(String id, int opening, {bool archived = false}) => Account(
   iconKey: 'card',
   openingBalance: rub(opening),
   sortOrder: 0,
+  currencyDigits: 2,
   archivedAt: archived ? DateTime.utc(2026, 10, 7) : null,
 );
 
@@ -167,6 +168,7 @@ void main() {
         iconKey: 'card',
         openingBalance: Money.fromMinor(999, 'USD'),
         sortOrder: 0,
+        currencyDigits: 2,
       );
       final usdArchived = Account(
         id: 'ua',
@@ -174,6 +176,7 @@ void main() {
         iconKey: 'card',
         openingBalance: Money.fromMinor(5, 'USD'),
         sortOrder: 0,
+        currencyDigits: 2,
         archivedAt: DateTime.utc(2026, 10, 7),
       );
       final accounts = [acc('a', 100), usd, usdArchived];
@@ -231,6 +234,7 @@ Account accIn(String id, String currency, {bool archived = false}) => Account(
   iconKey: 'card',
   openingBalance: Money.zero(currency),
   sortOrder: 0,
+  currencyDigits: 2,
   archivedAt: archived ? DateTime.utc(2026, 10, 7) : null,
 );
 

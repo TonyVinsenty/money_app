@@ -39,6 +39,7 @@ void main() {
         iconKey: 'card',
         openingBalance: Money.fromMinor(minor, 'RUB'),
         sortOrder: sortOrder,
+        currencyDigits: 2,
         archivedAt: archivedAt,
       );
     }
@@ -111,6 +112,34 @@ void main() {
       expect(row.currency, 'USDT');
       expect(row.currencyDigits, 8);
     });
+
+    test(
+      'create checks currency digits against catalog and accounts',
+      () async {
+        Account withCurrency(String id, String name, String code, int digits) =>
+            Account(
+              id: id,
+              name: name,
+              iconKey: 'card',
+              openingBalance: Money.zero(code),
+              sortOrder: 0,
+              currencyDigits: digits,
+            );
+        await expectLater(
+          repo.create(withCurrency('u', 'Usd', 'USD', 4)),
+          rule(AccountRule.currencyDigitsMismatch),
+        );
+        await repo.create(withCurrency('a', 'One', 'ABC', 4));
+        await repo.archive('a');
+        // Архивный счёт тоже задаёт знаки своего кода.
+        await expectLater(
+          repo.create(withCurrency('b', 'Two', 'ABC', 3)),
+          rule(AccountRule.currencyDigitsMismatch),
+        );
+        await repo.create(withCurrency('c', 'Three', 'ABC', 4));
+        expect(await ids(), ['a', 'c']);
+      },
+    );
 
     test('create rejects a duplicate name among live accounts', () async {
       await repo.create(account('a', name: 'Card'));
@@ -342,6 +371,7 @@ void main() {
           iconKey: 'card',
           openingBalance: Money.fromMinor(-5, 'EUR'),
           sortOrder: 1,
+          currencyDigits: 2,
           archivedAt: DateTime.utc(2026, 1, 1),
         ),
         createdAt: DateTime.utc(2026, 1, 2),

@@ -137,6 +137,7 @@ class DriftAccountsRepository implements AccountsRepository {
   Future<void> create(Account account) {
     return _db.transaction(() async {
       await _checkUniqueName(account.name);
+      await _checkCurrencyDigits(account);
       final now = _clock.now();
       await _db
           .into(_db.accounts)
@@ -322,6 +323,19 @@ class DriftAccountsRepository implements AccountsRepository {
     if (rows.any((row) => accountNameKey(row.name) == key)) {
       throw AccountRuleException(AccountRule.duplicateName);
     }
+  }
+
+  /// Знаки валюты: как в каталоге или как у любого (и архивного) счёта
+  /// с тем же кодом; смотрим сырые строки, испорченный сосед не мешает.
+  Future<void> _checkCurrencyDigits(Account account) async {
+    final rows = await (_db.select(
+      _db.accounts,
+    )..where((a) => a.deletedAt.isNull())).get();
+    checkCurrencyDigits(
+      currency: account.currency,
+      digits: account.currencyDigits,
+      existing: [for (final r in rows) (r.currency, r.currencyDigits)],
+    );
   }
 
   Future<void> _updateRow(String id, AccountsCompanion changes) {

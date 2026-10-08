@@ -26,6 +26,7 @@ Account acc(String id, String name, {String icon = 'card'}) => Account(
   iconKey: icon,
   openingBalance: Money.zero('RUB'),
   sortOrder: 0,
+  currencyDigits: 2,
 );
 
 void useSmallScreen(WidgetTester tester) {

@@ -21,7 +21,7 @@ final class Account {
     required String iconKey,
     required this.openingBalance,
     required int sortOrder,
-    this.currencyDigits = 2,
+    required this.currencyDigits,
     DateTime? archivedAt,
   }) : name = checkedName(name),
        iconKey = _checkedIconKey(iconKey),
