@@ -360,6 +360,7 @@ class _HistoryTabState extends State<HistoryTab> {
       hasOtherCurrencies: _hasOther,
       accounts: _accounts,
       currencySymbol: services.settings.mainCurrency.symbol,
+      currencyCode: services.settings.mainCurrencyCode,
       onTransactionTap: (transaction) => Navigator.of(context).pushNamed(
         AppRoutes.editTransaction,
         arguments: EditTransactionRouteArguments(

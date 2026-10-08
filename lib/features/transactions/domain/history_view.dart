@@ -19,7 +19,12 @@ final class HistoryFilter {
     Set<String>? expenseCategoryIds,
     Set<String>? incomeCategoryIds,
     this.accountId,
-  }) : expenseCategoryIds = _freeze(expenseCategoryIds),
+    this.withoutAccount = false,
+  }) : assert(
+         !withoutAccount || accountId == null,
+         'accountId and withoutAccount are mutually exclusive',
+       ),
+       expenseCategoryIds = _freeze(expenseCategoryIds),
        incomeCategoryIds = _freeze(incomeCategoryIds);
 
   /// «Только расходы этих категорий».
@@ -27,19 +32,22 @@ final class HistoryFilter {
     : type = HistoryTypeFilter.expense,
       expenseCategoryIds = _freeze(ids),
       incomeCategoryIds = null,
-      accountId = null;
+      accountId = null,
+      withoutAccount = false;
 
   /// «Только операции этого счёта» (кнопка «Операции» на экране счёта).
   const HistoryFilter.account(String this.accountId)
     : type = HistoryTypeFilter.all,
       expenseCategoryIds = null,
-      incomeCategoryIds = null;
+      incomeCategoryIds = null,
+      withoutAccount = false;
 
   const HistoryFilter._off()
     : type = HistoryTypeFilter.all,
       expenseCategoryIds = null,
       incomeCategoryIds = null,
-      accountId = null;
+      accountId = null,
+      withoutAccount = false;
 
   /// Фильтр выключен: показываем всё (константа, чтобы годиться в `const`
   /// значения по умолчанию).
@@ -59,17 +67,24 @@ final class HistoryFilter {
   /// Только операции этого счёта; `null` - любой счёт и без счёта.
   final String? accountId;
 
+  /// Только операции без счёта. Третье состояние счёта: «любой» (оба поля
+  /// пусты), «этот счёт» ([accountId]) и «без счёта» (это поле); вместе с
+  /// [accountId] не бывает.
+  final bool withoutAccount;
+
   /// Включён ли фильтр: тип не «все», задан хотя бы один набор или счёт.
   bool get isActive =>
       type != HistoryTypeFilter.all ||
       expenseCategoryIds != null ||
       incomeCategoryIds != null ||
-      accountId != null;
+      accountId != null ||
+      withoutAccount;
 
   /// Подходит ли операция под фильтр (по `categoryId`, подкатегория
   /// относится к своей категории).
   bool matches(Transaction transaction) {
     if (accountId != null && transaction.accountId != accountId) return false;
+    if (withoutAccount && transaction.accountId != null) return false;
     final isExpense = transaction.type == TransactionType.expense;
     switch (type) {
       case HistoryTypeFilter.income:
@@ -89,6 +104,7 @@ final class HistoryFilter {
         other is HistoryFilter &&
             other.type == type &&
             other.accountId == accountId &&
+            other.withoutAccount == withoutAccount &&
             _sameSet(other.expenseCategoryIds, expenseCategoryIds) &&
             _sameSet(other.incomeCategoryIds, incomeCategoryIds);
   }
@@ -99,12 +115,14 @@ final class HistoryFilter {
     _setHash(expenseCategoryIds),
     _setHash(incomeCategoryIds),
     accountId,
+    withoutAccount,
   );
 
   @override
   String toString() =>
       'HistoryFilter(type: ${type.name}, expense: $expenseCategoryIds, '
-      'income: $incomeCategoryIds, accountId: $accountId)';
+      'income: $incomeCategoryIds, accountId: $accountId, '
+      'withoutAccount: $withoutAccount)';
 }
 
 bool _sameSet(Set<String>? a, Set<String>? b) {

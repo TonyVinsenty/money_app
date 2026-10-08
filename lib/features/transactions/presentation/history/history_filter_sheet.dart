@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
 import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/history_view.dart';
@@ -18,6 +19,7 @@ Future<void> showHistoryFilterSheet(
   required ValueChanged<HistoryFilter> onChanged,
   List<Category> categories = const [],
   List<Transaction> monthTransactions = const [],
+  List<Account> accounts = const [],
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -29,8 +31,74 @@ Future<void> showHistoryFilterSheet(
       onChanged: onChanged,
       categories: categories,
       monthTransactions: monthTransactions,
+      accounts: accounts,
     ),
   );
+}
+
+/// Раздел «Счёт»: один выбор из «Все счета», счетов (уже отобранных по
+/// основной валюте, архивные с пометкой) и «Без счёта».
+class _AccountSection extends StatelessWidget {
+  const _AccountSection({
+    required this.accounts,
+    required this.current,
+    required this.onChanged,
+  });
+
+  final List<Account> accounts;
+  final HistoryFilter current;
+  final ValueChanged<HistoryFilter> onChanged;
+
+  /// Порядок: живые по `sortOrder`, затем архивные (при равенстве имя, id).
+  static List<Account> ordered(Iterable<Account> accounts) {
+    final list = [...accounts];
+    list.sort((a, b) {
+      if (a.isArchived != b.isArchived) return a.isArchived ? 1 : -1;
+      final byOrder = a.sortOrder.compareTo(b.sortOrder);
+      if (byOrder != 0) return byOrder;
+      final byName = a.name.compareTo(b.name);
+      return byName != 0 ? byName : a.id.compareTo(b.id);
+    });
+    return list;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    HistoryFilter pick({String? id, bool none = false}) => HistoryFilter(
+      type: current.type,
+      expenseCategoryIds: current.expenseCategoryIds,
+      incomeCategoryIds: current.incomeCategoryIds,
+      accountId: id,
+      withoutAccount: none,
+    );
+    final allSelected = current.accountId == null && !current.withoutAccount;
+    Widget option(String label, bool selected, HistoryFilter next) => ListTile(
+      contentPadding: EdgeInsets.zero,
+      minVerticalPadding: 12,
+      title: Text(label),
+      selected: selected,
+      trailing: selected ? const Icon(Icons.check) : null,
+      onTap: () => onChanged(next),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 16),
+        Semantics(
+          header: true,
+          child: Text('Счёт', style: Theme.of(context).textTheme.titleMedium),
+        ),
+        option('Все счета', allSelected, pick()),
+        for (final a in ordered(accounts))
+          option(
+            a.isArchived ? '${a.name} (в архиве)' : a.name,
+            current.accountId == a.id,
+            pick(id: a.id),
+          ),
+        option('Без счёта', current.withoutAccount, pick(none: true)),
+      ],
+    );
+  }
 }
 
 /// Раздел категорий одного вида: «Выбрать все» / «Снять все» и галочки.
@@ -96,7 +164,10 @@ class _CategorySection extends StatelessWidget {
                 child: const Text('Снять все'),
               ),
             ];
-            final large = fontScaleFrom(MediaQuery.textScalerOf(context)) > 1.3;
+            // Узкий экран (360 dp) тоже переносит кнопки: в строку не влезают.
+            final large =
+                fontScaleFrom(MediaQuery.textScalerOf(context)) > 1.3 ||
+                MediaQuery.sizeOf(context).width < 400;
             if (large) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,8 +220,12 @@ class HistoryFilterSheet extends StatelessWidget {
     required this.onChanged,
     this.categories = const [],
     this.monthTransactions = const [],
+    this.accounts = const [],
     super.key,
   });
+
+  /// Счета основной валюты (живые и архивные); пусто - раздела «Счёт» нет.
+  final List<Account> accounts;
 
   final ValueListenable<HistoryFilter> filter;
   final ValueChanged<HistoryFilter> onChanged;
@@ -207,6 +282,7 @@ class HistoryFilterSheet extends StatelessWidget {
                   expenseCategoryIds: current.expenseCategoryIds,
                   incomeCategoryIds: current.incomeCategoryIds,
                   accountId: current.accountId,
+                  withoutAccount: current.withoutAccount,
                 ),
               ),
             ),
@@ -223,6 +299,7 @@ class HistoryFilterSheet extends StatelessWidget {
                     expenseCategoryIds: ids,
                     incomeCategoryIds: current.incomeCategoryIds,
                     accountId: current.accountId,
+                    withoutAccount: current.withoutAccount,
                   ),
                 ),
               ),
@@ -239,8 +316,15 @@ class HistoryFilterSheet extends StatelessWidget {
                     expenseCategoryIds: current.expenseCategoryIds,
                     incomeCategoryIds: ids,
                     accountId: current.accountId,
+                    withoutAccount: current.withoutAccount,
                   ),
                 ),
+              ),
+            if (accounts.isNotEmpty)
+              _AccountSection(
+                accounts: accounts,
+                current: current,
+                onChanged: onChanged,
               ),
             const SizedBox(height: 16),
             FilledButton(

@@ -50,6 +50,30 @@ void main() {
     );
   });
 
+  test('«Без счёта» - один и вместе с другими', () {
+    expect(
+      historyFilterLabel(HistoryFilter(withoutAccount: true), _cats),
+      'Фильтр: Без счёта',
+    );
+    final filter = HistoryFilter(
+      type: HistoryTypeFilter.expense,
+      expenseCategoryIds: {'cafe'},
+      withoutAccount: true,
+    );
+    expect(
+      historyFilterLabel(filter, _cats),
+      'Фильтр: Расходы · Кафе · Без счёта',
+    );
+    expect(
+      historyFilterSpoken(filter, _cats),
+      'Фильтр, включён: расходы, Кафе, Без счёта',
+    );
+    expect(
+      historyFilterSpoken(HistoryFilter(withoutAccount: true), _cats),
+      'Фильтр, включён: без счёта',
+    );
+  });
+
   test('фильтр без счёта подписан как раньше', () {
     expect(
       historyFilterLabel(HistoryFilter.expenseCategories({'cafe'}), _cats),

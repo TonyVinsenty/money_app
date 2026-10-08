@@ -21,7 +21,9 @@ String historyFilterLabel(
 }) {
   final expense = filter.expenseCategoryIds;
   final income = filter.incomeCategoryIds;
-  final account = filter.accountId == null
+  final account = filter.withoutAccount
+      ? 'Без счёта'
+      : filter.accountId == null
       ? null
       : 'Счёт: ${accountName ?? historyUnknownAccount}';
 

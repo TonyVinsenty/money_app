@@ -61,6 +61,7 @@ class HistoryScreen extends StatefulWidget {
     this.onSearchChanged,
     this.hasOtherCurrencies,
     this.currencySymbol = '₽',
+    this.currencyCode = 'RUB',
     this.accounts,
     super.key,
   });
@@ -75,6 +76,9 @@ class HistoryScreen extends StatefulWidget {
 
   /// Знак основной валюты для подсказки.
   final String currencySymbol;
+
+  /// Код основной валюты: в листе фильтра предлагаются только её счета.
+  final String currencyCode;
 
   /// Текст поиска как набран. Непустой (не из одних пробелов) — режим поиска:
   /// [transactions] тогда отдаёт операции всех месяцев, а экран оставляет те,
@@ -151,6 +155,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   // Имена счетов для полоски «Счёт: Карта» (архивные тоже).
   Map<String, String> _accountNames = const {};
+  List<Account> _accountList = const [];
   StreamSubscription<List<Account>>? _accountsSub;
 
   String? get _filterAccountName => _accountNames[widget.filter.accountId];
@@ -160,7 +165,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _accountsSub = widget.accounts?.listen(
       (all) {
         if (mounted) {
-          setState(() => _accountNames = {for (final a in all) a.id: a.name});
+          setState(() {
+            _accountList = all;
+            _accountNames = {for (final a in all) a.id: a.name};
+          });
         }
       },
       onError: (Object error) {
@@ -192,6 +200,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
       onChanged: onChanged,
       categories: _allCategories,
       monthTransactions: _monthTransactions,
+      accounts: [
+        for (final a in _accountList)
+          if (a.currency == widget.currencyCode) a,
+      ],
     );
   }
 
