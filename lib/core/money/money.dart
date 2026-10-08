@@ -57,7 +57,8 @@ final class Money implements Comparable<Money> {
   /// Сумма в копейках.
   final int minorUnits;
 
-  /// Код валюты ISO 4217, например `RUB`.
+  /// Код валюты: 3-10 заглавных латинских букв и цифр, первая буква (ISO 4217, крипта, своя валюта;
+  /// ADR 0010, п. 16.3), например `RUB`.
   final String currency;
 
   bool get isZero => minorUnits == 0;

@@ -88,9 +88,21 @@ final class Account {
   /// Код валюты счёта.
   String get currency => openingBalance.currency;
 
-  /// Описание валюты счёта: каталог или своя валюта со знаками из базы.
-  CurrencyInfo get currencyInfo =>
-      currencyInfoFor(currency, digits: currencyDigits);
+  /// Описание валюты счёта. Знаки после запятой всегда из базы счёта
+  /// ([currencyDigits], ADR 0010, п. 16.2); символ, название, вид и формы
+  /// слова - из каталога, а для кода не из каталога - сам код.
+  CurrencyInfo get currencyInfo {
+    final info = currencyInfoFor(currency, digits: currencyDigits);
+    if (info.digits == currencyDigits) return info;
+    return CurrencyInfo(
+      code: info.code,
+      digits: currencyDigits,
+      symbol: info.symbol,
+      name: info.name,
+      kind: info.kind,
+      forms: info.forms,
+    );
+  }
 
   /// Счёт в архиве.
   bool get isArchived => archivedAt != null;

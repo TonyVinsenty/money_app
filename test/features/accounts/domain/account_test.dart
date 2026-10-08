@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
@@ -27,6 +29,7 @@ void expectRule(void Function() body, AccountRule rule) {
 }
 
 void main() {
+  currencyInfoTests();
   test('максимальная длина имени равна 40', () {
     expect(accountNameMaxLength, 40);
   });
@@ -233,5 +236,49 @@ void main() {
     );
     expect(custom.currencyInfo.digits, 4);
     expect(custom.currencyInfo.code, 'ABC');
+  });
+}
+
+void currencyInfoTests() {
+  test('currencyInfo: знаки из счёта, остальное из каталога', () {
+    final account = Account(
+      id: 'b',
+      name: 'Кошелёк',
+      iconKey: 'card',
+      currencyDigits: 2,
+      openingBalance: Money.fromMinor(150, 'BTC'),
+      sortOrder: 0,
+    );
+    final info = account.currencyInfo;
+    final catalog = currencyInfoFor('BTC');
+    expect(info.digits, 2);
+    expect(info.symbol, catalog.symbol);
+    expect(info.name, catalog.name);
+    expect(info.kind, catalog.kind);
+    expect(info.forms, catalog.forms);
+    expect(
+      formatMoney(
+        account.openingBalance,
+        currency: info,
+        withCurrencySymbol: false,
+      ),
+      '1,50',
+    );
+    // Каталог не тронут.
+    expect(catalog.digits, 8);
+  });
+
+  test('currencyInfo: знаки каталога, если совпали, и своя валюта', () {
+    expect(acc('r', 'Карта').currencyInfo, same(currencyInfoFor('RUB')));
+    final custom = Account(
+      id: 'c',
+      name: 'Своя',
+      iconKey: 'card',
+      currencyDigits: 4,
+      openingBalance: Money.zero('ABC'),
+      sortOrder: 0,
+    );
+    expect(custom.currencyInfo.digits, 4);
+    expect(custom.currencyInfo.kind, CurrencyKind.custom);
   });
 }

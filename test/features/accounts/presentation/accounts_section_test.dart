@@ -309,7 +309,7 @@ void main() {
         accounts: Stream.value([
           acc('r', 'Карта'),
           acc('u', 'Доллары', currency: 'USD', order: 1),
-          acc('b', 'Кошелёк', currency: 'BTC', order: 2),
+          acc('b', 'Кошелёк', currency: 'BTC', digits: 8, order: 2),
           acc('c', 'Своя', currency: 'ABC', digits: 4, order: 3),
           acc('x', 'Старый евро', currency: 'EUR', archived: true, order: 4),
         ]),
@@ -399,7 +399,12 @@ void main() {
         tester,
         scale: 2,
         accounts: Stream.value([
-          acc('b', 'Очень длинное название кошелька', currency: 'BTC'),
+          acc(
+            'b',
+            'Очень длинное название кошелька',
+            currency: 'BTC',
+            digits: 8,
+          ),
           acc('r', 'Карта', order: 1),
         ]),
         balances: Stream.value({'b': btc(-99999999999999), 'r': rub(1200000)}),

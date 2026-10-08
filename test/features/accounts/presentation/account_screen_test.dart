@@ -158,6 +158,30 @@ void main() {
     expect(find.text('Карта'), findsNothing);
   });
 
+  for (final (code, digits, typed, expected) in [
+    ('ABC', 4, '12,3456', 123456),
+    ('BTC', 8, '0,0015', 150000),
+  ]) {
+    testWidgets('валюта $code с $digits знаками: ввод $typed', (tester) async {
+      final repo = InMemoryAccountsRepository([
+        Account(
+          id: 'c',
+          name: 'Своя',
+          iconKey: 'card',
+          currencyDigits: digits,
+          openingBalance: Money.zero(code),
+          sortOrder: 0,
+        ),
+      ]);
+      await pumpTab(tester, repo);
+      await openAccount(tester, 'Своя');
+      await tapKey(tester, AccountScreen.adjustKey);
+      await tester.enterText(find.byKey(AccountAdjustDialog.fieldKey), typed);
+      await tapKey(tester, AccountAdjustDialog.saveKey);
+      expect(repo.all.single.openingBalance, Money.fromMinor(expected, code));
+    });
+  }
+
   group('«Поправить остаток»', () {
     testWidgets('при операциях остаток становится ровно введённым', (
       tester,
