@@ -10,6 +10,7 @@ import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
@@ -107,7 +108,16 @@ class SettingsTab extends StatelessWidget {
       themeMode: settings.themeMode,
       onThemeModeChanged: settings.setThemeMode,
       mainCurrency: settings.mainCurrency,
-      onMainCurrencyChanged: settings.setMainCurrency,
+      onMainCurrencyChanged: (currency) async {
+        final messenger = ScaffoldMessenger.of(context);
+        if (!await settings.setMainCurrency(currency)) {
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(content: Text(transactionSaveFailedText)),
+            );
+        }
+      },
       lastExportDay: settings.lastExportDay,
       today: services.clock.today(),
       onExportShared: () => settings.setLastExportDay(services.clock.today()),

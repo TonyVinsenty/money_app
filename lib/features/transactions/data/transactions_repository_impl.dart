@@ -6,6 +6,7 @@ import 'package:money_app/core/database/converters/date_only_converter.dart';
 import 'package:money_app/core/database/converters/transaction_type_converter.dart';
 import 'package:money_app/core/errors/data_corrupted_exception.dart';
 import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -288,15 +289,16 @@ class DriftTransactionsRepository implements TransactionsRepository {
         );
   }
 
-  /// Операции хранятся только в обычных валютах из трёх букв (ADR 0010,
-  /// п. 16.9): таблица `transactions` другого кода не пустит.
+  /// Операции хранятся только в обычных валютах каталога (ADR 0010, п. 16.9):
+  /// криптовалюты, свои валюты и неизвестные коды (`XYZ`) не принимаются.
   void _checkIsoCurrency(Transaction transaction) {
     final currency = transaction.amount.currency;
-    if (!isIsoCurrencyCode(currency)) {
+    if (!isIsoCurrencyCode(currency) ||
+        catalogCurrency(currency)?.kind != CurrencyKind.fiat) {
       throw ArgumentError.value(
         currency,
         'transaction.amount.currency',
-        'must be a three-letter ISO currency code',
+        'must be a fiat currency from the catalog',
       );
     }
   }

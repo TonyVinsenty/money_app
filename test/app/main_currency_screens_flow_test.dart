@@ -216,7 +216,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(_rich('137 операций'), findsOneWidget);
 
-    _settings.setMainCurrency(_usd);
+    await _settings.setMainCurrency(_usd);
     await tester.pumpAndSettle();
     expect(find.text('usd-coffee'), findsOneWidget);
     expect(find.text('usd-bonus'), findsNothing);
@@ -224,7 +224,7 @@ void main() {
     expect(_rich('$_minus${_money(1250, 'USD')}'), findsWidgets);
     expect(_rich('137 операций'), findsNothing);
 
-    _settings.setMainCurrency(_rub);
+    await _settings.setMainCurrency(_rub);
     await tester.pumpAndSettle();
     expect(_rich('137 операций'), findsOneWidget);
     expect(find.text('usd-coffee'), findsNothing);
@@ -258,7 +258,7 @@ void main() {
     tester,
   ) async {
     await _pumpApp(tester);
-    _settings.setMainCurrency(_usd);
+    await _settings.setMainCurrency(_usd);
     await tester.pumpAndSettle();
     await _openTab(tester, 'Аналитика');
     expect(find.textContaining(_money(1250, 'USD')), findsWidgets);
@@ -275,6 +275,29 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('«Аналитика» открыта с рублями, потом основная USD: без ошибки, '
+      'итоги в долларах; экран категории - тоже в долларах', (tester) async {
+    await _pumpApp(tester);
+    await _openTab(tester, 'Аналитика');
+    expect(find.textContaining('₽'), findsWidgets);
+
+    await _settings.setMainCurrency(_usd);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining(_money(1250, 'USD')), findsWidgets);
+    expect(find.textContaining('₽'), findsNothing);
+
+    await tester.ensureVisible(
+      find.byKey(CategoryBreakdownCard.rowKey(_groceriesId)),
+    );
+    await tester.tap(find.byKey(CategoryBreakdownCard.rowKey(_groceriesId)));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(CategoryBreakdownScreen), findsOneWidget);
+    expect(find.textContaining('₽'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('основная USD: «Баланс» - сумма в долларах первой строкой, '
       'новый счёт по умолчанию в долларах', (tester) async {
     await _pumpApp(tester);
@@ -285,7 +308,7 @@ void main() {
       '+${_money(100000, 'RUB')}',
     );
 
-    _settings.setMainCurrency(_usd);
+    await _settings.setMainCurrency(_usd);
     await tester.pumpAndSettle();
     expect(
       tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data,

@@ -38,8 +38,7 @@ void main() {
     await controller.attach(repo);
     expect(controller.mainCurrency.code, 'RUB');
 
-    controller.setMainCurrency(catalogCurrency('USD')!);
-    await Future<void>.delayed(Duration.zero);
+    expect(await controller.setMainCurrency(catalogCurrency('USD')!), isTrue);
     expect(controller.mainCurrencyCode, 'USD');
     expect(repo.data[mainCurrencySettingKey], 'USD');
 
@@ -48,6 +47,41 @@ void main() {
     await second.attach(repo);
     expect(second.mainCurrency.code, 'USD');
   });
+
+  test(
+    'основная валюта: сбой записи - валюта прежняя, результат false',
+    () async {
+      final repo = _FakeSettingsRepository(failWrite: true);
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      var notified = 0;
+      controller.addListener(() => notified++);
+
+      expect(
+        await controller.setMainCurrency(catalogCurrency('USD')!),
+        isFalse,
+      );
+      expect(controller.mainCurrencyCode, 'RUB');
+      expect(notified, 0);
+
+      repo.failWrite = false;
+      expect(await controller.setMainCurrency(catalogCurrency('USD')!), isTrue);
+      expect(controller.mainCurrencyCode, 'USD');
+      expect(notified, 1);
+    },
+  );
+
+  test(
+    'основная валюта: сбой чтения - остаётся RUB, attach не падает',
+    () async {
+      final repo = _FakeSettingsRepository(failRead: true);
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      expect(controller.mainCurrencyCode, 'RUB');
+    },
+  );
 
   test('основная валюта: испорченное значение даёт RUB', () {
     for (final bad in ['usd', 'USDT', 'BTC', 'XYZ', '', null]) {

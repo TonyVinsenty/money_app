@@ -129,7 +129,7 @@ void main() {
     await _pumpApp(tester);
     expect(_inExpense('$_minus${_money(35000, 'RUB')}'), findsOneWidget);
 
-    _settings.setMainCurrency(_usd);
+    await _settings.setMainCurrency(_usd);
     await tester.pumpAndSettle();
     expect(_expenseEmpty, findsOneWidget);
     expect(_inRing(_money(0, 'USD')), findsOneWidget);
@@ -144,7 +144,7 @@ void main() {
     final saved = await _db.select(_db.transactions).get();
     expect(saved.where((t) => t.currency == 'USD').single.amountMinor, 1250);
 
-    _settings.setMainCurrency(_rub);
+    await _settings.setMainCurrency(_rub);
     await tester.pumpAndSettle();
     expect(_inExpense('$_minus${_money(35000, 'RUB')}'), findsOneWidget);
     expect(find.text('$_minus$usd'), findsNothing);
@@ -155,7 +155,7 @@ void main() {
     tester,
   ) async {
     await _pumpApp(tester);
-    _settings.setMainCurrency(_jpy);
+    await _settings.setMainCurrency(_jpy);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Расход'));
@@ -199,7 +199,7 @@ void main() {
           note: 'кофе',
         ),
       );
-      _settings.setMainCurrency(_usd);
+      await _settings.setMainCurrency(_usd);
       await tester.pumpAndSettle();
 
       // В «Истории» при основной USD видна долларовая операция.
@@ -226,6 +226,42 @@ void main() {
         _db.transactions,
       )..where((t) => t.id.equals('usd-tx'))).getSingle();
       expect(row.currency, 'USD');
+      expect(row.amountMinor, 4025);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'основная сменилась на USD при открытой правке: рублёвая операция '
+    'остаётся рублёвой',
+    (tester) async {
+      await _pumpApp(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('История'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('молоко'));
+      await tester.pumpAndSettle();
+      expect(find.byType(EditTransactionScreen), findsOneWidget);
+
+      await _settings.setMainCurrency(_usd);
+      await tester.pump();
+
+      final field = find.descendant(
+        of: find.byType(AmountField),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(field, '40,25');
+      await tester.tap(find.widgetWithText(FilledButton, 'Сохранить'));
+      await tester.pumpAndSettle();
+
+      final row = await (_db.select(
+        _db.transactions,
+      )..where((t) => t.id.equals('seed-tx'))).getSingle();
+      expect(row.currency, 'RUB');
       expect(row.amountMinor, 4025);
       await tester.pumpWidget(const SizedBox());
     },

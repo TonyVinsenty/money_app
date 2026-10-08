@@ -69,27 +69,28 @@ class AppSettingsController extends ChangeNotifier {
   /// Код основной валюты.
   String get mainCurrencyCode => _mainCurrency.code;
 
-  /// Меняет основную валюту сразу, запись в базу идёт в фоне; ошибка записи
-  /// только попадает в лог. Не обычная валюта каталога превращается в рубль.
-  void setMainCurrency(CurrencyInfo value) {
+  /// Меняет основную валюту после успешной записи в базу (без хранилища, как
+  /// до [attach], - сразу). Возвращает `false`, если запись не удалась: тогда
+  /// валюта остаётся прежней, а вызывающий скажет об этом пользователю. Не
+  /// обычная валюта каталога превращается в рубль.
+  Future<bool> setMainCurrency(CurrencyInfo value) async {
     final next = mainCurrencyFromStored(value.code);
-    if (next.code == _mainCurrency.code) return;
+    if (next.code == _mainCurrency.code) return true;
+    final repository = _repository;
+    if (repository != null) {
+      try {
+        await repository.write(
+          mainCurrencySettingKey,
+          mainCurrencyToStored(next),
+        );
+      } catch (error) {
+        debugPrint('Не удалось сохранить основную валюту: $error');
+        return false;
+      }
+    }
     _mainCurrency = next;
     notifyListeners();
-    unawaited(_persistMainCurrency(next));
-  }
-
-  Future<void> _persistMainCurrency(CurrencyInfo value) async {
-    final repository = _repository;
-    if (repository == null) return;
-    try {
-      await repository.write(
-        mainCurrencySettingKey,
-        mainCurrencyToStored(value),
-      );
-    } catch (error) {
-      debugPrint('Не удалось сохранить основную валюту: $error');
-    }
+    return true;
   }
 
   /// День последней выгрузки CSV или `null`, если её ещё не было.

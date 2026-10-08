@@ -175,6 +175,9 @@ class AnalyticsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         AsyncView<PeriodTransactions>(
+          // Ключ по валюте: при смене основной валюты прежние данные (в старой
+          // валюте) выбрасываются, и до ответа нового потока виден скелетон.
+          key: ValueKey('analytics-data-$currency'),
           stream: transactions,
           loadingBuilder: (_) => const _SummarySkeleton(),
           errorBuilder: (context, error) => const _SummaryError(),

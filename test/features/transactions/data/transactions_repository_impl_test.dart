@@ -568,6 +568,30 @@ void main() {
           },
         );
 
+        test('a three-letter code outside the catalog (XYZ) or a crypto '
+            '(BTC) is ArgumentError', () async {
+          await repo.add(tx('b'));
+          for (final code in ['XYZ', 'BTC']) {
+            await expectLater(
+              repo.add(tx('a', currency: code)),
+              throwsArgumentError,
+              reason: code,
+            );
+            await expectLater(
+              repo.update(tx('b', currency: code)),
+              throwsArgumentError,
+              reason: code,
+            );
+            await expectLater(
+              repo.addImported(tx('c', currency: code)),
+              throwsArgumentError,
+              reason: code,
+            );
+          }
+          expect(await rowCount(), 1);
+          expect((await rowOf('b')).currency, 'RUB');
+        });
+
         test('add to an archived account is accountArchived', () async {
           await insertAccount('arch', archived: true);
 
