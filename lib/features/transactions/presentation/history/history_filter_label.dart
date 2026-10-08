@@ -3,15 +3,27 @@ import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/history_view.dart';
 
+/// Запасное имя счёта в полоске, если его нет среди известных счетов.
+const String historyUnknownAccount = 'не найден';
+
 /// Подпись полоски фильтра: «Фильтр: Расходы · Продукты», «Фильтр: Доходы»,
-/// «Фильтр: Расходы · 3 категории».
+/// «Фильтр: Расходы · 3 категории», «Фильтр: Расходы · Кафе · Счёт: Карта».
 ///
 /// Одна-две категории называются по именам (из [categories], архивные тоже),
 /// три и больше — числом. Набор `null` («все категории») в подпись не входит.
-/// Для выключенного фильтра подпись не нужна, но функция вернёт «Фильтр: Все».
-String historyFilterLabel(HistoryFilter filter, Iterable<Category> categories) {
+/// Счёт называется по [accountName] (архивный тоже); неизвестный -
+/// [historyUnknownAccount]. Для выключенного фильтра подпись не нужна, но
+/// функция вернёт «Фильтр: Все».
+String historyFilterLabel(
+  HistoryFilter filter,
+  Iterable<Category> categories, {
+  String? accountName,
+}) {
   final expense = filter.expenseCategoryIds;
   final income = filter.incomeCategoryIds;
+  final account = filter.accountId == null
+      ? null
+      : 'Счёт: ${accountName ?? historyUnknownAccount}';
 
   // Какие наборы категорий относятся к выбранному типу.
   final Set<String>? ids;
@@ -24,16 +36,22 @@ String historyFilterLabel(HistoryFilter filter, Iterable<Category> categories) {
       typeLabel = 'Доходы';
       ids = income;
     case HistoryTypeFilter.all:
+      final hasSets = expense != null || income != null;
       final parts = [
-        'Все',
+        if (hasSets || account == null) 'Все',
         if (expense != null) 'расходы: ${_describe(expense, categories)}',
         if (income != null) 'доходы: ${_describe(income, categories)}',
+        ?account,
       ];
       return 'Фильтр: ${parts.join(' · ')}';
   }
 
-  if (ids == null) return 'Фильтр: $typeLabel';
-  return 'Фильтр: $typeLabel · ${_describe(ids, categories)}';
+  final parts = [
+    typeLabel,
+    if (ids != null) _describe(ids, categories),
+    ?account,
+  ];
+  return 'Фильтр: ${parts.join(' · ')}';
 }
 
 /// «нет категорий», «Продукты, Кафе» или «3 категории».
@@ -53,13 +71,15 @@ String _describe(Set<String> ids, Iterable<Category> categories) {
 /// запятой, а первую букву (тип) делает маленькой.
 String historyFilterSpoken(
   HistoryFilter filter,
-  Iterable<Category> categories,
-) {
+  Iterable<Category> categories, {
+  String? accountName,
+}) {
   if (!filter.isActive) return 'Фильтр';
   const prefix = 'Фильтр: ';
   final body = historyFilterLabel(
     filter,
     categories,
+    accountName: accountName,
   ).substring(prefix.length).replaceAll(' · ', ', ');
   return 'Фильтр, включён: ${body[0].toLowerCase()}${body.substring(1)}';
 }

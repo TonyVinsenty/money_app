@@ -18,6 +18,7 @@ final class HistoryFilter {
     this.type = HistoryTypeFilter.all,
     Set<String>? expenseCategoryIds,
     Set<String>? incomeCategoryIds,
+    this.accountId,
   }) : expenseCategoryIds = _freeze(expenseCategoryIds),
        incomeCategoryIds = _freeze(incomeCategoryIds);
 
@@ -25,12 +26,20 @@ final class HistoryFilter {
   HistoryFilter.expenseCategories(Set<String> ids)
     : type = HistoryTypeFilter.expense,
       expenseCategoryIds = _freeze(ids),
+      incomeCategoryIds = null,
+      accountId = null;
+
+  /// «Только операции этого счёта» (кнопка «Операции» на экране счёта).
+  const HistoryFilter.account(String this.accountId)
+    : type = HistoryTypeFilter.all,
+      expenseCategoryIds = null,
       incomeCategoryIds = null;
 
   const HistoryFilter._off()
     : type = HistoryTypeFilter.all,
       expenseCategoryIds = null,
-      incomeCategoryIds = null;
+      incomeCategoryIds = null,
+      accountId = null;
 
   /// Фильтр выключен: показываем всё (константа, чтобы годиться в `const`
   /// значения по умолчанию).
@@ -47,15 +56,20 @@ final class HistoryFilter {
   /// Категории доходов; `null` — все.
   final Set<String>? incomeCategoryIds;
 
-  /// Включён ли фильтр: тип не «все» или задан хотя бы один набор.
+  /// Только операции этого счёта; `null` - любой счёт и без счёта.
+  final String? accountId;
+
+  /// Включён ли фильтр: тип не «все», задан хотя бы один набор или счёт.
   bool get isActive =>
       type != HistoryTypeFilter.all ||
       expenseCategoryIds != null ||
-      incomeCategoryIds != null;
+      incomeCategoryIds != null ||
+      accountId != null;
 
   /// Подходит ли операция под фильтр (по `categoryId`, подкатегория
   /// относится к своей категории).
   bool matches(Transaction transaction) {
+    if (accountId != null && transaction.accountId != accountId) return false;
     final isExpense = transaction.type == TransactionType.expense;
     switch (type) {
       case HistoryTypeFilter.income:
@@ -74,6 +88,7 @@ final class HistoryFilter {
     return identical(this, other) ||
         other is HistoryFilter &&
             other.type == type &&
+            other.accountId == accountId &&
             _sameSet(other.expenseCategoryIds, expenseCategoryIds) &&
             _sameSet(other.incomeCategoryIds, incomeCategoryIds);
   }
@@ -83,12 +98,13 @@ final class HistoryFilter {
     type,
     _setHash(expenseCategoryIds),
     _setHash(incomeCategoryIds),
+    accountId,
   );
 
   @override
   String toString() =>
       'HistoryFilter(type: ${type.name}, expense: $expenseCategoryIds, '
-      'income: $incomeCategoryIds)';
+      'income: $incomeCategoryIds, accountId: $accountId)';
 }
 
 bool _sameSet(Set<String>? a, Set<String>? b) {

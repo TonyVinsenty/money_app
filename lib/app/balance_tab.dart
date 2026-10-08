@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
+import 'package:money_app/app/app_tab_indices.dart';
+import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
@@ -110,6 +112,10 @@ class _BalanceTabState extends State<BalanceTab> {
                   idGenerator: services.idGenerator,
                   accountId: account.id,
                   settings: services.settings,
+                  onShowTransactions: (id) {
+                    BrowseScope.of(context).showAccountTransactions(id);
+                    BrowseScope.selectedTabOf(context).value = historyTabIndex;
+                  },
                 ),
               ),
             );

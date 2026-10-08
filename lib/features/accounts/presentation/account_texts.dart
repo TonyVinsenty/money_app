@@ -66,6 +66,8 @@ const String accountsOrderHint = 'Перетащите счёт за значо�
 String accountMovedAnnouncement(String name, int position, int total) =>
     '$name: позиция $position из $total';
 
+const String accountOperationsButton = 'Операции';
+
 // Основной счёт (тексты утверждены).
 const String accountDefaultLabel = 'Основной';
 const String accountMakeDefaultButton = 'Сделать основным';

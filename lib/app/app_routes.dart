@@ -86,7 +86,11 @@ final class AccountRouteArguments {
     required this.idGenerator,
     required this.accountId,
     this.settings,
+    this.onShowTransactions,
   });
+
+  /// «Операции»: открыть «Историю» с фильтром по счёту с этим id.
+  final ValueChanged<String>? onShowTransactions;
 
   final AccountsRepository accounts;
   final IdGenerator idGenerator;
@@ -505,6 +509,13 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
                 accountId: arguments.accountId,
                 defaultAccountId: defaultId,
                 mainCurrency: mainCurrency,
+                onShowTransactions: arguments.onShowTransactions == null
+                    ? null
+                    : (account) {
+                        // Сначала закрываем экран счёта, потом вкладка.
+                        Navigator.of(context).pop();
+                        arguments.onShowTransactions!(account.id);
+                      },
                 onMakeDefault: appSettings == null
                     ? null
                     : (account) => appSettings.setDefaultAccountId(account.id),

@@ -152,6 +152,15 @@ class BrowseController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Временный фильтр «операции этого счёта» (кнопка «Операции» на экране
+  /// счёта): как [showCategoryExpenses], снимается при уходе из «Истории».
+  void showAccountTransactions(String accountId) {
+    final filter = HistoryFilter.account(accountId);
+    if (filter == historyFilter) return;
+    _temporaryFilter = filter;
+    notifyListeners();
+  }
+
   AnalyticsPeriod get _asPeriod => AnalyticsPeriod(PeriodKind.month, _month);
 
   AnalyticsPeriod _previous() => previousPeriod(_asPeriod)!;

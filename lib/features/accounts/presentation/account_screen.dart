@@ -26,8 +26,15 @@ class AccountScreen extends StatefulWidget {
     this.defaultAccountId,
     this.mainCurrency = 'RUB',
     this.onMakeDefault,
+    this.onShowTransactions,
     super.key,
   });
+
+  /// «Операции»: показать операции счёта в «Истории». Кнопка есть только у
+  /// счетов основной валюты («История» показывает только её).
+  final ValueChanged<Account>? onShowTransactions;
+
+  static const operationsKey = ValueKey('account-operations');
 
   /// Id основного счёта из настроек и основная валюта: вместе они решают,
   /// основной ли этот счёт и можно ли его таким сделать.
@@ -273,6 +280,16 @@ class _AccountScreenState extends State<AccountScreen> {
           child: const Text(accountEditButton),
         ),
         const SizedBox(height: 8),
+        if (widget.onShowTransactions != null &&
+            account.currency == widget.mainCurrency) ...[
+          OutlinedButton(
+            key: AccountScreen.operationsKey,
+            style: buttonStyle,
+            onPressed: () => widget.onShowTransactions!(account),
+            child: const Text(accountOperationsButton),
+          ),
+          const SizedBox(height: 8),
+        ],
         OutlinedButton(
           key: AccountScreen.adjustKey,
           style: buttonStyle,

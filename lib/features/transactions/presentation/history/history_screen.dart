@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/day_label.dart';
@@ -13,6 +15,7 @@ import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/history_view.dart';
@@ -58,8 +61,13 @@ class HistoryScreen extends StatefulWidget {
     this.onSearchChanged,
     this.hasOtherCurrencies,
     this.currencySymbol = '₽',
+    this.accounts,
     super.key,
   });
+
+  /// Счета (для имени в полоске фильтра по счёту); тот же поток между
+  /// перерисовками. Без него неизвестный счёт подписывается запасным текстом.
+  final Stream<List<Account>>? accounts;
 
   /// Есть ли операции в других валютах (пустой месяц объясняет, почему их не
   /// видно). `null` — подсказки нет.
@@ -141,8 +149,30 @@ class _HistoryScreenState extends State<HistoryScreen> {
     widget.onSearchChanged?.call('');
   }
 
+  // Имена счетов для полоски «Счёт: Карта» (архивные тоже).
+  Map<String, String> _accountNames = const {};
+  StreamSubscription<List<Account>>? _accountsSub;
+
+  String? get _filterAccountName => _accountNames[widget.filter.accountId];
+
+  void _listenAccounts() {
+    unawaited(_accountsSub?.cancel());
+    _accountsSub = widget.accounts?.listen((all) {
+      if (mounted) {
+        setState(() => _accountNames = {for (final a in all) a.id: a.name});
+      }
+    }, onError: (Object _) {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _listenAccounts();
+  }
+
   @override
   void dispose() {
+    unawaited(_accountsSub?.cancel());
     _filter.dispose();
     _search.dispose();
     super.dispose();
@@ -183,6 +213,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (!identical(oldWidget.transactions, widget.transactions)) {
       _data = _tag();
     }
+    if (!identical(oldWidget.accounts, widget.accounts)) _listenAccounts();
     // Запрос сменили снаружи (кнопка «Очистить поиск»): поле догоняет.
     if (_search.text != widget.searchQuery) {
       _search.value = TextEditingValue(
@@ -220,7 +251,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _ListBar(
-                  filterSpoken: historyFilterSpoken(widget.filter, all),
+                  filterSpoken: historyFilterSpoken(
+                    widget.filter,
+                    all,
+                    accountName: _filterAccountName,
+                  ),
                   filterActive: widget.filter.isActive,
                   onFilterPressed: widget.onFilterChanged == null
                       ? null
@@ -231,7 +266,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
                 if (widget.filter.isActive)
                   _FilterStrip(
-                    label: historyFilterLabel(widget.filter, all),
+                    label: historyFilterLabel(
+                      widget.filter,
+                      all,
+                      accountName: _filterAccountName,
+                    ),
                     onReset: widget.onResetFilter,
                   ),
                 if ((widget.filter.isActive || _searching) && total != null)

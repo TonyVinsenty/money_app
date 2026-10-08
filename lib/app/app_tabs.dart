@@ -11,6 +11,8 @@ import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
@@ -326,7 +328,14 @@ class _HistoryTabState extends State<HistoryTab> {
           : services.transactions.watchInPeriod(month, currency: currency);
     }
     if (repositoriesChanged) _categories = services.categories.watchAll();
+    if (!identical(services.accounts, _accountsRepository)) {
+      _accountsRepository = services.accounts;
+      _accounts = services.accounts.watchAll();
+    }
   }
+
+  AccountsRepository? _accountsRepository;
+  late Stream<List<Account>> _accounts;
 
   @override
   Widget build(BuildContext context) {
@@ -349,6 +358,7 @@ class _HistoryTabState extends State<HistoryTab> {
       onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,
       onNextMonth: browse.canGoForward ? browse.nextMonth : null,
       hasOtherCurrencies: _hasOther,
+      accounts: _accounts,
       currencySymbol: services.settings.mainCurrency.symbol,
       onTransactionTap: (transaction) => Navigator.of(context).pushNamed(
         AppRoutes.editTransaction,
