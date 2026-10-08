@@ -92,6 +92,14 @@ class _BalanceTabState extends State<BalanceTab> {
           mainCurrency: AppScope.of(context).settings.mainCurrencyCode,
           defaultAccountId: AppScope.of(context).settings.defaultAccountId,
           onRestoreAccount: (account) => unawaited(_restore(account)),
+          onOpenOrder: () => unawaited(
+            Navigator.of(context).pushNamed<void>(
+              AppRoutes.accountsOrder,
+              arguments: AccountsOrderRouteArguments(
+                accounts: AppScope.of(context).accounts,
+              ),
+            ),
+          ),
           onOpenAccount: (account) {
             final services = AppScope.of(context);
             unawaited(

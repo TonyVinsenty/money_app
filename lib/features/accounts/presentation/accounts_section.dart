@@ -25,8 +25,15 @@ class AccountsSection extends StatelessWidget {
     required this.onOpenAccount,
     this.defaultAccountId,
     this.onRestoreAccount,
+    this.onOpenOrder,
     super.key,
   });
+
+  /// Открывает экран «Порядок счетов»; пункт виден при двух и более активных
+  /// счетах.
+  final VoidCallback? onOpenOrder;
+
+  static const orderKey = ValueKey('accounts-order');
 
   /// «Вернуть из архива» у счёта из раздела «Архив»; без него раздела нет.
   final ValueChanged<Account>? onRestoreAccount;
@@ -144,6 +151,16 @@ class AccountsSection extends StatelessWidget {
                             a.id,
                       ),
                   ],
+                  if (shown.length >= 2 && onOpenOrder != null)
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        key: orderKey,
+                        onPressed: onOpenOrder,
+                        icon: const Icon(Icons.swap_vert),
+                        label: const Text(accountsOrderTitle),
+                      ),
+                    ),
                   if (archived.isNotEmpty && onRestoreAccount != null)
                     _ArchiveTile(archived, onRestoreAccount!),
                 ],

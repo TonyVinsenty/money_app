@@ -59,6 +59,13 @@ String accountsArchiveTitle(int count) => 'Архив ($count)';
 
 String accountRestoredMessage(String name) => 'Счёт «$name» снова в списке';
 
+// Порядок счетов (тексты утверждены).
+const String accountsOrderTitle = 'Порядок счетов';
+const String accountsOrderHint = 'Перетащите счёт за значок справа';
+
+String accountMovedAnnouncement(String name, int position, int total) =>
+    '$name: позиция $position из $total';
+
 // Основной счёт (тексты утверждены).
 const String accountDefaultLabel = 'Основной';
 const String accountMakeDefaultButton = 'Сделать основным';

@@ -10,6 +10,7 @@ import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
 import 'package:money_app/features/accounts/presentation/account_screen.dart';
+import 'package:money_app/features/accounts/presentation/accounts_order_screen.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -63,6 +64,17 @@ abstract final class AppRoutes {
 
   /// Экран счёта. Аргумент маршрута — [AccountRouteArguments].
   static const account = '/account';
+
+  /// Экран «Порядок счетов». Аргумент маршрута —
+  /// [AccountsOrderRouteArguments].
+  static const accountsOrder = '/accounts-order';
+}
+
+/// Аргументы маршрута [AppRoutes.accountsOrder].
+final class AccountsOrderRouteArguments {
+  const AccountsOrderRouteArguments({required this.accounts});
+
+  final AccountsRepository accounts;
 }
 
 /// Аргументы маршрута [AppRoutes.account]: репозиторий, id счёта и
@@ -445,6 +457,20 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           editing: arguments.editing,
           onCreated: arguments.onCreated,
         ),
+      );
+    case AppRoutes.accountsOrder:
+      final arguments = settings.arguments;
+      if (arguments is! AccountsOrderRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.accountsOrder} ожидает аргумент '
+              'AccountsOrderRouteArguments (репозиторий счетов)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => AccountsOrderScreen(accounts: arguments.accounts),
       );
     case AppRoutes.account:
       final arguments = settings.arguments;

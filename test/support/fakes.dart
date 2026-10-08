@@ -157,6 +157,27 @@ class InMemoryAccountsRepository extends Fake implements AccountsRepository {
     ];
     _changes.add(null);
   }
+
+  /// Аргументы всех вызовов `reorder`.
+  final reorderCalls = <List<String>>[];
+
+  /// Как у настоящего: названные идут первыми по `sortOrder` 0..n-1, остальные
+  /// следом; список отдаётся в порядке `sortOrder`.
+  @override
+  Future<void> reorder(List<String> orderedIds) async {
+    reorderCalls.add(List.of(orderedIds));
+    final error = failWith;
+    if (error != null) throw error;
+    final rest = [
+      for (final a in _all)
+        if (!orderedIds.contains(a.id)) a,
+    ];
+    final ordered = [for (final id in orderedIds) _require(id), ...rest];
+    _all = [
+      for (var i = 0; i < ordered.length; i++) ordered[i].withSortOrder(i),
+    ];
+    _changes.add(null);
+  }
 }
 
 /// Пустой фейк репозитория категорий: методы не реализованы, любой вызов
