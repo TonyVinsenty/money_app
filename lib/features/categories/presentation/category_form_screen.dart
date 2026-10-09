@@ -117,6 +117,8 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
       // Ключ берём как есть: неизвестный не выбирает ни одну ячейку, и без
       // выбора «Сохранить» оставляет его прежним.
       _iconKey = renaming.iconKey;
+    }
+    if (renaming != null || parent != null) {
       // Прокручиваем сетку к выбранному значку, когда экран открылся: раньше
       // поле имени (autofocus) само возвращает прокрутку наверх.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -349,8 +351,9 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                                     for (final key in group.keys)
                                       SizedBox(
                                         key:
-                                            _isRename &&
-                                                key == widget.renaming!.iconKey
+                                            key ==
+                                                (widget.renaming?.iconKey ??
+                                                    widget.parent?.iconKey)
                                             ? _selectedCellKey
                                             : null,
                                         width: cellWidth,

@@ -1,3 +1,5 @@
+import 'dart:ui' show CheckedState;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -201,6 +203,45 @@ void main() {
         find.widgetWithText(ListTile, 'Все счета'),
       );
       expect(all.selected, isFalse);
+    });
+
+    testWidgets('«Счёт» выше заголовков категорий, под переключателем типа', (
+      tester,
+    ) async {
+      await _pump(tester, [_card]);
+      await _openSheet(tester);
+      final type = tester.getTopLeft(
+        find.byType(SegmentedButton<HistoryTypeFilter>),
+      );
+      final account = tester.getTopLeft(find.text('Счёт'));
+      final categories = tester.getTopLeft(find.text('Категории расходов'));
+      expect(account.dy, greaterThan(type.dy));
+      expect(account.dy, lessThan(categories.dy));
+    });
+
+    testWidgets('варианты в одной группе, выбран ровно один', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, [
+        _card,
+        _cash,
+      ], initial: HistoryFilter.account('card'));
+      await _openSheet(tester);
+      final names = ['Все счета', 'Карта', 'Наличные', 'Без счёта'];
+      final checked = <String>[];
+      for (final n in names) {
+        final data = tester.getSemantics(find.text(n)).getSemanticsData();
+        expect(
+          data.flagsCollection.isInMutuallyExclusiveGroup,
+          isTrue,
+          reason: n,
+        );
+        expect(data.flagsCollection.isChecked, isNot(CheckedState.none));
+        if (data.flagsCollection.isChecked == CheckedState.isTrue) {
+          checked.add(n);
+        }
+      }
+      expect(checked, ['Карта']);
+      handle.dispose();
     });
 
     for (final scale in [1.0, 2.0]) {

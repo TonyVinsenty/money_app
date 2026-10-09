@@ -662,6 +662,23 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets(
+    'новая подкатегория: сетка прокручена к значку родителя glyph:Я',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      final ya = _c('ya', 'Яблоки', 8, iconKey: 'glyph:Я');
+      final repo = _repo([..._fixture(), ya]);
+      addTearDown(repo.dispose);
+      await _openForm(tester, repo, kind: ya.kind, parent: ya);
+
+      final rect = tester.getRect(_icon('glyph:Я'));
+      expect(rect.top, greaterThanOrEqualTo(0));
+      expect(rect.bottom, lessThanOrEqualTo(740));
+      expect(isSelected(tester, 'glyph:Я'), isTrue);
+      handle.dispose();
+    },
+  );
+
   testWidgets('правка: дубль имени — ошибка под полем, выбранный значок '
       'остаётся', (tester) async {
     final handle = tester.ensureSemantics();

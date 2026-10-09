@@ -71,13 +71,22 @@ class _AccountSection extends StatelessWidget {
       accountFilter: account,
     );
     final selectedAccount = current.accountFilter;
-    Widget option(String label, bool selected, HistoryFilter next) => ListTile(
-      contentPadding: EdgeInsets.zero,
-      minVerticalPadding: 12,
-      title: Text(label),
-      selected: selected,
-      trailing: selected ? const Icon(Icons.check) : null,
+    // Один выбор из группы: читалка говорит «выбрано / не выбрано».
+    Widget option(String label, bool selected, HistoryFilter next) => Semantics(
+      inMutuallyExclusiveGroup: true,
+      checked: selected,
+      button: true,
+      label: label,
       onTap: () => onChanged(next),
+      excludeSemantics: true,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        minVerticalPadding: 12,
+        title: Text(label),
+        selected: selected,
+        trailing: selected ? const Icon(Icons.check) : null,
+        onTap: () => onChanged(next),
+      ),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -292,6 +301,12 @@ class HistoryFilterSheet extends StatelessWidget {
                 ),
               ),
             ),
+            if (accounts.isNotEmpty)
+              _AccountSection(
+                accounts: accounts,
+                current: current,
+                onChanged: onChanged,
+              ),
             if (current.type != HistoryTypeFilter.income)
               _CategorySection(
                 title: 'Категории расходов',
@@ -323,12 +338,6 @@ class HistoryFilterSheet extends StatelessWidget {
                     accountFilter: current.accountFilter,
                   ),
                 ),
-              ),
-            if (accounts.isNotEmpty)
-              _AccountSection(
-                accounts: accounts,
-                current: current,
-                onChanged: onChanged,
               ),
             const SizedBox(height: 16),
             FilledButton(

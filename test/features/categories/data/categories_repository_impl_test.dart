@@ -944,6 +944,28 @@ void main() {
         );
       });
 
+      test('createdAt stays the same after update', () async {
+        await repo.create(top('a'));
+        final created = (await rowOf('a')).createdAt;
+        clock.advance(const Duration(hours: 1));
+
+        await repo.update('a', newName: 'B', iconKey: 'cake');
+
+        expect((await rowOf('a')).createdAt, created);
+      });
+
+      test('watchAll emits the new icon after update', () async {
+        await repo.create(top('a'));
+        final recorder = _Recorder(repo.watchAll());
+        await recorder.waitForEvents(1);
+
+        await repo.update('a', newName: 'A', iconKey: 'cake');
+
+        await recorder.waitForEvents(2);
+        expect(recorder.events.last.single.iconKey, 'cake');
+        await recorder.cancel();
+      });
+
       test('children with the old parent icon follow, others stay', () async {
         await repo.create(top('p'));
         await repo.create(child('same', 'p'));
