@@ -117,6 +117,7 @@ Future<void> _pump(
       home: AppScope(
         services: AppServices(
           accounts: FakeAccountsRepository(),
+          transfers: FakeTransfersRepository(),
           categories: InMemoryCategoriesRepository(categories),
           transactions: repo,
           settings: settings,

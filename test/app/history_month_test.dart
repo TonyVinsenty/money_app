@@ -114,6 +114,7 @@ Future<void> _pump(WidgetTester tester, _Repo repo) async {
       home: AppScope(
         services: AppServices(
           accounts: FakeAccountsRepository(),
+          transfers: FakeTransfersRepository(),
           categories: InMemoryCategoriesRepository([food]),
           transactions: repo,
           settings: settings,

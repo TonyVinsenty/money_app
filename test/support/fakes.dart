@@ -7,6 +7,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -22,6 +23,9 @@ import 'fixed_clock.dart';
 
 /// Фейк репозитория счетов: отдаёт заданные [accounts] и [balances] (по
 /// умолчанию пусто), остальные вызовы бросают ошибку.
+/// Пустой фейк переводов: любой вызов падает, если тест его не ждал.
+class FakeTransfersRepository extends Fake implements TransfersRepository {}
+
 class FakeAccountsRepository extends Fake implements AccountsRepository {
   FakeAccountsRepository({
     this.accounts = const [],
@@ -457,6 +461,7 @@ AppServices fakeAppServices({
   CategoriesRepository? categories,
   TransactionsRepository? transactions,
   AccountsRepository? accounts,
+  TransfersRepository? transfers,
   FixedClock? clock,
   CsvImportStore? csvImport,
 }) {
@@ -464,6 +469,7 @@ AppServices fakeAppServices({
     categories: categories ?? FakeCategoriesRepository(),
     transactions: transactions ?? FakeTransactionsRepository(),
     accounts: accounts ?? FakeAccountsRepository(),
+    transfers: transfers ?? FakeTransfersRepository(),
     settings: settings,
     clock: clock ?? FixedClock(DateTime.utc(2026, 9, 20, 12)),
     idGenerator: FakeIdGenerator(),

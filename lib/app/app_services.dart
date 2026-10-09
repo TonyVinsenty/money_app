@@ -3,7 +3,9 @@ import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
+import 'package:money_app/features/accounts/data/transfers_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/categories/data/categories_repository_impl.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/csv_import/data/csv_import_writer.dart';
@@ -27,6 +29,7 @@ final class AppServices {
     required this.categories,
     required this.transactions,
     required this.accounts,
+    required this.transfers,
     required this.settings,
     required this.clock,
     required this.idGenerator,
@@ -52,6 +55,7 @@ final class AppServices {
       categories: categories,
       transactions: transactions,
       accounts: accounts,
+      transfers: DriftTransfersRepository(database, clock: clock),
       settings: settings,
       clock: clock,
       idGenerator: ids,
@@ -69,6 +73,7 @@ final class AppServices {
   final CategoriesRepository categories;
   final TransactionsRepository transactions;
   final AccountsRepository accounts;
+  final TransfersRepository transfers;
   final AppSettingsController settings;
   final Clock clock;
   final IdGenerator idGenerator;

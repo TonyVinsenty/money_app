@@ -14,6 +14,12 @@ enum TransferRule {
 
   /// Комментарий длиннее допустимого (`transactionNoteMaxLength`).
   noteTooLong,
+
+  /// Новый счёт перевода архивный (проверяет репозиторий).
+  accountArchived,
+
+  /// Валюта суммы не равна валюте одного из счетов (проверяет репозиторий).
+  currencyMismatch,
 }
 
 /// Ошибка нарушения правила перевода.
@@ -39,6 +45,10 @@ final class TransferRuleException implements Exception {
         return 'Transfer occurredAt must be in UTC';
       case TransferRule.noteTooLong:
         return 'Transfer note is too long';
+      case TransferRule.accountArchived:
+        return 'Transfer account is archived';
+      case TransferRule.currencyMismatch:
+        return 'Transfer currency differs from an account currency';
     }
   }
 
