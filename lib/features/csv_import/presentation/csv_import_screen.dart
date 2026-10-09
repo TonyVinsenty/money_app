@@ -98,8 +98,15 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
       switch (parseCsvImport(bytes, clock: widget.clock)) {
         case CsvImportFileFailed(:final failure):
           view = _Failed(csvFileFailureMessage(failure));
-        case CsvImportParsed(:final rows, :final errors):
-          final plan = await widget.store.prepare(rows);
+        case CsvImportParsed(
+          :final rows,
+          :final errors,
+          :final openingBalances,
+        ):
+          final plan = await widget.store.prepare(
+            rows,
+            openingBalances: openingBalances,
+          );
           final all = _byLine([...errors, ...plan.errors]);
           if (all.isNotEmpty) {
             view = _RowErrors(all);

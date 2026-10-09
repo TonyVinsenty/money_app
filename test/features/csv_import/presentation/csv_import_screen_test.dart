@@ -31,11 +31,16 @@ class _PlanningStore implements CsvImportStore {
   final List<CsvImportPlan> written = [];
 
   @override
-  Future<CsvImportPlan> prepare(List<ParsedCsvRow> rows) async {
+  Future<CsvImportPlan> prepare(
+    List<ParsedCsvRow> rows, {
+    List<ParsedOpeningBalance> openingBalances = const [],
+  }) async {
     final error = prepareError;
     if (error != null) return Future.error(error);
     return planCsvImport(
       rows: rows,
+      openingBalances: openingBalances,
+      isKnownIconKey: (_) => true,
       categories: categories,
       liveTransactionIds: liveIds,
       deletedTransactionIds: const {},

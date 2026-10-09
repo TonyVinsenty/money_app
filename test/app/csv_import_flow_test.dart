@@ -144,5 +144,6 @@ CsvImportPlan _planFor(File file) {
     liveTransactionIds: const {},
     deletedTransactionIds: const {},
     ids: FakeIdGenerator(),
+    isKnownIconKey: (_) => true,
   );
 }

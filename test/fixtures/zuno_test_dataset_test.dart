@@ -59,8 +59,10 @@ final class _Env {
     writer = CsvImportWriter(
       db: db,
       categories: categories,
+      accounts: DriftAccountsRepository(db, clock: clock),
       transactions: transactions,
       ids: FakeIdGenerator(prefix: 'new'),
+      isKnownIconKey: (_) => true,
     );
   }
 

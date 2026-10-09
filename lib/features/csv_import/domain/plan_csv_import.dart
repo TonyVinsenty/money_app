@@ -1,9 +1,16 @@
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
+import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/money/parse_amount.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
+import 'package:money_app/features/export/domain/transactions_export.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:uuid/uuid.dart';
@@ -16,6 +23,10 @@ const String csvImportFingerprintNamespace =
 /// Иконка категорий, созданных импортом.
 const String csvImportCategoryIconKey = 'more_horiz';
 
+/// Значок счетов, созданных импортом («Другое»); тот же ключ, что
+/// `otherAccountIconKey` в `core/ui` (сверяет тест).
+const String csvImportAccountIconKey = 'other';
+
 /// Разделитель частей отпечатка (управляющий символ, в именах не встречается).
 const String _sep = '\u001F';
 
@@ -27,6 +38,7 @@ final class CsvImportPlan {
     required this.skippedDeleted,
     required this.categoriesToCreate,
     required this.errors,
+    this.accountsToCreate = const [],
   });
 
   /// Операции к добавлению, в порядке строк файла.
@@ -44,6 +56,10 @@ final class CsvImportPlan {
 
   /// Ошибки строк; если список не пуст, писать нельзя ничего.
   final List<CsvRowError> errors;
+
+  /// Новые счета в порядке файла (сначала со строками `Начальный остаток`).
+  /// Основным ни один не становится. Пишутся раньше категорий.
+  final List<Account> accountsToCreate;
 }
 
 /// Строит план импорта (ADR 0009, п. 6).
@@ -52,14 +68,21 @@ final class CsvImportPlan {
 /// архивные. [deletedCategoryIds] — id мягко удалённых категорий: они тоже
 /// заняты, новая категория не получит такой id. [liveTransactionIds] и
 /// [deletedTransactionIds] — id операций в базе. [ids] даёт id для новых
-/// категорий.
+/// категорий и счетов. [accounts] — все не удалённые счета (и архивные),
+/// [deletedAccountIds] — id мягко удалённых. [openingBalances] — строки
+/// `Начальный остаток`. [isKnownIconKey] говорит, знает ли приложение значок:
+/// пустой и незнакомый ключ из файла заменяется на «Другое» (ADR 0010, п. 17).
 CsvImportPlan planCsvImport({
   required List<ParsedCsvRow> rows,
   required List<Category> categories,
   required Set<String> liveTransactionIds,
   required Set<String> deletedTransactionIds,
   required IdGenerator ids,
+  required bool Function(String iconKey) isKnownIconKey,
   Set<String> deletedCategoryIds = const {},
+  List<ParsedOpeningBalance> openingBalances = const [],
+  List<Account> accounts = const [],
+  Set<String> deletedAccountIds = const {},
 }) {
   final live = {for (final id in liveTransactionIds) id.toLowerCase()};
   final deleted = {for (final id in deletedTransactionIds) id.toLowerCase()};
@@ -79,6 +102,8 @@ CsvImportPlan planCsvImport({
 
   final transactions = <Transaction>[];
   final errors = <CsvRowError>[];
+  final accountBook = _AccountBook(accounts, deletedAccountIds, ids);
+  _planOpeningBalances(openingBalances, accountBook, errors);
   final fingerprintCounts = <String, int>{};
   var skippedExisting = 0;
   var skippedDeleted = 0;
@@ -146,16 +171,41 @@ CsvImportPlan planCsvImport({
         subcategory = bySubId;
       }
     }
+
+    // Счёт: найденный или будущий (его создадут рублёвым, п. 16.11).
+    final accountName = row.accountName;
+    var account = accountBook.find(row.accountId, accountName);
+    final accountCurrency = account?.currency ?? rubCurrencyCode;
+    if ((account != null || accountName != null) &&
+        accountCurrency != row.amount.currency) {
+      errors.add(
+        CsvAccountCurrencyMismatch(
+          row.line,
+          row.amount.currency,
+          account?.name ?? accountName!,
+          accountCurrency,
+        ),
+      );
+      rowFailed = true;
+    }
     if (rowFailed) continue;
 
     // Строка годна: создаём недостающее.
+    if (account == null && accountName != null) {
+      account = accountBook.create(
+        fromFile: row.accountId,
+        name: accountName,
+        balance: Money.fromMinor(0, rubCurrencyCode),
+        digits: currencyInfoFor(rubCurrencyCode).digits,
+      );
+    }
     category ??= _planned(
       planned,
       Category.topLevel(
         id: _freeId(row.categoryId, taken, ids),
         kind: kind,
         name: row.categoryName,
-        iconKey: csvImportCategoryIconKey,
+        iconKey: _iconOr(row.categoryIconKey, isKnownIconKey),
         sortOrder: _takeSort(nextSort, kind, null),
       ),
     );
@@ -173,7 +223,7 @@ CsvImportPlan planCsvImport({
               id: _freeId(row.subcategoryId, taken, ids),
               parent: category,
               name: subName,
-              iconKey: csvImportCategoryIconKey,
+              iconKey: _iconOr(row.subcategoryIconKey, isKnownIconKey),
               sortOrder: _takeSort(nextSort, kind, category.id),
             ),
           );
@@ -189,17 +239,176 @@ CsvImportPlan planCsvImport({
         categoryId: category.id,
         subcategoryId: subcategory?.id,
         note: row.note,
+        accountId: account?.id,
       ),
     );
   }
 
   return CsvImportPlan(
+    accountsToCreate: accountBook.planned,
     transactions: transactions,
     skippedExisting: skippedExisting,
     skippedDeleted: skippedDeleted,
     categoriesToCreate: planned,
     errors: errors,
   );
+}
+
+/// Ключ из файла, если приложение его знает, иначе «Другое».
+String _iconOr(String? key, bool Function(String) isKnown) =>
+    key != null && isKnown(key) ? key : csvImportCategoryIconKey;
+
+/// Счета базы и счета, которые импорт собирается создать (ADR 0010, п. 10).
+final class _AccountBook {
+  _AccountBook(List<Account> existing, Set<String> deletedIds, this._ids)
+    : _all = [...existing],
+      _byId = {for (final a in existing) a.id.toLowerCase(): a},
+      _taken = {
+        for (final a in existing) a.id.toLowerCase(),
+        for (final id in deletedIds) id.toLowerCase(),
+      },
+      _nextSort = existing.fold(
+        0,
+        (next, a) => a.sortOrder >= next ? a.sortOrder + 1 : next,
+      );
+
+  final List<Account> _all;
+  final Map<String, Account> _byId;
+  final Set<String> _taken;
+  final IdGenerator _ids;
+  int _nextSort;
+
+  /// Новые счета в порядке создания.
+  final List<Account> planned = [];
+
+  /// По id (в том числе архивный), затем по имени среди не архивных.
+  Account? find(String? id, String? name) {
+    final byId = id == null ? null : _byId[id.toLowerCase()];
+    if (byId != null || name == null) return byId;
+    final key = accountNameKey(name);
+    for (final a in _all) {
+      if (!a.isArchived && accountNameKey(a.name) == key) return a;
+    }
+    return null;
+  }
+
+  /// Знаков после запятой у уже известного счёта этой валюты.
+  int? digitsOf(String currency) {
+    for (final a in _all) {
+      if (a.currency == currency) return a.currencyDigits;
+    }
+    return null;
+  }
+
+  Account create({
+    required String? fromFile,
+    required String name,
+    required Money balance,
+    required int digits,
+    DateTime? createdAt,
+  }) {
+    final id = _freeId(fromFile, _taken, _ids);
+    final account = Account(
+      id: id,
+      name: name,
+      iconKey: csvImportAccountIconKey,
+      openingBalance: balance,
+      sortOrder: _nextSort++,
+      currencyDigits: digits,
+      createdAt: createdAt,
+    );
+    planned.add(account);
+    _all.add(account);
+    _byId[id.toLowerCase()] = account;
+    return account;
+  }
+}
+
+/// Строки `Начальный остаток`: новые счета с остатком; существующие счета не
+/// меняются (остаток в базе не перезаписывается).
+void _planOpeningBalances(
+  List<ParsedOpeningBalance> balances,
+  _AccountBook book,
+  List<CsvRowError> errors,
+) {
+  final seenLines = <String, int>{};
+  for (final ob in balances) {
+    final keys = [
+      if (ob.accountId != null) 'id:${ob.accountId!.toLowerCase()}',
+      'name:${accountNameKey(ob.accountName)}',
+    ];
+    final first = keys.map((k) => seenLines[k]).nonNulls.firstOrNull;
+    if (first != null) {
+      errors.add(CsvDuplicateOpeningBalance(ob.line, ob.accountName, first));
+      continue;
+    }
+    for (final k in keys) {
+      seenLines[k] = ob.line;
+    }
+
+    final currency = ob.amount.currency;
+    final found = book.find(ob.accountId, ob.accountName);
+    if (found != null) {
+      if (found.currency != currency) {
+        errors.add(
+          CsvAccountCurrencyMismatch(
+            ob.line,
+            currency,
+            found.name,
+            found.currency,
+          ),
+        );
+      }
+      continue;
+    }
+
+    // Знаки: каталог, иначе уже известный счёт этой валюты, иначе из файла.
+    final knownDigits =
+        catalogCurrency(currency)?.digits ?? book.digitsOf(currency);
+    final fileDigits = ob.customDigits;
+    var minor = ob.amount.minorUnits;
+    if (knownDigits != null &&
+        fileDigits != null &&
+        knownDigits != fileDigits) {
+      // Сумма разобрана по знакам из файла, а у валюты знаки уже заданы.
+      final scale = _pow10(knownDigits - fileDigits);
+      final tooPrecise = knownDigits < fileDigits;
+      if (tooPrecise || minor.abs() > maxInputMinorUnits ~/ scale) {
+        final text = formatCsvAmount(
+          Money.fromMinor(minor.abs(), currency),
+          currency: currencyInfoFor(currency, digits: fileDigits),
+        );
+        errors.add(
+          CsvInvalidAmount(
+            ob.line,
+            minor < 0 ? '-$text' : text,
+            tooPrecise
+                ? AmountParseFailure.tooManyDecimals
+                : AmountParseFailure.tooLarge,
+            currencyCode: currency,
+            currencyDigits: knownDigits,
+          ),
+        );
+        continue;
+      }
+      minor *= scale;
+    }
+    book.create(
+      fromFile: ob.accountId,
+      name: ob.accountName,
+      balance: Money.fromMinor(minor, currency),
+      digits: knownDigits ?? fileDigits ?? 2,
+      createdAt: ob.occurredAt,
+    );
+  }
+}
+
+int _pow10(int n) {
+  var result = 1;
+  for (var i = 0; i < n; i++) {
+    result *= 10;
+  }
+  return result;
 }
 
 String _fingerprintBase(ParsedCsvRow row) {

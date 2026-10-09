@@ -1,6 +1,7 @@
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/categories/data/categories_repository_impl.dart';
@@ -57,8 +58,10 @@ final class AppServices {
       csvImport: CsvImportWriter(
         db: database,
         categories: categories,
+        accounts: accounts,
         transactions: transactions,
         ids: ids,
+        isKnownIconKey: isKnownCategoryIconKey,
       ),
     );
   }

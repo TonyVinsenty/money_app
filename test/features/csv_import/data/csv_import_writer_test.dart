@@ -6,6 +6,8 @@ import 'package:money_app/core/csv/csv_codec.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/data/categories_repository_impl.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -28,6 +30,10 @@ const _cafe = 'aaaaaaaa-0000-4000-8000-00000000000b';
 const _salary = 'aaaaaaaa-0000-4000-8000-00000000000c';
 const _old = 'aaaaaaaa-0000-4000-8000-00000000000d';
 
+const _card = 'cccccccc-0000-4000-8000-00000000000a';
+const _wallet = 'cccccccc-0000-4000-8000-00000000000b';
+const _oldAccount = 'cccccccc-0000-4000-8000-00000000000c';
+
 String _txId(int n) =>
     'bbbbbbbb-0000-4000-8000-${n.toString().padLeft(12, "0")}';
 
@@ -35,25 +41,29 @@ String _txId(int n) =>
 final class _Env {
   _Env(this.db, this.clock)
     : categories = DriftCategoriesRepository(db, clock: clock),
+      accounts = DriftAccountsRepository(db, clock: clock),
       transactions = DriftTransactionsRepository(db, clock: clock) {
     writer = CsvImportWriter(
       db: db,
       categories: categories,
+      accounts: accounts,
       transactions: transactions,
       ids: FakeIdGenerator(prefix: 'new'),
+      isKnownIconKey: (key) => key == 'x',
     );
   }
 
   final AppDatabase db;
   final FixedClock clock;
   final DriftCategoriesRepository categories;
+  final DriftAccountsRepository accounts;
   final DriftTransactionsRepository transactions;
   late final CsvImportWriter writer;
 
   Future<String> export() async => buildTransactionsCsv(
     transactions: await transactions.findAllLive(),
     categories: await categories.watchAll().first,
-    accounts: const [],
+    accounts: await accounts.watchAll().first,
   );
 
   Future<int> categoryCount() async =>
@@ -68,7 +78,10 @@ final class _Env {
     expect(parsed, isA<CsvImportParsed>());
     parsed as CsvImportParsed;
     expect(parsed.errors, isEmpty);
-    final plan = await writer.prepare(parsed.rows);
+    final plan = await writer.prepare(
+      parsed.rows,
+      openingBalances: parsed.openingBalances,
+    );
     await writer.write(plan);
     return plan;
   }
@@ -90,6 +103,7 @@ Transaction _tx(
   String? sub,
   String? note,
   int day = 1,
+  String? account,
 }) => Transaction(
   id: id,
   type: type,
@@ -99,6 +113,23 @@ Transaction _tx(
   categoryId: category,
   subcategoryId: sub,
   note: note,
+  accountId: account,
+);
+
+Account _account(
+  String id,
+  String name,
+  int minor, {
+  String currency = 'RUB',
+  int digits = 2,
+  int order = 0,
+}) => Account(
+  id: id,
+  name: name,
+  iconKey: 'card',
+  openingBalance: Money.fromMinor(minor, currency),
+  sortOrder: order,
+  currencyDigits: digits,
 );
 
 ParsedCsvRow _row({required String category, String? categoryId, String? id}) =>
@@ -143,8 +174,15 @@ void main() {
       _top(_salary, CategoryKind.income, 'Зарплата', 0),
     );
     await env.categories.create(_top(_old, CategoryKind.expense, 'Старое', 1));
+    // Счета: рублёвый с долгом, своя валюта с 4 знаками, архивный без операций.
+    await env.accounts.create(_account(_card, 'Карта', -150000));
+    await env.accounts.create(
+      _account(_wallet, 'Кошелёк', 15, currency: 'XYZ', digits: 4, order: 1),
+    );
+    await env.accounts.create(_account(_oldAccount, 'Старый', 0, order: 2));
+    await env.accounts.archive(_oldAccount);
     await env.transactions.add(
-      _tx(_txId(1), sub: _cafe, note: 'a;b "q"\nline2'),
+      _tx(_txId(1), sub: _cafe, note: 'a;b "q"\nline2', account: _card),
     );
     await env.transactions.add(
       _tx(_txId(2), type: TransactionType.income, category: _salary, day: 3),
@@ -163,23 +201,45 @@ void main() {
     final plan = await target.import(first);
 
     expect(plan.categoriesToCreate, hasLength(4));
-    // Значки импорт пока не восстанавливает (шаг 5.18): колонки 16-17
-    // отрезаются и проверяются отдельно - ключ равен значку в базе.
+    expect(plan.accountsToCreate, hasLength(3));
+    // Счета, остатки (в том числе долг и 4 знака), моменты создания и значки
+    // категорий возвращаются: файл совпадает побайтно.
     final second = await target.export();
+    expect(utf8.encode(second), utf8.encode(first));
+    expect(first, contains('Начальный остаток'));
     expect(
-      utf8.encode(stripIconColumns(second)),
-      utf8.encode(stripIconColumns(first)),
+      decodeCsv(first).skip(1).map((r) => r[csvV2IconColumn]),
+      contains('x'),
     );
+    final restored = await target.accounts.watchAll().first;
+    expect(restored.map((a) => a.currencyDigits), contains(4));
+  });
+
+  test('импорт: значок известен - берётся, незнакомый - «Другое»', () async {
+    final csv = encodeCsv([
+      transactionsExportHeaders,
+      [
+        ...['02.10.2026', 'Расход', '5,00', 'RUB', 'Спорт', 'Зал'],
+        ...[
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+        ], // комментарий, счета, ID операции и категорий
+        '2026-10-02T09:00:00.000Z',
+        ...['', ''], // ID счетов
+        ...['x', 'zzz'], // значки категории и подкатегории
+      ],
+    ]);
+
+    await env.import(csv);
+
     final icons = {
-      for (final c in await target.categories.watchAll().first)
-        c.name: c.iconKey,
+      for (final c in await env.categories.watchAll().first) c.name: c.iconKey,
     };
-    for (final row in decodeCsv(second).skip(1)) {
-      expect(row[csvV2IconColumn], icons[row[4]], reason: row.join(';'));
-      if (row[5].isNotEmpty) {
-        expect(row[csvV2SubcategoryIconColumn], icons[row[5]]);
-      }
-    }
+    expect(icons, {'Спорт': 'x', 'Зал': 'more_horiz'});
   });
 
   test('повторный импорт ничего не меняет', () async {
@@ -217,6 +277,31 @@ void main() {
 
     expect(await env.categoryCount(), 0);
     expect(await env.transactionCount(), 0);
+  });
+
+  test('счета и операции пишутся вместе; сбой откатывает и счета', () async {
+    final good = CsvImportPlan(
+      transactions: [_tx(_txId(1), account: _card)],
+      skippedExisting: 0,
+      skippedDeleted: 0,
+      categoriesToCreate: [_top(_food, CategoryKind.expense, 'Еда', 0)],
+      accountsToCreate: [_account(_card, 'Карта', 100)],
+      errors: const [],
+    );
+    await env.writer.write(good);
+    expect((await env.transactions.findById(_txId(1)))?.accountId, _card);
+    expect(await env.accounts.findById(_card), isNotNull);
+
+    final bad = CsvImportPlan(
+      transactions: [_tx(_txId(2), category: 'missing')],
+      skippedExisting: 0,
+      skippedDeleted: 0,
+      categoriesToCreate: const [],
+      accountsToCreate: [_account(_wallet, 'Кошелёк', 0)],
+      errors: const [],
+    );
+    await expectLater(env.writer.write(bad), throwsArgumentError);
+    expect(await env.accounts.findById(_wallet), isNull);
   });
 
   test('id операции уже есть при записи: ошибка и откат', () async {

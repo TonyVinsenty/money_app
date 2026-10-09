@@ -141,7 +141,14 @@ class DriftAccountsRepository implements AccountsRepository {
       final now = _clock.now();
       await _db
           .into(_db.accounts)
-          .insert(accountToCompanion(account, createdAt: now, updatedAt: now));
+          .insert(
+            // createdAt из счёта - у счетов, восстановленных из CSV.
+            accountToCompanion(
+              account,
+              createdAt: account.createdAt ?? now,
+              updatedAt: now,
+            ),
+          );
     });
   }
 

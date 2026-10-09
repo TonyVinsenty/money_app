@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/account_icons.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
@@ -76,6 +79,9 @@ CsvImportPlan _plan(
   List<Category>? categories,
   Set<String> live = const {},
   Set<String> deleted = const {},
+  List<ParsedOpeningBalance> balances = const [],
+  List<Account> accounts = const [],
+  Set<String> deletedAccounts = const {},
 }) {
   return planCsvImport(
     rows: rows,
@@ -83,8 +89,74 @@ CsvImportPlan _plan(
     liveTransactionIds: live,
     deletedTransactionIds: deleted,
     ids: _SeqIds(),
+    isKnownIconKey: (key) => key == 'star' || key == 'cart',
+    openingBalances: balances,
+    accounts: accounts,
+    deletedAccountIds: deletedAccounts,
   );
 }
+
+ParsedOpeningBalance _ob(
+  String name, {
+  int line = 2,
+  int minor = 1200000,
+  String currency = 'RUB',
+  String? id,
+  int? customDigits,
+}) => ParsedOpeningBalance(
+  line: line,
+  day: DateOnly(2026, 9, 1),
+  occurredAt: DateTime.utc(2026, 9, 1, 8),
+  accountName: name,
+  accountId: id,
+  amount: Money.fromMinor(minor, currency),
+  customDigits: customDigits,
+);
+
+Account _account(
+  String id,
+  String name, {
+  String currency = 'RUB',
+  int digits = 2,
+  int sort = 0,
+  bool archived = false,
+}) {
+  final a = Account(
+    id: id,
+    name: name,
+    iconKey: 'other',
+    openingBalance: Money.fromMinor(0, currency),
+    sortOrder: sort,
+    currencyDigits: digits,
+  );
+  return archived ? a.archived(DateTime.utc(2026, 1, 1)) : a;
+}
+
+ParsedCsvRow _accRow({
+  String? account,
+  String? accountId,
+  String currency = 'RUB',
+  String? categoryIcon,
+  String? subIcon,
+  String category = 'Еда',
+  String? sub,
+}) => ParsedCsvRow(
+  line: 7,
+  day: DateOnly(2026, 10, 1),
+  occurredAt: DateTime.utc(2026, 10, 1, 9),
+  type: TransactionType.expense,
+  amount: Money.fromMinor(500, currency),
+  categoryName: category,
+  subcategoryName: sub,
+  note: null,
+  transactionId: null,
+  categoryId: null,
+  subcategoryId: null,
+  accountName: account,
+  accountId: accountId,
+  categoryIconKey: categoryIcon,
+  subcategoryIconKey: subIcon,
+);
 
 void main() {
   test('id из файла совпал с id мягко удалённой категории: id новый', () {
@@ -95,6 +167,7 @@ void main() {
       deletedTransactionIds: const {},
       deletedCategoryIds: const {'GONE-1'},
       ids: _SeqIds(),
+      isKnownIconKey: (_) => true,
     );
     expect(plan.categoriesToCreate.single.id, 'new-1');
     expect(plan.transactions.single.categoryId, 'new-1');
@@ -268,5 +341,235 @@ void main() {
   test('новые категории встают в конец списка своего уровня', () {
     final plan = _plan([_row(category: 'Спорт'), _row(category: 'Кино')]);
     expect(plan.categoriesToCreate.map((c) => c.sortOrder), [4, 5]);
+  });
+
+  group('значки создаваемых категорий', () {
+    test('известный ключ берётся, пустой и неизвестный - «Другое»', () {
+      final plan = _plan([
+        _accRow(
+          category: 'Спорт',
+          categoryIcon: 'star',
+          sub: 'Зал',
+          subIcon: 'no_such',
+        ),
+        _accRow(category: 'Кино'),
+      ]);
+      expect(plan.categoriesToCreate.map((c) => c.iconKey), [
+        'star',
+        csvImportCategoryIconKey,
+        csvImportCategoryIconKey,
+      ]);
+    });
+
+    test('у одной новой категории значок первой строки; существующая '
+        'не меняется', () {
+      final plan = _plan([
+        _accRow(category: 'Спорт', categoryIcon: 'star'),
+        _accRow(category: 'Спорт', categoryIcon: 'cart'),
+        _accRow(category: 'Еда', categoryIcon: 'cart'),
+      ]);
+      expect(plan.categoriesToCreate.single.iconKey, 'star');
+    });
+  });
+
+  group('счета', () {
+    test('ключ значка счетов совпадает с ключом «Другое» в приложении', () {
+      expect(csvImportAccountIconKey, otherAccountIconKey);
+    });
+
+    test('начальный остаток создаёт счёт; основным он не становится', () {
+      final plan = _plan(
+        const [],
+        balances: [_ob('Карта', minor: -150000, id: 'ACC-1')],
+        accounts: [_account('old', 'Наличные', sort: 4)],
+      );
+      final account = plan.accountsToCreate.single;
+      expect(account.id, 'acc-1');
+      expect(account.name, 'Карта');
+      expect(account.openingBalance, Money.fromMinor(-150000, 'RUB'));
+      expect(account.createdAt, DateTime.utc(2026, 9, 1, 8));
+      expect(account.sortOrder, 5);
+      expect(account.iconKey, csvImportAccountIconKey);
+      expect(plan.errors, isEmpty);
+    });
+
+    test('существующий счёт (по id или имени): остаток не трогаем', () {
+      final plan = _plan(
+        const [],
+        balances: [
+          _ob('Другое имя', id: 'ACC-OLD'),
+          _ob(' наличные '),
+        ],
+        accounts: [
+          _account('acc-old', 'Карта', archived: true),
+          _account('b', 'Наличные'),
+        ],
+      );
+      expect(plan.accountsToCreate, isEmpty);
+      expect(plan.errors, isEmpty);
+    });
+
+    test('Т11: второй остаток на тот же счёт', () {
+      final plan = _plan(
+        const [],
+        balances: [_ob('Карта', line: 5), _ob('карта', line: 9)],
+      );
+      final error = plan.errors.single as CsvDuplicateOpeningBalance;
+      expect((error.line, error.value, error.firstLine), (9, 'карта', 5));
+      expect(plan.accountsToCreate, hasLength(1));
+    });
+
+    test('Т12: остаток в другой валюте у существующего счёта', () {
+      final plan = _plan(
+        const [],
+        balances: [_ob('Карта', currency: 'EUR')],
+        accounts: [_account('a', 'Карта', currency: 'USD')],
+      );
+      final error = plan.errors.single as CsvAccountCurrencyMismatch;
+      expect(error.value, 'EUR');
+      expect(error.accountName, 'Карта');
+      expect(error.accountCurrency, 'USD');
+    });
+
+    test('операции привязываются к счёту по id и по имени', () {
+      final plan = _plan(
+        [_accRow(accountId: 'A'), _accRow(account: ' КАРТА '), _accRow()],
+        accounts: [_account('a', 'Карта', archived: true)],
+        balances: const [],
+      );
+      // Архивный по имени не находится: создаётся новый.
+      final created = plan.accountsToCreate.single;
+      expect(created.name, 'КАРТА');
+      expect(plan.transactions.map((t) => t.accountId), [
+        'a',
+        created.id,
+        null,
+      ]);
+    });
+
+    test(
+      'операция с неизвестным счётом создаёт рублёвый счёт с остатком 0',
+      () {
+        final plan = _plan([
+          _accRow(account: 'Кошелёк'),
+          _accRow(account: 'кошелёк'),
+        ]);
+        final account = plan.accountsToCreate.single;
+        expect(account.openingBalance, Money.fromMinor(0, 'RUB'));
+        expect(account.currencyDigits, 2);
+        expect(account.createdAt, isNull);
+        expect(plan.transactions.map((t) => t.accountId), [
+          account.id,
+          account.id,
+        ]);
+      },
+    );
+
+    test('Т12: валюта операции не совпадает со счётом - ошибка строки', () {
+      final plan = _plan(
+        [
+          _accRow(account: 'Карта', currency: 'EUR'),
+          _accRow(account: 'Новый', currency: 'USD'),
+        ],
+        accounts: [_account('a', 'Карта', currency: 'USD')],
+      );
+      final errors = plan.errors.cast<CsvAccountCurrencyMismatch>();
+      expect(errors.map((e) => (e.value, e.accountName, e.accountCurrency)), [
+        ('EUR', 'Карта', 'USD'),
+        ('USD', 'Новый', 'RUB'),
+      ]);
+      expect(plan.accountsToCreate, isEmpty);
+      expect(plan.transactions, isEmpty);
+    });
+
+    test('остаток в USD и операция в USD по этому счёту: ошибок нет', () {
+      final plan = _plan(
+        [_accRow(account: 'Доллары', currency: 'USD')],
+        balances: [_ob('Доллары', currency: 'USD')],
+      );
+      expect(plan.errors, isEmpty);
+      expect(
+        plan.transactions.single.accountId,
+        plan.accountsToCreate.single.id,
+      );
+    });
+
+    test('id счёта из файла занят или удалён: новый id', () {
+      final plan = _plan(
+        const [],
+        balances: [_ob('Карта', id: 'GONE')],
+        deletedAccounts: {'gone'},
+      );
+      expect(plan.accountsToCreate.single.id, 'new-1');
+    });
+
+    test('архивный счёт того же имени не мешает создать новый', () {
+      final plan = _plan(
+        const [],
+        balances: [_ob('Карта')],
+        accounts: [_account('a', 'Карта', archived: true)],
+      );
+      expect(plan.accountsToCreate.single.name, 'Карта');
+    });
+  });
+
+  group('валюты начального остатка', () {
+    test('валюта каталога: знаки из каталога', () {
+      final plan = _plan(
+        const [],
+        balances: [_ob('Йены', minor: 5000, currency: 'JPY')],
+      );
+      expect(plan.accountsToCreate.single.currencyDigits, 0);
+    });
+
+    test('новая своя валюта: знаки из файла', () {
+      final plan = _plan(
+        const [],
+        balances: [_ob('Кошелёк', minor: 15, currency: 'XYZ', customDigits: 4)],
+      );
+      final account = plan.accountsToCreate.single;
+      expect(account.currencyDigits, 4);
+      expect(account.openingBalance, Money.fromMinor(15, 'XYZ'));
+    });
+
+    test('своя валюта уже известна: знаки оттуда, сумма пересчитана', () {
+      final plan = _plan(
+        const [],
+        balances: [_ob('Новый', minor: 55, currency: 'XYZ', customDigits: 1)],
+        accounts: [_account('a', 'Старый', currency: 'XYZ', digits: 3)],
+      );
+      final account = plan.accountsToCreate.single;
+      expect(account.currencyDigits, 3);
+      expect(account.openingBalance.minorUnits, 5500);
+    });
+
+    test('Т9: у известной своей валюты в файле больше знаков', () {
+      final plan = _plan(
+        const [],
+        balances: [
+          _ob('Новый', minor: -12345, currency: 'XYZ', customDigits: 3),
+        ],
+        accounts: [_account('a', 'Старый', currency: 'XYZ', digits: 2)],
+      );
+      final error = plan.errors.single as CsvInvalidAmount;
+      expect(error.value, '-12,345');
+      expect(error.failure, AmountParseFailure.tooManyDecimals);
+      expect((error.currencyCode, error.currencyDigits), ('XYZ', 2));
+      expect(error.digitsFromFile, isFalse);
+      expect(plan.accountsToCreate, isEmpty);
+    });
+
+    test('две новые строки одной своей валюты с разными знаками: ошибка', () {
+      final plan = _plan(
+        const [],
+        balances: [
+          _ob('А', minor: 1, currency: 'XYZ', customDigits: 1),
+          _ob('Б', minor: 12, currency: 'XYZ', customDigits: 2, line: 3),
+        ],
+      );
+      expect(plan.accountsToCreate.single.name, 'А');
+      expect(plan.errors.single, isA<CsvInvalidAmount>());
+      expect(plan.errors.single.line, 3);
+    });
   });
 }

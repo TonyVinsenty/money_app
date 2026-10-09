@@ -116,6 +116,27 @@ final class CsvOpeningBalanceWithCategory extends CsvRowError {
   const CsvOpeningBalanceWithCategory(super.line, super.value);
 }
 
+/// Второй `Начальный остаток` на тот же счёт; [value] — имя счёта,
+/// [firstLine] — строка первого остатка.
+final class CsvDuplicateOpeningBalance extends CsvRowError {
+  const CsvDuplicateOpeningBalance(super.line, super.value, this.firstLine);
+
+  final int firstLine;
+}
+
+/// Валюта строки ([value], пустая — `RUB`) не совпадает с валютой счёта.
+final class CsvAccountCurrencyMismatch extends CsvRowError {
+  const CsvAccountCurrencyMismatch(
+    super.line,
+    super.value,
+    this.accountName,
+    this.accountCurrency,
+  );
+
+  final String accountName;
+  final String accountCurrency;
+}
+
 /// Категория пустая.
 final class CsvEmptyCategory extends CsvRowError {
   const CsvEmptyCategory(super.line, super.value);

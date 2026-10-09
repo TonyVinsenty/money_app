@@ -1,5 +1,6 @@
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
@@ -14,19 +15,37 @@ class CsvImportWriter implements CsvImportStore {
   CsvImportWriter({
     required this._db,
     required this._categories,
+    required this._accounts,
     required this._transactions,
     required this._ids,
+    required this._isKnownIconKey,
   });
 
   final AppDatabase _db;
   final CategoriesRepository _categories;
+  final AccountsRepository _accounts;
   final TransactionsRepository _transactions;
   final IdGenerator _ids;
 
+  /// Знает ли приложение значок (список значков живёт в `core/ui`).
+  final bool Function(String iconKey) _isKnownIconKey;
+
   /// Читает из базы всё нужное и строит план. В базу ничего не пишет.
   @override
-  Future<CsvImportPlan> prepare(List<ParsedCsvRow> rows) async {
+  Future<CsvImportPlan> prepare(
+    List<ParsedCsvRow> rows, {
+    List<ParsedOpeningBalance> openingBalances = const [],
+  }) async {
     final categories = await _categories.watchAll().first;
+    final accounts = await _accounts.watchAll().first;
+
+    final acc = _db.accounts;
+    final deletedAccounts =
+        await (_db.selectOnly(acc)
+              ..addColumns([acc.id])
+              ..where(acc.deletedAt.isNotNull()))
+            .map((row) => row.read(acc.id)!)
+            .get();
 
     final cat = _db.categories;
     final deletedCategories =
@@ -53,10 +72,15 @@ class CsvImportWriter implements CsvImportStore {
       deletedTransactionIds: deleted,
       deletedCategoryIds: deletedCategories.toSet(),
       ids: _ids,
+      isKnownIconKey: _isKnownIconKey,
+      openingBalances: openingBalances,
+      accounts: accounts,
+      deletedAccountIds: deletedAccounts.toSet(),
     );
   }
 
-  /// Пишет [plan] одной транзакцией: сначала категории, потом операции.
+  /// Пишет [plan] одной транзакцией: сначала счета, потом категории и
+  /// операции. Основным счёт не становится.
   /// Любая ошибка (в том числе уже существующий id операции) откатывает всё
   /// и выходит наружу. Пустой план ничего не делает.
   @override
@@ -64,8 +88,15 @@ class CsvImportWriter implements CsvImportStore {
     if (plan.errors.isNotEmpty) {
       throw StateError('Нельзя записывать план с ошибками');
     }
-    if (plan.categoriesToCreate.isEmpty && plan.transactions.isEmpty) return;
+    if (plan.accountsToCreate.isEmpty &&
+        plan.categoriesToCreate.isEmpty &&
+        plan.transactions.isEmpty) {
+      return;
+    }
     await _db.transaction(() async {
+      for (final account in plan.accountsToCreate) {
+        await _accounts.create(account);
+      }
       for (final category in plan.categoriesToCreate) {
         await _categories.create(category);
       }

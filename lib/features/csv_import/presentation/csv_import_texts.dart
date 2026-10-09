@@ -172,6 +172,13 @@ String _rowErrorText(CsvRowError error) {
     CsvOpeningBalanceWithCategory() =>
       'у начального остатка категория $value — ячейка должна быть пустой. '
           'Похоже, колонки съехали',
+    CsvDuplicateOpeningBalance(:final firstLine) =>
+      'второй начальный остаток счёта ${_quoted(error.value)} '
+          '(первый — в строке $firstLine). Оставьте одну строку',
+    CsvAccountCurrencyMismatch(:final accountName, :final accountCurrency) =>
+      'валюта ${error.value} не совпадает с валютой счёта '
+          '${_quoted(accountName)} '
+          '— у него $accountCurrency',
     CsvEmptyCategory() => 'не указана категория',
     CsvCategoryTooLong() => 'категория длиннее $categoryNameMaxLength символов',
     CsvSubcategoryTooLong() =>

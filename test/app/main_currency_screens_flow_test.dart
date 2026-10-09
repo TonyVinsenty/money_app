@@ -114,8 +114,10 @@ Future<void> _pumpApp(WidgetTester tester) async {
     final writer = CsvImportWriter(
       db: _db,
       categories: categories,
+      accounts: DriftAccountsRepository(_db, clock: importClock),
       transactions: transactions,
       ids: FakeIdGenerator(prefix: 'new'),
+      isKnownIconKey: (_) => true,
     );
     final parsed = parseCsvImport(
       File(testDatasetPath).readAsBytesSync(),

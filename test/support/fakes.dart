@@ -485,7 +485,10 @@ class PlannedCsvImportStore implements CsvImportStore {
   final List<CsvImportPlan> written = [];
 
   @override
-  Future<CsvImportPlan> prepare(List<ParsedCsvRow> rows) async {
+  Future<CsvImportPlan> prepare(
+    List<ParsedCsvRow> rows, {
+    List<ParsedOpeningBalance> openingBalances = const [],
+  }) async {
     preparedRows = rows;
     return plan;
   }

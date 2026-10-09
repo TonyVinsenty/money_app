@@ -33,6 +33,21 @@ void main() {
       );
     });
 
+    test('Т11 и Т12: второй остаток и валюта не совпала со счётом', () {
+      expect(
+        csvRowErrorMessage(const CsvDuplicateOpeningBalance(9, 'Карта', 5)),
+        'Строка 9: второй начальный остаток счёта «Карта» '
+        '(первый — в строке 5). Оставьте одну строку',
+      );
+      expect(
+        csvRowErrorMessage(
+          const CsvAccountCurrencyMismatch(4, 'EUR', 'Карта', 'USD'),
+        ),
+        'Строка 4: валюта EUR не совпадает с валютой счёта «Карта» '
+        '— у него USD',
+      );
+    });
+
     test('пустое значение — «не указана»', () {
       expect(
         csvRowErrorMessage(const CsvInvalidDate(3, '  ')),
