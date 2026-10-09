@@ -339,6 +339,41 @@ void main() {
     });
   });
 
+  group('clearManualAccountFilter', () {
+    test('убирает счёт, тип и категории остаются, уведомляет раз', () {
+      c.setHistoryFilter(
+        HistoryFilter(
+          type: HistoryTypeFilter.expense,
+          expenseCategoryIds: {'a'},
+          accountFilter: const OneAccount('acc'),
+        ),
+      );
+      notifications = 0;
+      c.clearManualAccountFilter();
+      expect(
+        c.historyFilter,
+        HistoryFilter(
+          type: HistoryTypeFilter.expense,
+          expenseCategoryIds: {'a'},
+        ),
+      );
+      expect(notifications, 1);
+    });
+
+    test('без счёта в фильтре не уведомляет', () {
+      c.setHistoryFilter(HistoryFilter.expenseCategories({'a'}));
+      notifications = 0;
+      c.clearManualAccountFilter();
+      expect(notifications, 0);
+    });
+
+    test('временный фильтр по счёту не трогает', () {
+      c.showAccountTransactions('acc');
+      c.clearManualAccountFilter();
+      expect(c.historyFilter, HistoryFilter.account('acc'));
+    });
+  });
+
   group('showAccountTransactions', () {
     test('ставит временный фильтр по счёту, месяц не меняется', () {
       final month = c.month;

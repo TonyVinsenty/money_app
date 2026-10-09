@@ -64,14 +64,13 @@ class _AccountSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    HistoryFilter pick({String? id, bool none = false}) => HistoryFilter(
+    HistoryFilter pick(HistoryAccountFilter account) => HistoryFilter(
       type: current.type,
       expenseCategoryIds: current.expenseCategoryIds,
       incomeCategoryIds: current.incomeCategoryIds,
-      accountId: id,
-      withoutAccount: none,
+      accountFilter: account,
     );
-    final allSelected = current.accountId == null && !current.withoutAccount;
+    final selectedAccount = current.accountFilter;
     Widget option(String label, bool selected, HistoryFilter next) => ListTile(
       contentPadding: EdgeInsets.zero,
       minVerticalPadding: 12,
@@ -88,14 +87,22 @@ class _AccountSection extends StatelessWidget {
           header: true,
           child: Text('Счёт', style: Theme.of(context).textTheme.titleMedium),
         ),
-        option('Все счета', allSelected, pick()),
+        option(
+          'Все счета',
+          selectedAccount is AnyAccount,
+          pick(const AnyAccount()),
+        ),
         for (final a in ordered(accounts))
           option(
             a.isArchived ? '${a.name} (в архиве)' : a.name,
-            current.accountId == a.id,
-            pick(id: a.id),
+            selectedAccount == OneAccount(a.id),
+            pick(OneAccount(a.id)),
           ),
-        option('Без счёта', current.withoutAccount, pick(none: true)),
+        option(
+          'Без счёта',
+          selectedAccount is NoAccount,
+          pick(const NoAccount()),
+        ),
       ],
     );
   }
@@ -281,8 +288,7 @@ class HistoryFilterSheet extends StatelessWidget {
                   type: selection.first,
                   expenseCategoryIds: current.expenseCategoryIds,
                   incomeCategoryIds: current.incomeCategoryIds,
-                  accountId: current.accountId,
-                  withoutAccount: current.withoutAccount,
+                  accountFilter: current.accountFilter,
                 ),
               ),
             ),
@@ -298,8 +304,7 @@ class HistoryFilterSheet extends StatelessWidget {
                     type: current.type,
                     expenseCategoryIds: ids,
                     incomeCategoryIds: current.incomeCategoryIds,
-                    accountId: current.accountId,
-                    withoutAccount: current.withoutAccount,
+                    accountFilter: current.accountFilter,
                   ),
                 ),
               ),
@@ -315,8 +320,7 @@ class HistoryFilterSheet extends StatelessWidget {
                     type: current.type,
                     expenseCategoryIds: current.expenseCategoryIds,
                     incomeCategoryIds: ids,
-                    accountId: current.accountId,
-                    withoutAccount: current.withoutAccount,
+                    accountFilter: current.accountFilter,
                   ),
                 ),
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -41,6 +42,29 @@ void main() {
 
     expect(find.text('Ж'), findsOneWidget);
     expect(find.byIcon(Icons.category_outlined), findsNothing);
+  });
+
+  testWidgets('плитка подкатегории берёт значок из записи', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        CategoryGrid(
+          categories: [
+            Category(
+              id: 'espresso',
+              kind: CategoryKind.expense,
+              name: 'Эспрессо',
+              iconKey: 'local_cafe',
+              parentId: 'food',
+              sortOrder: 0,
+            ),
+          ],
+          onSelected: (_) {},
+        ),
+      ),
+    );
+
+    final view = tester.widget<CategoryIconView>(find.byType(CategoryIconView));
+    expect(view.iconKey, 'local_cafe');
   });
 
   testWidgets('подпись плитки пропуска по умолчанию — «Без подкатегории»', (

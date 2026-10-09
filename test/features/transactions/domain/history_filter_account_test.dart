@@ -34,7 +34,7 @@ void main() {
     final filter = HistoryFilter(
       type: HistoryTypeFilter.expense,
       expenseCategoryIds: {'food'},
-      accountId: 'a',
+      accountFilter: const OneAccount('a'),
     );
     expect(filter.matches(_t('1', account: 'a')), isTrue);
     expect(filter.matches(_t('2', account: 'a', category: 'cafe')), isFalse);
@@ -62,5 +62,73 @@ void main() {
       HistorySort.newestFirst,
     );
     expect([for (final t in shown) t.id], ['1']);
+  });
+
+  group('три состояния счёта', () {
+    final withCard = _t('card', account: 'card');
+    final other = _t('cash', account: 'cash');
+    final none = _t('none');
+    final income = _t('i', type: TransactionType.income);
+
+    test('«Без счёта» - только операции без счёта', () {
+      final f = HistoryFilter(accountFilter: const NoAccount());
+      expect(f.isActive, isTrue);
+      expect([withCard, other, none, income].where(f.matches), [none, income]);
+    });
+
+    test('«Все счета» - все операции', () {
+      expect([withCard, other, none].where(HistoryFilter.off.matches), [
+        withCard,
+        other,
+        none,
+      ]);
+    });
+
+    test('«Без счёта» вместе с типом и категориями', () {
+      final f = HistoryFilter(
+        type: HistoryTypeFilter.expense,
+        expenseCategoryIds: {'food'},
+        accountFilter: const NoAccount(),
+      );
+      expect([withCard, none, income].where(f.matches), [none]);
+      final g = HistoryFilter(
+        type: HistoryTypeFilter.expense,
+        expenseCategoryIds: {'cafe'},
+        accountFilter: const NoAccount(),
+      );
+      expect([none].where(g.matches), isEmpty);
+    });
+
+    test('равенство и hashCode трёх состояний', () {
+      final all = HistoryFilter.off;
+      final none1 = HistoryFilter(accountFilter: const NoAccount());
+      final none2 = HistoryFilter(accountFilter: const NoAccount());
+      final one = HistoryFilter.account('card');
+      expect(none1, none2);
+      expect(none1.hashCode, none2.hashCode);
+      expect(none1, isNot(all));
+      expect(none1, isNot(one));
+      expect(all, isNot(one));
+      expect(one, HistoryFilter(accountFilter: const OneAccount('card')));
+      expect(
+        one.hashCode,
+        HistoryFilter(accountFilter: const OneAccount('card')).hashCode,
+      );
+    });
+
+    test('withAnyAccount сбрасывает только счёт', () {
+      final f = HistoryFilter(
+        type: HistoryTypeFilter.expense,
+        expenseCategoryIds: {'food'},
+        accountFilter: const OneAccount('card'),
+      );
+      expect(
+        f.withAnyAccount(),
+        HistoryFilter(
+          type: HistoryTypeFilter.expense,
+          expenseCategoryIds: {'food'},
+        ),
+      );
+    });
   });
 }

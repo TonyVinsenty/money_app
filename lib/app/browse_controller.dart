@@ -117,6 +117,14 @@ class BrowseController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Смена основной валюты: ручной фильтр по счёту сбрасывается (счёт мог быть
+  /// в другой валюте), тип и категории остаются. Временный фильтр не трогает.
+  void clearManualAccountFilter() {
+    if (_manualFilter.accountFilter is AnyAccount) return;
+    _manualFilter = _manualFilter.withAnyAccount();
+    notifyListeners();
+  }
+
   /// Выключает фильтр; сортировку не трогает.
   void resetHistoryFilter() => setHistoryFilter(HistoryFilter.off);
 

@@ -31,7 +31,7 @@ void main() {
     final filter = HistoryFilter(
       type: HistoryTypeFilter.expense,
       expenseCategoryIds: {'cafe'},
-      accountId: 'a',
+      accountFilter: const OneAccount('a'),
     );
     expect(
       historyFilterLabel(filter, _cats, accountName: 'Карта'),
@@ -52,13 +52,16 @@ void main() {
 
   test('«Без счёта» - один и вместе с другими', () {
     expect(
-      historyFilterLabel(HistoryFilter(withoutAccount: true), _cats),
+      historyFilterLabel(
+        HistoryFilter(accountFilter: const NoAccount()),
+        _cats,
+      ),
       'Фильтр: Без счёта',
     );
     final filter = HistoryFilter(
       type: HistoryTypeFilter.expense,
       expenseCategoryIds: {'cafe'},
-      withoutAccount: true,
+      accountFilter: const NoAccount(),
     );
     expect(
       historyFilterLabel(filter, _cats),
@@ -69,7 +72,10 @@ void main() {
       'Фильтр, включён: расходы, Кафе, Без счёта',
     );
     expect(
-      historyFilterSpoken(HistoryFilter(withoutAccount: true), _cats),
+      historyFilterSpoken(
+        HistoryFilter(accountFilter: const NoAccount()),
+        _cats,
+      ),
       'Фильтр, включён: без счёта',
     );
   });

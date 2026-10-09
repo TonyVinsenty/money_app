@@ -10,6 +10,7 @@ import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
+import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
@@ -292,8 +293,16 @@ class InMemoryCategoriesRepository extends FakeCategoriesRepository {
     writes++;
     final error = failWith;
     if (error != null) throw error;
+    // Порядок проверок как у drift: id, имя, значок, дубль имени.
+    final found = _state.value.where((c) => c.id == id);
+    if (found.isEmpty) {
+      throw ArgumentError.value(id, 'id', 'category not found');
+    }
+    final target = found.first;
     final name = Category.checkedName(newName);
-    final target = _state.value.firstWhere((c) => c.id == id);
+    if (iconKey.trim().isEmpty) {
+      throw CategoryRuleException(CategoryRule.emptyIconKey);
+    }
     Category.checkUniqueName(
       name: name,
       kind: target.kind,
@@ -313,7 +322,7 @@ class InMemoryCategoriesRepository extends FakeCategoriesRepository {
     ];
   }
 
-  /// Аргументы всех вызовов `reorder`(в том числе неудачных).
+  /// Аргументы всех вызовов `reorder` (в том числе неудачных).
   final reorderCalls = <List<String>>[];
 
   /// Если задан, `reorder` ждёт его, прежде чем записать (запись «в пути»).

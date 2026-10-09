@@ -158,7 +158,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<Account> _accountList = const [];
   StreamSubscription<List<Account>>? _accountsSub;
 
-  String? get _filterAccountName => _accountNames[widget.filter.accountId];
+  String? get _filterAccountName {
+    final account = widget.filter.accountFilter;
+    return account is OneAccount ? _accountNames[account.id] : null;
+  }
 
   void _listenAccounts() {
     unawaited(_accountsSub?.cancel());

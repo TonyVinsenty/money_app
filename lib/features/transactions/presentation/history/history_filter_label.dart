@@ -21,11 +21,11 @@ String historyFilterLabel(
 }) {
   final expense = filter.expenseCategoryIds;
   final income = filter.incomeCategoryIds;
-  final account = filter.withoutAccount
-      ? 'Без счёта'
-      : filter.accountId == null
-      ? null
-      : 'Счёт: ${accountName ?? historyUnknownAccount}';
+  final account = switch (filter.accountFilter) {
+    AnyAccount() => null,
+    NoAccount() => 'Без счёта',
+    OneAccount() => 'Счёт: ${accountName ?? historyUnknownAccount}',
+  };
 
   // Какие наборы категорий относятся к выбранному типу.
   final Set<String>? ids;

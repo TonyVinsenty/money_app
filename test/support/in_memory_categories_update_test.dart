@@ -45,6 +45,46 @@ void main() {
       expect(repo.writes, 1);
     });
 
+    test('watchAll emits the new icon', () async {
+      final repo = InMemoryCategoriesRepository([top('p', 'Food', 'a')]);
+      addTearDown(repo.dispose);
+
+      final next = repo.watchAll().skip(1).first;
+      await repo.update('p', newName: 'Food', iconKey: 'z');
+
+      expect((await next).single.iconKey, 'z');
+    });
+
+    test('unknown id is ArgumentError', () async {
+      final repo = InMemoryCategoriesRepository([top('p', 'Food', 'a')]);
+      addTearDown(repo.dispose);
+
+      await expectLater(
+        repo.update('nope', newName: 'X', iconKey: 'z'),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('empty icon is checked before duplicate name', () async {
+      final repo = InMemoryCategoriesRepository([
+        top('p', 'Food', 'a'),
+        top('q', 'Fun', 'a'),
+      ]);
+      addTearDown(repo.dispose);
+
+      await expectLater(
+        repo.update('p', newName: 'Fun', iconKey: '  '),
+        throwsA(
+          isA<CategoryRuleException>().having(
+            (e) => e.rule,
+            'rule',
+            CategoryRule.emptyIconKey,
+          ),
+        ),
+      );
+      expect(repo.all.first.iconKey, 'a');
+    });
+
     test('duplicate name is rejected', () async {
       final repo = InMemoryCategoriesRepository([
         top('p', 'Food', 'a'),

@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -11,7 +10,6 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/categories/presentation/category_form_screen.dart';
-import 'package:money_app/features/transactions/presentation/category_grid.dart';
 
 import '../../../support/fake_id_generator.dart';
 import '../../../support/fakes.dart';
@@ -371,23 +369,6 @@ void main() {
         repository.all.firstWhere((c) => c.id == 'food').iconKey,
         'restaurant',
       );
-
-      // Плитка подкатегории в листе быстрого ввода берёт значок из записи.
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: CustomScrollView(
-              slivers: [
-                CategoryGrid(categories: [created], onSelected: (_) {}),
-              ],
-            ),
-          ),
-        ),
-      );
-      final view = tester.widget<CategoryIconView>(
-        find.byType(CategoryIconView),
-      );
-      expect(view.iconKey, 'local_cafe');
       handle.dispose();
     });
 

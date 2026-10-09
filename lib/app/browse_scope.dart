@@ -100,8 +100,17 @@ class _BrowseHostState extends State<BrowseHost> {
         onError: (Object _) => _controller!.markFirstDayKnown(),
       );
     }
+    // Основная валюта сменилась: ручной фильтр по счёту сбрасывается.
+    final currency = services.settings.mainCurrencyCode;
+    final previous = _currency;
+    _currency = currency;
+    if (previous != null && previous != currency) {
+      _controller!.clearManualAccountFilter();
+    }
     _services = services;
   }
+
+  String? _currency;
 
   @override
   void dispose() {
