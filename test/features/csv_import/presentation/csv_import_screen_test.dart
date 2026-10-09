@@ -4,8 +4,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/money/money.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
@@ -19,9 +22,14 @@ const _header = 'Дата;Тип;Сумма;Категория;Подкатег�
 
 /// Настоящий план поверх заданных категорий и id операций; запись — в память.
 class _PlanningStore implements CsvImportStore {
-  _PlanningStore({this.categories = const [], this.liveIds = const {}});
+  _PlanningStore({
+    this.categories = const [],
+    this.liveIds = const {},
+    this.accounts = const [],
+  });
 
   final List<Category> categories;
+  final List<Account> accounts;
   final Set<String> liveIds;
   Object? writeError;
   Object? prepareError;
@@ -42,6 +50,7 @@ class _PlanningStore implements CsvImportStore {
       openingBalances: openingBalances,
       isKnownIconKey: (_) => true,
       categories: categories,
+      accounts: accounts,
       liveTransactionIds: liveIds,
       deletedTransactionIds: const {},
       ids: FakeIdGenerator(prefix: 'new'),
@@ -91,19 +100,19 @@ final _food = Category.topLevel(
 
 /// Открывает экран кнопкой поверх пустой страницы; результат экрана — в
 /// возвращённом списке (пусто, пока экран не закрыт).
-Future<List<int?>> _open(
+Future<List<CsvImportResult?>> _open(
   WidgetTester tester, {
   required String csv,
   required CsvImportStore store,
   List<int>? bytes,
 }) async {
-  final results = <int?>[];
+  final results = <CsvImportResult?>[];
   await tester.pumpWidget(
     MaterialApp(
       home: Builder(
         builder: (context) => TextButton(
           onPressed: () async {
-            final result = await Navigator.of(context).push<int>(
+            final result = await Navigator.of(context).push<CsvImportResult>(
               MaterialPageRoute(
                 builder: (_) => CsvImportScreen(
                   path: '/tmp/import.csv',
@@ -151,7 +160,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.written.single.transactions, hasLength(2));
-    expect(results, [2]);
+    expect(results, [const CsvImportResult(transactions: 2)]);
   });
 
   testWidgets('«Отмена» закрывает экран без записи', (tester) async {
@@ -274,7 +283,7 @@ void main() {
     store.writeError = null;
     await tester.tap(find.text(csvImportLoadButton));
     await tester.pumpAndSettle();
-    expect(results, [1]);
+    expect(results, [const CsvImportResult(transactions: 1)]);
   });
 
   testWidgets(
@@ -370,7 +379,7 @@ void main() {
 
       store.writeGate!.complete();
       await tester.pumpAndSettle();
-      expect(results, [1]);
+      expect(results, [const CsvImportResult(transactions: 1)]);
     });
 
     testWidgets('ошибки в файле объявляются', (tester) async {
@@ -425,6 +434,206 @@ void main() {
         csvImportWritingLabel,
         csvImportWriteFailedMessage,
       ]);
+    });
+  });
+
+  group('счета в предпросмотре (5.19)', () {
+    const header =
+        'Дата;Тип;Сумма;Валюта;Категория;Подкатегория;Счёт;ID счёта;'
+        'Значок категории;Значок подкатегории';
+    final nbsp = String.fromCharCode(0x00A0);
+    final minus = String.fromCharCode(0x2212);
+
+    String balance(String account, String amount, [String currency = '']) =>
+        '01.09.2026;Начальный остаток;$amount;$currency;;;$account;;;\n';
+
+    testWidgets(
+      'операции и счета: список по алфавиту, остаток в валюте счёта',
+      (tester) async {
+        await _open(
+          tester,
+          store: _PlanningStore(categories: [_food]),
+          csv:
+              '$header\n'
+              '${balance('Карта', '12000')}'
+              '${balance('Кредитка', '-1500')}'
+              '${balance('Кошелёк', '0,0015', 'BTC')}'
+              '04.10.2026;Расход;5;;Еда;;Наличные;;;\n',
+        );
+
+        expect(find.text('Будет добавлена 1 операция'), findsOneWidget);
+        expect(find.text(csvImportNewAccountsTitle), findsOneWidget);
+        final lines = [
+          'Карта (остаток 12${nbsp}000,00$nbsp₽)',
+          'Кошелёк (остаток 0,0015${nbsp}BTC)',
+          'Кредитка (остаток ${minus}1${nbsp}500,00$nbsp₽)',
+          'Наличные',
+        ];
+        for (final line in lines) {
+          expect(find.text(line), findsOneWidget, reason: line);
+        }
+        // По алфавиту: сверху вниз.
+        final tops = [
+          for (final l in lines) tester.getTopLeft(find.text(l)).dy,
+        ];
+        expect([...tops]..sort(), tops);
+      },
+    );
+
+    testWidgets('озвучка строки счёта через spokenMoney (П3)', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _open(
+        tester,
+        store: _PlanningStore(),
+        csv:
+            '$header\n'
+            '${balance('Карта', '12000')}'
+            '${balance('Кредитка', '-1500')}'
+            '${balance('Кошелёк', '0,0015', 'BTC')}'
+            '${balance('Наличные', '0')}',
+      );
+
+      for (final label in [
+        'Карта, остаток 12000 рублей',
+        'Кредитка, остаток минус 1500 рублей',
+        'Кошелёк, остаток 0,0015 биткоина',
+        'Наличные',
+      ]) {
+        expect(find.bySemanticsLabel(label), findsOneWidget, reason: label);
+      }
+      handle.dispose();
+    });
+
+    testWidgets('без счетов: заголовка счетов нет', (tester) async {
+      await _open(
+        tester,
+        store: _PlanningStore(),
+        csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
+      );
+
+      expect(find.text(csvImportNewAccountsTitle), findsNothing);
+    });
+
+    testWidgets('П4: только счета — главная строка, «Загрузить» видна', (
+      tester,
+    ) async {
+      final store = _PlanningStore();
+      final results = await _open(
+        tester,
+        store: store,
+        csv: '$header\n${balance('Карта', '100')}${balance('Наличные', '0')}',
+      );
+
+      expect(find.text('Будут созданы 2 счёта'), findsOneWidget);
+      expect(find.text(csvImportNothingToAddMessage), findsNothing);
+
+      await tester.tap(find.text(csvImportLoadButton));
+      await tester.pumpAndSettle();
+      expect(results, [const CsvImportResult(transactions: 0, accounts: 2)]);
+      expect(store.written.single.accountsToCreate, hasLength(2));
+    });
+
+    testWidgets('П4: один счёт — «Будет создан 1 счёт»', (tester) async {
+      await _open(
+        tester,
+        store: _PlanningStore(),
+        csv: '$header\n${balance('Карта', '100')}',
+      );
+      expect(find.text('Будет создан 1 счёт'), findsOneWidget);
+    });
+
+    testWidgets(
+      'счёт уже есть: начальный остаток пропущен, «Нечего добавлять»',
+      (tester) async {
+        final card = Account(
+          id: 'acc-card',
+          name: 'Карта',
+          iconKey: 'other',
+          openingBalance: Money.fromMinor(0, 'RUB'),
+          sortOrder: 0,
+          currencyDigits: 2,
+        );
+        await _open(
+          tester,
+          store: _PlanningStore(accounts: [card]),
+          csv: '$header\n${balance('Карта', '12000')}',
+        );
+
+        expect(
+          csvImportNothingToAddMessage,
+          'Нечего добавлять: всё из файла уже есть в приложении',
+        );
+        expect(find.text(csvImportNothingToAddMessage), findsOneWidget);
+        // Счётчик «Пропущено» для начальных остатков (П6) считает план; он
+        // пока их не считает (5.18), поэтому здесь не проверяется.
+        expect(find.text(csvImportLoadButton), findsNothing);
+      },
+    );
+
+    testWidgets('П7: объявление с операциями и счетами', (tester) async {
+      final announcements = _captureAnnouncements(tester);
+      await _open(
+        tester,
+        store: _PlanningStore(categories: [_food]),
+        csv:
+            '$header\n'
+            '${balance('Карта', '100')}'
+            '04.10.2026;Расход;5;;Еда;;Наличные;;;\n',
+      );
+
+      expect(announcements, [
+        'Будет добавлена 1 операция. Будут созданы 2 счёта: Карта, Наличные',
+      ]);
+    });
+
+    testWidgets('П7: без операций, больше пяти счетов — «и ещё N»', (
+      tester,
+    ) async {
+      final announcements = _captureAnnouncements(tester);
+      await _open(
+        tester,
+        store: _PlanningStore(),
+        csv:
+            '$header\n'
+            '${[for (final n in 'ВАБГДЕЖ'.split('')) balance('Счёт $n', '1')].join()}'
+            '${balance('Яблоко', '1')}',
+      );
+
+      expect(announcements, [
+        'Будет создано 8 счетов: '
+            'Счёт А, Счёт Б, Счёт В, Счёт Г, Счёт Д и ещё 3',
+      ]);
+    });
+
+    testWidgets('360 dp и шрифт 200 %: без переполнения', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: CsvImportScreen(
+            path: '/tmp/import.csv',
+            clock: FixedClock(DateTime(2026, 10, 7, 12)),
+            store: _PlanningStore(),
+            categories: Stream.value(const []),
+            readBytes: (_) async => utf8.encode(
+              '$header\n'
+              '${balance('Очень длинное название накопления', '12000')}'
+              '${balance('Кошелёк', '0,0015', 'BTC')}',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(csvImportLoadButton), findsOneWidget);
+      expect(find.textContaining('Кошелёк'), findsOneWidget);
     });
   });
 }

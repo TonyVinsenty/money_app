@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
@@ -17,7 +18,7 @@ Widget _app({
   ShareFile? shareFile,
   DateOnly? lastExportDay,
   VoidCallback? onExportShared,
-  Future<int?> Function()? onImportCsv,
+  Future<CsvImportResult?> Function()? onImportCsv,
   ValueChanged<CurrencyInfo>? onMainCurrency,
   double textScale = 1,
   bool screenReader = false,
@@ -465,7 +466,9 @@ void main() {
     });
 
     testWidgets('загружено: «Загружены 3 операции»', (tester) async {
-      await tester.pumpWidget(_app(onImportCsv: () async => 3));
+      await tester.pumpWidget(
+        _app(onImportCsv: () async => const CsvImportResult(transactions: 3)),
+      );
       await tester.tap(find.text(importCsvItemLabel));
       await tester.pumpAndSettle();
 
@@ -473,7 +476,9 @@ void main() {
     });
 
     testWidgets('итог без скринридера исчезает сам', (tester) async {
-      await tester.pumpWidget(_app(onImportCsv: () async => 3));
+      await tester.pumpWidget(
+        _app(onImportCsv: () async => const CsvImportResult(transactions: 3)),
+      );
       await tester.tap(find.text(importCsvItemLabel));
       await tester.pumpAndSettle();
 
@@ -486,7 +491,10 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _app(onImportCsv: () async => 3, screenReader: true),
+        _app(
+          onImportCsv: () async => const CsvImportResult(transactions: 3),
+          screenReader: true,
+        ),
       );
       await tester.tap(find.text(importCsvItemLabel));
       await tester.pumpAndSettle();
@@ -507,7 +515,7 @@ void main() {
       await tester.pumpWidget(
         _app(
           onImportCsv: () async {
-            if (++calls == 1) return 3;
+            if (++calls == 1) return const CsvImportResult(transactions: 3);
             throw PlatformException(code: 'busy');
           },
           screenReader: true,
@@ -535,7 +543,7 @@ void main() {
     testWidgets('пока идёт загрузка, второе нажатие ничего не делает', (
       tester,
     ) async {
-      final done = Completer<int?>();
+      final done = Completer<CsvImportResult?>();
       var calls = 0;
       await tester.pumpWidget(
         _app(
@@ -564,6 +572,31 @@ void main() {
       expect(importDoneMessage(3), 'Загружены 3 операции');
       expect(importDoneMessage(5), 'Загружено 5 операций');
       expect(importDoneMessage(1234), 'Загружены 1${nbsp}234 операции');
+    });
+
+    test('итог со счетами (П8)', () {
+      String message(int tx, int acc) =>
+          importResultMessage(CsvImportResult(transactions: tx, accounts: acc));
+      expect(message(5, 2), 'Загружено 5 операций, создано 2 счёта');
+      expect(message(1, 1), 'Загружена 1 операция, создан 1 счёт');
+      expect(message(3, 5), 'Загружены 3 операции, создано 5 счетов');
+      expect(message(0, 1), 'Создан 1 счёт');
+      expect(message(0, 2), 'Созданы 2 счёта');
+      expect(message(0, 5), 'Создано 5 счетов');
+      expect(message(5, 0), 'Загружено 5 операций');
+    });
+
+    testWidgets('только счета: SnackBar «Созданы 2 счёта»', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          onImportCsv: () async =>
+              const CsvImportResult(transactions: 0, accounts: 2),
+        ),
+      );
+      await tester.tap(find.text(importCsvItemLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Созданы 2 счёта'), findsOneWidget);
     });
   });
 }

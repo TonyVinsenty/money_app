@@ -20,6 +20,7 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
 import 'package:money_app/features/categories/presentation/category_form_screen.dart';
 import 'package:money_app/features/categories/presentation/subcategories_screen.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/presentation/csv_import_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -426,7 +427,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
               'CsvImportRouteArguments (путь к файлу и сервисы)',
         );
       }
-      return MaterialPageRoute<int>(
+      return MaterialPageRoute<CsvImportResult>(
         settings: settings,
         builder: (_) => CsvImportScreen(
           path: arguments.path,

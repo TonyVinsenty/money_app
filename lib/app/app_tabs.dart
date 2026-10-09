@@ -18,6 +18,7 @@ import 'package:money_app/features/analytics/presentation/analytics_controller.d
 import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/csv_import/presentation/pick_csv_file.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
 import 'package:money_app/features/home/presentation/home_action_bar.dart';
@@ -74,14 +75,17 @@ class SettingsTab extends StatelessWidget {
   /// Окно выбора файла для загрузки из CSV; в тестах — фейк.
   final PickFile pickFile;
 
-  /// Выбор файла → экран «Загрузка из CSV» → число добавленных операций или
-  /// `null`. Копия файла удаляется после закрытия экрана.
-  Future<int?> _importCsv(BuildContext context, AppServices services) async {
+  /// Выбор файла → экран «Загрузка из CSV» → итог загрузки или `null`.
+  /// Копия файла удаляется после закрытия экрана.
+  Future<CsvImportResult?> _importCsv(
+    BuildContext context,
+    AppServices services,
+  ) async {
     final navigator = Navigator.of(context);
     final path = await pickFile();
     if (path == null) return null;
     try {
-      return await navigator.pushNamed<int>(
+      return await navigator.pushNamed<CsvImportResult>(
         AppRoutes.csvImport,
         arguments: CsvImportRouteArguments(
           path: path,

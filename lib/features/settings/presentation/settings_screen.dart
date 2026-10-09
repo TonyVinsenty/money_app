@@ -7,6 +7,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/currency_picker.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
 /// Подписи вариантов темы.
@@ -62,6 +63,22 @@ String importDoneMessage(int count) {
   final verb = pluralRu(count, 'Загружена', 'Загружены', 'Загружено');
   final noun = pluralRu(count, 'операция', 'операции', 'операций');
   return '$verb ${_countFormat.format(count)} $noun';
+}
+
+/// Итог загрузки со счетами: «Загружено 5 операций, создано 2 счёта»; без
+/// операций — «Создан 1 счёт», «Созданы 2 счёта», «Создано 5 счетов»; без
+/// счетов — как [importDoneMessage].
+String importResultMessage(CsvImportResult result) {
+  final accounts = result.accounts;
+  if (accounts == 0) return importDoneMessage(result.transactions);
+  final noun = pluralRu(accounts, 'счёт', 'счёта', 'счетов');
+  final count = _countFormat.format(accounts);
+  if (result.transactions == 0) {
+    final verb = pluralRu(accounts, 'Создан', 'Созданы', 'Создано');
+    return '$verb $count $noun';
+  }
+  final verb = pluralRu(accounts, 'создан', 'создано', 'создано');
+  return '${importDoneMessage(result.transactions)}, $verb $count $noun';
 }
 
 final NumberFormat _countFormat = NumberFormat.decimalPattern('ru');
@@ -122,7 +139,7 @@ class SettingsScreen extends StatefulWidget {
   /// Выбор файла и загрузка из него. Возвращает число добавленных операций
   /// или `null`, если ничего не загружено (отмена). Бросает исключение, если
   /// файл не удалось открыть.
-  final Future<int?> Function() onImportCsv;
+  final Future<CsvImportResult?> Function() onImportCsv;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -178,14 +195,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _importCsv() async {
     setState(() => _importing = true);
     try {
-      final int? added;
+      final CsvImportResult? added;
       try {
         added = await widget.onImportCsv();
       } on Exception {
         _showMessage(importOpenFailedMessage);
         return;
       }
-      if (added != null) _showMessage(importDoneMessage(added));
+      if (added != null) _showMessage(importResultMessage(added));
     } finally {
       if (mounted) setState(() => _importing = false);
     }

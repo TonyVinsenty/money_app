@@ -1,9 +1,11 @@
 import 'package:intl/intl.dart';
 import 'package:money_app/core/format/money_format.dart';
+import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -32,8 +34,12 @@ const csvImportErrorsIntro =
 const csvImportNoRowsMessage =
     'В файле нет операций: есть только строка с названиями колонок';
 const csvImportNothingToAddMessage =
-    'Нечего добавлять: все операции из файла уже есть в приложении';
+    'Нечего добавлять: всё из файла уже есть в приложении';
 const csvImportNewCategoriesTitle = 'Будут созданы категории';
+const csvImportNewAccountsTitle = 'Будут созданы счета';
+
+/// Сколько имён счетов называем в объявлении скринридеру; остальные — «и ещё N».
+const csvImportAnnouncedAccountsLimit = 5;
 
 /// Сколько ошибок строк показывать; остальные — одной строкой «… и ещё K».
 const csvImportShownErrorsLimit = 20;
@@ -59,6 +65,59 @@ String csvImportWillAdd(int count) {
   );
   final noun = pluralRu(count, 'операция', 'операции', 'операций');
   return '$verb ${formatCount(count)} $noun';
+}
+
+/// «Будет создан 1 счёт», «Будут созданы 2 счёта», «Будет создано 5 счетов».
+String csvImportWillCreateAccounts(int count) {
+  final verb = pluralRu(
+    count,
+    'Будет создан',
+    'Будут созданы',
+    'Будет создано',
+  );
+  final noun = pluralRu(count, 'счёт', 'счёта', 'счетов');
+  return '$verb ${formatCount(count)} $noun';
+}
+
+/// Счета по алфавиту (без учёта регистра).
+List<Account> csvImportSortedAccounts(List<Account> accounts) =>
+    [...accounts]
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+/// Строка счёта в предпросмотре: «Карта (остаток 12 000,00 ₽)»; без остатка
+/// (нулевой) — просто имя. Остаток — в валюте счёта.
+String csvImportAccountLine(Account account) {
+  final balance = account.openingBalance;
+  if (balance.minorUnits == 0) return account.name;
+  final text = formatMoney(balance, currency: account.currencyInfo);
+  return '${account.name} (остаток $text)';
+}
+
+/// Та же строка для скринридера: «Карта, остаток 12000 рублей».
+String csvImportAccountSpoken(Account account) {
+  final balance = account.openingBalance;
+  if (balance.minorUnits == 0) return account.name;
+  final text = spokenMoney(balance, currency: account.currencyInfo);
+  return '${account.name}, остаток $text';
+}
+
+/// Объявление скринридеру о предпросмотре: «Будет добавлено 5 операций. Будут
+/// созданы 2 счёта: Карта, Наличные». Без операций — только вторая фраза;
+/// больше [csvImportAnnouncedAccountsLimit] счетов — «…, Д, Е и ещё 3».
+String csvImportPreviewAnnouncement({
+  required int transactions,
+  required List<Account> accounts,
+}) {
+  final parts = <String>[];
+  if (transactions > 0) parts.add(csvImportWillAdd(transactions));
+  if (accounts.isNotEmpty) {
+    final names = [for (final a in csvImportSortedAccounts(accounts)) a.name];
+    final shown = names.take(csvImportAnnouncedAccountsLimit).join(', ');
+    final rest = names.length - csvImportAnnouncedAccountsLimit;
+    final tail = rest > 0 ? ' и ещё ${formatCount(rest)}' : '';
+    parts.add('${csvImportWillCreateAccounts(accounts.length)}: $shown$tail');
+  }
+  return parts.join('. ');
 }
 
 String csvImportSkippedExisting(int count) =>

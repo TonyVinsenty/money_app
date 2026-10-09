@@ -6,6 +6,7 @@ import 'package:flutter/semantics.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
@@ -21,8 +22,8 @@ Future<List<int>> _readFile(String path) async => File(path).readAsBytesSync();
 /// Экран «Загрузка из CSV» (ADR 0009, п. 6): проверяет копию выбранного файла,
 /// показывает предпросмотр или ошибки и по кнопке «Загрузить» пишет всё сразу.
 ///
-/// Закрывается с числом добавленных операций или с `null`, если ничего не
-/// загружено. Копию файла удаляет тот, кто открыл экран.
+/// Закрывается с [CsvImportResult] (сколько операций и счетов добавлено) или с
+/// `null`, если ничего не загружено. Копию файла удаляет тот, кто открыл экран.
 class CsvImportScreen extends StatefulWidget {
   const CsvImportScreen({
     required this.path,
@@ -115,7 +116,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             view = _Preview(
               plan,
               csvImportNewCategoryGroups(plan.categoriesToCreate, existing),
-              noRows: rows.isEmpty,
+              noRows: rows.isEmpty && openingBalances.isEmpty,
             );
           }
       }
@@ -132,10 +133,17 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     _Checking() => csvImportCheckingLabel,
     _Failed(:final message) => message,
     _RowErrors() => csvImportErrorsIntro,
-    _Preview(:final plan, :final noRows) when plan.transactions.isEmpty =>
+    _Preview(:final plan, :final noRows) when _nothingToWrite(plan) =>
       noRows ? csvImportNoRowsMessage : csvImportNothingToAddMessage,
-    _Preview(:final plan) => csvImportWillAdd(plan.transactions.length),
+    _Preview(:final plan) => csvImportPreviewAnnouncement(
+      transactions: plan.transactions.length,
+      accounts: plan.accountsToCreate,
+    ),
   };
+
+  /// Ни операций, ни счетов к созданию: кнопки «Загрузить» нет.
+  static bool _nothingToWrite(CsvImportPlan plan) =>
+      plan.transactions.isEmpty && plan.accountsToCreate.isEmpty;
 
   /// Содержимое экрана сменилось целиком, а фокус VoiceOver и TalkBack
   /// остался на прежнем месте: говорим, что теперь на экране.
@@ -180,7 +188,14 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
       }
       return;
     }
-    if (mounted) Navigator.of(context).pop(plan.transactions.length);
+    if (mounted) {
+      Navigator.of(context).pop(
+        CsvImportResult(
+          transactions: plan.transactions.length,
+          accounts: plan.accountsToCreate.length,
+        ),
+      );
+    }
   }
 
   @override
@@ -199,7 +214,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
         },
         bottomNavigationBar: switch (view) {
           _Checking() => null,
-          _Preview(:final plan) when plan.transactions.isNotEmpty => _buttons(
+          _Preview(:final plan) when !_nothingToWrite(plan) => _buttons(
             context,
             plan,
           ),
@@ -217,21 +232,40 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
         csvImportSkippedExisting(plan.skippedExisting),
       if (plan.skippedDeleted > 0) csvImportSkippedDeleted(plan.skippedDeleted),
     ];
-    if (plan.transactions.isEmpty) {
+    if (_nothingToWrite(plan)) {
       return _Message([
         view.noRows ? csvImportNoRowsMessage : csvImportNothingToAddMessage,
         ...skipped,
       ]);
     }
+    final accounts = csvImportSortedAccounts(plan.accountsToCreate);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          csvImportWillAdd(plan.transactions.length),
+          plan.transactions.isEmpty
+              ? csvImportWillCreateAccounts(accounts.length)
+              : csvImportWillAdd(plan.transactions.length),
           style: textTheme.titleMedium,
         ),
         for (final line in skipped)
           Padding(padding: const EdgeInsets.only(top: 8), child: Text(line)),
+        if (accounts.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Semantics(
+            header: true,
+            child: Text(csvImportNewAccountsTitle, style: textTheme.titleSmall),
+          ),
+          for (final account in accounts)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(top: 8, start: 16),
+              child: Semantics(
+                label: csvImportAccountSpoken(account),
+                excludeSemantics: true,
+                child: Text(csvImportAccountLine(account)),
+              ),
+            ),
+        ],
         if (view.categoryGroups.isNotEmpty) ...[
           const SizedBox(height: 24),
           Semantics(
