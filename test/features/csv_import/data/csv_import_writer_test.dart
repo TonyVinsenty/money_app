@@ -255,7 +255,8 @@ void main() {
 
     expect(again.transactions, isEmpty);
     expect(again.categoriesToCreate, isEmpty);
-    expect(again.skippedExisting, 3);
+    // 3 операции и 3 начальных остатка счетов (5.18b, П6).
+    expect(again.skippedExisting, 6);
     expect(await target.categoryCount(), 4);
     expect(await target.transactionCount(), 3);
     expect(await target.export(), afterFirst);

@@ -503,6 +503,119 @@ void main() {
       expect(plan.accountsToCreate.single.id, 'new-1');
     });
 
+    group('правки ревью 5.18b', () {
+      const idA = 'aaaaaaaa-0000-4000-8000-000000000001';
+      const idB = 'bbbbbbbb-0000-4000-8000-000000000002';
+
+      test('архивная и активная «Карта» с разными id: два счёта', () {
+        final plan = _plan(
+          [_accRow(accountId: idA), _accRow(accountId: idB)],
+          balances: [
+            _ob('Карта', id: idA, minor: 100),
+            _ob('Карта', id: idB, line: 3, minor: 250),
+          ],
+        );
+        expect(plan.errors, isEmpty);
+        expect(plan.accountsToCreate.map((a) => (a.id, a.name)), [
+          (idA, 'Карта'),
+          (idB, 'Карта (2)'),
+        ]);
+        expect(plan.accountsToCreate.map((a) => a.openingBalance.minorUnits), [
+          100,
+          250,
+        ]);
+        expect(plan.transactions.map((t) => t.accountId), [idA, idB]);
+      });
+
+      test('повторный импорт того же файла ничего не создаёт', () {
+        final rows = [_accRow(accountId: idA), _accRow(accountId: idB)];
+        final balances = [
+          _ob('Карта', id: idA),
+          _ob('Карта', id: idB, line: 3),
+        ];
+        final first = _plan(rows, balances: balances);
+        final second = _plan(
+          rows,
+          balances: balances,
+          accounts: first.accountsToCreate,
+        );
+        expect(second.accountsToCreate, isEmpty);
+        expect(second.errors, isEmpty);
+        expect(second.skippedExisting, 2);
+        expect(second.transactions.map((t) => t.accountId), [idA, idB]);
+      });
+
+      test('имя на 40 символов получает суффикс и не длиннее 40', () {
+        final name = 'Я' * 40;
+        final plan = _plan(
+          const [],
+          balances: [
+            _ob(name, id: idA),
+            _ob(name, id: idB, line: 3),
+          ],
+        );
+        final renamed = plan.accountsToCreate[1].name;
+        expect(renamed, '${'Я' * 36} (2)');
+        expect(renamed.runes.length, 40);
+      });
+
+      test('«Карта (2)» занята - «Карта (3)»', () {
+        final plan = _plan(
+          const [],
+          balances: [_ob('Карта', id: idB)],
+          accounts: [_account('x', 'Карта'), _account('y', 'карта (2)')],
+        );
+        expect(plan.accountsToCreate.single.name, 'Карта (3)');
+      });
+
+      test('два остатка с одним id - Т11, с разными id и именем - нет', () {
+        final dup = _plan(
+          const [],
+          balances: [
+            _ob('Карта', id: idA, line: 5),
+            _ob('Другое имя', id: idA, line: 9),
+          ],
+        );
+        final error = dup.errors.single as CsvDuplicateOpeningBalance;
+        expect((error.line, error.firstLine), (9, 5));
+      });
+
+      test('пропущенный начальный остаток входит в skippedExisting', () {
+        final plan = _plan(
+          const [],
+          balances: [
+            _ob('Карта', id: 'acc-1'),
+            _ob('Наличные', line: 3),
+            _ob('Новый', line: 4),
+          ],
+          accounts: [_account('acc-1', 'Карта'), _account('b', 'Наличные')],
+        );
+        expect(plan.skippedExisting, 2);
+        expect(plan.accountsToCreate.single.name, 'Новый');
+      });
+
+      test('операция с неизвестным id счёта без имени - ошибка строки', () {
+        final plan = _plan([_accRow(accountId: idA)]);
+        final error = plan.errors.single as CsvAccountIdNotFound;
+        expect((error.line, error.value), (7, idA));
+        expect(plan.transactions, isEmpty);
+        expect(plan.accountsToCreate, isEmpty);
+      });
+
+      test('«1,5000» у известной своей валюты с 2 знаками - 1,50', () {
+        final plan = _plan(
+          const [],
+          balances: [
+            _ob('Новый', minor: 15000, currency: 'XYZ', customDigits: 4),
+            _ob('Ещё', minor: 15001, currency: 'XYZ', customDigits: 4, line: 3),
+          ],
+          accounts: [_account('a', 'Старый', currency: 'XYZ', digits: 2)],
+        );
+        expect(plan.accountsToCreate.single.openingBalance.minorUnits, 150);
+        expect(plan.errors.single.line, 3);
+      });
+    });
+
     test('архивный счёт того же имени не мешает создать новый', () {
       final plan = _plan(
         const [],

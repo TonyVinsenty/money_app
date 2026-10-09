@@ -564,11 +564,30 @@ void main() {
           'Нечего добавлять: всё из файла уже есть в приложении',
         );
         expect(find.text(csvImportNothingToAddMessage), findsOneWidget);
-        // Счётчик «Пропущено» для начальных остатков (П6) считает план; он
-        // пока их не считает (5.18), поэтому здесь не проверяется.
+        // П6: пропущенный начальный остаток виден в счётчике.
+        expect(find.text(csvImportSkippedExisting(1)), findsOneWidget);
         expect(find.text(csvImportLoadButton), findsNothing);
       },
     );
+
+    testWidgets('одноимённые счета с разными id: в списке «Карта (2)»', (
+      tester,
+    ) async {
+      const idA = 'aaaaaaaa-0000-4000-8000-000000000001';
+      const idB = 'bbbbbbbb-0000-4000-8000-000000000002';
+      await _open(
+        tester,
+        store: _PlanningStore(),
+        csv:
+            '$header\n'
+            '01.09.2026;Начальный остаток;100;;;;Карта;$idA;;\n'
+            '01.09.2026;Начальный остаток;200;;;;Карта;$idB;;\n',
+      );
+
+      expect(find.text('Будут созданы 2 счёта'), findsOneWidget);
+      expect(find.textContaining('Карта (остаток 100,00'), findsOneWidget);
+      expect(find.textContaining('Карта (2) (остаток 200,00'), findsOneWidget);
+    });
 
     testWidgets('П7: объявление с операциями и счетами', (tester) async {
       final announcements = _captureAnnouncements(tester);

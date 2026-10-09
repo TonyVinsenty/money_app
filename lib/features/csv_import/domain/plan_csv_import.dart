@@ -103,9 +103,12 @@ CsvImportPlan planCsvImport({
   final transactions = <Transaction>[];
   final errors = <CsvRowError>[];
   final accountBook = _AccountBook(accounts, deletedAccountIds, ids);
-  _planOpeningBalances(openingBalances, accountBook, errors);
+  var skippedExisting = _planOpeningBalances(
+    openingBalances,
+    accountBook,
+    errors,
+  );
   final fingerprintCounts = <String, int>{};
-  var skippedExisting = 0;
   var skippedDeleted = 0;
 
   for (final row in rows) {
@@ -175,6 +178,10 @@ CsvImportPlan planCsvImport({
     // Счёт: найденный или будущий (его создадут рублёвым, п. 16.11).
     final accountName = row.accountName;
     var account = accountBook.find(row.accountId, accountName);
+    if (account == null && accountName == null && row.accountId != null) {
+      errors.add(CsvAccountIdNotFound(row.line, row.accountId!));
+      rowFailed = true;
+    }
     final accountCurrency = account?.currency ?? rubCurrencyCode;
     if ((account != null || accountName != null) &&
         accountCurrency != row.amount.currency) {
@@ -300,6 +307,32 @@ final class _AccountBook {
     return null;
   }
 
+  /// Счёт для строки `Начальный остаток`: если есть `ID счёта`, ищем только по
+  /// нему (одноимённые счета с разными id — разные счета), иначе по имени.
+  Account? findForOpeningBalance(String? id, String name) =>
+      id == null ? find(null, name) : _byId[id.toLowerCase()];
+
+  /// Имя, свободное среди не архивных счетов: «Карта», «Карта (2)», «Карта (3)»…
+  /// Основа обрезается, чтобы имя с суффиксом влезло в лимит.
+  String _freeName(String name) {
+    bool isFree(String candidate) {
+      final key = accountNameKey(candidate);
+      return !_all.any((a) => !a.isArchived && accountNameKey(a.name) == key);
+    }
+
+    if (isFree(name)) return name;
+    for (var n = 2; ; n++) {
+      final suffix = ' ($n)';
+      final room = accountNameMaxLength - suffix.length;
+      final runes = name.runes.toList();
+      final base = runes.length > room
+          ? String.fromCharCodes(runes.take(room)).trimRight()
+          : name;
+      final candidate = '$base$suffix';
+      if (isFree(candidate)) return candidate;
+    }
+  }
+
   Account create({
     required String? fromFile,
     required String name,
@@ -310,7 +343,7 @@ final class _AccountBook {
     final id = _freeId(fromFile, _taken, _ids);
     final account = Account(
       id: id,
-      name: name,
+      name: _freeName(name),
       iconKey: csvImportAccountIconKey,
       openingBalance: balance,
       sortOrder: _nextSort++,
@@ -325,29 +358,29 @@ final class _AccountBook {
 }
 
 /// Строки `Начальный остаток`: новые счета с остатком; существующие счета не
-/// меняются (остаток в базе не перезаписывается).
-void _planOpeningBalances(
+/// меняются (остаток в базе не перезаписывается). Возвращает, сколько строк
+/// пропущено, потому что счёт уже есть.
+int _planOpeningBalances(
   List<ParsedOpeningBalance> balances,
   _AccountBook book,
   List<CsvRowError> errors,
 ) {
+  var skipped = 0;
   final seenLines = <String, int>{};
   for (final ob in balances) {
-    final keys = [
-      if (ob.accountId != null) 'id:${ob.accountId!.toLowerCase()}',
-      'name:${accountNameKey(ob.accountName)}',
-    ];
-    final first = keys.map((k) => seenLines[k]).nonNulls.firstOrNull;
+    // Дубль — по ID счёта; по имени — только у строк без id.
+    final key = ob.accountId != null
+        ? 'id:${ob.accountId!.toLowerCase()}'
+        : 'name:${accountNameKey(ob.accountName)}';
+    final first = seenLines[key];
     if (first != null) {
       errors.add(CsvDuplicateOpeningBalance(ob.line, ob.accountName, first));
       continue;
     }
-    for (final k in keys) {
-      seenLines[k] = ob.line;
-    }
+    seenLines[key] = ob.line;
 
     final currency = ob.amount.currency;
-    final found = book.find(ob.accountId, ob.accountName);
+    final found = book.findForOpeningBalance(ob.accountId, ob.accountName);
     if (found != null) {
       if (found.currency != currency) {
         errors.add(
@@ -358,6 +391,8 @@ void _planOpeningBalances(
             found.currency,
           ),
         );
+      } else {
+        skipped++;
       }
       continue;
     }
@@ -371,27 +406,41 @@ void _planOpeningBalances(
         fileDigits != null &&
         knownDigits != fileDigits) {
       // Сумма разобрана по знакам из файла, а у валюты знаки уже заданы.
-      final scale = _pow10(knownDigits - fileDigits);
-      final tooPrecise = knownDigits < fileDigits;
-      if (tooPrecise || minor.abs() > maxInputMinorUnits ~/ scale) {
+      final AmountParseFailure? failure;
+      if (knownDigits < fileDigits) {
+        // Лишние нули справа («1,5000» при 2 знаках) — не ошибка.
+        final cut = _pow10(fileDigits - knownDigits);
+        if (minor % cut == 0) {
+          minor ~/= cut;
+          failure = null;
+        } else {
+          failure = AmountParseFailure.tooManyDecimals;
+        }
+      } else {
+        final scale = _pow10(knownDigits - fileDigits);
+        if (minor.abs() > maxInputMinorUnits ~/ scale) {
+          failure = AmountParseFailure.tooLarge;
+        } else {
+          minor *= scale;
+          failure = null;
+        }
+      }
+      if (failure != null) {
         final text = formatCsvAmount(
-          Money.fromMinor(minor.abs(), currency),
+          Money.fromMinor(ob.amount.minorUnits.abs(), currency),
           currency: currencyInfoFor(currency, digits: fileDigits),
         );
         errors.add(
           CsvInvalidAmount(
             ob.line,
-            minor < 0 ? '-$text' : text,
-            tooPrecise
-                ? AmountParseFailure.tooManyDecimals
-                : AmountParseFailure.tooLarge,
+            ob.amount.minorUnits < 0 ? '-$text' : text,
+            failure,
             currencyCode: currency,
             currencyDigits: knownDigits,
           ),
         );
         continue;
       }
-      minor *= scale;
     }
     book.create(
       fromFile: ob.accountId,
@@ -401,6 +450,7 @@ void _planOpeningBalances(
       createdAt: ob.occurredAt,
     );
   }
+  return skipped;
 }
 
 int _pow10(int n) {

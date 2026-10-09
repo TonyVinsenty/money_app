@@ -137,6 +137,11 @@ final class CsvAccountCurrencyMismatch extends CsvRowError {
   final String accountCurrency;
 }
 
+/// `ID счёта` ([value]) не найден в базе, а имя счёта в строке не указано.
+final class CsvAccountIdNotFound extends CsvRowError {
+  const CsvAccountIdNotFound(super.line, super.value);
+}
+
 /// Категория пустая.
 final class CsvEmptyCategory extends CsvRowError {
   const CsvEmptyCategory(super.line, super.value);

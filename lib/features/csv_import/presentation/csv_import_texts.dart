@@ -238,6 +238,9 @@ String _rowErrorText(CsvRowError error) {
       'валюта ${error.value} не совпадает с валютой счёта '
           '${_quoted(accountName)} '
           '— у него $accountCurrency',
+    CsvAccountIdNotFound() =>
+      'счёт с ID «${error.value}» не найден. '
+          'Укажите имя счёта в колонке «$csvColumnAccount»',
     CsvEmptyCategory() => 'не указана категория',
     CsvCategoryTooLong() => 'категория длиннее $categoryNameMaxLength символов',
     CsvSubcategoryTooLong() =>
