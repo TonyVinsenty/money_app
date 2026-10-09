@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:money_app/core/csv/csv_codec.dart';
 import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
@@ -27,6 +29,10 @@ final class ParsedCsvRow {
     required this.transactionId,
     required this.categoryId,
     required this.subcategoryId,
+    this.accountName,
+    this.accountId,
+    this.categoryIconKey,
+    this.subcategoryIconKey,
   });
 
   /// Номер строки как в Excel (заголовки — 1).
@@ -45,6 +51,42 @@ final class ParsedCsvRow {
   final String? transactionId;
   final String? categoryId;
   final String? subcategoryId;
+
+  /// Имя счёта из колонки `Счёт`; `null`, если ячейка пуста (нет колонки).
+  final String? accountName;
+  final String? accountId;
+
+  /// Ключи значков как в файле (обрезаны по краям); `null` — значка нет.
+  final String? categoryIconKey;
+  final String? subcategoryIconKey;
+}
+
+/// Строка `Начальный остаток`, прошедшая все проверки (ADR 0010, п. 10).
+final class ParsedOpeningBalance {
+  const ParsedOpeningBalance({
+    required this.line,
+    required this.day,
+    required this.occurredAt,
+    required this.accountName,
+    required this.accountId,
+    required this.amount,
+    required this.customDigits,
+  });
+
+  final int line;
+  final DateOnly day;
+
+  /// Момент создания счёта в UTC, согласованный с [day].
+  final DateTime occurredAt;
+  final String accountName;
+  final String? accountId;
+
+  /// Остаток со знаком (долг — отрицательный), в валюте строки.
+  final Money amount;
+
+  /// Для кода валюты не из каталога — число цифр после запятой в сумме
+  /// (0–8); для валюты каталога `null` (знаки берутся из каталога).
+  final int? customDigits;
 }
 
 /// Итог разбора файла.
@@ -62,9 +104,17 @@ final class CsvImportFileFailed extends CsvImportParseResult {
 /// Файл прочитан: [rows] — хорошие строки, [errors] — все найденные ошибки.
 /// Если [errors] не пуст, загружать нельзя ничего (ADR 0009, п. 6).
 final class CsvImportParsed extends CsvImportParseResult {
-  const CsvImportParsed({required this.rows, required this.errors});
+  const CsvImportParsed({
+    required this.rows,
+    required this.errors,
+    this.openingBalances = const [],
+  });
 
+  /// Доходы и расходы.
   final List<ParsedCsvRow> rows;
+
+  /// Строки `Начальный остаток`.
+  final List<ParsedOpeningBalance> openingBalances;
   final List<CsvRowError> errors;
 }
 
@@ -122,6 +172,7 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
   }
 
   final rows = <ParsedCsvRow>[];
+  final openingBalances = <ParsedOpeningBalance>[];
   final errors = <CsvRowError>[];
   final seenIds = <String>{};
   for (var i = 1; i < table.length; i++) {
@@ -138,10 +189,20 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
       return index == null || index >= record.length ? '' : record[index];
     }
 
+    final typeText = field(csvColumnType).trim().toLowerCase();
+    if (typeText == csvTypeOpeningBalance.toLowerCase()) {
+      final balance = _parseOpeningBalance(i + 1, field, clock, errors);
+      if (balance != null) openingBalances.add(balance);
+      continue;
+    }
     final row = _parseRow(i + 1, field, clock, seenIds, errors);
     if (row != null) rows.add(row);
   }
-  return CsvImportParsed(rows: rows, errors: errors);
+  return CsvImportParsed(
+    rows: rows,
+    errors: errors,
+    openingBalances: openingBalances,
+  );
 }
 
 /// Разбирает одну строку; ошибки дописывает в [errors]. Вернёт строку,
@@ -172,26 +233,44 @@ ParsedCsvRow? _parseRow(
   };
   if (type == null) errors.add(CsvInvalidType(line, typeText));
 
+  // \u0412\u0430\u043b\u044e\u0442\u0430 \u0441\u0442\u0440\u043e\u043a\u0438: \u043f\u0443\u0441\u0442\u043e \u2014 \u0440\u0443\u0431\u043b\u044c, \u0438\u043d\u0430\u0447\u0435 \u043e\u0431\u044b\u0447\u043d\u0430\u044f \u0432\u0430\u043b\u044e\u0442\u0430 \u043a\u0430\u0442\u0430\u043b\u043e\u0433\u0430 (\u043f. 16.11).
+  final currencyText = field(csvColumnCurrency).trim();
+  final currencyCode = currencyText.isEmpty
+      ? rubCurrencyCode
+      : currencyText.toUpperCase();
+  final currencyInfo = catalogCurrency(currencyCode);
+  final currencyOk =
+      currencyInfo != null && currencyInfo.kind == CurrencyKind.fiat;
+  if (!currencyOk) errors.add(CsvUnsupportedCurrency(line, currencyText));
+
   final amountText = field(csvColumnAmount).trim();
   final hasMinus =
       amountText.startsWith('-') || amountText.startsWith('\u2212');
-  final amountResult = parseAmount(
-    hasMinus ? amountText.substring(1) : amountText,
-  );
   Money? amount;
-  switch (amountResult) {
-    case AmountParsed(amount: final parsed):
-      amount = parsed;
-    case AmountParseFailed(:final failure):
-      errors.add(CsvInvalidAmount(line, amountText, failure));
+  // \u0411\u0435\u0437 \u043f\u043e\u043d\u044f\u0442\u043d\u043e\u0439 \u0432\u0430\u043b\u044e\u0442\u044b \u0437\u043d\u0430\u043a\u043e\u0432 \u043f\u043e\u0441\u043b\u0435 \u0437\u0430\u043f\u044f\u0442\u043e\u0439 \u043d\u0435 \u0437\u043d\u0430\u0435\u043c: \u0441\u0443\u043c\u043c\u0443 \u043d\u0435 \u0440\u0430\u0437\u0431\u0438\u0440\u0430\u0435\u043c.
+  if (currencyOk) {
+    final amountResult = parseAmount(
+      hasMinus ? amountText.substring(1) : amountText,
+      currency: currencyCode,
+      currencyInfo: currencyInfo,
+    );
+    switch (amountResult) {
+      case AmountParsed(amount: final parsed):
+        amount = parsed;
+      case AmountParseFailed(:final failure):
+        errors.add(
+          CsvInvalidAmount(
+            line,
+            amountText,
+            failure,
+            currencyCode: currencyCode,
+            currencyDigits: currencyInfo.digits,
+          ),
+        );
+    }
   }
   if (hasMinus && type == TransactionType.income) {
     errors.add(CsvNegativeIncome(line, amountText));
-  }
-
-  final currency = field(csvColumnCurrency).trim();
-  if (currency.isNotEmpty && currency.toUpperCase() != rubCurrencyCode) {
-    errors.add(CsvUnsupportedCurrency(line, currency));
   }
 
   final category = field(csvColumnCategory).trim();
@@ -232,6 +311,20 @@ ParsedCsvRow? _parseRow(
     errors,
   );
 
+  final account = field(csvColumnAccount).trim();
+  if (account.runes.length > accountNameMaxLength) {
+    errors.add(CsvAccountTooLong(line, account));
+  }
+  final accountId = _parseId(
+    line,
+    field(csvColumnAccountId),
+    CsvIdColumn.account,
+    errors,
+  );
+  // Значки ошибок не дают никогда (ADR 0010, п. 17).
+  final categoryIcon = field(csvColumnCategoryIcon).trim();
+  final subcategoryIcon = field(csvColumnSubcategoryIcon).trim();
+
   if (errors.length > before || day == null || type == null || amount == null) {
     return null;
   }
@@ -247,6 +340,106 @@ ParsedCsvRow? _parseRow(
     transactionId: transactionId,
     categoryId: categoryId,
     subcategoryId: subcategoryId,
+    accountName: account.isEmpty ? null : account,
+    accountId: accountId,
+    categoryIconKey: categoryIcon.isEmpty ? null : categoryIcon,
+    subcategoryIconKey: subcategoryIcon.isEmpty ? null : subcategoryIcon,
+  );
+}
+
+/// Цифры после запятой в сумме без пробелов и знака: `12,3456` — 4, `12` — 0.
+/// Не похоже на число — 0 (ошибку тогда даст `parseAmount`). Не больше 8:
+/// дальше разбор сам скажет «слишком много знаков».
+final RegExp _decimalsPattern = RegExp(r'^[0-9]*[.,]([0-9]*)$');
+final RegExp _spaces = RegExp(r'[\s  ]');
+
+int _digitsInAmount(String amountWithoutMinus) {
+  final match = _decimalsPattern.firstMatch(
+    amountWithoutMinus.replaceAll(_spaces, ''),
+  );
+  final count = match?.group(1)!.length ?? 0;
+  return count > 8 ? 8 : count;
+}
+
+/// Строка `Начальный остаток`: счёт обязателен, категория пуста, минус можно.
+ParsedOpeningBalance? _parseOpeningBalance(
+  int line,
+  String Function(String column) field,
+  Clock clock,
+  List<CsvRowError> errors,
+) {
+  final before = errors.length;
+
+  final dateText = field(csvColumnDate).trim();
+  final day = _parseDay(dateText);
+  if (day == null) {
+    errors.add(CsvInvalidDate(line, dateText));
+  } else if (day > clock.today()) {
+    errors.add(CsvFutureDate(line, dateText));
+  }
+
+  // Валюта: пусто — рубль, код каталога или код своей валюты (п. 16.3, 16.11).
+  final currencyText = field(csvColumnCurrency).trim();
+  final currencyCode = currencyText.isEmpty
+      ? rubCurrencyCode
+      : currencyText.toUpperCase();
+  final catalogInfo = catalogCurrency(currencyCode);
+  final currencyOk = catalogInfo != null || isValidCurrencyCode(currencyCode);
+  if (!currencyOk) errors.add(CsvInvalidCurrencyCode(line, currencyText));
+
+  final amountText = field(csvColumnAmount).trim();
+  final hasMinus = amountText.startsWith('-') || amountText.startsWith('−');
+  final unsigned = hasMinus ? amountText.substring(1) : amountText;
+  Money? amount;
+  int? customDigits;
+  if (currencyOk) {
+    final info =
+        catalogInfo ??
+        currencyInfoFor(currencyCode, digits: _digitsInAmount(unsigned));
+    if (catalogInfo == null) customDigits = info.digits;
+    switch (parseAmount(unsigned, currency: currencyCode, currencyInfo: info)) {
+      case AmountParsed(amount: final parsed):
+        amount = hasMinus ? -parsed : parsed;
+      case AmountParseFailed(:final failure):
+        errors.add(
+          CsvInvalidAmount(
+            line,
+            amountText,
+            failure,
+            currencyCode: currencyCode,
+            currencyDigits: info.digits,
+            digitsFromFile: catalogInfo == null,
+          ),
+        );
+    }
+  }
+
+  final account = field(csvColumnAccount).trim();
+  if (account.isEmpty) {
+    errors.add(CsvOpeningBalanceNoAccount(line, account));
+  } else if (account.runes.length > accountNameMaxLength) {
+    errors.add(CsvAccountTooLong(line, account));
+  }
+  final category = field(csvColumnCategory).trim();
+  if (category.isNotEmpty) {
+    errors.add(CsvOpeningBalanceWithCategory(line, category));
+  }
+  final accountId = _parseId(
+    line,
+    field(csvColumnAccountId),
+    CsvIdColumn.account,
+    errors,
+  );
+
+  if (errors.length > before || day == null || amount == null) return null;
+  return ParsedOpeningBalance(
+    line: line,
+    day: day,
+    occurredAt: _momentOf(day, field(csvColumnOccurredAtUtc), clock),
+    accountName: account,
+    accountId: accountId,
+    amount: amount,
+    customDigits: customDigits,
   );
 }
 

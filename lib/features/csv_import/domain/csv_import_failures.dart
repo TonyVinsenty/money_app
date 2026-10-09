@@ -38,7 +38,7 @@ final class CsvDuplicateColumn extends CsvFileFailure {
 }
 
 /// Какая из колонок `ID …` испорчена.
-enum CsvIdColumn { transaction, category, subcategory }
+enum CsvIdColumn { transaction, category, subcategory, account }
 
 /// Ошибка одной строки. [line] — номер строки как в Excel (заголовки — 1),
 /// [value] — исходное значение поля (для дубля ID — сам ID).
@@ -65,20 +65,55 @@ final class CsvInvalidType extends CsvRowError {
 }
 
 /// Сумма не разобралась; [failure] — причина из `parseAmount`.
+///
+/// [currencyCode] и [currencyDigits] — валюта строки и её знаки после запятой
+/// (для текстов про лишние цифры и предел суммы). [digitsFromFile] — знаки
+/// взяты из самой суммы, потому что валюта своя и новая.
 final class CsvInvalidAmount extends CsvRowError {
-  const CsvInvalidAmount(super.line, super.value, this.failure);
+  const CsvInvalidAmount(
+    super.line,
+    super.value,
+    this.failure, {
+    this.currencyCode = 'RUB',
+    this.currencyDigits = 2,
+    this.digitsFromFile = false,
+  });
 
   final AmountParseFailure failure;
+  final String currencyCode;
+  final int currencyDigits;
+  final bool digitsFromFile;
 }
 
-/// Минус у дохода: минус допустим только у расхода.
+/// Минус у дохода: минус допустим только у расхода и начального остатка.
 final class CsvNegativeIncome extends CsvRowError {
   const CsvNegativeIncome(super.line, super.value);
 }
 
-/// Валюта не пустая и не `RUB` (регистр не важен).
+/// У дохода или расхода валюта не обычная валюта каталога (и не пусто).
 final class CsvUnsupportedCurrency extends CsvRowError {
   const CsvUnsupportedCurrency(super.line, super.value);
+}
+
+/// У `Начальный остаток` код валюты не подходит под правило кода
+/// (3–10 латинских букв и цифр, первая — буква).
+final class CsvInvalidCurrencyCode extends CsvRowError {
+  const CsvInvalidCurrencyCode(super.line, super.value);
+}
+
+/// Имя счёта длиннее лимита.
+final class CsvAccountTooLong extends CsvRowError {
+  const CsvAccountTooLong(super.line, super.value);
+}
+
+/// У `Начальный остаток` не указан `Счёт`.
+final class CsvOpeningBalanceNoAccount extends CsvRowError {
+  const CsvOpeningBalanceNoAccount(super.line, super.value);
+}
+
+/// У `Начальный остаток` заполнена `Категория` ([value]) — колонки съехали.
+final class CsvOpeningBalanceWithCategory extends CsvRowError {
+  const CsvOpeningBalanceWithCategory(super.line, super.value);
 }
 
 /// Категория пустая.

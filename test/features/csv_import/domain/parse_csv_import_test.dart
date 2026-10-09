@@ -252,7 +252,7 @@ void main() {
       );
     });
 
-    test('валюта: пусто — рубль, RUB и rub — можно, USD — ошибка', () {
+    test('валюта: пусто — рубль, RUB и rub — можно, USDT — ошибка', () {
       const header = 'Дата;Тип;Сумма;Валюта;Категория';
       expect(_parsed('$header\r\n04.10.2026;Расход;5;;Кафе').errors, isEmpty);
       expect(
@@ -264,7 +264,7 @@ void main() {
         isEmpty,
       );
       expect(
-        _parsed('$header\r\n04.10.2026;Расход;5;USD;Кафе').errors.single,
+        _parsed('$header\r\n04.10.2026;Расход;5;USDT;Кафе').errors.single,
         isA<CsvUnsupportedCurrency>(),
       );
     });
@@ -400,6 +400,13 @@ void main() {
     test('сегодняшняя дата без времени — момент «сейчас»', () {
       final row = _parsed('$_header\r\n07.10.2026;Расход;5;Кафе').rows.single;
       expect(row.occurredAt, _now.toUtc());
+    });
+
+    test('перевод пока не поддержан: тип — ошибка', () {
+      expect(
+        _errorsOf('04.10.2026;Перевод;5;Кафе').single,
+        isA<CsvInvalidType>(),
+      );
     });
 
     test('несколько ошибок в одной строке собираются все', () {

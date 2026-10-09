@@ -1,9 +1,10 @@
 import 'package:intl/intl.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/percent_format.dart';
-import 'package:money_app/core/money/currency.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
+import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
@@ -151,16 +152,26 @@ String _rowErrorText(CsvRowError error) {
     CsvInvalidType() =>
       value == null
           ? 'не указан тип'
-          : 'тип $value — нужен «Расход» или «Доход»',
-    CsvInvalidAmount(:final failure) =>
+          : 'тип $value — нужен «$csvTypeExpense», «$csvTypeIncome» '
+                'или «$csvTypeOpeningBalance»',
+    final CsvInvalidAmount amountError =>
       value == null
           ? 'не указана сумма'
-          : 'сумма $value — ${_amountReason(failure)}',
+          : 'сумма $value — ${_amountReason(amountError)}',
     CsvNegativeIncome() =>
-      'сумма $value — минус можно ставить только у расхода',
+      'сумма $value — минус можно ставить только у расхода и начального '
+          'остатка',
     CsvUnsupportedCurrency() =>
-      'валюта $value — пока поддерживаются только рубли: '
-          '$rubCurrencyCode или пусто',
+      'валюта $value — у расхода и дохода нужен код обычной валюты, '
+          'например RUB или USD, или пусто',
+    CsvInvalidCurrencyCode() =>
+      'код валюты $value — нужно 3–10 латинских букв и цифр, первая — '
+          'буква, например USD или USDT',
+    CsvAccountTooLong() => 'счёт длиннее $accountNameMaxLength символов',
+    CsvOpeningBalanceNoAccount() => 'у начального остатка не указан счёт',
+    CsvOpeningBalanceWithCategory() =>
+      'у начального остатка категория $value — ячейка должна быть пустой. '
+          'Похоже, колонки съехали',
     CsvEmptyCategory() => 'не указана категория',
     CsvCategoryTooLong() => 'категория длиннее $categoryNameMaxLength символов',
     CsvSubcategoryTooLong() =>
@@ -190,20 +201,44 @@ String _rowErrorText(CsvRowError error) {
 
 /// Короткая причина для суммы. Тексты ввода суммы (`amountFailureMessage`)
 /// говорят о поле и кнопках экрана, здесь нужны короче и про файл.
-String _amountReason(AmountParseFailure failure) => switch (failure) {
+String _amountReason(CsvInvalidAmount error) => switch (error.failure) {
   AmountParseFailure.empty => 'нет цифр',
   AmountParseFailure.notANumber => 'не число',
   AmountParseFailure.negative => 'лишний минус',
-  AmountParseFailure.tooManyDecimals => 'больше двух цифр после запятой',
+  AmountParseFailure.tooManyDecimals => _decimalsReason(error),
   AmountParseFailure.tooManySeparators => 'слишком много запятых или точек',
   AmountParseFailure.tooLarge =>
-    'слишком большая (не больше ${formatMoney(Money.fromMajorParts(maxInputMajorUnits, 0, rubCurrencyCode))})',
+    'слишком большая (не больше ${_maxAmountText(error)})',
 };
+
+/// Лишние цифры после запятой: сколько можно — у валюты строки.
+String _decimalsReason(CsvInvalidAmount error) {
+  final digits = error.currencyDigits;
+  if (error.digitsFromFile) return 'не больше $digits цифр после запятой';
+  if (digits == 0) {
+    return 'у ${error.currencyCode} не бывает цифр после запятой';
+  }
+  final noun = pluralRu(digits, 'цифры', 'цифр', 'цифр');
+  return 'у ${error.currencyCode} не больше $digits $noun после запятой';
+}
+
+/// Предел суммы в валюте строки: «1 000 000 000 000,00 ₽», «1 000 000,00 BTC».
+String _maxAmountText(CsvInvalidAmount error) {
+  final info = currencyInfoFor(
+    error.currencyCode,
+    digits: error.currencyDigits,
+  );
+  return formatMoney(
+    Money.fromMinor(maxInputMinorUnits, error.currencyCode),
+    currency: info,
+  );
+}
 
 String _idColumnName(CsvIdColumn column) => switch (column) {
   CsvIdColumn.transaction => csvColumnTransactionId,
   CsvIdColumn.category => csvColumnCategoryId,
   CsvIdColumn.subcategory => csvColumnSubcategoryId,
+  CsvIdColumn.account => csvColumnAccountId,
 };
 
 /// Значение в кавычках-ёлочках; длинное обрезается с «…»; пустое — `null`.

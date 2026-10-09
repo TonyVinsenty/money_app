@@ -54,11 +54,13 @@ void main() {
       final long = 'я' * 31;
       expect(
         csvRowErrorMessage(CsvInvalidType(2, long)),
-        'Строка 2: тип «${'я' * 30}…» — нужен «Расход» или «Доход»',
+        'Строка 2: тип «${'я' * 30}…» — нужен «Расход», «Доход» '
+        'или «Начальный остаток»',
       );
       expect(
         csvRowErrorMessage(CsvInvalidType(2, 'я' * 30)),
-        'Строка 2: тип «${'я' * 30}» — нужен «Расход» или «Доход»',
+        'Строка 2: тип «${'я' * 30}» — нужен «Расход», «Доход» '
+        'или «Начальный остаток»',
       );
     });
 
@@ -79,6 +81,98 @@ void main() {
           const CsvInvalidId(9, 'abc', CsvIdColumn.subcategory),
         ),
         'Строка 9: в колонке «ID подкатегории» не ID. Очистите эту ячейку',
+      );
+    });
+
+    test('новые ошибки счёта и валюты (Т1-Т4, Т6-Т8)', () {
+      expect(
+        csvRowErrorMessage(const CsvAccountTooLong(3, 'x')),
+        'Строка 3: счёт длиннее 40 символов',
+      );
+      expect(
+        csvRowErrorMessage(const CsvOpeningBalanceNoAccount(3, '')),
+        'Строка 3: у начального остатка не указан счёт',
+      );
+      expect(
+        csvRowErrorMessage(const CsvOpeningBalanceWithCategory(3, 'Кафе')),
+        'Строка 3: у начального остатка категория «Кафе» — ячейка должна '
+        'быть пустой. Похоже, колонки съехали',
+      );
+      expect(
+        csvRowErrorMessage(const CsvInvalidId(3, 'x', CsvIdColumn.account)),
+        'Строка 3: в колонке «ID счёта» не ID. Очистите эту ячейку',
+      );
+      expect(
+        csvRowErrorMessage(const CsvNegativeIncome(3, '-500')),
+        'Строка 3: сумма «-500» — минус можно ставить только у расхода и '
+        'начального остатка',
+      );
+      expect(
+        csvRowErrorMessage(const CsvUnsupportedCurrency(3, 'USDT')),
+        'Строка 3: валюта «USDT» — у расхода и дохода нужен код обычной '
+        'валюты, например RUB или USD, или пусто',
+      );
+      expect(
+        csvRowErrorMessage(const CsvInvalidCurrencyCode(3, 'US-D')),
+        'Строка 3: код валюты «US-D» — нужно 3–10 латинских букв и цифр, '
+        'первая — буква, например USD или USDT',
+      );
+    });
+
+    test('лишние цифры после запятой: знаки валюты строки (Т9)', () {
+      String text(
+        String value,
+        String code,
+        int digits, {
+        bool fromFile = false,
+      }) => csvRowErrorMessage(
+        CsvInvalidAmount(
+          4,
+          value,
+          AmountParseFailure.tooManyDecimals,
+          currencyCode: code,
+          currencyDigits: digits,
+          digitsFromFile: fromFile,
+        ),
+      );
+      expect(
+        text('12,345', 'RUB', 2),
+        'Строка 4: сумма «12,345» — у RUB не больше 2 цифр после запятой',
+      );
+      expect(
+        text('1,55', 'ABC', 1),
+        'Строка 4: сумма «1,55» — у ABC не больше 1 цифры после запятой',
+      );
+      expect(
+        text('1,5', 'JPY', 0),
+        'Строка 4: сумма «1,5» — у JPY не бывает цифр после запятой',
+      );
+      expect(
+        text('0,123456789', 'ABC', 8, fromFile: true),
+        'Строка 4: сумма «0,123456789» — не больше 8 цифр после запятой',
+      );
+    });
+
+    test('слишком большая сумма: предел в валюте строки (Т10)', () {
+      String text(String code, int digits) => csvRowErrorMessage(
+        CsvInvalidAmount(
+          5,
+          '9',
+          AmountParseFailure.tooLarge,
+          currencyCode: code,
+          currencyDigits: digits,
+        ),
+      );
+      final nbsp = String.fromCharCode(0x00A0);
+      expect(
+        text('RUB', 2),
+        'Строка 5: сумма «9» — слишком большая (не больше '
+        '1${nbsp}000${nbsp}000${nbsp}000${nbsp}000,00$nbsp₽)',
+      );
+      expect(
+        text('BTC', 8),
+        'Строка 5: сумма «9» — слишком большая (не больше '
+        '1${nbsp}000${nbsp}000,00${nbsp}BTC)',
       );
     });
 
@@ -104,6 +198,10 @@ void main() {
           CsvInvalidAmount(2, '1,234', f),
         const CsvNegativeIncome(2, '-5'),
         const CsvUnsupportedCurrency(2, 'USD'),
+        const CsvInvalidCurrencyCode(2, 'US-D'),
+        const CsvAccountTooLong(2, 'x'),
+        const CsvOpeningBalanceNoAccount(2, ''),
+        const CsvOpeningBalanceWithCategory(2, 'Кафе'),
         const CsvEmptyCategory(2, ''),
         const CsvCategoryTooLong(2, 'x'),
         const CsvSubcategoryTooLong(2, 'x'),
