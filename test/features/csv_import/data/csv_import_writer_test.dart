@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/csv/csv_codec.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -17,6 +18,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
+import '../../../support/csv_v1_compat.dart';
 import '../../../support/fake_id_generator.dart';
 import '../../../support/fixed_clock.dart';
 import '../../../support/in_memory_database.dart';
@@ -51,6 +53,7 @@ final class _Env {
   Future<String> export() async => buildTransactionsCsv(
     transactions: await transactions.findAllLive(),
     categories: await categories.watchAll().first,
+    accounts: const [],
   );
 
   Future<int> categoryCount() async =>
@@ -160,7 +163,23 @@ void main() {
     final plan = await target.import(first);
 
     expect(plan.categoriesToCreate, hasLength(4));
-    expect(utf8.encode(await target.export()), utf8.encode(first));
+    // Значки импорт пока не восстанавливает (шаг 5.18): колонки 16-17
+    // отрезаются и проверяются отдельно - ключ равен значку в базе.
+    final second = await target.export();
+    expect(
+      utf8.encode(stripIconColumns(second)),
+      utf8.encode(stripIconColumns(first)),
+    );
+    final icons = {
+      for (final c in await target.categories.watchAll().first)
+        c.name: c.iconKey,
+    };
+    for (final row in decodeCsv(second).skip(1)) {
+      expect(row[csvV2IconColumn], icons[row[4]], reason: row.join(';'));
+      if (row[5].isNotEmpty) {
+        expect(row[csvV2SubcategoryIconColumn], icons[row[5]]);
+      }
+    }
   });
 
   test('повторный импорт ничего не меняет', () async {
@@ -170,6 +189,7 @@ void main() {
     addTearDown(other.close);
     final target = _Env(other, env.clock);
     await target.import(csv);
+    final afterFirst = await target.export();
 
     final again = await target.import(csv);
 
@@ -178,7 +198,7 @@ void main() {
     expect(again.skippedExisting, 3);
     expect(await target.categoryCount(), 4);
     expect(await target.transactionCount(), 3);
-    expect(await target.export(), csv);
+    expect(await target.export(), afterFirst);
   });
 
   test('сбой на середине записи: база не изменилась', () async {

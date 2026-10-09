@@ -5,6 +5,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -24,10 +25,16 @@ const List<String> transactionsExportHeaders = [
   csvColumnCategory,
   csvColumnSubcategory,
   csvColumnNote,
+  csvColumnAccount,
+  csvColumnTransferAccount,
   csvColumnTransactionId,
   csvColumnCategoryId,
   csvColumnSubcategoryId,
   csvColumnOccurredAtUtc,
+  csvColumnAccountId,
+  csvColumnTransferAccountId,
+  csvColumnCategoryIcon,
+  csvColumnSubcategoryIcon,
 ];
 
 // Имена колонок: общие для экспорта и импорта (ADR 0006, п. 2).
@@ -43,19 +50,36 @@ const String csvColumnCategoryId = 'ID категории';
 const String csvColumnSubcategoryId = 'ID подкатегории';
 const String csvColumnOccurredAtUtc = 'Время операции (UTC)';
 
+// Колонки v2 (ADR 0010, пп. 10 и 17).
+const String csvColumnAccount = 'Счёт';
+const String csvColumnTransferAccount = 'Счёт зачисления';
+const String csvColumnAccountId = 'ID счёта';
+const String csvColumnTransferAccountId = 'ID счёта зачисления';
+const String csvColumnCategoryIcon = 'Значок категории';
+const String csvColumnSubcategoryIcon = 'Значок подкатегории';
+
+// Тексты колонки «Тип».
+const String csvTypeIncome = 'Доход';
+const String csvTypeExpense = 'Расход';
+const String csvTypeOpeningBalance = 'Начальный остаток';
+
 /// Текст CSV-файла экспорта: заголовки, затем операции от старых к новым.
 ///
 /// [categories] — все не удалённые категории, включая архивные: по ним берутся
 /// имена. Если у операции нет категории или подкатегории в этом списке, бросает
 /// [DataCorruptedException]: файл не формируется, строки не пропускаются.
+/// [accounts] — все не удалённые счета, включая архивные: по строке
+/// `Начальный остаток` на каждый; счёт операции не найден — тоже отказ.
 String buildTransactionsCsv({
   required List<Transaction> transactions,
   required List<Category> categories,
+  required List<Account> accounts,
 }) {
   return encodeCsv(
     buildTransactionsCsvRows(
       transactions: transactions,
       categories: categories,
+      accounts: accounts,
     ),
   );
 }
@@ -64,13 +88,16 @@ String buildTransactionsCsv({
 List<List<String>> buildTransactionsCsvRows({
   required List<Transaction> transactions,
   required List<Category> categories,
+  required List<Account> accounts,
 }) {
   final byId = {for (final category in categories) category.id: category};
-  final sorted = [...transactions]..sort(_byOccurrence);
-  return [
-    transactionsExportHeaders,
-    for (final transaction in sorted) _rowOf(transaction, byId),
-  ];
+  final accountsById = {for (final account in accounts) account.id: account};
+  final lines = <_Line>[
+    for (final account in accounts) _openingBalanceLine(account),
+    for (final transaction in transactions)
+      _transactionLine(transaction, byId, accountsById),
+  ]..sort(_byOccurrence);
+  return [transactionsExportHeaders, for (final line in lines) line.row];
 }
 
 /// Имя файла: `zuno-export-ГГГГ-ММ-ДД.csv`, дата — локальный день из [clock].
@@ -102,7 +129,24 @@ String formatCsvDate(DateOnly day) {
   return '$dd.$mm.$yyyy';
 }
 
-List<String> _rowOf(Transaction transaction, Map<String, Category> byId) {
+/// Строка таблицы с ключами порядка (ADR 0006, п. 4).
+class _Line {
+  const _Line(this.day, this.moment, this.id, this.accountId, this.row);
+
+  final DateOnly day;
+  final DateTime moment;
+
+  /// `ID операции`; у «Начального остатка» пусто, поэтому он идёт первым.
+  final String id;
+  final String accountId;
+  final List<String> row;
+}
+
+_Line _transactionLine(
+  Transaction transaction,
+  Map<String, Category> byId,
+  Map<String, Account> accountsById,
+) {
   final category = byId[transaction.categoryId];
   if (category == null) {
     throw DataCorruptedException(
@@ -111,37 +155,103 @@ List<String> _rowOf(Transaction transaction, Map<String, Category> byId) {
     );
   }
   final subcategoryId = transaction.subcategoryId;
-  var subcategoryName = '';
+  Category? subcategory;
   if (subcategoryId != null) {
-    final subcategory = byId[subcategoryId];
+    subcategory = byId[subcategoryId];
     if (subcategory == null) {
       throw DataCorruptedException(
         'Transaction "${transaction.id}" refers to a missing subcategory '
         '"$subcategoryId"',
       );
     }
-    subcategoryName = subcategory.name;
   }
-  return [
-    formatCsvDate(transaction.occurredOn),
-    _typeText(transaction.type),
-    _amountText(transaction),
-    transaction.amount.currency,
-    category.name,
-    subcategoryName,
-    transaction.note ?? '',
+  final accountId = transaction.accountId;
+  Account? account;
+  if (accountId != null) {
+    account = accountsById[accountId];
+    if (account == null) {
+      throw DataCorruptedException(
+        'Transaction "${transaction.id}" refers to a missing account '
+        '"$accountId"',
+      );
+    }
+  }
+  // Знаки после запятой: у валюты счёта — из счёта (своя валюта может быть
+  // не из каталога), иначе из каталога.
+  final sameCurrency =
+      account != null && account.currency == transaction.amount.currency;
+  final amountText = _amountText(
+    transaction,
+    currency: sameCurrency ? account.currencyInfo : null,
+  );
+  return _Line(
+    transaction.occurredOn,
+    transaction.occurredAt,
     transaction.id,
-    transaction.categoryId,
-    subcategoryId ?? '',
-    transaction.occurredAt.toUtc().toIso8601String(),
-  ];
+    '',
+    [
+      formatCsvDate(transaction.occurredOn),
+      _typeText(transaction.type),
+      amountText,
+      transaction.amount.currency,
+      category.name,
+      subcategory?.name ?? '',
+      transaction.note ?? '',
+      account?.name ?? '',
+      '',
+      transaction.id,
+      transaction.categoryId,
+      subcategoryId ?? '',
+      transaction.occurredAt.toUtc().toIso8601String(),
+      accountId ?? '',
+      '',
+      category.iconKey,
+      subcategory?.iconKey ?? '',
+    ],
+  );
+}
+
+/// Строка `Начальный остаток`: дата и время — момент создания счёта, сумма
+/// со знаком (долг — `-1500,00`) и со знаками валюты счёта (ADR 0010, п. 10).
+_Line _openingBalanceLine(Account account) {
+  final createdAt = account.createdAt;
+  if (createdAt == null) {
+    throw DataCorruptedException(
+      'Account "${account.id}" has no creation time',
+    );
+  }
+  final day = DateOnly.fromDateTime(createdAt);
+  final minor = account.openingBalance.minorUnits;
+  final text = formatCsvAmount(
+    Money.fromMinor(minor.abs(), account.currency),
+    currency: account.currencyInfo,
+  );
+  return _Line(day, createdAt, '', account.id, [
+    formatCsvDate(day),
+    csvTypeOpeningBalance,
+    minor < 0 ? '-$text' : text,
+    account.currency,
+    '',
+    '',
+    '',
+    account.name,
+    '',
+    '',
+    '',
+    '',
+    createdAt.toUtc().toIso8601String(),
+    account.id,
+    '',
+    '',
+    '',
+  ]);
 }
 
 /// Сумма в колонке «Сумма»: у расхода перед числом обычный дефис `-`
 /// (Excel читает `-350,00` как число). Доход и нулевой расход — без знака:
 /// `-0,00` выглядит как ошибка. ADR 0006, п. 1.
-String _amountText(Transaction transaction) {
-  final text = formatCsvAmount(transaction.amount);
+String _amountText(Transaction transaction, {CurrencyInfo? currency}) {
+  final text = formatCsvAmount(transaction.amount, currency: currency);
   final isExpense = transaction.type == TransactionType.expense;
   if (isExpense && !transaction.amount.isZero) {
     return '-$text';
@@ -152,17 +262,20 @@ String _amountText(Transaction transaction) {
 String _typeText(TransactionType type) {
   switch (type) {
     case TransactionType.income:
-      return 'Доход';
+      return csvTypeIncome;
     case TransactionType.expense:
-      return 'Расход';
+      return csvTypeExpense;
   }
 }
 
-/// Порядок ADR 0006, п. 4: день, затем момент, затем id.
-int _byOccurrence(Transaction a, Transaction b) {
-  final byDay = a.occurredOn.compareTo(b.occurredOn);
+/// Порядок ADR 0006, п. 4: день, затем момент, затем id (у начального остатка
+/// id пуст, он идёт первым; два таких — по id счёта).
+int _byOccurrence(_Line a, _Line b) {
+  final byDay = a.day.compareTo(b.day);
   if (byDay != 0) return byDay;
-  final byMoment = a.occurredAt.compareTo(b.occurredAt);
+  final byMoment = a.moment.compareTo(b.moment);
   if (byMoment != 0) return byMoment;
-  return a.id.compareTo(b.id);
+  final byId = a.id.compareTo(b.id);
+  if (byId != 0) return byId;
+  return a.accountId.compareTo(b.accountId);
 }

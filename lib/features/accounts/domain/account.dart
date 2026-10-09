@@ -23,10 +23,12 @@ final class Account {
     required int sortOrder,
     required this.currencyDigits,
     DateTime? archivedAt,
+    DateTime? createdAt,
   }) : name = checkedName(name),
        iconKey = _checkedIconKey(iconKey),
        sortOrder = _checkedSortOrder(sortOrder),
-       archivedAt = _checkedArchivedAt(archivedAt) {
+       archivedAt = _checkedArchivedAt(archivedAt),
+       createdAt = _checkedCreatedAt(createdAt) {
     if (currencyDigits < 0 || currencyDigits > 8) {
       throw ArgumentError.value(
         currencyDigits,
@@ -82,6 +84,10 @@ final class Account {
   /// Момент архивации в UTC; `null`, если счёт не в архиве.
   final DateTime? archivedAt;
 
+  /// Момент создания в UTC; задаёт только хранилище, у нового счёта `null`.
+  /// В `==` не входит: это служебное поле, нужное экспорту CSV (ADR 0010, п. 10).
+  final DateTime? createdAt;
+
   /// Знаков после запятой у валюты счёта (0-8, ADR 0010, п. 16.4).
   final int currencyDigits;
 
@@ -131,6 +137,7 @@ final class Account {
     openingBalance: openingBalance,
     sortOrder: sortOrder,
     currencyDigits: currencyDigits,
+    createdAt: createdAt,
   );
 
   Account _copy({
@@ -148,6 +155,7 @@ final class Account {
       sortOrder: sortOrder ?? this.sortOrder,
       currencyDigits: currencyDigits,
       archivedAt: archivedAt ?? this.archivedAt,
+      createdAt: createdAt,
     );
   }
 
@@ -206,6 +214,13 @@ final class Account {
       throw AccountRuleException(AccountRule.negativeSortOrder);
     }
     return sortOrder;
+  }
+
+  static DateTime? _checkedCreatedAt(DateTime? createdAt) {
+    if (createdAt != null && !createdAt.isUtc) {
+      throw ArgumentError.value(createdAt, 'createdAt', 'must be in UTC');
+    }
+    return createdAt;
   }
 
   static DateTime? _checkedArchivedAt(DateTime? archivedAt) {

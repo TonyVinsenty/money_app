@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/csv/csv_codec.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -20,6 +21,7 @@ import 'package:money_app/features/transactions/data/transactions_repository_imp
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../../tool/make_test_dataset.dart';
+import '../support/csv_v1_compat.dart';
 import '../support/fake_id_generator.dart';
 import '../support/fixed_clock.dart';
 import '../support/in_memory_database.dart';
@@ -229,7 +231,31 @@ void main() {
     final exported = buildTransactionsCsv(
       transactions: await env.transactions.findAllLive(),
       categories: await env.categories.watchAll().first,
+      accounts: const [],
     );
-    expect(utf8.encode(exported), File(testDatasetPath).readAsBytesSync());
+    // v1-файл читается без счетов: экспорт v2 без колонок значков равен ему
+    // с вставленными пустыми колонками счёта (ADR 0010, п. 10 и 17).
+    final v1 = File(testDatasetPath).readAsStringSync();
+    expect(
+      utf8.encode(stripIconColumns(exported)),
+      utf8.encode(v1AsV2WithoutIcons(v1)),
+    );
+    // Колонки значков проверяются отдельно: ключ равен значку в базе.
+    final categories = {
+      for (final c in await env.categories.watchAll().first) c.id: c,
+    };
+    final transactions = await env.transactions.findAllLive();
+    final byId = {for (final t in transactions) t.id: t};
+    final body = decodeCsv(exported).skip(1).toList();
+    expect(body, hasLength(transactions.length));
+    for (final row in body) {
+      final t = byId[row[9]]!;
+      expect(row[csvV2IconColumn], categories[t.categoryId]!.iconKey);
+      expect(
+        row[csvV2SubcategoryIconColumn],
+        t.subcategoryId == null ? '' : categories[t.subcategoryId]!.iconKey,
+      );
+    }
+    expect(iconColumns(exported), hasLength(transactions.length));
   });
 }

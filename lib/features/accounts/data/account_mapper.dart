@@ -22,6 +22,10 @@ Account accountFromRow(AccountRow row) {
       archivedAt: archivedAt == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(archivedAt, isUtc: true),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        row.createdAt,
+        isUtc: true,
+      ),
     );
   } catch (error) {
     if (error is AccountRuleException ||

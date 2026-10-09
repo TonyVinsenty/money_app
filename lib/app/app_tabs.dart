@@ -133,6 +133,7 @@ class SettingsTab extends StatelessWidget {
       onExportCsv: () => TransactionsExporter(
         transactions: services.transactions,
         categories: services.categories,
+        accounts: services.accounts,
         clock: services.clock,
       ).exportToTempFile(),
       onImportCsv: () => _importCsv(context, services),

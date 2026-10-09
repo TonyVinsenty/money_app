@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/csv/csv_codec.dart';
-import 'package:money_app/features/export/domain/transactions_export.dart';
+
+import '../support/csv_v1_compat.dart';
 
 /// Тестовый набор за сентябрь и октябрь 2026 (без личных данных, суммы и
 /// названия выдуманы). Файл читается тем же кодеком, что пишет экспорт.
@@ -45,7 +46,7 @@ void main() {
 
   group('тестовый набор test_dataset_two_months.csv', () {
     test('заголовки совпадают с форматом экспорта', () {
-      expect(header, transactionsExportHeaders);
+      expect(header, csvV1Headers);
     });
 
     test('в каждой строке 11 колонок', () {

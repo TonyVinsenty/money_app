@@ -14,6 +14,7 @@
 
 import 'dart:io';
 
+import 'package:money_app/core/csv/csv_codec.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -22,6 +23,8 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+
+import '../test/support/csv_v1_compat.dart';
 
 /// Куда пишется набор (путь от корня проекта).
 const String testDatasetPath = 'test/fixtures/zuno-test-dataset.csv';
@@ -47,10 +50,19 @@ String buildTestDataset() {
   data.month(2026, 7, withHobby: true);
   // Август намеренно пустой.
   data.month(2026, 9, withHobby: false);
-  return buildTransactionsCsv(
+  // Набор остаётся в формате v1 (11 колонок): это сторож совместимости
+  // (ADR 0010, п. 10). Берём из строк v2 только колонки v1.
+  final rows = buildTransactionsCsvRows(
     transactions: data.transactions,
     categories: data.categories,
+    accounts: const [],
   );
+  final keep = [
+    for (final h in csvV1Headers) transactionsExportHeaders.indexOf(h),
+  ];
+  return encodeCsv([
+    for (final row in rows) [for (final i in keep) row[i]],
+  ]);
 }
 
 /// Генератор xorshift32: своя реализация, чтобы файл не зависел от того,

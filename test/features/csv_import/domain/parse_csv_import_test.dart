@@ -91,6 +91,7 @@ void main() {
       final csv = buildTransactionsCsv(
         transactions: transactions,
         categories: [cafe, coffee, salary],
+        accounts: const [],
       );
       final result = _parsed(csv);
 

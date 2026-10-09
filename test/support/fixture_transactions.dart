@@ -3,9 +3,10 @@ import 'dart:io';
 import 'package:money_app/core/csv/csv_codec.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/time/date_only.dart';
-import 'package:money_app/features/export/domain/transactions_export.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+
+import 'csv_v1_compat.dart';
 
 /// Путь к тестовому набору за сентябрь и октябрь 2026 (формат экспорта).
 const fixtureDatasetPath = 'test/fixtures/test_dataset_two_months.csv';
@@ -17,8 +18,7 @@ const fixtureDatasetPath = 'test/fixtures/test_dataset_two_months.csv';
 /// [parseAmount], то есть целыми копейками, без `double`.
 List<Transaction> loadFixtureTransactions() {
   final rows = decodeCsv(File(fixtureDatasetPath).readAsStringSync());
-  if (rows.isEmpty ||
-      rows.first.join('|') != transactionsExportHeaders.join('|')) {
+  if (rows.isEmpty || rows.first.join('|') != csvV1Headers.join('|')) {
     throw StateError('Тестовый набор не совпадает с форматом экспорта');
   }
   return [for (final row in rows.skip(1)) _transactionOf(row)];
@@ -26,7 +26,7 @@ List<Transaction> loadFixtureTransactions() {
 
 /// Одна строка набора: `ДД.ММ.ГГГГ;Тип;Сумма;Валюта;...;ID;...;время UTC`.
 Transaction _transactionOf(List<String> row) {
-  if (row.length != transactionsExportHeaders.length) {
+  if (row.length != csvV1Headers.length) {
     throw FormatException('В строке ${row.length} колонок: ${row.join(';')}');
   }
   final amountText = row[2];

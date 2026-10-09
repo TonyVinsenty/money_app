@@ -6,6 +6,8 @@ import 'package:money_app/core/csv/csv_codec.dart';
 import 'package:money_app/core/errors/data_corrupted_exception.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -41,6 +43,16 @@ class _Categories extends Fake implements CategoriesRepository {
   Stream<List<Category>> watchAll() => Stream.value(items);
 }
 
+/// Фейк счетов: только `watchAll`.
+class _Accounts extends Fake implements AccountsRepository {
+  _Accounts(this.items);
+
+  final List<Account> items;
+
+  @override
+  Stream<List<Account>> watchAll() => Stream.value(items);
+}
+
 final _cafe = Category.topLevel(
   id: 'cat',
   kind: CategoryKind.expense,
@@ -72,10 +84,12 @@ void main() {
   TransactionsExporter exporter({
     required TransactionsRepository transactions,
     List<Category> categories = const [],
+    List<Account> accounts = const [],
   }) {
     return TransactionsExporter(
       transactions: transactions,
       categories: _Categories(categories),
+      accounts: _Accounts(accounts),
       clock: FixedClock(DateTime(2026, 10, 4, 18)),
       directoryProvider: () async => dir,
     );
@@ -117,6 +131,46 @@ void main() {
     final exp = exporter(
       transactions: _Transactions(items: [_oneTx]),
       categories: const [],
+    );
+
+    await expectLater(
+      exp.exportToTempFile(),
+      throwsA(isA<DataCorruptedException>()),
+    );
+    expect(dir.listSync(), isEmpty);
+  });
+
+  test(
+    'счета читаются из репозитория: строка «Начальный остаток» в файле',
+    () async {
+      final account = Account(
+        id: 'acc-1',
+        name: 'Карта',
+        iconKey: 'wallet',
+        openingBalance: Money.fromMinor(-150000, 'RUB'),
+        sortOrder: 0,
+        currencyDigits: 2,
+        createdAt: DateTime.utc(2026, 10, 1, 12),
+      );
+      final path = await exporter(
+        transactions: _Transactions(items: [_oneTx.withAccount('acc-1')]),
+        categories: [_cafe],
+        accounts: [account],
+      ).exportToTempFile();
+
+      final rows = decodeCsv(utf8.decode(File(path).readAsBytesSync()));
+      expect(rows, hasLength(3));
+      expect(rows[1][1], 'Начальный остаток');
+      expect(rows[1][2], '-1500,00');
+      expect(rows[2][7], 'Карта');
+      expect(rows[2][13], 'acc-1');
+    },
+  );
+
+  test('счёт операции не найден: ошибка и файл не создан', () async {
+    final exp = exporter(
+      transactions: _Transactions(items: [_oneTx.withAccount('gone')]),
+      categories: [_cafe],
     );
 
     await expectLater(
