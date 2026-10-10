@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/core/money/nice_ceiling.dart';
+import 'package:money_app/core/ui/donut_chart.dart' show donutHoldDelay;
 
 /// Место сверху под подпись верха шкалы, dp.
 const double barChartLabelHeight = 16;
@@ -91,14 +93,21 @@ Color barColor(Color base, int index, int? highlighted) =>
 /// Столбчатый график. О деньгах не знает: веса, цвет и готовая подпись верха
 /// шкалы ([topLabel], её форматирует вызывающий). Высоту задаёт [height],
 /// ширина — вся доступная.
-class BarChart extends StatelessWidget {
+///
+/// Касания устроены как у кольца: подсветка с первого касания, палец ведёт её
+/// по столбикам, реальная прокрутка родителя снимает подсветку, а удержание
+/// [donutHoldDelay] останавливает прокрутку. Для скринридера весь график —
+/// один узел с подписью [semanticsLabel] (её собирает вызывающий).
+class BarChart extends StatefulWidget {
   const BarChart({
     super.key,
     required this.weights,
     required this.color,
     required this.topLabel,
+    required this.semanticsLabel,
     this.average,
     this.highlightedIndex,
+    this.onHighlight,
     this.height = 160,
   });
 
@@ -106,26 +115,127 @@ class BarChart extends StatelessWidget {
   final int? average;
   final Color color;
   final String topLabel;
+  final String semanticsLabel;
   final int? highlightedIndex;
+
+  /// Подсветка столбика пальцем: номер или `null` (снять). Подсветку хранит
+  /// родитель и возвращает её в [highlightedIndex].
+  final ValueChanged<int?>? onHighlight;
   final double height;
+
+  @override
+  State<BarChart> createState() => _BarChartState();
+}
+
+class _BarChartState extends State<BarChart> {
+  int? _pointer;
+  int? _lastHighlight;
+  ScrollPosition? _position;
+  double _startPixels = 0;
+  bool _scrolled = false;
+
+  int? _hit(Offset point) {
+    final size = context.size;
+    if (size == null) return null;
+    return barIndexAt(point, size, widget.weights);
+  }
+
+  void _highlight(int? index) {
+    if (index == _lastHighlight) return;
+    _lastHighlight = index;
+    widget.onHighlight?.call(index);
+  }
+
+  /// Родитель реально поехал: отдаём жест прокрутке, подсветку снимаем.
+  void _onScrolled() {
+    if (_scrolled || _pointer == null) return;
+    if (_position!.pixels == _startPixels) return;
+    _scrolled = true;
+    _highlight(null);
+  }
+
+  void _down(PointerDownEvent e) {
+    if (_pointer != null) return;
+    _pointer = e.pointer;
+    _lastHighlight = widget.highlightedIndex;
+    _position = Scrollable.maybeOf(context)?.position;
+    _startPixels = _position?.pixels ?? 0;
+    _scrolled = false;
+    _position?.addListener(_onScrolled);
+    _highlight(_hit(e.localPosition));
+  }
+
+  void _move(PointerMoveEvent e) {
+    if (e.pointer != _pointer || _scrolled) return;
+    _highlight(_hit(e.localPosition));
+  }
+
+  void _end(PointerEvent e) {
+    if (e.pointer != _pointer) return;
+    _reset();
+    _highlight(null);
+  }
+
+  void _reset() {
+    _position?.removeListener(_onScrolled);
+    _position = null;
+    _pointer = null;
+  }
+
+  @override
+  void dispose() {
+    _reset();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    return SizedBox(
-      height: height,
-      width: double.infinity,
-      child: CustomPaint(
-        painter: _BarPainter(
-          weights: weights,
-          average: average,
-          color: color,
-          lineColor: muted,
-          topLabel: topLabel,
-          labelStyle: (theme.textTheme.labelSmall ?? const TextStyle())
-              .copyWith(color: muted),
-          highlightedIndex: highlightedIndex,
+    final interactive = widget.onHighlight != null;
+    return Semantics(
+      container: true,
+      label: widget.semanticsLabel,
+      excludeSemantics: true,
+      // Долгое нажатие само ничего не делает: оно выигрывает арену жестов у
+      // прокрутки родителя, если палец полежал [donutHoldDelay] (как у кольца).
+      child: RawGestureDetector(
+        excludeFromSemantics: true,
+        gestures: {
+          if (interactive)
+            LongPressGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<
+                  LongPressGestureRecognizer
+                >(
+                  () => LongPressGestureRecognizer(
+                    duration: donutHoldDelay,
+                    debugOwner: this,
+                  ),
+                  (recognizer) => recognizer.onLongPress = () {},
+                ),
+        },
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: interactive ? _down : null,
+          onPointerMove: interactive ? _move : null,
+          onPointerUp: interactive ? _end : null,
+          onPointerCancel: interactive ? _end : null,
+          child: SizedBox(
+            height: widget.height,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _BarPainter(
+                weights: widget.weights,
+                average: widget.average,
+                color: widget.color,
+                lineColor: muted,
+                topLabel: widget.topLabel,
+                labelStyle: (theme.textTheme.labelSmall ?? const TextStyle())
+                    .copyWith(color: muted),
+                highlightedIndex: widget.highlightedIndex,
+              ),
+            ),
+          ),
         ),
       ),
     );

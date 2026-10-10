@@ -129,6 +129,7 @@ void main() {
             average: 1500,
             color: Colors.red,
             topLabel: '5 000 ₽',
+            semanticsLabel: 'x',
             highlightedIndex: 3,
           ),
         ),
@@ -139,11 +140,23 @@ void main() {
 
     testWidgets('пустые и нулевые веса не падают', (t) async {
       await t.pumpWidget(
-        _host(const BarChart(weights: [], color: Colors.red, topLabel: '')),
+        _host(
+          const BarChart(
+            weights: [],
+            color: Colors.red,
+            topLabel: '',
+            semanticsLabel: 'x',
+          ),
+        ),
       );
       await t.pumpWidget(
         _host(
-          const BarChart(weights: [0, 0], color: Colors.red, topLabel: '0'),
+          const BarChart(
+            weights: [0, 0],
+            color: Colors.red,
+            topLabel: '0',
+            semanticsLabel: 'x',
+          ),
         ),
       );
       expect(t.takeException(), isNull);
@@ -161,7 +174,12 @@ void main() {
         return paint.painter!;
       }
 
-      const base = BarChart(weights: [1, 2], color: Colors.red, topLabel: 'a');
+      const base = BarChart(
+        weights: [1, 2],
+        color: Colors.red,
+        topLabel: 'a',
+        semanticsLabel: 'x',
+      );
       final old = await painter(base);
       Future<bool> changed(BarChart c) async =>
           (await painter(c)).shouldRepaint(old);
@@ -173,6 +191,7 @@ void main() {
             weights: [1, 2],
             color: Colors.red,
             topLabel: 'a',
+            semanticsLabel: 'x',
             highlightedIndex: 0,
           ),
         ),
@@ -180,7 +199,12 @@ void main() {
       );
       expect(
         await changed(
-          const BarChart(weights: [1, 3], color: Colors.red, topLabel: 'a'),
+          const BarChart(
+            weights: [1, 3],
+            color: Colors.red,
+            topLabel: 'a',
+            semanticsLabel: 'x',
+          ),
         ),
         isTrue,
       );
@@ -190,6 +214,7 @@ void main() {
             weights: [1, 2],
             color: Colors.red,
             topLabel: 'a',
+            semanticsLabel: 'x',
             average: 1,
           ),
         ),
@@ -197,10 +222,149 @@ void main() {
       );
       expect(
         await changed(
-          const BarChart(weights: [1, 2], color: Colors.red, topLabel: 'b'),
+          const BarChart(
+            weights: [1, 2],
+            color: Colors.red,
+            topLabel: 'b',
+            semanticsLabel: 'x',
+          ),
         ),
         isTrue,
       );
+    });
+  });
+
+  group('касания', () {
+    // 4 слота по 50 dp в ширину 200; высота 100.
+    const hold = Duration(milliseconds: 250);
+    final log = <int?>[];
+    int? shown;
+
+    Widget chart({bool scroll = false, bool callbacks = true}) {
+      Widget c = StatefulBuilder(
+        builder: (context, setState) => BarChart(
+          weights: const [1, 2, 0, 4],
+          color: Colors.red,
+          topLabel: '4',
+          semanticsLabel: 'Расходы по дням',
+          height: 100,
+          highlightedIndex: shown,
+          onHighlight: callbacks
+              ? (i) {
+                  log.add(i);
+                  setState(() => shown = i);
+                }
+              : null,
+        ),
+      );
+      if (scroll) {
+        c = SingleChildScrollView(
+          child: Column(children: [c, const SizedBox(height: 1000)]),
+        );
+      }
+      return MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(width: 200, child: c),
+          ),
+        ),
+      );
+    }
+
+    Offset at(WidgetTester t, int slot) =>
+        t.getTopLeft(find.byType(BarChart)) + Offset(slot * 50.0 + 25, 60);
+
+    setUp(() {
+      log.clear();
+      shown = null;
+    });
+
+    testWidgets('касание подсвечивает, отпускание снимает', (t) async {
+      await t.pumpWidget(chart());
+      final g = await t.startGesture(at(t, 1));
+      await t.pump();
+      expect(shown, 1);
+      await g.up();
+      await t.pump();
+      expect(shown, isNull);
+      expect(log, [1, null]);
+    });
+
+    testWidgets('ведение пальцем переезжает по столбикам', (t) async {
+      await t.pumpWidget(chart());
+      final g = await t.startGesture(at(t, 0));
+      await g.moveTo(at(t, 2));
+      await t.pump();
+      expect(shown, 2);
+      await g.moveTo(at(t, 3));
+      await t.pump();
+      expect(shown, 3);
+      await g.up();
+      await t.pump();
+      expect(log, [0, 2, 3, null]);
+    });
+
+    testWidgets('отмена указателя снимает подсветку', (t) async {
+      await t.pumpWidget(chart());
+      final g = await t.startGesture(at(t, 1));
+      await t.pump();
+      await g.cancel();
+      await t.pump();
+      expect(shown, isNull);
+    });
+
+    testWidgets('быстрый свайп прокручивает родителя и снимает подсветку', (
+      t,
+    ) async {
+      await t.pumpWidget(chart(scroll: true));
+      final g = await t.startGesture(at(t, 1));
+      await t.pump(const Duration(milliseconds: 100));
+      expect(shown, 1);
+      await g.moveBy(const Offset(0, -80));
+      await t.pump();
+      await g.moveBy(const Offset(0, -80));
+      await t.pump();
+      expect(shown, isNull);
+      await g.up();
+      await t.pump();
+      expect(shown, isNull);
+      final pixels = t
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .pixels;
+      expect(pixels, greaterThan(0));
+    });
+
+    testWidgets('после удержания экран стоит, палец ведёт подсветку', (
+      t,
+    ) async {
+      await t.pumpWidget(chart(scroll: true));
+      final g = await t.startGesture(at(t, 0));
+      await t.pump(hold);
+      await g.moveTo(at(t, 3));
+      await t.pump();
+      expect(shown, 3);
+      final position = t.state<ScrollableState>(find.byType(Scrollable));
+      expect(position.position.pixels, 0);
+      await g.up();
+      await t.pumpAndSettle();
+      expect(shown, isNull);
+    });
+
+    testWidgets('без onHighlight касания игнорируются', (t) async {
+      await t.pumpWidget(chart(callbacks: false));
+      await t.tapAt(at(t, 1));
+      await t.pump();
+      expect(log, isEmpty);
+    });
+
+    testWidgets('один семантический узел с подписью', (t) async {
+      final handle = t.ensureSemantics();
+      await t.pumpWidget(chart());
+      expect(find.bySemanticsLabel('Расходы по дням'), findsOneWidget);
+      expect(find.bySemanticsLabel('4'), findsNothing);
+      handle.dispose();
     });
   });
 
