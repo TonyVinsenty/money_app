@@ -7,7 +7,9 @@ import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
+import 'package:money_app/features/accounts/data/transfers_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/categories/data/categories_repository_impl.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -33,6 +35,7 @@ const _old = 'aaaaaaaa-0000-4000-8000-00000000000d';
 const _card = 'cccccccc-0000-4000-8000-00000000000a';
 const _wallet = 'cccccccc-0000-4000-8000-00000000000b';
 const _oldAccount = 'cccccccc-0000-4000-8000-00000000000c';
+const _cash = 'cccccccc-0000-4000-8000-0000000000a1';
 
 String _txId(int n) =>
     'bbbbbbbb-0000-4000-8000-${n.toString().padLeft(12, "0")}';
@@ -42,11 +45,13 @@ final class _Env {
   _Env(this.db, this.clock)
     : categories = DriftCategoriesRepository(db, clock: clock),
       accounts = DriftAccountsRepository(db, clock: clock),
-      transactions = DriftTransactionsRepository(db, clock: clock) {
+      transactions = DriftTransactionsRepository(db, clock: clock),
+      transfers = DriftTransfersRepository(db, clock: clock) {
     writer = CsvImportWriter(
       db: db,
       categories: categories,
       accounts: accounts,
+      transfers: transfers,
       transactions: transactions,
       ids: FakeIdGenerator(prefix: 'new'),
       isKnownIconKey: (key) => key == 'x',
@@ -58,12 +63,14 @@ final class _Env {
   final DriftCategoriesRepository categories;
   final DriftAccountsRepository accounts;
   final DriftTransactionsRepository transactions;
+  final DriftTransfersRepository transfers;
   late final CsvImportWriter writer;
 
   Future<String> export() async => buildTransactionsCsv(
     transactions: await transactions.findAllLive(),
     categories: await categories.watchAll().first,
     accounts: await accounts.watchAll().first,
+    transfers: await transfers.findAllLive(),
   );
 
   Future<int> categoryCount() async =>
@@ -81,6 +88,7 @@ final class _Env {
     final plan = await writer.prepare(
       parsed.rows,
       openingBalances: parsed.openingBalances,
+      transfers: parsed.transfers,
     );
     await writer.write(plan);
     return plan;
@@ -213,6 +221,126 @@ void main() {
     );
     final restored = await target.accounts.watchAll().first;
     expect(restored.map((a) => a.currencyDigits), contains(4));
+  });
+
+  Transfer transfer(
+    String n,
+    String from,
+    String to,
+    int minor,
+    String currency, {
+    int day = 4,
+    String? note,
+  }) => Transfer(
+    id: 'dddddddd-0000-4000-8000-${n.padLeft(12, "0")}',
+    fromAccountId: from,
+    toAccountId: to,
+    amount: Money.fromMinor(minor, currency),
+    occurredOn: DateOnly(2026, 10, day),
+    occurredAt: DateTime.utc(2026, 10, day, 10),
+    note: note,
+  );
+
+  /// Счета (в том числе архивный, BTC и своя валюта) и переводы между ними.
+  Future<void> seedTransfers() async {
+    await seedSource();
+    const btc1 = 'cccccccc-0000-4000-8000-0000000000b1';
+    const btc2 = 'cccccccc-0000-4000-8000-0000000000b2';
+    const own2 = 'cccccccc-0000-4000-8000-0000000000e2';
+    await env.accounts.create(
+      _account(btc1, 'Кошелёк BTC', 200000, currency: 'BTC', digits: 8),
+    );
+    await env.accounts.create(
+      _account(btc2, 'Биржа BTC', 0, currency: 'BTC', digits: 8, order: 4),
+    );
+    await env.accounts.create(
+      _account(own2, 'Кошелёк 2', 5, currency: 'XYZ', digits: 4, order: 5),
+    );
+    await env.accounts.create(_account(_cash, 'Наличные', 1000, order: 3));
+    await env.transfers.add(
+      transfer('1', _card, _cash, 150000, 'RUB', note: 'a;b "q"'),
+    );
+    await env.transfers.add(transfer('2', btc1, btc2, 150000, 'BTC', day: 5));
+    await env.transfers.add(transfer('3', _wallet, own2, 12345, 'XYZ'));
+    // Перевод со счёта, который потом уходит в архив.
+    const piggy = 'cccccccc-0000-4000-8000-0000000000f1';
+    await env.accounts.create(_account(piggy, 'Копилка', 0, order: 6));
+    await env.transfers.add(transfer('4', _cash, piggy, 100, 'RUB'));
+    await env.accounts.archive(piggy);
+  }
+
+  test('переводы: экспорт -> импорт в пустую базу -> экспорт тот же файл, '
+      'остатки равны', () async {
+    await seedTransfers();
+    final first = await env.export();
+    final balances = await env.accounts.watchBalances().first;
+    expect(first, contains('Перевод'));
+
+    final other = await openInMemoryDatabase();
+    addTearDown(other.close);
+    final target = _Env(other, env.clock);
+    final plan = await target.import(first);
+
+    expect(plan.transfers, hasLength(4));
+    expect(utf8.encode(await target.export()), utf8.encode(first));
+    expect(await target.accounts.watchBalances().first, balances);
+
+    // Повторный импорт: переводы уже есть, ничего не добавляется.
+    final again = await target.import(first);
+    expect(again.transfers, isEmpty);
+    expect(again.transactions, isEmpty);
+    expect(again.accountsToCreate, isEmpty);
+    expect(await target.export(), first);
+  });
+
+  test('перевод без ID: отпечаток, повторный импорт не задваивает', () async {
+    const csv =
+        'Дата;Тип;Сумма;Валюта;Категория;Подкатегория;Комментарий;Счёт;'
+        'Счёт зачисления\r\n'
+        '02.10.2026;Начальный остаток;100;;;;;Карта;\r\n'
+        '02.10.2026;Начальный остаток;0;;;;;Наличные;\r\n'
+        '03.10.2026;Перевод;5;;;;;Карта;Наличные\r\n'
+        '03.10.2026;Перевод;5;;;;;Карта;Наличные\r\n';
+    final first = await env.import(csv);
+    expect(first.transfers, hasLength(2));
+    expect(first.transfers.first.id, isNot(first.transfers.last.id));
+
+    final again = await env.import(csv);
+    expect(again.transfers, isEmpty);
+    expect(again.skippedExisting, 4);
+  });
+
+  test('удалённый в приложении перевод пропускается как удалённый', () async {
+    await seedTransfers();
+    final csv = await env.export();
+    final id = (await env.transfers.findAllLive()).first.id;
+    await env.transfers.softDelete(id);
+
+    final again = await env.import(csv);
+
+    expect(again.transfers, isEmpty);
+    expect(again.skippedDeleted, 1);
+  });
+
+  test('сбой записи перевода откатывает счета, категории и операции', () async {
+    final plan = CsvImportPlan(
+      transactions: [_tx(_txId(1))],
+      skippedExisting: 0,
+      skippedDeleted: 0,
+      categoriesToCreate: [_top(_food, CategoryKind.expense, 'Еда', 0)],
+      accountsToCreate: [
+        _account(_card, 'Карта', 100),
+        _account(_wallet, 'Кошелёк', 0, order: 1),
+      ],
+      transfers: [transfer('1', _card, 'missing', 100, 'RUB')],
+      errors: const [],
+    );
+
+    await expectLater(env.writer.write(plan), throwsArgumentError);
+
+    expect(await env.categoryCount(), 0);
+    expect(await env.transactionCount(), 0);
+    expect(await env.accounts.findById(_card), isNull);
   });
 
   test('импорт: значок известен - берётся, незнакомый - «Другое»', () async {

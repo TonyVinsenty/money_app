@@ -18,9 +18,11 @@ class DriftTransfersRepository implements TransfersRepository {
   final Clock _clock;
 
   @override
-  Future<void> add(Transfer transfer) {
+  Future<void> add(Transfer transfer) => _insert(transfer, isImport: false);
+
+  Future<void> _insert(Transfer transfer, {required bool isImport}) {
     return _db.transaction(() async {
-      await _checkAccounts(transfer, checkFrom: true, checkTo: true);
+      await _checkAccounts(transfer, checkFrom: !isImport, checkTo: !isImport);
       final now = _nowMs();
       await _db
           .into(_db.transfers)
@@ -40,6 +42,10 @@ class DriftTransfersRepository implements TransfersRepository {
           );
     });
   }
+
+  @override
+  Future<void> addImported(Transfer transfer) =>
+      _insert(transfer, isImport: true);
 
   /// Архивность проверяется только у ИЗМЕНЁННОГО счёта: если счёт остался
   /// прежним (пусть и архивным), сумму, дату и комментарий править можно.

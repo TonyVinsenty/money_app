@@ -8,6 +8,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
+import 'package:money_app/features/accounts/data/transfers_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/data/categories_repository_impl.dart';
 import 'package:money_app/features/categories/data/default_categories_seeder.dart';
@@ -60,6 +61,7 @@ final class _Env {
       db: db,
       categories: categories,
       accounts: DriftAccountsRepository(db, clock: clock),
+      transfers: DriftTransfersRepository(db, clock: clock),
       transactions: transactions,
       ids: FakeIdGenerator(prefix: 'new'),
       isKnownIconKey: (_) => true,

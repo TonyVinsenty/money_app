@@ -226,3 +226,14 @@ final class CsvTransferZeroAmount extends CsvRowError {
 final class CsvTransferWithCategory extends CsvRowError {
   const CsvTransferWithCategory(super.line, super.value);
 }
+
+/// `ID счёта зачисления` ([value]) не найден в базе, а имени счёта нет.
+final class CsvTransferToAccountIdNotFound extends CsvRowError {
+  const CsvTransferToAccountIdNotFound(super.line, super.value);
+}
+
+/// Перевод в своей валюте [value], которой нет ни у одного счёта и для
+/// которой в файле нет строки `Начальный остаток`: знаки не известны.
+final class CsvTransferCurrencyNoOpeningBalance extends CsvRowError {
+  const CsvTransferCurrencyNoOpeningBalance(super.line, super.value);
+}

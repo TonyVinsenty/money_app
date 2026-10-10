@@ -9,6 +9,7 @@ abstract interface class CsvImportStore {
   Future<CsvImportPlan> prepare(
     List<ParsedCsvRow> rows, {
     List<ParsedOpeningBalance> openingBalances = const [],
+    List<ParsedTransfer> transfers = const [],
   });
 
   /// Пишет план целиком или ничего (одна транзакция).

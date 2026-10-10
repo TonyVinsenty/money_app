@@ -19,6 +19,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
+import 'package:money_app/features/accounts/data/transfers_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
@@ -115,6 +116,7 @@ Future<void> _pumpApp(WidgetTester tester) async {
       db: _db,
       categories: categories,
       accounts: DriftAccountsRepository(_db, clock: importClock),
+      transfers: DriftTransfersRepository(_db, clock: importClock),
       transactions: transactions,
       ids: FakeIdGenerator(prefix: 'new'),
       isKnownIconKey: (_) => true,

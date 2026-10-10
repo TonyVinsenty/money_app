@@ -222,6 +222,8 @@ void main() {
         const CsvTransferSameAccount(2, 'Карта'),
         const CsvTransferZeroAmount(2, '0,00'),
         const CsvTransferWithCategory(2, 'Кафе'),
+        const CsvTransferToAccountIdNotFound(2, 'x'),
+        const CsvTransferCurrencyNoOpeningBalance(2, 'ABC'),
         const CsvEmptyCategory(2, ''),
         const CsvCategoryTooLong(2, 'x'),
         const CsvSubcategoryTooLong(2, 'x'),

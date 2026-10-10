@@ -42,12 +42,14 @@ class _PlanningStore implements CsvImportStore {
   Future<CsvImportPlan> prepare(
     List<ParsedCsvRow> rows, {
     List<ParsedOpeningBalance> openingBalances = const [],
+    List<ParsedTransfer> transfers = const [],
   }) async {
     final error = prepareError;
     if (error != null) return Future.error(error);
     return planCsvImport(
       rows: rows,
       openingBalances: openingBalances,
+      parsedTransfers: transfers,
       isKnownIconKey: (_) => true,
       categories: categories,
       accounts: accounts,
@@ -653,6 +655,75 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text(csvImportLoadButton), findsOneWidget);
       expect(find.textContaining('Кошелёк'), findsOneWidget);
+    });
+  });
+
+  group('переводы в предпросмотре (5.25)', () {
+    const header =
+        'Дата;Тип;Сумма;Валюта;Категория;Подкатегория;Комментарий;Счёт;'
+        'Счёт зачисления;ID операции\n';
+    const opening =
+        '01.10.2026;Начальный остаток;100;;;;;Карта;;\n'
+        '01.10.2026;Начальный остаток;0;;;;;Наличные;;\n';
+    const transfer = '04.10.2026;Перевод;5;;;;;Карта;Наличные;\n';
+
+    testWidgets('файл только из переводов: «Будет добавлен 1 перевод»', (
+      tester,
+    ) async {
+      final announcements = _captureAnnouncements(tester);
+      final store = _PlanningStore(
+        accounts: [
+          Account(
+            id: 'a1',
+            name: 'Карта',
+            iconKey: 'other',
+            openingBalance: Money.zero('RUB'),
+            sortOrder: 0,
+            currencyDigits: 2,
+          ),
+          Account(
+            id: 'a2',
+            name: 'Наличные',
+            iconKey: 'other',
+            openingBalance: Money.zero('RUB'),
+            sortOrder: 1,
+            currencyDigits: 2,
+          ),
+        ],
+      );
+      final results = await _open(
+        tester,
+        store: store,
+        csv: '$header$transfer',
+      );
+
+      expect(find.text('Будет добавлен 1 перевод'), findsOneWidget);
+      expect(find.text(csvImportNoRowsMessage), findsNothing);
+      expect(announcements, ['Будет добавлен 1 перевод']);
+
+      await tester.tap(find.text(csvImportLoadButton));
+      await tester.pumpAndSettle();
+
+      expect(store.written.single.transfers, hasLength(1));
+      expect(results, [const CsvImportResult(transactions: 1)]);
+    });
+
+    testWidgets('операции, переводы и счета в одном объявлении', (
+      tester,
+    ) async {
+      final announcements = _captureAnnouncements(tester);
+      await _open(
+        tester,
+        store: _PlanningStore(categories: [_food]),
+        csv:
+            '$header$opening$transfer'
+            '05.10.2026;Расход;5;;Еда;;;Карта;;\n',
+      );
+
+      expect(announcements, [
+        'Будет добавлена 1 операция. Будет добавлен 1 перевод. '
+            'Будут созданы 2 счёта: Карта, Наличные',
+      ]);
     });
   });
 }

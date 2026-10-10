@@ -5,6 +5,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
+import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
@@ -39,6 +40,7 @@ final class CsvImportPlan {
     required this.categoriesToCreate,
     required this.errors,
     this.accountsToCreate = const [],
+    this.transfers = const [],
   });
 
   /// Операции к добавлению, в порядке строк файла.
@@ -60,6 +62,9 @@ final class CsvImportPlan {
   /// Новые счета в порядке файла (сначала со строками `Начальный остаток`).
   /// Основным ни один не становится. Пишутся раньше категорий.
   final List<Account> accountsToCreate;
+
+  /// Переводы к добавлению, в порядке строк файла; пишутся после операций.
+  final List<Transfer> transfers;
 }
 
 /// Строит план импорта (ADR 0009, п. 6).
@@ -72,6 +77,8 @@ final class CsvImportPlan {
 /// [deletedAccountIds] — id мягко удалённых. [openingBalances] — строки
 /// `Начальный остаток`. [isKnownIconKey] говорит, знает ли приложение значок:
 /// пустой и незнакомый ключ из файла заменяется на «Другое» (ADR 0010, п. 17).
+/// [parsedTransfers] - строки `Перевод`, [liveTransferIds] и
+/// [deletedTransferIds] - id переводов в базе.
 CsvImportPlan planCsvImport({
   required List<ParsedCsvRow> rows,
   required List<Category> categories,
@@ -83,6 +90,9 @@ CsvImportPlan planCsvImport({
   List<ParsedOpeningBalance> openingBalances = const [],
   List<Account> accounts = const [],
   Set<String> deletedAccountIds = const {},
+  List<ParsedTransfer> parsedTransfers = const [],
+  Set<String> liveTransferIds = const {},
+  Set<String> deletedTransferIds = const {},
 }) {
   final live = {for (final id in liveTransactionIds) id.toLowerCase()};
   final deleted = {for (final id in deletedTransactionIds) id.toLowerCase()};
@@ -251,14 +261,180 @@ CsvImportPlan planCsvImport({
     );
   }
 
+  final transfers = <Transfer>[];
+  final liveTransfers = {for (final id in liveTransferIds) id.toLowerCase()};
+  final deletedTransfers = {
+    for (final id in deletedTransferIds) id.toLowerCase(),
+  };
+  final transferPrints = <String, int>{};
+  for (final row in parsedTransfers) {
+    final String id;
+    final given = row.transferId;
+    if (given != null) {
+      id = given.toLowerCase();
+    } else {
+      final base = _transferFingerprintBase(row);
+      final n = (transferPrints[base] ?? 0) + 1;
+      transferPrints[base] = n;
+      id = const Uuid().v5(csvImportFingerprintNamespace, '$base$_sep$n');
+    }
+    if (liveTransfers.contains(id)) {
+      skippedExisting++;
+      continue;
+    }
+    if (deletedTransfers.contains(id)) {
+      skippedDeleted++;
+      continue;
+    }
+    final transfer = _planTransfer(row, id, accountBook, errors);
+    if (transfer != null) transfers.add(transfer);
+  }
+
   return CsvImportPlan(
     accountsToCreate: accountBook.planned,
     transactions: transactions,
+    transfers: transfers,
     skippedExisting: skippedExisting,
     skippedDeleted: skippedDeleted,
     categoriesToCreate: planned,
     errors: errors,
   );
+}
+
+/// Один перевод: находит или создаёт оба счёта (создаются в валюте перевода,
+/// нулевой остаток). Ошибки дописывает в [errors] и тогда ничего не создаёт.
+Transfer? _planTransfer(
+  ParsedTransfer row,
+  String id,
+  _AccountBook book,
+  List<CsvRowError> errors,
+) {
+  final currency = row.amount.currency;
+  final before = errors.length;
+  final from = book.find(row.fromAccountId, row.fromAccountName);
+  final to = book.find(row.toAccountId, row.toAccountName);
+  if (from == null && row.fromAccountName == null) {
+    errors.add(CsvAccountIdNotFound(row.line, row.fromAccountId!));
+  }
+  if (to == null && row.toAccountName == null) {
+    errors.add(CsvTransferToAccountIdNotFound(row.line, row.toAccountId!));
+  }
+  for (final account in [from, to]) {
+    if (account != null && account.currency != currency) {
+      errors.add(
+        CsvAccountCurrencyMismatch(
+          row.line,
+          currency,
+          account.name,
+          account.currency,
+        ),
+      );
+    }
+  }
+  final fromName = row.fromAccountName;
+  final toName = row.toAccountName;
+  final same = from != null && from.id == to?.id;
+  final sameNew =
+      from == null &&
+      to == null &&
+      fromName != null &&
+      toName != null &&
+      accountNameKey(fromName) == accountNameKey(toName);
+  if (same || sameNew) {
+    errors.add(CsvTransferSameAccount(row.line, from?.name ?? fromName!));
+  }
+
+  // Знаки суммы: каталог, иначе знаки счетов этой валюты.
+  var amount = row.amount;
+  final fileDigits = row.customDigits;
+  int digits = catalogCurrency(currency)?.digits ?? 2;
+  if (fileDigits != null) {
+    final known =
+        [from, to]
+            .where((a) => a != null && a.currency == currency)
+            .map((a) => a!.currencyDigits)
+            .firstOrNull ??
+        book.digitsOf(currency);
+    if (known == null) {
+      errors.add(CsvTransferCurrencyNoOpeningBalance(row.line, currency));
+    } else {
+      digits = known;
+      if (known != fileDigits) {
+        final rescaled = _rescale(amount.minorUnits, fileDigits, known);
+        if (rescaled == null) {
+          final text = formatCsvAmount(
+            amount,
+            currency: currencyInfoFor(currency, digits: fileDigits),
+          );
+          errors.add(
+            CsvInvalidAmount(
+              row.line,
+              text,
+              known < fileDigits
+                  ? AmountParseFailure.tooManyDecimals
+                  : AmountParseFailure.tooLarge,
+              currencyCode: currency,
+              currencyDigits: known,
+            ),
+          );
+        } else {
+          amount = Money.fromMinor(rescaled, currency);
+        }
+      }
+    }
+  }
+  if (errors.length > before) return null;
+
+  final fromAccount =
+      from ??
+      book.create(
+        fromFile: row.fromAccountId,
+        name: fromName!,
+        balance: Money.zero(currency),
+        digits: digits,
+      );
+  final toAccount =
+      to ??
+      book.create(
+        fromFile: row.toAccountId,
+        name: toName!,
+        balance: Money.zero(currency),
+        digits: digits,
+      );
+  return Transfer(
+    id: id,
+    fromAccountId: fromAccount.id,
+    toAccountId: toAccount.id,
+    amount: amount,
+    occurredOn: row.day,
+    occurredAt: row.occurredAt,
+    note: row.note,
+  );
+}
+
+/// Переводит сумму из [fromDigits] знаков в [toDigits]; `null` — не выходит
+/// (лишние ненулевые цифры или слишком большая сумма).
+int? _rescale(int minor, int fromDigits, int toDigits) {
+  if (toDigits < fromDigits) {
+    final cut = _pow10(fromDigits - toDigits);
+    return minor % cut == 0 ? minor ~/ cut : null;
+  }
+  final scale = _pow10(toDigits - fromDigits);
+  return minor > maxInputMinorUnits ~/ scale ? null : minor * scale;
+}
+
+String _transferFingerprintBase(ParsedTransfer row) {
+  String account(String? name, String? id) =>
+      name != null ? accountNameKey(name) : (id ?? '').toLowerCase();
+  return [
+    row.day.toString(),
+    'transfer',
+    row.amount.minorUnits.toString(),
+    row.amount.currency,
+    account(row.fromAccountName, row.fromAccountId),
+    account(row.toAccountName, row.toAccountId),
+    row.note ?? '',
+  ].join(_sep);
 }
 
 /// Ключ из файла, если приложение его знает, иначе «Другое».

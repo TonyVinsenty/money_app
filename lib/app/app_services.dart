@@ -50,12 +50,13 @@ final class AppServices {
     final categories = DriftCategoriesRepository(database, clock: clock);
     final transactions = DriftTransactionsRepository(database, clock: clock);
     final accounts = DriftAccountsRepository(database, clock: clock);
+    final transfers = DriftTransfersRepository(database, clock: clock);
     final ids = idGenerator ?? UuidV7Generator(clock: clock);
     return AppServices(
       categories: categories,
       transactions: transactions,
       accounts: accounts,
-      transfers: DriftTransfersRepository(database, clock: clock),
+      transfers: transfers,
       settings: settings,
       clock: clock,
       idGenerator: ids,
@@ -63,6 +64,7 @@ final class AppServices {
         db: database,
         categories: categories,
         accounts: accounts,
+        transfers: transfers,
         transactions: transactions,
         ids: ids,
         isKnownIconKey: isKnownCategoryIconKey,

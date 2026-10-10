@@ -103,10 +103,12 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
           :final rows,
           :final errors,
           :final openingBalances,
+          :final transfers,
         ):
           final plan = await widget.store.prepare(
             rows,
             openingBalances: openingBalances,
+            transfers: transfers,
           );
           final all = _byLine([...errors, ...plan.errors]);
           if (all.isNotEmpty) {
@@ -116,7 +118,8 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             view = _Preview(
               plan,
               csvImportNewCategoryGroups(plan.categoriesToCreate, existing),
-              noRows: rows.isEmpty && openingBalances.isEmpty,
+              noRows:
+                  rows.isEmpty && openingBalances.isEmpty && transfers.isEmpty,
             );
           }
       }
@@ -138,12 +141,15 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     _Preview(:final plan) => csvImportPreviewAnnouncement(
       transactions: plan.transactions.length,
       accounts: plan.accountsToCreate,
+      transfers: plan.transfers.length,
     ),
   };
 
   /// Ни операций, ни счетов к созданию: кнопки «Загрузить» нет.
   static bool _nothingToWrite(CsvImportPlan plan) =>
-      plan.transactions.isEmpty && plan.accountsToCreate.isEmpty;
+      plan.transactions.isEmpty &&
+      plan.transfers.isEmpty &&
+      plan.accountsToCreate.isEmpty;
 
   /// Содержимое экрана сменилось целиком, а фокус VoiceOver и TalkBack
   /// остался на прежнем месте: говорим, что теперь на экране.
@@ -191,7 +197,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     if (mounted) {
       Navigator.of(context).pop(
         CsvImportResult(
-          transactions: plan.transactions.length,
+          transactions: plan.transactions.length + plan.transfers.length,
           accounts: plan.accountsToCreate.length,
         ),
       );
@@ -242,12 +248,18 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          plan.transactions.isEmpty
-              ? csvImportWillCreateAccounts(accounts.length)
-              : csvImportWillAdd(plan.transactions.length),
-          style: textTheme.titleMedium,
-        ),
+        if (plan.transactions.isNotEmpty || plan.transfers.isEmpty)
+          Text(
+            plan.transactions.isEmpty
+                ? csvImportWillCreateAccounts(accounts.length)
+                : csvImportWillAdd(plan.transactions.length),
+            style: textTheme.titleMedium,
+          ),
+        if (plan.transfers.isNotEmpty)
+          Text(
+            csvImportWillAddTransfers(plan.transfers.length),
+            style: textTheme.titleMedium,
+          ),
         for (final line in skipped)
           Padding(padding: const EdgeInsets.only(top: 8), child: Text(line)),
         if (accounts.isNotEmpty) ...[

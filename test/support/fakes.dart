@@ -73,6 +73,9 @@ class InMemoryTransfersRepository extends Fake implements TransfersRepository {
   }
 
   @override
+  Future<void> addImported(Transfer transfer) => add(transfer);
+
+  @override
   Future<void> update(Transfer transfer) async {
     if (failWith != null) throw failWith!;
     final i = all.indexWhere((t) => t.id == transfer.id);
@@ -566,6 +569,7 @@ class PlannedCsvImportStore implements CsvImportStore {
   Future<CsvImportPlan> prepare(
     List<ParsedCsvRow> rows, {
     List<ParsedOpeningBalance> openingBalances = const [],
+    List<ParsedTransfer> transfers = const [],
   }) async {
     preparedRows = rows;
     return plan;
