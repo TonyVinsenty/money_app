@@ -111,9 +111,14 @@ class _DueSectionState extends State<DueSection> {
   /// Название архивной категории, подкатегории или счёта платежа; `null`,
   /// если всё живое.
   String? _archivedText(RecurringPayment p) {
-    for (final id in [p.categoryId, p.subcategoryId]) {
-      for (final c in _categories) {
-        if (c.id == id && c.isArchived) return dueCategoryArchivedText(c.name);
+    for (final c in _categories) {
+      if (c.id == p.categoryId && c.isArchived) {
+        return dueCategoryArchivedText(c.name);
+      }
+    }
+    for (final c in _categories) {
+      if (c.id == p.subcategoryId && c.isArchived) {
+        return dueSubcategoryArchivedText(c.name);
       }
     }
     for (final a in _accounts) {
@@ -133,10 +138,11 @@ class _DueSectionState extends State<DueSection> {
   }
 
   /// Пока идёт запись, повторные касания по записи игнорируются.
-  Future<String?> _guard(String id, Future<String?> Function() action) async {
-    if (!_busy.add(id)) return null;
+  /// Если запись занята, возвращает `busy: true`, и действие не выполняется.
+  Future<_Outcome> _guard(String id, Future<String?> Function() action) async {
+    if (!_busy.add(id)) return (busy: true, error: null);
     try {
-      return await action();
+      return (busy: false, error: await action());
     } finally {
       _busy.remove(id);
     }
@@ -144,7 +150,7 @@ class _DueSectionState extends State<DueSection> {
 
   Future<void> _payQuick(RecurringDue due) async {
     final p = due.payment;
-    final error = await _guard(
+    final outcome = await _guard(
       due.id,
       () => widget.onPay(
         due,
@@ -153,11 +159,13 @@ class _DueSectionState extends State<DueSection> {
         accountId: p.accountId,
       ),
     );
+    final error = outcome.error;
     if (error != null && mounted) _error(error);
   }
 
   Future<void> _skip(RecurringDue due) async {
-    final error = await _guard(due.id, () => widget.onSkip(due));
+    final outcome = await _guard(due.id, () => widget.onSkip(due));
+    final error = outcome.error;
     if (error != null && mounted) _error(error);
   }
 
@@ -210,6 +218,16 @@ class _DueSectionState extends State<DueSection> {
       ],
     );
   }
+
+  /// Кнопка с озвучкой «Действие: название» (видимый текст тот же).
+  Widget _spoken(String label, VoidCallback onTap, Widget button) => Semantics(
+    container: true,
+    button: true,
+    label: label,
+    onTap: onTap,
+    excludeSemantics: true,
+    child: button,
+  );
 
   Widget _buildRow(BuildContext context, RecurringDue due) {
     final theme = Theme.of(context);
@@ -270,30 +288,42 @@ class _DueSectionState extends State<DueSection> {
             runSpacing: 4,
             children: [
               if (archived == null)
-                FilledButton.tonal(
-                  key: DueSection.payKey(due.id),
-                  style: ButtonStyle(
-                    minimumSize: WidgetStateProperty.all(const Size(0, 48)),
+                _spoken(
+                  duePaySemantics(p.title),
+                  () => unawaited(_payQuick(due)),
+                  FilledButton.tonal(
+                    key: DueSection.payKey(due.id),
+                    style: ButtonStyle(
+                      minimumSize: WidgetStateProperty.all(const Size(0, 48)),
+                    ),
+                    onPressed: () => unawaited(_payQuick(due)),
+                    child: const Text(duePayButton),
                   ),
-                  onPressed: () => unawaited(_payQuick(due)),
-                  child: const Text(duePayButton),
                 )
               else
-                FilledButton.tonal(
-                  key: DueSection.editKey(due.id),
+                _spoken(
+                  dueEditSemantics(p.title),
+                  () => widget.onEdit(p),
+                  FilledButton.tonal(
+                    key: DueSection.editKey(due.id),
+                    style: ButtonStyle(
+                      minimumSize: WidgetStateProperty.all(const Size(0, 48)),
+                    ),
+                    onPressed: () => widget.onEdit(p),
+                    child: const Text(dueEditButton),
+                  ),
+                ),
+              _spoken(
+                dueSkipSemantics(p.title),
+                () => unawaited(_skip(due)),
+                TextButton(
+                  key: DueSection.skipKey(due.id),
                   style: ButtonStyle(
                     minimumSize: WidgetStateProperty.all(const Size(0, 48)),
                   ),
-                  onPressed: () => widget.onEdit(p),
-                  child: const Text(dueEditButton),
+                  onPressed: () => unawaited(_skip(due)),
+                  child: const Text(dueSkipButton),
                 ),
-              TextButton(
-                key: DueSection.skipKey(due.id),
-                style: ButtonStyle(
-                  minimumSize: WidgetStateProperty.all(const Size(0, 48)),
-                ),
-                onPressed: () => unawaited(_skip(due)),
-                child: const Text(dueSkipButton),
               ),
             ],
           ),
@@ -302,6 +332,9 @@ class _DueSectionState extends State<DueSection> {
     );
   }
 }
+
+/// Итог защищённого действия: запись была занята или текст ошибки.
+typedef _Outcome = ({bool busy, String? error});
 
 /// Лист «Оплата»: сумма, день и счёт этой записи; платёж не меняется.
 class _PaySheet extends StatefulWidget {
@@ -317,7 +350,7 @@ class _PaySheet extends StatefulWidget {
   final DateOnly today;
   final List<Account> accounts;
   final RecurringAccountPicker onPickAccount;
-  final Future<String?> Function(Money amount, DateOnly day, String? accountId)
+  final Future<_Outcome> Function(Money amount, DateOnly day, String? accountId)
   onPay;
 
   @override
@@ -377,11 +410,13 @@ class _PaySheetState extends State<_PaySheet> {
       _error = null;
     });
     final navigator = Navigator.of(context);
-    final error = await widget.onPay(amount, _day, _accountId);
+    final outcome = await widget.onPay(amount, _day, _accountId);
     if (!mounted) return;
-    if (error == null) {
+    final error = outcome.error;
+    if (error == null && !outcome.busy) {
       navigator.pop();
     } else {
+      // Занято: запись оплачивается другим касанием, лист остаётся открытым.
       setState(() {
         _saving = false;
         _error = error;

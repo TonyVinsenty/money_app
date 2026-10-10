@@ -6,6 +6,8 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
@@ -128,6 +130,7 @@ Future<RecurringCategoryChoice?> pickRecurringCategory(
   CategoriesRepository categories,
 ) async {
   final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
   final category = await navigator.push<Category>(
     MaterialPageRoute<Category>(
       builder: (_) =>
@@ -135,10 +138,24 @@ Future<RecurringCategoryChoice?> pickRecurringCategory(
     ),
   );
   if (category == null) return null;
-  final subs = [
-    for (final c in await categories.watchSubcategories(category.id).first)
-      if (!c.isArchived) c,
-  ];
+  final List<Category> subs;
+  try {
+    subs = [
+      for (final c in await categories.watchSubcategories(category.id).first)
+        if (!c.isArchived) c,
+    ];
+  } on Object {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: TapToDismissSnackContent(
+            child: Text(AsyncView.defaultErrorText),
+          ),
+        ),
+      );
+    return null;
+  }
   if (subs.isEmpty) return (category: category, subcategory: null);
   final choice = await navigator.push<SubcategoryChoice>(
     MaterialPageRoute<SubcategoryChoice>(
@@ -608,6 +625,10 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           accounts: arguments.accounts.watchAll(),
           defaultAccountId: arguments.defaultAccountId,
           editing: arguments.editing,
+          // Платёж с первым днём «сегодня» сразу попадает в «К оплате».
+          onSaved: () async {
+            await arguments.recurring.materializeDue(arguments.today);
+          },
           onPickCategory: (context, type) =>
               pickRecurringCategory(context, type, arguments.categories),
           onPickAccount: (context, accounts, selectedId) => showAccountSheet(

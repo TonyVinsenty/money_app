@@ -446,6 +446,12 @@ class InMemoryLinkedTransactions extends Fake
       deleted.contains(id) ? null : items[id];
 
   @override
+  Future<List<Transaction>> findAllLive() async => [
+    for (final t in items.values)
+      if (!deleted.contains(t.id)) t,
+  ];
+
+  @override
   Future<void> softDelete(String id) async {
     deleted.add(id);
     changes.add(null);

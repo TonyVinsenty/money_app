@@ -4,12 +4,13 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
+import 'package:money_app/core/ui/undo_texts.dart' as core_undo;
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Подписи и сборка сообщений после сохранения операции.
 abstract final class SavedSnackBar {
   static const undoLabel = 'Отменить';
-  static const undoFailedText = 'Не удалось отменить. Попробуйте ещё раз';
+  static const undoFailedText = core_undo.undoFailedText;
 
   /// Второй строкой, если счета не загрузились и операция ушла без счёта.
   static const accountsFailedText =

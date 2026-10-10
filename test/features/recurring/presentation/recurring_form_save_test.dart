@@ -282,15 +282,7 @@ void main() {
     repo.categories[0] = _food.archived(DateTime.utc(2026, 10, 1));
     await pumpApp(tester, openRow: 'p1');
     expect(find.byKey(RecurringFormScreen.archivedNoteKey), findsOneWidget);
-    expect(
-      find.text(
-        recurringRuleMessage(
-          RecurringRule.categoryArchived,
-          type: TransactionType.expense,
-        ),
-      ),
-      findsOneWidget,
-    );
+    expect(find.text(dueCategoryArchivedText('Еда')), findsOneWidget);
     nextChoice = (
       category: Category.topLevel(
         id: 'home',
@@ -305,5 +297,52 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(RecurringFormScreen.archivedNoteKey), findsNothing);
     expect(find.text('Дом'), findsOneWidget);
+  });
+
+  testWidgets('archived subcategory: note names the subcategory', (
+    tester,
+  ) async {
+    await repo.create(
+      RecurringPayment(
+        id: 'p1',
+        title: 'Интернет',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(65000, 'RUB'),
+        categoryId: 'food',
+        subcategoryId: 'bread',
+        unit: RepeatUnit.month,
+        every: 1,
+        startsOn: today,
+      ),
+    );
+    repo.categories[1] = _bread.archived(DateTime.utc(2026, 10, 1));
+    await pumpApp(tester, openRow: 'p1');
+    expect(find.text(dueSubcategoryArchivedText('Хлеб')), findsOneWidget);
+    expect(find.text(dueCategoryArchivedText('Еда')), findsNothing);
+  });
+
+  testWidgets('archived account: note is shown before saving', (tester) async {
+    await repo.create(
+      RecurringPayment(
+        id: 'p1',
+        title: 'Интернет',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(65000, 'RUB'),
+        categoryId: 'food',
+        accountId: 'card',
+        unit: RepeatUnit.month,
+        every: 1,
+        startsOn: today,
+      ),
+    );
+    accountList = [
+      _account('card', 'Карта').archived(DateTime.utc(2026, 10, 1)),
+    ];
+    await pumpApp(tester, openRow: 'p1');
+    expect(
+      find.byKey(RecurringFormScreen.accountArchivedNoteKey),
+      findsOneWidget,
+    );
+    expect(find.text(dueAccountArchivedText('Карта')), findsOneWidget);
   });
 }

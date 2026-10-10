@@ -689,6 +689,7 @@ void runRecurringRepositoryContract(
           repo.markPaid(dueId, amount: rub, day: today),
         ]);
         expect(both[0], both[1]);
+        expect(await h.transactions.findAllLive(), hasLength(1));
       });
 
       test('deleting the operation brings the due back; undo pays', () async {
@@ -766,7 +767,10 @@ void runRecurringRepositoryContract(
           throwsStateError,
         );
         await repo.unskip(dueId);
-        expect((await repo.watchDue().first).single.status, isNotNull);
+        expect(
+          (await repo.watchDue().first).single.status,
+          RecurringDueStatus.pending,
+        );
         await repo.unskip(dueId); // не пропущена - ничего
         expect((await repo.watchDue().first).length, 1);
         // Повторная материализация пропущенное не воскрешает.

@@ -193,6 +193,21 @@ void main() {
     expect(find.text('Пропустить'), findsNWidgets(3));
   });
 
+  testWidgets('озвучка: кнопки с названием, в строке - доход или расход', (
+    tester,
+  ) async {
+    await seed([_payment('a', 'Интернет', today)]);
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+    expect(find.bySemanticsLabel('Оплачено: Интернет'), findsOneWidget);
+    expect(find.bySemanticsLabel('Пропустить: Интернет'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('^Интернет, расход .*сегодня')),
+      findsOneWidget,
+    );
+    handle.dispose();
+  });
+
   testWidgets('«Оплачено»: строка исчезла, операция с суммой, «Отменить»', (
     tester,
   ) async {

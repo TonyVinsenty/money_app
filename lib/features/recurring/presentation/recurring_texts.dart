@@ -150,7 +150,6 @@ String recurringDeletedMessage(String title) => 'Платёж «$title» уда�
 
 // Не из утверждённых: служебные сбои удаления и возврата.
 const String recurringDeleteFailed = 'Не удалось удалить. Попробуйте ещё раз';
-const String recurringUndoFailed = 'Не удалось отменить. Попробуйте ещё раз';
 
 // «К оплате» и лист «Оплата» (ROADMAP, Р8 и Р9; утверждены 2026-10-10).
 
@@ -181,23 +180,28 @@ String dueDayText(DateOnly day, DateOnly today) {
 String dueRowText(RecurringPayment payment) =>
     '${payment.title} · ${formatMoney(payment.amount)}';
 
-/// Озвучка строки: «Интернет, 650 рублей, сегодня».
-String dueRowSemantics(
-  RecurringPayment payment,
-  DateOnly day,
-  DateOnly today,
-) =>
-    '${payment.title}, ${spokenMoney(payment.amount)}, '
-    '${dueDayText(day, today).toLowerCase()}';
+/// Озвучка строки: «Интернет, расход 650 рублей, сегодня».
+String dueRowSemantics(RecurringPayment payment, DateOnly day, DateOnly today) {
+  final kind = payment.type == TransactionType.income ? 'доход' : 'расход';
+  return '${payment.title}, $kind ${spokenMoney(payment.amount)}, '
+      '${dueDayText(day, today).toLowerCase()}';
+}
+
+/// Озвучка кнопок строки: «Оплачено: Интернет» и т. п.
+String duePaySemantics(String title) => '$duePayButton: $title';
+String dueSkipSemantics(String title) => '$dueSkipButton: $title';
+String dueEditSemantics(String title) => '$dueEditButton: $title';
 
 /// После «Пропустить»: «Платёж «Интернет» за 5 октября пропущен».
 String dueSkippedMessage(String title, DateOnly day) =>
     'Платёж «$title» за ${formatDayMonth(day)} пропущен';
 
-/// Категория в архиве (Р8).
+/// Категория в архиве (Р8); те же тексты в форме платежа и в «К оплате».
 String dueCategoryArchivedText(String name) =>
     'Категория «$name» в архиве — выберите другую';
 
-// Не из утверждённых: то же для счёта (Р8 описывает только категорию).
+// Не из утверждённых: то же для подкатегории и счёта по образцу Р8.
+String dueSubcategoryArchivedText(String name) =>
+    'Подкатегория «$name» в архиве — выберите другую';
 String dueAccountArchivedText(String name) =>
     'Счёт «$name» в архиве — выберите другой';

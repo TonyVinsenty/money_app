@@ -11,6 +11,7 @@ import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/recurring_rule_text.dart';
 import 'package:money_app/core/ui/runes_length_formatter.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
+import 'package:money_app/core/ui/undo_texts.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -53,8 +54,13 @@ class RecurringFormScreen extends StatefulWidget {
     required this.onPickAccount,
     this.defaultAccountId,
     this.editing,
+    this.onSaved,
     super.key,
   });
+
+  /// Вызывается после успешного «Сохранить» (приложение создаёт записи
+  /// «К оплате» для платежа на сегодня). Ошибки здесь сохранение не роняют.
+  final Future<void> Function()? onSaved;
 
   final RecurringRepository repository;
   final IdGenerator idGenerator;
@@ -93,6 +99,9 @@ class RecurringFormScreen extends StatefulWidget {
   static const saveErrorKey = ValueKey('recurring-form-save-error');
   static const deleteKey = ValueKey('recurring-form-delete');
   static const archivedNoteKey = ValueKey('recurring-form-archived');
+  static const accountArchivedNoteKey = ValueKey(
+    'recurring-form-account-archived',
+  );
 
   @override
   State<RecurringFormScreen> createState() => _RecurringFormScreenState();
@@ -231,9 +240,38 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
 
   /// Пояснение, если категория или подкатегория платежа ушла в архив: она
   /// остаётся, но лучше выбрать новую.
-  bool get _categoryArchived =>
-      (_categoryById(_categoryId)?.isArchived ?? false) ||
-      (_categoryById(_subcategoryId)?.isArchived ?? false);
+  String? get _categoryNote {
+    final category = _categoryById(_categoryId);
+    if (category != null && category.isArchived) {
+      return dueCategoryArchivedText(category.name);
+    }
+    final sub = _categoryById(_subcategoryId);
+    if (sub != null && sub.isArchived) {
+      return dueSubcategoryArchivedText(sub.name);
+    }
+    return null;
+  }
+
+  /// То же для счёта платежа.
+  String? get _accountNote {
+    for (final a in _allAccounts) {
+      if (a.id == _accountId && a.isArchived) {
+        return dueAccountArchivedText(a.name);
+      }
+    }
+    return null;
+  }
+
+  /// Текст ошибки правила; про архив называет, что именно в архиве.
+  String _ruleText(RecurringRule rule) {
+    if (rule == RecurringRule.categoryArchived) {
+      return _categoryNote ?? recurringRuleMessage(rule, type: _type);
+    }
+    if (rule == RecurringRule.accountArchived) {
+      return _accountNote ?? recurringRuleMessage(rule, type: _type);
+    }
+    return recurringRuleMessage(rule, type: _type);
+  }
 
   Future<void> _delete() async {
     final old = widget.editing;
@@ -283,7 +321,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
-            content: TapToDismissSnackContent(child: Text(recurringUndoFailed)),
+            content: TapToDismissSnackContent(child: Text(undoFailedText)),
           ),
         );
     }
@@ -385,9 +423,17 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
       } else {
         await widget.repository.update(payment);
       }
+      final onSaved = widget.onSaved;
+      if (onSaved != null) {
+        try {
+          await onSaved();
+        } on Object {
+          // Платёж сохранён; запись «К оплате» появится при следующем запуске.
+        }
+      }
       if (mounted) Navigator.of(context).pop();
     } on RecurringRuleException catch (error) {
-      _failSave(recurringRuleMessage(error.rule, type: _type));
+      _failSave(_ruleText(error.rule));
     } on Object {
       _failSave(recurringSaveFailedText);
     }
@@ -499,12 +545,9 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                                 ? TextStyle(color: theme.colorScheme.error)
                                 : null,
                           ),
-                          if (_categoryArchived)
+                          if (_categoryNote != null)
                             Text(
-                              recurringRuleMessage(
-                                RecurringRule.categoryArchived,
-                                type: _type,
-                              ),
+                              _categoryNote!,
                               key: RecurringFormScreen.archivedNoteKey,
                               style: TextStyle(color: theme.colorScheme.error),
                             ),
@@ -517,7 +560,18 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                       key: RecurringFormScreen.accountKey,
                       contentPadding: EdgeInsets.zero,
                       title: const Text(recurringFormAccountLabel),
-                      subtitle: Text(_accountTitle),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_accountTitle),
+                          if (_accountNote != null)
+                            Text(
+                              _accountNote!,
+                              key: RecurringFormScreen.accountArchivedNoteKey,
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
+                        ],
+                      ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _pickAccount,
                     ),

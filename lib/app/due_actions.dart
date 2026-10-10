@@ -9,6 +9,7 @@ import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/presentation/recurring_texts.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/saved_snack_bar.dart';
 
@@ -45,6 +46,15 @@ class DueActions {
         day: day,
         accountId: accountId,
       );
+      // Если запись уже была оплачена (двойное касание), вернулась id чужой
+      // операции: сообщение строим по ней, а не по сумме из листа.
+      Transaction? stored;
+      try {
+        stored = await _services.transactions.findById(transactionId);
+      } on Object {
+        stored = null;
+      }
+      if (stored == null) return null; // Операция записана, показать нечего.
       var categoryName = payment.title;
       String? subcategoryName;
       try {
@@ -60,13 +70,13 @@ class DueActions {
       }
       final text = SavedSnackBar.text(
         type: payment.type,
-        amount: amount,
+        amount: stored.amount,
         categoryName: categoryName,
         subcategoryName: subcategoryName,
       );
       final spoken = SavedSnackBar.spokenText(
         type: payment.type,
-        amount: amount,
+        amount: stored.amount,
         categoryName: categoryName,
         subcategoryName: subcategoryName,
       );

@@ -33,6 +33,9 @@ JoinedSelectStatement<HasResultSet, dynamic> recurringDueQuery(AppDatabase db) {
 
 /// Реализация [RecurringRepository] на drift. Условие `deleted_at IS NULL`
 /// стоит в каждом запросе по живым платежам.
+///
+/// [_transactions] обязан работать с той же [AppDatabase], что и [_db]: иначе
+/// `markPaid` (операция + статус записи) перестанет быть одной транзакцией.
 class DriftRecurringRepository implements RecurringRepository {
   DriftRecurringRepository(
     this._db,

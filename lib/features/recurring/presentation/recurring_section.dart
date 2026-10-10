@@ -75,9 +75,12 @@ class RecurringSection extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 48),
           child: Align(
             alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              recurringSectionTitle,
-              style: theme.textTheme.titleMedium,
+            child: Semantics(
+              header: true,
+              child: Text(
+                recurringSectionTitle,
+                style: theme.textTheme.titleMedium,
+              ),
             ),
           ),
         ),
