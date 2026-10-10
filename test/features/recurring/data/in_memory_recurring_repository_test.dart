@@ -2,6 +2,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
 import '../../../support/fixed_clock.dart';
 import '../../../support/in_memory_recurring_repository.dart';
@@ -10,9 +11,19 @@ import '../recurring_repository_contract.dart';
 final class _FakeHarness implements RecurringHarness {
   @override
   final clock = FixedClock(DateTime.utc(2026, 10, 10, 12));
+  late final linked = InMemoryLinkedTransactions((id) {
+    for (final c in fake.categories) {
+      if (c.id == id) return c;
+    }
+    return null;
+  });
   late final InMemoryRecurringRepository fake = InMemoryRecurringRepository(
     clock,
+    linked,
   );
+
+  @override
+  TransactionsRepository get transactions => linked;
 
   @override
   RecurringRepository get repo => fake;

@@ -57,7 +57,11 @@ final class AppServices {
     final transactions = DriftTransactionsRepository(database, clock: clock);
     final accounts = DriftAccountsRepository(database, clock: clock);
     final transfers = DriftTransfersRepository(database, clock: clock);
-    final recurring = DriftRecurringRepository(database, clock: clock);
+    final recurring = DriftRecurringRepository(
+      database,
+      transactions,
+      clock: clock,
+    );
     final ids = idGenerator ?? UuidV7Generator(clock: clock);
     return AppServices(
       categories: categories,

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -8,14 +10,24 @@ import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/domain/recurring_rules.dart';
 import 'package:money_app/features/recurring/domain/recurring_schedule.dart';
+import 'package:money_app/features/transactions/domain/occurrence.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
+import 'package:money_app/features/transactions/domain/transaction_rules.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
 /// Фейк регулярных платежей «в памяти»: ведёт себя как `DriftRecurringRepository`
 /// (те же проверки в том же порядке, сортировка, служебные поля). Категории и
 /// счета, на которые ссылаются платежи, тест кладёт в [categories] и [accounts].
 class InMemoryRecurringRepository implements RecurringRepository {
-  InMemoryRecurringRepository(this._clock);
+  InMemoryRecurringRepository(this._clock, this.transactions) {
+    // Удаление и возврат операции меняют «К оплате».
+    transactions.changes.stream.listen((_) => _changes.add(null));
+  }
 
   final Clock _clock;
+
+  /// Операции, которые создаёт `markPaid`.
+  final InMemoryLinkedTransactions transactions;
   final categories = <Category>[];
   final accounts = <Account>[];
   final _payments = <RecurringPayment>[];
@@ -254,7 +266,8 @@ class InMemoryRecurringRepository implements RecurringRepository {
       if (payment.isDeleted) continue;
       final shown =
           d.status == RecurringDueStatus.pending ||
-          (d.status == RecurringDueStatus.paid && d.transactionDeleted);
+          (d.status == RecurringDueStatus.paid &&
+              transactions.deleted.contains(d.transactionId));
       if (!shown) continue;
       items.add(
         RecurringDue(
@@ -295,7 +308,88 @@ class InMemoryRecurringRepository implements RecurringRepository {
       (d) => d.paymentId == paymentId && d.dueOn == dueOn,
     );
     d.status = status;
-    d.transactionDeleted = transactionDeleted;
+    d.transactionId = status == RecurringDueStatus.paid
+        ? 'tx-$paymentId-${dueOn.toInt()}'
+        : null;
+    if (transactionDeleted) transactions.deleted.add(d.transactionId!);
+    _changes.add(null);
+  }
+
+  _Due _requireDue(String id) {
+    final found = _dues.where((d) => d.id == id);
+    if (found.isEmpty) {
+      throw ArgumentError.value(id, 'dueId', 'recurring due not found');
+    }
+    return found.first;
+  }
+
+  bool _paidAlive(_Due d) =>
+      d.transactionId != null &&
+      !transactions.deleted.contains(d.transactionId);
+
+  @override
+  Future<String> markPaid(
+    String dueId, {
+    required Money amount,
+    required DateOnly day,
+    String? accountId,
+  }) async {
+    final due = _requireDue(dueId);
+    final payment = _payments.firstWhere((p) => p.id == due.paymentId);
+    if (payment.isDeleted) {
+      throw ArgumentError.value(dueId, 'dueId', 'recurring payment deleted');
+    }
+    if (amount.currency != payment.amount.currency) {
+      throw ArgumentError.value(amount, 'amount', 'currency differs');
+    }
+    if (due.status == RecurringDueStatus.skipped) {
+      throw StateError('Recurring due "$dueId" is skipped');
+    }
+    if (_paidAlive(due)) return due.transactionId!;
+    final occurrence = Occurrence.onDay(day, clock: _clock);
+    final id = 'tx-fake-${transactions.items.length}';
+    // Запись занимается до первого await: второе касание видит её оплаченной.
+    final before = (due.status, due.transactionId);
+    due.status = RecurringDueStatus.paid;
+    due.transactionId = id;
+    try {
+      await transactions.add(
+        Transaction(
+          id: id,
+          type: payment.type,
+          amount: amount,
+          occurredOn: occurrence.occurredOn,
+          occurredAt: occurrence.occurredAt,
+          categoryId: payment.categoryId,
+          subcategoryId: payment.subcategoryId,
+          note: payment.title,
+          accountId: accountId,
+        ),
+      );
+    } catch (_) {
+      due.status = before.$1;
+      due.transactionId = before.$2;
+      rethrow;
+    }
+    _changes.add(null);
+    return id;
+  }
+
+  @override
+  Future<void> skip(String dueId) async {
+    final due = _requireDue(dueId);
+    if (due.status == RecurringDueStatus.skipped) return;
+    if (_paidAlive(due)) throw StateError('Recurring due "$dueId" is paid');
+    due.status = RecurringDueStatus.skipped;
+    due.transactionId = null;
+    _changes.add(null);
+  }
+
+  @override
+  Future<void> unskip(String dueId) async {
+    final due = _requireDue(dueId);
+    if (due.status != RecurringDueStatus.skipped) return;
+    due.status = RecurringDueStatus.pending;
     _changes.add(null);
   }
 
@@ -323,5 +417,43 @@ class _Due {
   final String paymentId;
   final DateOnly dueOn;
   var status = RecurringDueStatus.pending;
-  var transactionDeleted = false;
+  String? transactionId;
+}
+
+/// Репозиторий операций «в памяти» для фейка платежей: `add` с проверкой
+/// архивности категории, мягкое удаление и возврат. Остальное не нужно.
+class InMemoryLinkedTransactions extends Fake
+    implements TransactionsRepository {
+  InMemoryLinkedTransactions(this._categoryOf);
+
+  final Category? Function(String id) _categoryOf;
+  final items = <String, Transaction>{};
+  final deleted = <String>{};
+  final changes = StreamController<void>.broadcast();
+
+  @override
+  Future<void> add(Transaction transaction) async {
+    for (final id in [transaction.categoryId, transaction.subcategoryId]) {
+      if (id != null && _categoryOf(id)?.isArchived == true) {
+        throw TransactionRuleException(TransactionRule.categoryArchived);
+      }
+    }
+    items[transaction.id] = transaction;
+  }
+
+  @override
+  Future<Transaction?> findById(String id) async =>
+      deleted.contains(id) ? null : items[id];
+
+  @override
+  Future<void> softDelete(String id) async {
+    deleted.add(id);
+    changes.add(null);
+  }
+
+  @override
+  Future<void> restore(String id) async {
+    deleted.remove(id);
+    changes.add(null);
+  }
 }

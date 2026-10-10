@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/errors/data_corrupted_exception.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/recurring/data/recurring_payment_mapper.dart';
@@ -9,6 +10,9 @@ import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/domain/recurring_rules.dart';
 import 'package:money_app/features/recurring/domain/recurring_schedule.dart';
+import 'package:money_app/features/transactions/domain/occurrence.dart';
+import 'package:money_app/features/transactions/domain/transaction.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
 /// Запрос «К оплате»: записи живых платежей, ожидающие оплаты, и оплаченные с
 /// удалённой операцией (ADR 0011, п. 6). Вынесен отдельно, чтобы тест плана
@@ -31,12 +35,14 @@ JoinedSelectStatement<HasResultSet, dynamic> recurringDueQuery(AppDatabase db) {
 /// стоит в каждом запросе по живым платежам.
 class DriftRecurringRepository implements RecurringRepository {
   DriftRecurringRepository(
-    this._db, {
+    this._db,
+    this._transactions, {
     this._clock = const SystemClock(),
     this._ids = const UuidV7Generator(),
   });
 
   final AppDatabase _db;
+  final TransactionsRepository _transactions;
   final Clock _clock;
   final IdGenerator _ids;
 
@@ -274,6 +280,128 @@ class DriftRecurringRepository implements RecurringRepository {
         ),
       );
     });
+  }
+
+  @override
+  Future<String> markPaid(
+    String dueId, {
+    required Money amount,
+    required DateOnly day,
+    String? accountId,
+  }) {
+    return _db.transaction(() async {
+      final due = await _requireDue(dueId);
+      final payment = recurringPaymentFromRow(await _paymentRowOf(due));
+      if (amount.currency != payment.amount.currency) {
+        throw ArgumentError.value(amount, 'amount', 'currency differs');
+      }
+      if (due.status == RecurringDueStatus.skipped.name) {
+        throw StateError('Recurring due "$dueId" is skipped');
+      }
+      final oldId = due.transactionId;
+      if (oldId != null && !await _isTransactionDeleted(oldId)) {
+        return oldId; // Уже оплачено: вторая операция не создаётся.
+      }
+      final occurrence = Occurrence.onDay(day, clock: _clock);
+      final transactionId = _ids.newId();
+      await _transactions.add(
+        Transaction(
+          id: transactionId,
+          type: payment.type,
+          amount: amount,
+          occurredOn: occurrence.occurredOn,
+          occurredAt: occurrence.occurredAt,
+          categoryId: payment.categoryId,
+          subcategoryId: payment.subcategoryId,
+          note: payment.title,
+          accountId: accountId,
+        ),
+      );
+      final now = _nowMs();
+      await _writeDue(
+        dueId,
+        RecurringDuesCompanion(
+          status: Value(RecurringDueStatus.paid.name),
+          transactionId: Value(transactionId),
+          resolvedAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+      return transactionId;
+    });
+  }
+
+  @override
+  Future<void> skip(String dueId) {
+    return _db.transaction(() async {
+      final due = await _requireDue(dueId);
+      if (due.status == RecurringDueStatus.skipped.name) return;
+      final id = due.transactionId;
+      if (id != null && !await _isTransactionDeleted(id)) {
+        throw StateError('Recurring due "$dueId" is paid');
+      }
+      final now = _nowMs();
+      // CHECK: paid <=> есть операция; у skipped связь с операцией пустая.
+      await _writeDue(
+        dueId,
+        RecurringDuesCompanion(
+          status: Value(RecurringDueStatus.skipped.name),
+          transactionId: const Value(null),
+          resolvedAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<void> unskip(String dueId) {
+    return _db.transaction(() async {
+      final due = await _requireDue(dueId);
+      if (due.status != RecurringDueStatus.skipped.name) return;
+      await _writeDue(
+        dueId,
+        RecurringDuesCompanion(
+          status: Value(RecurringDueStatus.pending.name),
+          resolvedAt: const Value(null),
+          updatedAt: Value(_nowMs()),
+        ),
+      );
+    });
+  }
+
+  Future<RecurringDueRow> _requireDue(String id) async {
+    final row = await (_db.select(
+      _db.recurringDues,
+    )..where((d) => d.id.equals(id))).getSingleOrNull();
+    if (row == null) {
+      throw ArgumentError.value(id, 'dueId', 'recurring due not found');
+    }
+    return row;
+  }
+
+  Future<RecurringPaymentRow> _paymentRowOf(RecurringDueRow due) async {
+    final row = await _liveRow(due.paymentId);
+    if (row == null) {
+      throw ArgumentError.value(due.id, 'dueId', 'recurring payment deleted');
+    }
+    return row;
+  }
+
+  Future<bool> _isTransactionDeleted(String id) async {
+    final t = _db.transactions;
+    final row =
+        await (_db.selectOnly(t)
+              ..addColumns([t.deletedAt])
+              ..where(t.id.equals(id)))
+            .getSingleOrNull();
+    return row == null || row.read(t.deletedAt) != null;
+  }
+
+  Future<void> _writeDue(String id, RecurringDuesCompanion changes) {
+    return (_db.update(
+      _db.recurringDues,
+    )..where((d) => d.id.equals(id))).write(changes);
   }
 
   /// Проверяет связи платежа по сырым строкам: категория есть -> верхнего

@@ -45,6 +45,7 @@ Future<void> _pump(
   FakeTransactionsRepository repo, {
   Widget? replacement,
   FixedClock? clock,
+  FakeRecurringRepository? recurring,
   void Function(BrowseController, ValueNotifier<int>)? onReady,
 }) async {
   final settings = AppSettingsController();
@@ -56,6 +57,7 @@ Future<void> _pump(
           settings: settings,
           transactions: repo,
           clock: clock,
+          recurring: recurring,
         ),
         child:
             replacement ??
@@ -237,6 +239,51 @@ void main() {
       expect(controller.today, DateOnly(2026, 11, 1));
       expect(controller.month.start, DateOnly(2026, 11, 1));
     });
+
+    testWidgets(
+      'платежи: запуск и возврат в новый день запускают materializeDue',
+      (tester) async {
+        final clock = FixedClock(DateTime(2026, 10, 31, 23, 50));
+        final recurring = FakeRecurringRepository();
+        await _pump(
+          tester,
+          FakeTransactionsRepository(),
+          clock: clock,
+          recurring: recurring,
+        );
+        expect(recurring.materializedDays, [DateOnly(2026, 10, 31)]);
+
+        // Тот же день: повторно не запускается.
+        await _background(tester);
+        await _resume(tester);
+        expect(recurring.materializedDays.length, 1);
+
+        await _background(tester);
+        clock.value = DateTime(2026, 11, 1, 8);
+        await _resume(tester);
+        expect(recurring.materializedDays, [
+          DateOnly(2026, 10, 31),
+          DateOnly(2026, 11, 1),
+        ]);
+      },
+    );
+
+    testWidgets(
+      'ошибка materializeDue глотается, на следующем возврате повтор',
+      (tester) async {
+        final recurring = FakeRecurringRepository()
+          ..materializeError = StateError('boom');
+        await _pump(tester, FakeTransactionsRepository(), recurring: recurring);
+        expect(tester.takeException(), isNull);
+        expect(recurring.materializedDays.length, 1);
+
+        recurring.materializeError = null;
+        await _background(tester);
+        await _resume(tester);
+        expect(tester.takeException(), isNull);
+        expect(recurring.materializedDays.length, 2);
+      },
+    );
 
     testWidgets('слушатель жизненного цикла освобождается с хостом', (
       tester,

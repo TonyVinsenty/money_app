@@ -1,3 +1,4 @@
+import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 
@@ -79,4 +80,35 @@ abstract interface class RecurringRepository {
   /// Возвращает удалённый платёж [id] («Отменить»); у живого - ничего не
   /// меняет. Платежа нет вовсе - [ArgumentError].
   Future<void> restore(String id);
+
+  /// «Оплачено» (ADR 0011, п. 6): создаёт операцию через репозиторий операций
+  /// и помечает запись [dueId] как `paid` в одной транзакции; возвращает id
+  /// операции (для «Отменить» = её мягкое удаление).
+  ///
+  /// Операция: тип, категория, подкатегория платежа, комментарий = название
+  /// платежа, сумма [amount] (валюта - как у платежа), день [day] (не позже
+  /// сегодня), счёт [accountId] (`null` - без счёта).
+  ///
+  /// Статус проверяется внутри транзакции: если запись уже оплачена и её
+  /// операция жива, ничего не создаётся и возвращается id той операции
+  /// (двойное касание). Оплаченная с удалённой операцией оплачивается заново.
+  /// Нарушение правил операции (`TransactionRuleException`, например архивная
+  /// категория) оставляет запись как была. `ArgumentError` - записи нет, её
+  /// платёж удалён или валюта [amount] не совпала; `StateError` - запись
+  /// пропущена (сначала `unskip`).
+  Future<String> markPaid(
+    String dueId, {
+    required Money amount,
+    required DateOnly day,
+    String? accountId,
+  });
+
+  /// «Пропустить»: `pending` (или `paid` с удалённой операцией) становится
+  /// `skipped`. У уже пропущенной - ничего не меняет. Оплаченную с живой
+  /// операцией пропустить нельзя - `StateError`. Записи нет - `ArgumentError`.
+  Future<void> skip(String dueId);
+
+  /// «Отменить» пропуск: `skipped` возвращается в `pending`. У записи в другом
+  /// статусе ничего не меняет. Записи нет - `ArgumentError`.
+  Future<void> unskip(String dueId);
 }

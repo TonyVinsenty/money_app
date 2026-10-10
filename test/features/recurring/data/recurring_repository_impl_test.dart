@@ -10,6 +10,8 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/recurring/data/recurring_repository_impl.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
+import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
 import '../../../support/fixed_clock.dart';
 import '../recurring_repository_contract.dart';
@@ -17,13 +19,17 @@ import '../recurring_repository_contract.dart';
 final class _DriftHarness implements RecurringHarness {
   _DriftHarness() {
     db = AppDatabase(NativeDatabase.memory());
-    repository = DriftRecurringRepository(db, clock: clock);
+    transactions = DriftTransactionsRepository(db, clock: clock);
+    repository = DriftRecurringRepository(db, transactions, clock: clock);
     _categories = DriftCategoriesRepository(db, clock: clock);
     _accounts = DriftAccountsRepository(db, clock: clock);
   }
 
   late final AppDatabase db;
   late final DriftRecurringRepository repository;
+
+  @override
+  late final TransactionsRepository transactions;
   late final DriftCategoriesRepository _categories;
   late final DriftAccountsRepository _accounts;
 

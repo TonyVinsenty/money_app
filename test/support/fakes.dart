@@ -616,4 +616,18 @@ class PlannedCsvImportStore implements CsvImportStore {
 
 /// Пустой фейк репозитория регулярных платежей: любой вызов падает, если тест
 /// его не ждал.
-class FakeRecurringRepository extends Fake implements RecurringRepository {}
+class FakeRecurringRepository extends Fake implements RecurringRepository {
+  /// Дни, за которые просили `materializeDue`.
+  final materializedDays = <DateOnly>[];
+
+  /// Что бросить из `materializeDue` (если не `null`).
+  Error? materializeError;
+
+  @override
+  Future<int> materializeDue(DateOnly today) async {
+    materializedDays.add(today);
+    final error = materializeError;
+    if (error != null) throw error;
+    return 0;
+  }
+}

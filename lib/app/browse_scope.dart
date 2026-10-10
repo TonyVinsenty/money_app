@@ -6,6 +6,7 @@ import 'package:money_app/app/app_services.dart';
 import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_controller.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 
 /// Раздаёт [BrowseController] (месяц, фильтр, сортировка) и уведомитель
 /// выбранной вкладки всем виджетам ниже (ADR 0008).
@@ -87,7 +88,9 @@ class _BrowseHostState extends State<BrowseHost> {
     _lifecycle = AppLifecycleListener(
       onResume: () {
         final services = _services;
-        if (services != null) _controller?.updateToday(services.clock.today());
+        if (services == null) return;
+        _controller?.updateToday(services.clock.today());
+        _materializeIfDayChanged(services);
       },
     );
   }
@@ -115,7 +118,37 @@ class _BrowseHostState extends State<BrowseHost> {
       _controller!.clearManualAccountFilter();
     }
     _services = services;
+    _materializeIfDayChanged(services);
   }
+
+  // Записи «К оплате» (ADR 0011, п. 5): при запуске и при возврате в
+  // приложение, если сменился день. Не ждём: первый кадр не задерживается.
+  void _materializeIfDayChanged(AppServices services) {
+    final today = services.clock.today();
+    final repository = services.recurring;
+    if (_materializedDay == today && identical(_materializedFor, repository)) {
+      return;
+    }
+    _materializedDay = today;
+    _materializedFor = repository;
+    unawaited(_materialize(repository, today));
+  }
+
+  Future<void> _materialize(
+    RecurringRepository repository,
+    DateOnly day,
+  ) async {
+    try {
+      await repository.materializeDue(day);
+    } catch (error) {
+      // Приложение не падает: «К оплате» догонится при следующем запуске.
+      debugPrint('materializeDue failed: $error');
+      if (_materializedDay == day) _materializedDay = null; // повторить
+    }
+  }
+
+  DateOnly? _materializedDay;
+  RecurringRepository? _materializedFor;
 
   String? _currency;
 

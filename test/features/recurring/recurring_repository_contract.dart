@@ -8,7 +8,9 @@ import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/domain/recurring_rules.dart';
 import 'package:money_app/features/recurring/domain/recurring_schedule.dart';
+import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
 import '../../support/fixed_clock.dart';
 
@@ -16,6 +18,9 @@ import '../../support/fixed_clock.dart';
 /// фейка): сам репозиторий, часы и способ положить в «базу» категории и счета.
 abstract class RecurringHarness {
   RecurringRepository get repo;
+
+  /// Репозиторий операций, в который пишет `markPaid`.
+  TransactionsRepository get transactions;
   FixedClock get clock;
   Future<void> addCategory(Category category);
   Future<void> addAccount(Account account);
@@ -629,6 +634,164 @@ void runRecurringRepositoryContract(
         await pumpEventQueue();
         await sub.cancel();
         expect(seen, [0, 1]);
+      });
+    });
+
+    group('markPaid, skip, unskip', () {
+      final today = DateOnly(2026, 10, 10);
+      final rub = Money.fromMinor(65000, 'RUB');
+
+      /// Создаёт платёж `a` с одной записью на 5 октября; возвращает её id.
+      Future<String> oneDue({String? subcategoryId, String? accountId}) async {
+        await repo.create(
+          payment(
+            'a',
+            title: 'Internet',
+            subcategoryId: subcategoryId,
+            accountId: accountId,
+            startsOn: DateOnly(2026, 10, 5),
+          ),
+        );
+        await repo.materializeDue(today);
+        return (await repo.watchDue().first).single.id;
+      }
+
+      test('paid: operation with the title and the due day', () async {
+        final dueId = await oneDue(subcategoryId: 'bread');
+        final txId = await repo.markPaid(
+          dueId,
+          amount: Money.fromMinor(70000, 'RUB'),
+          day: DateOnly(2026, 10, 5),
+          accountId: 'rub',
+        );
+        final tx = (await h.transactions.findById(txId))!;
+        expect(tx.note, 'Internet');
+        expect(tx.occurredOn, DateOnly(2026, 10, 5));
+        expect(tx.amount, Money.fromMinor(70000, 'RUB'));
+        expect(tx.type, TransactionType.expense);
+        expect(tx.categoryId, 'food');
+        expect(tx.subcategoryId, 'bread');
+        expect(tx.accountId, 'rub');
+        expect(await repo.watchDue().first, isEmpty);
+      });
+
+      test('a second "paid" creates nothing and returns the same id', () async {
+        final dueId = await oneDue();
+        final first = await repo.markPaid(dueId, amount: rub, day: today);
+        final second = await repo.markPaid(dueId, amount: rub, day: today);
+        expect(second, first);
+      });
+
+      test('two taps at once create one operation', () async {
+        final dueId = await oneDue();
+        final both = await Future.wait([
+          repo.markPaid(dueId, amount: rub, day: today),
+          repo.markPaid(dueId, amount: rub, day: today),
+        ]);
+        expect(both[0], both[1]);
+      });
+
+      test('deleting the operation brings the due back; undo pays', () async {
+        final dueId = await oneDue();
+        final txId = await repo.markPaid(dueId, amount: rub, day: today);
+        await h.transactions.softDelete(txId);
+        final back = (await repo.watchDue().first).single;
+        expect(back.id, dueId);
+        expect(back.status, RecurringDueStatus.paid);
+        await h.transactions.restore(txId);
+        expect(await repo.watchDue().first, isEmpty);
+      });
+
+      test('paying again after the operation was deleted', () async {
+        final dueId = await oneDue();
+        final first = await repo.markPaid(dueId, amount: rub, day: today);
+        await h.transactions.softDelete(first);
+        final second = await repo.markPaid(dueId, amount: rub, day: today);
+        expect(second, isNot(first));
+        expect(await h.transactions.findById(second), isNotNull);
+        expect(await repo.watchDue().first, isEmpty);
+      });
+
+      test('archived category: rule error, the due stays pending', () async {
+        final dueId = await oneDue();
+        await h.archiveCategory('food');
+        await expectLater(
+          repo.markPaid(dueId, amount: rub, day: today),
+          throwsA(
+            isA<TransactionRuleException>().having(
+              (e) => e.rule,
+              'rule',
+              TransactionRule.categoryArchived,
+            ),
+          ),
+        );
+        final left = (await repo.watchDue().first).single;
+        expect(left.id, dueId);
+        expect(left.status, RecurringDueStatus.pending);
+      });
+
+      test('wrong currency, unknown due, day in the future', () async {
+        final dueId = await oneDue();
+        await expectLater(
+          repo.markPaid(dueId, amount: Money.fromMinor(1, 'USD'), day: today),
+          throwsArgumentError,
+        );
+        await expectLater(
+          repo.markPaid('nope', amount: rub, day: today),
+          throwsArgumentError,
+        );
+        await expectLater(
+          repo.markPaid(dueId, amount: rub, day: DateOnly(2026, 10, 11)),
+          throwsArgumentError,
+        );
+        expect((await repo.watchDue().first).single.id, dueId);
+      });
+
+      test('a deleted payment cannot be paid', () async {
+        final dueId = await oneDue();
+        await repo.softDelete('a');
+        await expectLater(
+          repo.markPaid(dueId, amount: rub, day: today),
+          throwsArgumentError,
+        );
+      });
+
+      test('skip hides the due, unskip brings it back', () async {
+        final dueId = await oneDue();
+        await repo.skip(dueId);
+        expect(await repo.watchDue().first, isEmpty);
+        await repo.skip(dueId); // второй раз - ничего
+        await expectLater(
+          repo.markPaid(dueId, amount: rub, day: today),
+          throwsStateError,
+        );
+        await repo.unskip(dueId);
+        expect((await repo.watchDue().first).single.status, isNotNull);
+        await repo.unskip(dueId); // не пропущена - ничего
+        expect((await repo.watchDue().first).length, 1);
+        // Повторная материализация пропущенное не воскрешает.
+        await repo.skip(dueId);
+        await repo.materializeDue(today);
+        expect(await repo.watchDue().first, isEmpty);
+      });
+
+      test('skip of a paid due: error; with a deleted operation: ok', () async {
+        final dueId = await oneDue();
+        final txId = await repo.markPaid(dueId, amount: rub, day: today);
+        await expectLater(repo.skip(dueId), throwsStateError);
+        await h.transactions.softDelete(txId);
+        await repo.skip(dueId);
+        expect(await repo.watchDue().first, isEmpty);
+        await repo.unskip(dueId);
+        expect(
+          (await repo.watchDue().first).single.status,
+          RecurringDueStatus.pending,
+        );
+      });
+
+      test('unknown due in skip and unskip: ArgumentError', () async {
+        await expectLater(repo.skip('nope'), throwsArgumentError);
+        await expectLater(repo.unskip('nope'), throwsArgumentError);
       });
     });
   });
