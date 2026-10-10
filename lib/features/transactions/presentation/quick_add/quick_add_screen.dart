@@ -197,6 +197,11 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
                 today: _today,
                 categories: widget.categories,
                 onCreateCategory: widget.onCreateCategory,
+                transactions: widget.transactions,
+                clock: widget.clock,
+                currencyCode: _currencyCode,
+                onSuggestionSelected: (category, subcategory, note) =>
+                    unawaited(_save(amount, category, subcategory, note)),
                 onCategorySelected: (category, note) =>
                     unawaited(_onCategory(amount, category, note)),
               ),

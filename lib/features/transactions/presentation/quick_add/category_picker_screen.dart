@@ -1,16 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
+import 'package:money_app/features/transactions/domain/suggest_categories.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:money_app/features/transactions/presentation/category_grid.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/amount_header.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/suggestion_row.dart';
 
 /// Экран выбора категории: второй шаг быстрого ввода.
 ///
@@ -31,8 +38,22 @@ class CategoryPickerScreen extends StatefulWidget {
     required this.categories,
     this.onCategorySelected,
     this.onCreateCategory,
+    this.transactions,
+    this.clock,
+    this.currencyCode = 'RUB',
+    this.onSuggestionSelected,
     super.key,
   });
+
+  /// Источники умной подсказки: история операций и часы. Без любого из них
+  /// подсказок нет.
+  final TransactionsRepository? transactions;
+  final Clock? clock;
+  final String currencyCode;
+
+  /// Тап по чипу подсказки: категория, подкатегория (или `null`) и комментарий.
+  final void Function(Category category, Category? subcategory, String? note)?
+  onSuggestionSelected;
 
   /// Открывает форму новой категории; кнопка «Добавить категорию» в пустом
   /// состоянии показывается, только если колбэк задан.
@@ -82,6 +103,47 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
   void initState() {
     super.initState();
     _stream = widget.categories.watchTopLevel(widget.type.categoryKind);
+    unawaited(_loadSuggestions());
+  }
+
+  List<CategorySuggestion> _suggestions = const [];
+
+  /// Один раз читает историю за 90 дней и категории. Любая ошибка просто
+  /// означает «подсказок нет»: сетка работает и без них.
+  Future<void> _loadSuggestions() async {
+    final transactions = widget.transactions;
+    final clock = widget.clock;
+    if (transactions == null || clock == null) return;
+    try {
+      final now = clock.now();
+      final today = DateOnly.fromDateTime(now);
+      final history = await transactions
+          .watchInPeriod(
+            DateRange(today.addDays(-suggestionHistoryDays), today),
+            currency: widget.currencyCode,
+          )
+          .first;
+      final all = await widget.categories.watchAll().first;
+      final found = suggestCategories(
+        recent: history,
+        now: now,
+        categories: all,
+        type: widget.type,
+      );
+      if (!mounted || found.isEmpty) return;
+      setState(() => _suggestions = found);
+    } on Object {
+      return;
+    }
+  }
+
+  void _selectSuggestion(CategorySuggestion s) {
+    FocusScope.of(context).unfocus();
+    widget.onSuggestionSelected?.call(
+      s.category,
+      s.subcategory,
+      normalizeTransactionNote(_note.text),
+    );
   }
 
   @override
@@ -170,9 +232,15 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
             color: accent,
           ),
         ),
-        // Строка комментария. Ниже, в этом же месте, позже появится
-        // умная подсказка категории (этап 6).
         SliverToBoxAdapter(child: NoteField(controller: _note)),
+        // Умная подсказка; нет истории - нет и ряда.
+        if (_suggestions.isNotEmpty)
+          SliverToBoxAdapter(
+            child: SuggestionRow(
+              suggestions: _suggestions,
+              onSelected: _selectSuggestion,
+            ),
+          ),
         ...content,
       ],
     );
