@@ -243,3 +243,37 @@ const String transferCurrencyChangedHint =
 
 // Подсказка у неактивной кнопки «Перевод» (утверждено 2026-10-10).
 const String transferNeedPairHint = 'Нужны два счёта в одной валюте';
+
+// История счетов (тексты Ж2-Ж7 утверждены пользователем 2026-10-10).
+const String balanceJournalTitle = 'История счетов';
+const String balanceJournalEmptyText =
+    'Здесь появятся новые счета, переводы и счета, отправленные в архив';
+const String balanceJournalLoadError =
+    'Не удалось загрузить историю. Попробуйте открыть экран ещё раз';
+
+String journalCreatedTitle(String name) => 'Создан счёт «$name»';
+
+String journalArchivedTitle(String name) => 'Счёт «$name» отправлен в архив';
+
+String journalCreatedSpoken(String name, String day) =>
+    'Создан счёт $name, $day';
+
+String journalArchivedSpoken(String name, String day) =>
+    'Счёт $name отправлен в архив, $day';
+
+/// Заголовок перевода: «Карта → Наличные».
+String journalTransferTitle(String from, String to) => '$from → $to';
+
+/// Озвучка перевода: «Перевод со счёта Карта на счёт Наличные, 5000 рублей,
+/// 7 октября» (+ «, комментарий: ...»).
+String journalTransferSpoken(
+  String from,
+  String to,
+  Money amount,
+  CurrencyInfo currency,
+  String day, {
+  String? note,
+}) =>
+    'Перевод со счёта $from на счёт $to, '
+    '${spokenMoney(amount, currency: currency)}, $day'
+    '${note == null ? '' : ', комментарий: $note'}';
