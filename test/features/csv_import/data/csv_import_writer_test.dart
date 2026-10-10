@@ -293,6 +293,36 @@ void main() {
     expect(await target.export(), first);
   });
 
+  test('архивная «Карта» и переименованная в «Карта»: перевод между ними '
+      'проходит круг экспорт -> импорт', () async {
+    const a = 'cccccccc-0000-4000-8000-0000000000c1';
+    const b = 'cccccccc-0000-4000-8000-0000000000c2';
+    await env.accounts.create(_account(a, 'Карта', 10000));
+    await env.accounts.create(_account(b, 'Старая', 500, order: 1));
+    await env.transfers.add(transfer('7', a, b, 2500, 'RUB'));
+    await env.accounts.archive(a);
+    await env.accounts.update(b, name: 'Карта', iconKey: 'card');
+    final first = await env.export();
+    final balances = await env.accounts.watchBalances().first;
+
+    final other = await openInMemoryDatabase();
+    addTearDown(other.close);
+    final target = _Env(other, env.clock);
+    final plan = await target.import(first);
+
+    // Одинаковые имена с разными ID разбираются; второй счёт получает
+    // суффикс из 5.18b, поэтому второй экспорт отличается только именем.
+    expect(plan.transfers, hasLength(1));
+    expect(await target.accounts.watchBalances().first, balances);
+    final names = {
+      for (final x in await target.accounts.watchAll().first) x.id: x.name,
+    };
+    expect(names, {a: 'Карта', b: 'Карта (2)'});
+    final again = await target.import(await target.export());
+    expect(again.transfers, isEmpty);
+    expect(again.accountsToCreate, isEmpty);
+  });
+
   test('перевод без ID: отпечаток, повторный импорт не задваивает', () async {
     const csv =
         'Дата;Тип;Сумма;Валюта;Категория;Подкатегория;Комментарий;Счёт;'

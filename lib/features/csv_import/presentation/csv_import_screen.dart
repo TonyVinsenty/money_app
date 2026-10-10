@@ -197,7 +197,8 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     if (mounted) {
       Navigator.of(context).pop(
         CsvImportResult(
-          transactions: plan.transactions.length + plan.transfers.length,
+          transactions: plan.transactions.length,
+          transfers: plan.transfers.length,
           accounts: plan.accountsToCreate.length,
         ),
       );
@@ -248,17 +249,17 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (plan.transactions.isNotEmpty || plan.transfers.isEmpty)
-          Text(
-            plan.transactions.isEmpty
-                ? csvImportWillCreateAccounts(accounts.length)
-                : csvImportWillAdd(plan.transactions.length),
-            style: textTheme.titleMedium,
-          ),
-        if (plan.transfers.isNotEmpty)
-          Text(
+        for (final (index, line) in [
+          if (plan.transactions.isNotEmpty)
+            csvImportWillAdd(plan.transactions.length),
+          if (plan.transfers.isNotEmpty)
             csvImportWillAddTransfers(plan.transfers.length),
-            style: textTheme.titleMedium,
+          if (plan.transactions.isEmpty && accounts.isNotEmpty)
+            csvImportWillCreateAccounts(accounts.length),
+        ].indexed)
+          Padding(
+            padding: EdgeInsets.only(top: index == 0 ? 0 : 6),
+            child: Text(line, style: textTheme.titleMedium),
           ),
         for (final line in skipped)
           Padding(padding: const EdgeInsets.only(top: 8), child: Text(line)),

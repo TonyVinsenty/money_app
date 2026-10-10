@@ -705,7 +705,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(store.written.single.transfers, hasLength(1));
-      expect(results, [const CsvImportResult(transactions: 1)]);
+      expect(results, [const CsvImportResult(transactions: 0, transfers: 1)]);
+    });
+
+    testWidgets('без операций: переводы и новые счета - строка про счета видна '
+        'и совпадает с озвучкой', (tester) async {
+      final announcements = _captureAnnouncements(tester);
+      await _open(
+        tester,
+        store: _PlanningStore(),
+        csv: '$header$opening$transfer',
+      );
+
+      expect(find.text('Будет добавлен 1 перевод'), findsOneWidget);
+      expect(find.text('Будут созданы 2 счёта'), findsOneWidget);
+      expect(announcements, [
+        'Будет добавлен 1 перевод. Будут созданы 2 счёта: Карта, Наличные',
+      ]);
     });
 
     testWidgets('операции, переводы и счета в одном объявлении', (

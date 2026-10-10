@@ -65,21 +65,38 @@ String importDoneMessage(int count) {
   return '$verb ${_countFormat.format(count)} $noun';
 }
 
-/// Итог загрузки со счетами: «Загружено 5 операций, создано 2 счёта»; без
-/// операций — «Создан 1 счёт», «Созданы 2 счёта», «Создано 5 счетов»; без
-/// счетов — как [importDoneMessage].
+/// Итог загрузки с переводами: «Загружено 5 операций и 2 перевода», только
+/// переводы — «Загружены 2 перевода» (глагол по первому числу); счета
+/// добавляются в конце: «…, создано 2 счёта».
 String importResultMessage(CsvImportResult result) {
   final accounts = result.accounts;
-  if (accounts == 0) return importDoneMessage(result.transactions);
-  final noun = pluralRu(accounts, 'счёт', 'счёта', 'счетов');
-  final count = _countFormat.format(accounts);
-  if (result.transactions == 0) {
+  final transactions = result.transactions;
+  final transfers = result.transfers;
+  if (transactions == 0 && transfers == 0 && accounts > 0) {
     final verb = pluralRu(accounts, 'Создан', 'Созданы', 'Создано');
-    return '$verb $count $noun';
+    return '$verb ${_countFormat.format(accounts)} ${_accountNoun(accounts)}';
   }
+  final String main;
+  if (transfers == 0) {
+    main = importDoneMessage(transactions);
+  } else {
+    final transferText =
+        '${_countFormat.format(transfers)} '
+        '${pluralRu(transfers, 'перевод', 'перевода', 'переводов')}';
+    if (transactions == 0) {
+      final verb = pluralRu(transfers, 'Загружен', 'Загружены', 'Загружено');
+      main = '$verb $transferText';
+    } else {
+      main = '${importDoneMessage(transactions)} и $transferText';
+    }
+  }
+  if (accounts == 0) return main;
   final verb = pluralRu(accounts, 'создан', 'создано', 'создано');
-  return '${importDoneMessage(result.transactions)}, $verb $count $noun';
+  return '$main, $verb ${_countFormat.format(accounts)} '
+      '${_accountNoun(accounts)}';
 }
+
+String _accountNoun(int count) => pluralRu(count, 'счёт', 'счёта', 'счетов');
 
 final NumberFormat _countFormat = NumberFormat.decimalPattern('ru');
 

@@ -586,8 +586,12 @@ ParsedTransfer? _parseTransfer(
       toName.isNotEmpty || field(csvColumnTransferAccountId).trim().isNotEmpty;
   if (!fromGiven) errors.add(CsvTransferNoAccount(line, fromName));
   if (!toGiven) errors.add(CsvTransferNoToAccount(line, toName));
+  // Имена сравниваем, только если ID нет хотя бы у одного счёта: два разных
+  // ID с одним именем (архивный и переименованный) - разные счета.
   final sameName =
-      fromName.isNotEmpty && fromName.toLowerCase() == toName.toLowerCase();
+      (fromId == null || toId == null) &&
+      fromName.isNotEmpty &&
+      fromName.toLowerCase() == toName.toLowerCase();
   final sameId = fromId != null && fromId.toLowerCase() == toId?.toLowerCase();
   if (sameName || sameId) {
     errors.add(CsvTransferSameAccount(line, sameName ? fromName : fromId!));

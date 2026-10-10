@@ -38,6 +38,7 @@ String _error(String rows) {
 }
 
 void main() {
+  _sameNameGroup();
   test('корректный перевод разбирается в ParsedTransfer', () {
     final parsed = _parsed(
       '04.10.2026;Перевод;1500,50;;;;Снял;Карта;Наличные;$_tid;$_id1;$_id2',
@@ -150,5 +151,22 @@ void main() {
       'Строка 2: тип «Обмен» — нужен «Расход», «Доход», '
       '«Начальный остаток» или «Перевод»',
     );
+  });
+}
+
+void _sameNameGroup() {
+  group('одинаковые имена при разных ID (5.25b)', () {
+    test('оба ID есть и разные: не ошибка, план разберётся', () {
+      final parsed = _parsed(
+        '04.10.2026;Перевод;5;;;;;Карта;Карта;;$_id1;$_id2',
+      );
+      expect(parsed.errors, isEmpty);
+      expect(parsed.transfers, hasLength(1));
+    });
+
+    test('ID нет хотя бы у одного счёта: имена совпадают - ошибка', () {
+      final parsed = _parsed('04.10.2026;Перевод;5;;;;;Карта;карта;;$_id1;');
+      expect(parsed.errors.single, isA<CsvTransferSameAccount>());
+    });
   });
 }

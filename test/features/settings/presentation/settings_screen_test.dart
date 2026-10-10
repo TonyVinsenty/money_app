@@ -586,6 +586,24 @@ void main() {
       expect(message(5, 0), 'Загружено 5 операций');
     });
 
+    test('итог с переводами (5.25b)', () {
+      String message(int tx, int tr, int acc) => importResultMessage(
+        CsvImportResult(transactions: tx, transfers: tr, accounts: acc),
+      );
+      expect(message(5, 2, 0), 'Загружено 5 операций и 2 перевода');
+      expect(message(1, 1, 0), 'Загружена 1 операция и 1 перевод');
+      expect(message(3, 5, 0), 'Загружены 3 операции и 5 переводов');
+      expect(
+        message(5, 2, 2),
+        'Загружено 5 операций и 2 перевода, создано 2 счёта',
+      );
+      expect(message(0, 2, 0), 'Загружены 2 перевода');
+      expect(message(0, 1, 0), 'Загружен 1 перевод');
+      expect(message(0, 5, 0), 'Загружено 5 переводов');
+      expect(message(0, 2, 1), 'Загружены 2 перевода, создан 1 счёт');
+      expect(message(0, 0, 2), 'Созданы 2 счёта');
+    });
+
     testWidgets('только счета: SnackBar «Созданы 2 счёта»', (tester) async {
       await tester.pumpWidget(
         _app(

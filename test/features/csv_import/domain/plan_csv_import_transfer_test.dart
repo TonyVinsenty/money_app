@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
@@ -87,6 +88,7 @@ CsvImportPlan _plan(
 String _message(CsvImportPlan plan) => csvRowErrorMessage(plan.errors.single);
 
 void main() {
+  _rescaleGroup();
   test('счета найдены по имени и по ID: перевод в плане', () {
     final plan = _plan(
       [_row(from: 'карта', toId: _idB, id: _tid, note: 'x')],
@@ -245,5 +247,73 @@ void main() {
     expect(csvImportWillAddTransfers(3), 'Будут добавлены 3 перевода');
     expect(csvImportWillAddTransfers(5), 'Будет добавлено 5 переводов');
     expect(csvImportWillAddTransfers(21), 'Будет добавлен 21 перевод');
+  });
+}
+
+void _rescaleGroup() {
+  group('пересчёт суммы при других знаках своей валюты (5.25b)', () {
+    final accounts4 = [
+      _account(_idA, 'Свой А', currency: 'XYZ', digits: 4),
+      _account(_idB, 'Свой Б', currency: 'XYZ', digits: 4),
+    ];
+
+    test('1,5 при 4 знаках счёта: 15000', () {
+      final plan = _plan([
+        _row(
+          from: 'Свой А',
+          to: 'Свой Б',
+          currency: 'XYZ',
+          minor: 15,
+          customDigits: 1,
+        ),
+      ], accounts: accounts4);
+      expect(plan.errors, isEmpty);
+      expect(plan.transfers.single.amount, Money.fromMinor(15000, 'XYZ'));
+    });
+
+    test('лишние нули справа допустимы, ненулевые цифры - ошибка', () {
+      final accounts2 = [
+        _account(_idA, 'Свой А', currency: 'XYZ'),
+        _account(_idB, 'Свой Б', currency: 'XYZ'),
+      ];
+      final ok = _plan([
+        _row(
+          from: 'Свой А',
+          to: 'Свой Б',
+          currency: 'XYZ',
+          minor: 15000,
+          customDigits: 4,
+        ),
+      ], accounts: accounts2);
+      expect(ok.transfers.single.amount, Money.fromMinor(150, 'XYZ'));
+
+      final bad = _plan([
+        _row(
+          from: 'Свой А',
+          to: 'Свой Б',
+          currency: 'XYZ',
+          minor: 12345,
+          customDigits: 4,
+        ),
+      ], accounts: accounts2);
+      final error = bad.errors.single as CsvInvalidAmount;
+      expect(error.failure, AmountParseFailure.tooManyDecimals);
+      expect(error.currencyDigits, 2);
+      expect(bad.transfers, isEmpty);
+    });
+
+    test('переполнение при пересчёте: tooLarge', () {
+      final plan = _plan([
+        _row(
+          from: 'Свой А',
+          to: 'Свой Б',
+          currency: 'XYZ',
+          minor: maxInputMinorUnits ~/ 10000 + 1,
+          customDigits: 0,
+        ),
+      ], accounts: accounts4);
+      final error = plan.errors.single as CsvInvalidAmount;
+      expect(error.failure, AmountParseFailure.tooLarge);
+    });
   });
 }
