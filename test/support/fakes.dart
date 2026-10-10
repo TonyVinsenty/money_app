@@ -25,7 +25,12 @@ import 'fixed_clock.dart';
 /// Фейк репозитория счетов: отдаёт заданные [accounts] и [balances] (по
 /// умолчанию пусто), остальные вызовы бросают ошибку.
 /// Пустой фейк переводов: любой вызов падает, если тест его не ждал.
-class FakeTransfersRepository extends Fake implements TransfersRepository {}
+class FakeTransfersRepository extends Fake implements TransfersRepository {
+  /// Список переводов счёта показывает экран счёта: по умолчанию он пуст.
+  @override
+  Stream<List<Transfer>> watchForAccount(String accountId) =>
+      Stream.value(const []);
+}
 
 /// Фейк переводов «в памяти»: `add`, `update`, `softDelete`, `restore`
 /// работают над списком [all] (живые переводы). Если задан [failWith], `add`
@@ -36,12 +41,32 @@ class InMemoryTransfersRepository extends Fake implements TransfersRepository {
 
   final List<Transfer> all;
   final List<Transfer> _deleted = [];
+  final _changes = StreamController<void>.broadcast();
   Exception? failWith;
+
+  /// Если задан, `softDelete` и `restore` бросают его.
+  Exception? failDeleteWith;
+
+  @override
+  Stream<List<Transfer>> watchForAccount(String accountId) => Stream.multi((c) {
+    List<Transfer> read() =>
+        [
+          for (final t in all)
+            if (t.fromAccountId == accountId || t.toAccountId == accountId) t,
+        ]..sort((a, b) {
+          final byDay = b.occurredOn.compareTo(a.occurredOn);
+          return byDay != 0 ? byDay : b.occurredAt.compareTo(a.occurredAt);
+        });
+    c.add(read());
+    final sub = _changes.stream.listen((_) => c.add(read()));
+    c.onCancel = sub.cancel;
+  });
 
   @override
   Future<void> add(Transfer transfer) async {
     if (failWith != null) throw failWith!;
     all.add(transfer);
+    _changes.add(null);
   }
 
   @override
@@ -50,18 +75,23 @@ class InMemoryTransfersRepository extends Fake implements TransfersRepository {
     final i = all.indexWhere((t) => t.id == transfer.id);
     if (i < 0) throw ArgumentError.value(transfer.id, 'id');
     all[i] = transfer;
+    _changes.add(null);
   }
 
   @override
   Future<void> softDelete(String id) async {
+    if (failDeleteWith != null) throw failDeleteWith!;
     final i = all.indexWhere((t) => t.id == id);
     if (i >= 0) _deleted.add(all.removeAt(i));
+    _changes.add(null);
   }
 
   @override
   Future<void> restore(String id) async {
+    if (failDeleteWith != null) throw failDeleteWith!;
     final i = _deleted.indexWhere((t) => t.id == id);
     if (i >= 0) all.add(_deleted.removeAt(i));
+    _changes.add(null);
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
@@ -12,9 +13,12 @@ import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
+import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/accounts/domain/transfer_options.dart';
+import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_adjust_dialog.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
+import 'package:money_app/features/accounts/presentation/account_transfers_list.dart';
 
 /// Новый основной счёт после архивации прежнего: его `name` для сообщения и
 /// `undo`, которое возвращает прежний основной (зовётся после «Вернуть»).
@@ -35,6 +39,9 @@ class AccountScreen extends StatefulWidget {
     this.onShowTransactions,
     this.onArchivedDefault,
     this.onTransfer,
+    this.transfers,
+    this.today,
+    this.onEditTransfer,
     super.key,
   });
 
@@ -43,6 +50,12 @@ class AccountScreen extends StatefulWidget {
   final Future<void> Function(Account account)? onTransfer;
 
   static const transferKey = ValueKey('account-transfer');
+
+  /// Репозиторий переводов, сегодняшний день и открытие формы правки: все три
+  /// нужны для раздела «Переводы»; без них раздела нет.
+  final TransfersRepository? transfers;
+  final DateOnly? today;
+  final Future<void> Function(Transfer transfer)? onEditTransfer;
 
   /// Вызывается после архивации счёта со списком счетов до неё. Если архивный
   /// счёт был основным, выбирает нового и возвращает его имя и действие
@@ -89,6 +102,9 @@ class _AccountScreenState extends State<AccountScreen> {
   late final Stream<List<Account>> _accounts = widget.accounts.watchAll();
   late final Stream<Map<String, Money>> _balances = widget.accounts
       .watchBalances();
+
+  late final Stream<List<Transfer>>? _transfers = widget.transfers
+      ?.watchForAccount(widget.accountId);
 
   // Последний список счетов (для выбора нового основного при архивации).
   List<Account> _latestAccounts = const [];
@@ -406,6 +422,17 @@ class _AccountScreenState extends State<AccountScreen> {
               unawaited(_guarded(() => _archive(account, balance))),
           child: const Text(accountArchiveButton),
         ),
+        if (_transfers != null &&
+            widget.today != null &&
+            widget.onEditTransfer != null)
+          AccountTransfersList(
+            transfers: _transfers,
+            accounts: _latestAccounts,
+            accountId: account.id,
+            currency: account.currencyInfo,
+            today: widget.today!,
+            onOpen: (t) => unawaited(_guarded(() => widget.onEditTransfer!(t))),
+          ),
       ],
     );
   }

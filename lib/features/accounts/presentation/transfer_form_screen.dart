@@ -241,23 +241,11 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
       final text = transferSavedText(amount, info, from.name, to.name);
       final spoken = transferSavedSpoken(amount, info, from.name, to.name);
       messenger.showSnackBar(
-        SnackBar(
-          content: TapToDismissSnackContent(
-            child: Semantics(
-              label: spoken,
-              excludeSemantics: true,
-              child: Text(text),
-            ),
-          ),
-          duration: const Duration(seconds: 6),
-          persist: false,
-          // Крупный шрифт: «Отменить» на отдельной строке (как у операций).
-          actionOverflowThreshold: fontScaleFrom(textScaler) > 1.3 ? 0 : 1,
-          action: SnackBarAction(
-            label: transferUndoLabel,
-            onPressed: () =>
-                unawaited(_undo(messenger, transfers, transfer.id)),
-          ),
+        _undoSnackBar(
+          text,
+          spoken,
+          textScaler,
+          () => unawaited(_undo(messenger, transfers, transfer.id)),
         ),
       );
     } on Object catch (error) {
@@ -270,6 +258,84 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
         _saving = false;
         _saveError = transferSaveFailedText;
       });
+    }
+  }
+
+  SnackBar _undoSnackBar(
+    String text,
+    String spoken,
+    TextScaler textScaler,
+    VoidCallback onUndo,
+  ) {
+    return SnackBar(
+      content: TapToDismissSnackContent(
+        child: Semantics(
+          label: spoken,
+          excludeSemantics: true,
+          child: Text(text),
+        ),
+      ),
+      duration: const Duration(seconds: 6),
+      persist: false,
+      // Крупный шрифт: «Отменить» на отдельной строке (как у операций).
+      actionOverflowThreshold: fontScaleFrom(textScaler) > 1.3 ? 0 : 1,
+      action: SnackBarAction(label: transferUndoLabel, onPressed: onUndo),
+    );
+  }
+
+  void _showMessage(ScaffoldMessengerState messenger, String text) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: TapToDismissSnackContent(child: Text(text))),
+      );
+  }
+
+  /// «Удалить» в правке: без подтверждения, «Отменить» возвращает перевод.
+  Future<void> _delete() async {
+    final editing = _editing;
+    if (editing == null || _saving) return;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final transfers = widget.transfers;
+    try {
+      await transfers.softDelete(editing.id);
+    } on Object catch (error) {
+      debugPrint('Не удалось удалить перевод: $error');
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _saveError = transferDeleteFailedText;
+      });
+      return;
+    }
+    if (mounted) navigator.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        _undoSnackBar(
+          transferDeletedText,
+          transferDeletedText,
+          textScaler,
+          () => unawaited(_restore(messenger, transfers, editing.id)),
+        ),
+      );
+  }
+
+  Future<void> _restore(
+    ScaffoldMessengerState messenger,
+    TransfersRepository transfers,
+    String id,
+  ) async {
+    try {
+      await transfers.restore(id);
+    } on Object {
+      _showMessage(messenger, transferUndoFailedText);
     }
   }
 
@@ -415,7 +481,20 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        actions: [
+          if (_editing != null)
+            IconButton(
+              tooltip: transferDeleteTooltip,
+              onPressed: _saving ? null : () => unawaited(_delete()),
+              icon: const Icon(
+                Icons.delete_outline,
+                semanticLabel: transferDeleteSemantic,
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [

@@ -592,6 +592,21 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
                       },
                 onMakeDefault: (account) =>
                     appSettings.setDefaultAccountId(account.id),
+                transfers: arguments.transfers,
+                today: arguments.clock?.today(),
+                onEditTransfer:
+                    arguments.transfers == null || arguments.clock == null
+                    ? null
+                    : (transfer) => Navigator.of(context).pushNamed<void>(
+                        AppRoutes.transferForm,
+                        arguments: TransferFormRouteArguments(
+                          accounts: arguments.accounts,
+                          transfers: arguments.transfers!,
+                          idGenerator: arguments.idGenerator,
+                          clock: arguments.clock!,
+                          editing: transfer,
+                        ),
+                      ),
                 onTransfer:
                     arguments.transfers == null || arguments.clock == null
                     ? null

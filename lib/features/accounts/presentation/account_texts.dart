@@ -197,3 +197,33 @@ String transferSavedSpoken(
   String to,
 ) =>
     'Перевод ${spokenMoney(amount, currency: currency)} со счёта $from на счёт $to';
+
+// Переводы на экране счёта и удаление (тексты утверждены 2026-10-10).
+const String transfersSectionTitle = 'Переводы';
+const String transferDeleteTooltip = 'Удалить';
+const String transferDeleteSemantic = 'Удалить перевод';
+const String transferDeletedText = 'Перевод удалён';
+const String transferDeleteFailedText =
+    'Не удалось удалить. Попробуйте ещё раз';
+
+/// Строка списка: «→ Наличные», сумма со знаком (исходящий) или «← Карта», сумма со знаком плюс.
+String transferRowText(
+  bool outgoing,
+  String partner,
+  Money amount,
+  CurrencyInfo currency,
+) => outgoing
+    ? '→ $partner ${formatMoney(-amount, currency: currency)}'
+    : '← $partner +${formatMoney(amount, currency: currency)}';
+
+/// Озвучка строки (вариант Б): «Перевод на счёт Наличные, минус 5000 рублей,
+/// 7 октября» / «Перевод со счёта Карта, плюс 5000 рублей, 7 октября».
+String transferRowSpoken(
+  bool outgoing,
+  String partner,
+  Money amount,
+  CurrencyInfo currency,
+  String day,
+) => outgoing
+    ? 'Перевод на счёт $partner, ${spokenMoney(-amount, currency: currency)}, $day'
+    : 'Перевод со счёта $partner, плюс ${spokenMoney(amount, currency: currency)}, $day';
