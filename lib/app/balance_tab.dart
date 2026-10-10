@@ -6,6 +6,7 @@ import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/app/due_actions.dart';
+import 'package:money_app/app/reminder_sync.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -254,6 +255,7 @@ class _BalanceTabState extends State<BalanceTab> {
           idGenerator: services.idGenerator,
           defaultAccountId: services.settings.defaultAccountId,
           editing: editing,
+          remindersChannel: RemindersChannelScope.of(context),
         ),
       ),
     );

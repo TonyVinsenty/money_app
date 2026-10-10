@@ -158,7 +158,9 @@ List<ReminderItem> planReminders({
         day: date.day,
         hour: time.hour,
         minute: time.minute,
-        title: 'Платёж сегодня: ${p.title}',
+        title: p.type == TransactionType.income
+            ? 'Поступление сегодня: ${p.title}'
+            : 'Платёж сегодня: ${p.title}',
         body:
             '$verb ${formatMoney(p.amount)}'
             '${category == null ? '' : ' · $category'}',

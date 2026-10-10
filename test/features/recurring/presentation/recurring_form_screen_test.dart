@@ -7,6 +7,7 @@ import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/recurring/presentation/recurring_form_screen.dart';
 import 'package:money_app/features/recurring/presentation/recurring_section.dart';
 import 'package:money_app/features/recurring/presentation/recurring_texts.dart';
@@ -164,5 +165,39 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(RecurringFormScreen), findsOneWidget);
     expect(find.text(recurringFormTitle), findsOneWidget);
+  });
+
+  testWidgets('permission warning disappears after resume when allowed', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    var status = ReminderPermission.denied;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: RecurringFormScreen(
+          currency: currencyInfoFor('RUB'),
+          today: today,
+          repository: FakeRecurringRepository(),
+          idGenerator: FakeIdGenerator(),
+          categories: Stream.value(const []),
+          accounts: Stream.value(const []),
+          onPickCategory: (context, type) async => null,
+          onPickAccount: (context, accounts, selectedId) async => null,
+          reminderStatus: () async => status,
+          reminderRequest: () async => false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(RecurringFormScreen.remindDeniedKey), findsOneWidget);
+
+    status = ReminderPermission.granted;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.byKey(RecurringFormScreen.remindDeniedKey), findsNothing);
   });
 }

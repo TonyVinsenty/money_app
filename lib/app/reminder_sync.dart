@@ -191,5 +191,28 @@ class _ReminderSyncHostState extends State<ReminderSyncHost> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) =>
+      RemindersChannelScope(channel: widget.channel, child: widget.child);
+}
+
+/// Отдаёт экранам тот же канал напоминаний, что у [ReminderSyncHost]
+/// (в тестах там фейк). Вне хоста - общий [appRemindersChannel].
+class RemindersChannelScope extends InheritedWidget {
+  const RemindersChannelScope({
+    required this.channel,
+    required super.child,
+    super.key,
+  });
+
+  final RemindersChannel channel;
+
+  static RemindersChannel of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<RemindersChannelScope>()
+          ?.channel ??
+      appRemindersChannel;
+
+  @override
+  bool updateShouldNotify(RemindersChannelScope oldWidget) =>
+      channel != oldWidget.channel;
 }

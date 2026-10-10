@@ -11,6 +11,7 @@ RecurringPayment _payment({
   TransactionType type = TransactionType.expense,
   DateOnly? startsOn,
   RepeatUnit unit = RepeatUnit.month,
+  DateOnly? endsOn,
   bool remind = true,
   DateTime? deletedAt,
 }) {
@@ -23,6 +24,7 @@ RecurringPayment _payment({
     unit: unit,
     every: 1,
     startsOn: startsOn ?? DateOnly(2026, 10, 20),
+    endsOn: endsOn,
     remind: remind,
     deletedAt: deletedAt,
   );
@@ -108,10 +110,48 @@ void main() {
     expect(_plan([p], now: DateTime(2026, 10, 10, 18, 0)), isEmpty);
   });
 
-  test('оплаченный сегодня не планируется, завтрашняя дата остаётся', () {
+  test('оплаченный сегодня не планируется, следующая дата остаётся', () {
     final p = _payment(startsOn: DateOnly(2026, 10, 10), unit: RepeatUnit.week);
     final items = _plan([p], paid: {'p1'});
     expect(items.first.day, 17);
+  });
+
+  test('заголовок: расход - платёж, доход - поступление', () {
+    final expense = _plan([_payment(title: 'Интернет')]).first;
+    final income = _plan([
+      _payment(title: 'Зарплата', type: TransactionType.income),
+    ]).first;
+    expect(expense.title, 'Платёж сегодня: Интернет');
+    expect(income.title, 'Поступление сегодня: Зарплата');
+  });
+
+  test('после endsOn напоминаний нет', () {
+    final p = _payment(
+      startsOn: DateOnly(2026, 10, 12),
+      unit: RepeatUnit.week,
+      endsOn: DateOnly(2026, 10, 26),
+    );
+    final items = _plan([p]);
+    expect(items.map((i) => '${i.month}-${i.day}'), [
+      '10-12',
+      '10-19',
+      '10-26',
+    ]);
+  });
+
+  test('переход декабрь - январь', () {
+    final p = _payment(startsOn: DateOnly(2026, 12, 20));
+    final items = _plan([p], now: DateTime(2026, 12, 15, 8));
+    expect(items.map((i) => '${i.year}-${i.month}-${i.day}'), [
+      '2026-12-20',
+      '2027-1-20',
+    ]);
+  });
+
+  test('ежемесячный на 31-е: в коротком месяце последний день', () {
+    final p = _payment(startsOn: DateOnly(2026, 1, 31));
+    final items = _plan([p], now: DateTime(2026, 2, 1, 8));
+    expect(items.map((i) => '${i.month}-${i.day}'), ['2-28', '3-31']);
   });
 
   test('remind = false и удалённый - нет', () {

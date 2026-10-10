@@ -30,6 +30,7 @@ import 'package:money_app/features/categories/presentation/subcategories_screen.
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/presentation/csv_import_screen.dart';
+import 'package:money_app/features/recurring/data/reminders_channel.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/presentation/recurring_form_screen.dart';
@@ -109,8 +110,11 @@ final class RecurringFormRouteArguments {
     required this.idGenerator,
     this.defaultAccountId,
     this.editing,
+    this.remindersChannel = appRemindersChannel,
   });
 
+  /// Канал напоминаний приложения (в тестах - фейк).
+  final RemindersChannel remindersChannel;
   final CurrencyInfo currency;
   final DateOnly today;
   final RecurringRepository recurring;
@@ -626,8 +630,8 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           accounts: arguments.accounts.watchAll(),
           defaultAccountId: arguments.defaultAccountId,
           editing: arguments.editing,
-          reminderStatus: appRemindersChannel.permissionStatus,
-          reminderRequest: appRemindersChannel.requestPermission,
+          reminderStatus: arguments.remindersChannel.permissionStatus,
+          reminderRequest: arguments.remindersChannel.requestPermission,
           // Платёж с первым днём «сегодня» сразу попадает в «К оплате».
           onSaved: () async {
             await arguments.recurring.materializeDue(arguments.today);

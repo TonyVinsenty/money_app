@@ -142,6 +142,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
   String? _accountId;
   bool _accountTouched = false;
   final _subs = <StreamSubscription<Object?>>[];
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
@@ -163,6 +164,10 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
       _accountTouched = true;
     }
     unawaited(_checkReminderPermission(mayAsk: false));
+    // Человек мог включить уведомления в настройках телефона и вернуться.
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(_checkReminderPermission(mayAsk: false)),
+    );
     _subs.add(
       widget.categories.listen((all) {
         if (mounted) setState(() => _allCategories = all);
@@ -187,6 +192,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     for (final s in _subs) {
       unawaited(s.cancel());
     }
