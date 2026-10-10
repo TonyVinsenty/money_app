@@ -8,6 +8,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/currency_picker.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
+import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
@@ -44,6 +45,9 @@ const mainCurrencyConfirmText =
     'если вернуть их валюту.';
 const mainCurrencyConfirmCancel = 'Отмена';
 const mainCurrencyConfirmAccept = 'Сменить';
+
+/// Пункт выбора времени напоминаний о регулярных платежах.
+const reminderTimeItemLabel = 'Время напоминаний';
 
 /// Пункт, запускающий выгрузку всех операций в CSV-файл.
 const exportCsvItemLabel = 'Экспорт в CSV';
@@ -202,8 +206,14 @@ class SettingsScreen extends StatefulWidget {
     required this.version,
     this.hasOperations = false,
     this.shareFile = shareCsvFile,
+    this.reminderTime,
+    this.onReminderTimeChanged,
     super.key,
   });
+
+  /// Время напоминаний и обработчик выбора; без обработчика пункта нет.
+  final ReminderTime? reminderTime;
+  final ValueChanged<ReminderTime>? onReminderTimeChanged;
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
@@ -396,6 +406,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirmed == true) widget.onMainCurrencyChanged(picked);
   }
 
+  Future<void> _pickReminderTime() async {
+    final current = widget.reminderTime ?? ReminderTime.defaultTime();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: current.hour, minute: current.minute),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked == null) return;
+    widget.onReminderTimeChanged?.call(
+      ReminderTime(picked.hour, picked.minute),
+    );
+  }
+
   void _showMessage(String text) {
     if (!mounted) return;
     // Прежнее сообщение могло остаться (persist ниже): новое его заменяет,
@@ -491,6 +517,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
           onTap: _pickMainCurrency,
         ),
+        if (widget.onReminderTimeChanged != null)
+          ListTile(
+            title: const Text(reminderTimeItemLabel),
+            subtitle: Text(
+              (widget.reminderTime ?? ReminderTime.defaultTime()).toString(),
+            ),
+            trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+            onTap: _pickReminderTime,
+          ),
         const Divider(),
         ListTile(
           title: const Text(exportCsvItemLabel),

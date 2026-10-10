@@ -9,10 +9,6 @@ const remindersRequestPermissionMethod = 'requestPermission';
 const remindersPermissionStatusMethod = 'permissionStatus';
 const remindersReplaceAllMethod = 'replaceAll';
 
-/// Состояние разрешения на уведомления (ответ `permissionStatus`:
-/// строки `granted`, `denied`, `notDetermined`).
-enum ReminderPermission { granted, denied, notDetermined }
-
 /// Вызов метода канала: имя и аргументы -> ответ. В приложении это
 /// [MethodChannel.invokeMethod], в тестах - фейк.
 typedef RemindersInvoke = Future<Object?> Function(

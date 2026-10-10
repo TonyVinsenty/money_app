@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:money_app/app/reminder_sync.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
@@ -625,6 +626,8 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           accounts: arguments.accounts.watchAll(),
           defaultAccountId: arguments.defaultAccountId,
           editing: arguments.editing,
+          reminderStatus: appRemindersChannel.permissionStatus,
+          reminderRequest: appRemindersChannel.requestPermission,
           // Платёж с первым днём «сегодня» сразу попадает в «К оплате».
           onSaved: () async {
             await arguments.recurring.materializeDue(arguments.today);

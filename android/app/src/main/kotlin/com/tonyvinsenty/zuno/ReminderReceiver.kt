@@ -25,7 +25,7 @@ class ReminderReceiver : BroadcastReceiver() {
             Notification.Builder(context)
         }
         builder
-            .setSmallIcon(context.applicationInfo.icon)
+            .setSmallIcon(R.drawable.ic_stat_reminder)
             .setContentTitle(intent.getStringExtra("title") ?: "")
             .setContentText(intent.getStringExtra("body") ?: "")
             .setAutoCancel(true)

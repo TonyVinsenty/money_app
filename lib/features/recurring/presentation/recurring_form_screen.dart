@@ -18,6 +18,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/domain/recurring_rules.dart';
+import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/recurring/presentation/recurring_texts.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -55,8 +56,15 @@ class RecurringFormScreen extends StatefulWidget {
     this.defaultAccountId,
     this.editing,
     this.onSaved,
+    this.reminderStatus,
+    this.reminderRequest,
     super.key,
   });
+
+  /// Состояние разрешения на уведомления (`lib/app/` подставляет канал) и
+  /// системный запрос. Без них переключатель только сохраняет флаг.
+  final Future<ReminderPermission> Function()? reminderStatus;
+  final Future<bool> Function()? reminderRequest;
 
   /// Вызывается после успешного «Сохранить» (приложение создаёт записи
   /// «К оплате» для платежа на сегодня). Ошибки здесь сохранение не роняют.
@@ -94,6 +102,8 @@ class RecurringFormScreen extends StatefulWidget {
   static const endErrorKey = ValueKey('recurring-form-end-error');
   static const endClearKey = ValueKey('recurring-form-end-clear');
   static const saveKey = ValueKey('recurring-form-save');
+  static const remindKey = ValueKey('recurring-form-remind');
+  static const remindDeniedKey = ValueKey('recurring-form-remind-denied');
   static const categoryKey = ValueKey('recurring-form-category');
   static const accountKey = ValueKey('recurring-form-account');
   static const saveErrorKey = ValueKey('recurring-form-save-error');
@@ -121,6 +131,8 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
   String? _endError;
   String? _saveError;
   bool _saving = false;
+  late bool _remind = widget.editing?.remind ?? true;
+  bool _remindDenied = false;
 
   String? _categoryId;
   String? _subcategoryId;
@@ -150,6 +162,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
       _accountId = p.accountId;
       _accountTouched = true;
     }
+    unawaited(_checkReminderPermission(mayAsk: false));
     _subs.add(
       widget.categories.listen((all) {
         if (mounted) setState(() => _allCategories = all);
@@ -180,6 +193,36 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
     _name.dispose();
     _amount.dispose();
     super.dispose();
+  }
+
+  /// Узнаёт, разрешены ли уведомления. Если ещё не спрашивали и [mayAsk],
+  /// показывает системный запрос (один раз: после отказа статус `denied`, и
+  /// повторно запрос не показывается). Отказ объясняется словами под
+  /// переключателем. Сбой канала молча пропускается.
+  Future<void> _checkReminderPermission({required bool mayAsk}) async {
+    final status = widget.reminderStatus;
+    final request = widget.reminderRequest;
+    if (status == null || request == null || !_remind) return;
+    try {
+      var current = await status();
+      if (current == ReminderPermission.notDetermined && mayAsk) {
+        await request();
+        current = await status();
+      }
+      if (mounted) {
+        setState(() => _remindDenied = current == ReminderPermission.denied);
+      }
+    } on Object catch (error) {
+      debugPrint('Разрешение на уведомления: $error');
+    }
+  }
+
+  Future<void> _toggleRemind(bool value) async {
+    setState(() {
+      _remind = value;
+      if (!value) _remindDenied = false;
+    });
+    if (value) await _checkReminderPermission(mayAsk: true);
   }
 
   Future<DateOnly?> _pickDate(DateOnly initial, DateOnly first) async {
@@ -398,6 +441,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
       return;
     }
     setState(() => _saving = true);
+    await _checkReminderPermission(mayAsk: true);
     try {
       final option = recurringRepeatOptions[_repeat];
       final old = widget.editing;
@@ -413,7 +457,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
         every: option.every,
         startsOn: _first,
         endsOn: end,
-        remind: old?.remind ?? true,
+        remind: _remind,
         trackedThrough: old?.trackedThrough,
         createdAt: old?.createdAt,
         updatedAt: old?.updatedAt,
@@ -638,6 +682,20 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                         key: RecurringFormScreen.endErrorKey,
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
+                    SwitchListTile(
+                      key: RecurringFormScreen.remindKey,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(recurringFormRemindLabel),
+                      subtitle: _remind && _remindDenied
+                          ? Text(
+                              recurringFormRemindDenied,
+                              key: RecurringFormScreen.remindDeniedKey,
+                              style: TextStyle(color: theme.colorScheme.error),
+                            )
+                          : null,
+                      value: _remind,
+                      onChanged: _toggleRemind,
+                    ),
                   ],
                 ),
               ),

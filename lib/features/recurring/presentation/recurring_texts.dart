@@ -39,6 +39,10 @@ const String recurringFormAccountHint = 'Без счёта';
 const String recurringFormRepeatLabel = 'Повтор';
 const String recurringFormFirstLabel = 'Первый платёж';
 const String recurringFormEndLabel = 'Окончание';
+const String recurringFormRemindLabel = 'Напомнить в день платежа';
+const String recurringFormRemindDenied =
+    'Уведомления для Zuno выключены. Включите их в настройках телефона, '
+    'иначе напоминаний не будет.';
 const String recurringFormNoEnd = 'Без окончания';
 const String recurringFormEndClear = 'Убрать окончание';
 const String recurringFormSave = 'Сохранить';

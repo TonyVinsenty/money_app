@@ -10,6 +10,10 @@ const reminderBudget = 40;
 /// На сколько дней вперёд планируем (ADR 0011, п. 11).
 const reminderHorizonDays = 60;
 
+/// Состояние разрешения на уведомления (ответ канала `permissionStatus`:
+/// строки `granted`, `denied`, `notDetermined`).
+enum ReminderPermission { granted, denied, notDetermined }
+
 /// Время дня для напоминаний: одно на всё приложение (ADR 0011, п. 11).
 final class ReminderTime {
   /// Бросает [ArgumentError], если [hour] не в 0..23 или [minute] не в 0..59.

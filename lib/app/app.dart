@@ -6,8 +6,10 @@ import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/app/database_gate.dart';
+import 'package:money_app/app/reminder_sync.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/recurring/data/reminders_channel.dart';
 import 'package:money_app/features/settings/data/settings_repository_impl.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
@@ -17,8 +19,12 @@ class MoneyApp extends StatelessWidget {
     required this.settings,
     required this.openDatabase,
     this.startOverDatabase,
+    this.remindersChannel = appRemindersChannel,
     super.key,
   });
+
+  /// Канал напоминаний; в тестах подставляется фейк.
+  final RemindersChannel remindersChannel;
 
   /// Настройки нужны выше `MaterialApp` (тема), а тема должна работать уже
   /// до открытия базы: на экране загрузки и на экране ошибки. Поэтому
@@ -80,12 +86,15 @@ class MoneyApp extends StatelessWidget {
             builder: (context, database) => AppScopeHost(
               database: database,
               settings: settings,
-              child: BrowseHost(
-                // Builder: контекст ниже BrowseHost, где BrowseScope виден.
-                child: Builder(
-                  builder: (context) => AppShell(
-                    tabs: defaultAppTabs,
-                    selectedTab: BrowseScope.selectedTabOf(context),
+              child: ReminderSyncHost(
+                channel: remindersChannel,
+                child: BrowseHost(
+                  // Builder: контекст ниже BrowseHost, где BrowseScope виден.
+                  child: Builder(
+                    builder: (context) => AppShell(
+                      tabs: defaultAppTabs,
+                      selectedTab: BrowseScope.selectedTabOf(context),
+                    ),
                   ),
                 ),
               ),
