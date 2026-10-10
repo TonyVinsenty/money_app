@@ -5,6 +5,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_scope.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
@@ -94,6 +95,14 @@ class _BalanceTabState extends State<BalanceTab> {
 
   @override
   Widget build(BuildContext context) {
+    // Без BrowseScope (в части тестов) день берём из часов; в приложении он
+    // обновляется при возврате и смене дня.
+    final today =
+        context
+            .dependOnInheritedWidgetOfExactType<BrowseScope>()
+            ?.notifier
+            ?.today ??
+        AppScope.of(context).clock.today();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -186,16 +195,19 @@ class _BalanceTabState extends State<BalanceTab> {
         const SizedBox(height: 24),
         RecurringSection(
           items: _recurring,
-          // Без BrowseScope (в части тестов) день берём из часов; в
-          // приложении он обновляется при возврате и смене дня.
-          today:
-              context
-                  .dependOnInheritedWidgetOfExactType<BrowseScope>()
-                  ?.notifier
-                  ?.today ??
-              AppScope.of(context).clock.today(),
-          // Форма платежа - следующие шаги (6.11).
-          onAdd: () {},
+          today: today,
+          onAdd: () {
+            final services = AppScope.of(context);
+            unawaited(
+              Navigator.of(context).pushNamed<void>(
+                AppRoutes.recurringForm,
+                arguments: RecurringFormRouteArguments(
+                  currency: currencyInfoFor(services.settings.mainCurrencyCode),
+                  today: today,
+                ),
+              ),
+            );
+          },
         ),
       ],
     );

@@ -22,6 +22,48 @@ const String recurringEmptyText =
 /// Вторая строка у завершённого платежа.
 const String recurringFinishedLabel = 'Завершён';
 
+// Тексты формы платежа (ROADMAP, Р3-Р6; утверждены 2026-10-10).
+
+const String recurringFormTitle = 'Новый платёж';
+const String recurringFormNameLabel = 'Название';
+const String recurringFormNameHint = 'Например, Интернет';
+const String recurringFormExpense = 'Расход';
+const String recurringFormIncome = 'Доход';
+const String recurringFormTypeLabel = 'Вид платежа';
+const String recurringFormCategoryLabel = 'Категория';
+const String recurringFormCategoryHint = 'Выберите категорию';
+const String recurringFormAccountLabel = 'Счёт';
+const String recurringFormAccountHint = 'Без счёта';
+const String recurringFormRepeatLabel = 'Повтор';
+const String recurringFormFirstLabel = 'Первый платёж';
+const String recurringFormEndLabel = 'Окончание';
+const String recurringFormNoEnd = 'Без окончания';
+const String recurringFormEndClear = 'Убрать окончание';
+const String recurringFormSave = 'Сохранить';
+
+const String recurringErrorEmptyTitle = 'Введите название';
+const String recurringErrorTitleTooLong = 'Название — не длиннее 40 символов';
+const String recurringErrorAmountZero = 'Сумма должна быть больше нуля';
+const String recurringErrorEndsBeforeStart =
+    'Окончание не может быть раньше первого платежа';
+
+/// Вариант повтора из списка формы (Р4).
+typedef RecurringRepeatOption = ({RepeatUnit unit, int every, String label});
+
+/// Шесть вариантов повтора, первый («Каждый месяц») - по умолчанию.
+const List<RecurringRepeatOption> recurringRepeatOptions = [
+  (unit: RepeatUnit.month, every: 1, label: 'Каждый месяц'),
+  (unit: RepeatUnit.week, every: 1, label: 'Каждую неделю'),
+  (unit: RepeatUnit.week, every: 2, label: 'Каждые 2 недели'),
+  (unit: RepeatUnit.month, every: 3, label: 'Каждые 3 месяца'),
+  (unit: RepeatUnit.month, every: 6, label: 'Каждые 6 месяцев'),
+  (unit: RepeatUnit.year, every: 1, label: 'Каждый год'),
+];
+
+/// Подсказка Р5 для числа [day] (29-31).
+String recurringLastDayHint(int day) =>
+    'В месяцы, где нет $day-го, — в последний день месяца';
+
 final String _minus = String.fromCharCode(0x2212);
 
 /// Сумма строки со знаком: у расхода настоящий минус (U+2212), у дохода «+».

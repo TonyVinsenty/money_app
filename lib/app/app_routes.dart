@@ -27,6 +27,7 @@ import 'package:money_app/features/categories/presentation/subcategories_screen.
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/presentation/csv_import_screen.dart';
+import 'package:money_app/features/recurring/presentation/recurring_form_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -82,6 +83,22 @@ abstract final class AppRoutes {
   /// Экран «История счетов». Аргумент маршрута —
   /// [BalanceJournalRouteArguments].
   static const balanceJournal = '/balance-journal';
+
+  /// Форма регулярного платежа. Аргумент маршрута —
+  /// [RecurringFormRouteArguments].
+  static const recurringForm = '/recurring-form';
+}
+
+/// Аргументы маршрута [AppRoutes.recurringForm]: основная валюта и сегодняшний
+/// день.
+final class RecurringFormRouteArguments {
+  const RecurringFormRouteArguments({
+    required this.currency,
+    required this.today,
+  });
+
+  final CurrencyInfo currency;
+  final DateOnly today;
 }
 
 /// Аргументы маршрута [AppRoutes.balanceJournal]. Потоки создаются один раз
@@ -519,6 +536,23 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           transactions: arguments.transactions,
           categories: arguments.categories,
           currency: arguments.currency,
+        ),
+      );
+    case AppRoutes.recurringForm:
+      final arguments = settings.arguments;
+      if (arguments is! RecurringFormRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.recurringForm} ожидает аргумент '
+              'RecurringFormRouteArguments (валюта и сегодняшний день)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => RecurringFormScreen(
+          currency: arguments.currency,
+          today: arguments.today,
         ),
       );
     case AppRoutes.accountForm:
