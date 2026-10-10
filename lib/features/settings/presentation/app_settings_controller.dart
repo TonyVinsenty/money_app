@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show ChangeNotifier, debugPrint;
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/domain/settings_repository.dart';
 
 /// Строка для записи в базу; значения — часть формата хранения, не менять.
@@ -19,6 +20,21 @@ ThemeMode themeModeFromStored(String? value) => switch (value) {
   'light' => ThemeMode.light,
   'dark' => ThemeMode.dark,
   _ => ThemeMode.system,
+};
+
+/// Строка для записи в базу; значения — часть формата хранения, не менять.
+String homeBalanceLineToStored(HomeBalanceLine line) => switch (line) {
+  HomeBalanceLine.allTime => 'allTime',
+  HomeBalanceLine.accounts => 'accounts',
+  HomeBalanceLine.none => 'none',
+};
+
+/// Обратное преобразование. Пусто, неизвестно или испорчено — «все доходы
+/// минус все расходы» (значение по умолчанию).
+HomeBalanceLine homeBalanceLineFromStored(String? value) => switch (value) {
+  'accounts' => HomeBalanceLine.accounts,
+  'none' => HomeBalanceLine.none,
+  _ => HomeBalanceLine.allTime,
 };
 
 /// Строка для записи в базу: код валюты.
@@ -63,6 +79,33 @@ class AppSettingsController extends ChangeNotifier {
   SettingsRepository? _repository;
 
   ThemeMode get themeMode => _themeMode;
+
+  HomeBalanceLine _homeBalanceLine = HomeBalanceLine.allTime;
+
+  /// Что показывать строкой «Баланс» на «Главной».
+  HomeBalanceLine get homeBalanceLine => _homeBalanceLine;
+
+  /// Меняет строку «Баланс» сразу, запись в базу идёт в фоне; ошибка записи
+  /// не откатывает выбор, а только попадает в лог (как у темы).
+  void setHomeBalanceLine(HomeBalanceLine value) {
+    if (value == _homeBalanceLine) return;
+    _homeBalanceLine = value;
+    notifyListeners();
+    unawaited(_persistHomeBalanceLine(value));
+  }
+
+  Future<void> _persistHomeBalanceLine(HomeBalanceLine value) async {
+    final repository = _repository;
+    if (repository == null) return;
+    try {
+      await repository.write(
+        homeBalanceLineSettingKey,
+        homeBalanceLineToStored(value),
+      );
+    } catch (error) {
+      debugPrint('Не удалось сохранить строку «Баланс»: $error');
+    }
+  }
 
   /// Основная валюта (по умолчанию рубль).
   CurrencyInfo get mainCurrency => _mainCurrency;
@@ -131,6 +174,17 @@ class AppSettingsController extends ChangeNotifier {
       _apply(themeModeFromStored(stored));
     } catch (error) {
       debugPrint('Не удалось прочитать тему из настроек: $error');
+    }
+    try {
+      final stored = await repository.read(homeBalanceLineSettingKey);
+      if (_repository != repository) return;
+      final line = homeBalanceLineFromStored(stored);
+      if (line != _homeBalanceLine) {
+        _homeBalanceLine = line;
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint('Не удалось прочитать строку «Баланс» из настроек: $error');
     }
     try {
       final stored = await repository.read(mainCurrencySettingKey);

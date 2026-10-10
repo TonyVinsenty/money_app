@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/domain/settings_repository.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
@@ -150,6 +151,76 @@ void main() {
       await controller.attach(_FakeSettingsRepository(failRead: true));
       expect(controller.defaultAccountId, isNull);
       expect(await controller.setDefaultAccountId(''), isFalse);
+    });
+  });
+
+  group('строка «Баланс»', () {
+    test('по умолчанию allTime; формат хранения', () {
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      expect(controller.homeBalanceLine, HomeBalanceLine.allTime);
+      expect(homeBalanceLineToStored(HomeBalanceLine.allTime), 'allTime');
+      expect(homeBalanceLineToStored(HomeBalanceLine.accounts), 'accounts');
+      expect(homeBalanceLineToStored(HomeBalanceLine.none), 'none');
+      for (final line in HomeBalanceLine.values) {
+        expect(homeBalanceLineFromStored(homeBalanceLineToStored(line)), line);
+      }
+    });
+
+    test('запись, уведомление и чтение другим контроллером', () async {
+      final repo = _FakeSettingsRepository();
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      var notified = 0;
+      controller.addListener(() => notified++);
+
+      controller.setHomeBalanceLine(HomeBalanceLine.accounts);
+      controller.setHomeBalanceLine(HomeBalanceLine.accounts);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.homeBalanceLine, HomeBalanceLine.accounts);
+      expect(notified, 1);
+      expect(repo.writes, 1);
+      expect(repo.data[homeBalanceLineSettingKey], 'accounts');
+
+      final second = AppSettingsController();
+      addTearDown(second.dispose);
+      await second.attach(repo);
+      expect(second.homeBalanceLine, HomeBalanceLine.accounts);
+    });
+
+    test('испорченное, пустое значение и сбой чтения дают allTime', () async {
+      for (final bad in ['', 'ALL', 'blue', 'allTime ']) {
+        final repo = _FakeSettingsRepository()
+          ..data[homeBalanceLineSettingKey] = bad;
+        final controller = AppSettingsController();
+        addTearDown(controller.dispose);
+        await controller.attach(repo);
+        expect(controller.homeBalanceLine, HomeBalanceLine.allTime);
+      }
+      expect(homeBalanceLineFromStored(null), HomeBalanceLine.allTime);
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(_FakeSettingsRepository(failRead: true));
+      expect(controller.homeBalanceLine, HomeBalanceLine.allTime);
+    });
+
+    test('ошибка записи не откатывает выбор и не падает', () async {
+      final repo = _FakeSettingsRepository(failWrite: true);
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+
+      final errors = <Object>[];
+      await runZonedGuarded(() async {
+        controller.setHomeBalanceLine(HomeBalanceLine.none);
+        await Future<void>.delayed(Duration.zero);
+      }, (error, _) => errors.add(error));
+
+      expect(repo.writes, 1);
+      expect(controller.homeBalanceLine, HomeBalanceLine.none);
+      expect(errors, isEmpty);
     });
   });
 

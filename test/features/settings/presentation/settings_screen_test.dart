@@ -8,12 +8,15 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
 Widget _app({
   ThemeMode mode = ThemeMode.system,
   ValueChanged<ThemeMode>? onChanged,
+  HomeBalanceLine balanceLine = HomeBalanceLine.allTime,
+  ValueChanged<HomeBalanceLine>? onBalanceLine,
   VoidCallback? onCategories,
   Future<String> Function()? onExport,
   ShareFile? shareFile,
@@ -39,6 +42,8 @@ Widget _app({
         builder: (context, setState) => SettingsScreen(
           themeMode: mode,
           onThemeModeChanged: onChanged ?? (_) {},
+          homeBalanceLine: balanceLine,
+          onHomeBalanceLineChanged: onBalanceLine ?? (_) {},
           onOpenCategories: onCategories ?? () {},
           mainCurrency: main,
           onMainCurrencyChanged: (value) {
@@ -64,6 +69,19 @@ ThemeMode _groupValue(WidgetTester tester) => tester
     .groupValue!;
 
 void main() {
+  // Высокое окно: после раздела «Строка «Баланс»» нижние пункты иначе
+  // оказываются за экраном ленивого списка.
+  setUp(() {
+    final view = TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .views
+        .first;
+    view.physicalSize = const Size(800, 2400);
+    view.devicePixelRatio = 1;
+    addTearDown(view.resetPhysicalSize);
+    addTearDown(view.resetDevicePixelRatio);
+  });
+
   setUpAll(() => initializeDateFormatting('ru'));
 
   testWidgets('три варианта темы, выбран текущий', (tester) async {
@@ -90,6 +108,58 @@ void main() {
       expect(calls, [mode]);
     });
   }
+
+  group('строка «Баланс» на Главной', () {
+    void tall(WidgetTester tester) {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('раздел виден, тексты дословно, выбран текущий', (
+      tester,
+    ) async {
+      tall(tester);
+      await tester.pumpWidget(_app(balanceLine: HomeBalanceLine.accounts));
+
+      expect(find.text('Строка «Баланс» на Главной'), findsOneWidget);
+      expect(find.text('Все доходы минус все расходы'), findsOneWidget);
+      expect(find.text('За всё время'), findsOneWidget);
+      expect(find.text('Сумма на счетах'), findsOneWidget);
+      expect(find.text('Счета в основной валюте'), findsOneWidget);
+      expect(find.text('Не показывать'), findsOneWidget);
+      expect(
+        tester
+            .widget<RadioGroup<HomeBalanceLine>>(
+              find.byType(RadioGroup<HomeBalanceLine>),
+            )
+            .groupValue,
+        HomeBalanceLine.accounts,
+      );
+    });
+
+    for (final (label, line) in [
+      ('Все доходы минус все расходы', HomeBalanceLine.allTime),
+      ('Сумма на счетах', HomeBalanceLine.accounts),
+      ('Не показывать', HomeBalanceLine.none),
+    ]) {
+      testWidgets('тап «$label» сообщает $line', (tester) async {
+        tall(tester);
+        final start = line == HomeBalanceLine.none
+            ? HomeBalanceLine.allTime
+            : HomeBalanceLine.none;
+        final calls = <HomeBalanceLine>[];
+        await tester.pumpWidget(
+          _app(balanceLine: start, onBalanceLine: calls.add),
+        );
+
+        await tester.tap(find.text(label));
+        await tester.pump();
+
+        expect(calls, [line]);
+      });
+    }
+  });
 
   testWidgets('пункт «Категории» вызывает переход', (tester) async {
     var opened = 0;
@@ -501,7 +571,7 @@ void main() {
   testWidgets('зоны нажатия не ниже 48 dp, шрифт 200% без переполнения', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(240, 1600);
+    tester.view.physicalSize = const Size(240, 3200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -511,6 +581,12 @@ void main() {
     final tiles = {
       for (final label in ['Как в системе', 'Светлая', 'Тёмная'])
         label: find.widgetWithText(RadioListTile<ThemeMode>, label),
+      for (final label in [
+        'Все доходы минус все расходы',
+        'Сумма на счетах',
+        'Не показывать',
+      ])
+        label: find.widgetWithText(RadioListTile<HomeBalanceLine>, label),
       'Категории': find.widgetWithText(ListTile, 'Категории'),
     };
     for (final MapEntry(key: label, value: tile) in tiles.entries) {

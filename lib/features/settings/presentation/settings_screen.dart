@@ -8,6 +8,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/currency_picker.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
 /// Подписи вариантов темы.
@@ -17,6 +18,14 @@ const themeDarkLabel = 'Тёмная';
 
 /// Заголовок раздела с выбором темы.
 const themeSectionTitle = 'Тема';
+
+/// Раздел «Строка «Баланс» на Главной» (тексты утверждены 2026-10-10).
+const homeBalanceSectionTitle = 'Строка «Баланс» на Главной';
+const homeBalanceAllTimeLabel = 'Все доходы минус все расходы';
+const homeBalanceAllTimeSubtitle = 'За всё время';
+const homeBalanceAccountsLabel = 'Сумма на счетах';
+const homeBalanceAccountsSubtitle = 'Счета в основной валюте';
+const homeBalanceNoneLabel = 'Не показывать';
 
 /// Пункт, ведущий к управлению категориями.
 const categoriesItemLabel = 'Категории';
@@ -139,6 +148,8 @@ class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     required this.themeMode,
     required this.onThemeModeChanged,
+    required this.homeBalanceLine,
+    required this.onHomeBalanceLineChanged,
     required this.onOpenCategories,
     required this.mainCurrency,
     required this.onMainCurrencyChanged,
@@ -154,6 +165,10 @@ class SettingsScreen extends StatefulWidget {
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
+
+  /// Что показывать строкой «Баланс» на «Главной» и обработчик выбора.
+  final HomeBalanceLine homeBalanceLine;
+  final ValueChanged<HomeBalanceLine> onHomeBalanceLineChanged;
   final VoidCallback onOpenCategories;
 
   /// Текущая основная валюта и обработчик подтверждённой смены.
@@ -380,6 +395,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
               RadioListTile<ThemeMode>(
                 value: ThemeMode.dark,
                 title: Text(themeDarkLabel),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: Semantics(
+            header: true,
+            child: Text(homeBalanceSectionTitle, style: textTheme.titleMedium),
+          ),
+        ),
+        RadioGroup<HomeBalanceLine>(
+          groupValue: widget.homeBalanceLine,
+          onChanged: (value) {
+            if (value != null) widget.onHomeBalanceLineChanged(value);
+          },
+          child: const Column(
+            children: [
+              RadioListTile<HomeBalanceLine>(
+                value: HomeBalanceLine.allTime,
+                title: Text(homeBalanceAllTimeLabel),
+                subtitle: Text(homeBalanceAllTimeSubtitle),
+              ),
+              RadioListTile<HomeBalanceLine>(
+                value: HomeBalanceLine.accounts,
+                title: Text(homeBalanceAccountsLabel),
+                subtitle: Text(homeBalanceAccountsSubtitle),
+              ),
+              RadioListTile<HomeBalanceLine>(
+                value: HomeBalanceLine.none,
+                title: Text(homeBalanceNoneLabel),
               ),
             ],
           ),

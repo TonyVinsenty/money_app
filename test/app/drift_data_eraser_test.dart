@@ -260,6 +260,7 @@ Future<void> _fillEverything(AppDatabase db) async {
     "('$themeModeSettingKey', 'dark', $t), "
     "('$mainCurrencySettingKey', 'USD', $t), "
     "('$defaultAccountSettingKey', 'acc-1', $t), "
-    "('$lastExportDaySettingKey', '20261005', $t)",
+    "('$lastExportDaySettingKey', '20261005', $t), "
+    "('$homeBalanceLineSettingKey', 'accounts', $t)",
   );
 }

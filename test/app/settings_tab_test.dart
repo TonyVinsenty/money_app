@@ -87,6 +87,19 @@ ThemeMode _appThemeMode(WidgetTester tester) =>
     tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode!;
 
 void main() {
+  // Высокое окно: после раздела «Строка «Баланс»» нижние пункты иначе
+  // оказываются за экраном ленивого списка.
+  setUp(() {
+    final view = TestWidgetsFlutterBinding.ensureInitialized()
+        .platformDispatcher
+        .views
+        .first;
+    view.physicalSize = const Size(800, 2400);
+    view.devicePixelRatio = 1;
+    addTearDown(view.resetPhysicalSize);
+    addTearDown(view.resetDevicePixelRatio);
+  });
+
   // «Главная» показывает название месяца в подписи итога, даже пока операций
   // нет, поэтому русская локаль нужна и здесь (в приложении её ставит main).
   setUpAll(() async {

@@ -113,6 +113,8 @@ class SettingsTab extends StatelessWidget {
     return SettingsScreen(
       themeMode: settings.themeMode,
       onThemeModeChanged: settings.setThemeMode,
+      homeBalanceLine: settings.homeBalanceLine,
+      onHomeBalanceLineChanged: settings.setHomeBalanceLine,
       mainCurrency: settings.mainCurrency,
       onMainCurrencyChanged: (currency) async {
         final messenger = ScaffoldMessenger.of(context);

@@ -24,6 +24,10 @@ Future<void> _pump(
   required PickFile pickFile,
   required PlannedCsvImportStore store,
 }) async {
+  // Высокое окно: после раздела «Строка «Баланс»» пункт загрузки ниже экрана.
+  tester.view.physicalSize = const Size(800, 2400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
   final settings = AppSettingsController();
   addTearDown(settings.dispose);
   final categories = InMemoryCategoriesRepository(const []);

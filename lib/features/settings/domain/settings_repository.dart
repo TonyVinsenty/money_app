@@ -1,6 +1,10 @@
 /// Ключ настройки «тема оформления». Значения: `system`, `light`, `dark`.
 const themeModeSettingKey = 'theme_mode';
 
+/// Ключ настройки «строка «Баланс» на Главной». Значения: `allTime`,
+/// `accounts`, `none`.
+const homeBalanceLineSettingKey = 'home_balance_line';
+
 /// Ключ настройки «основная валюта». Значение — код обычной валюты из
 /// каталога (`RUB`, `USD`).
 const mainCurrencySettingKey = 'main_currency';
