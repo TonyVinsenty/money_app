@@ -13,6 +13,8 @@ import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
+import 'package:money_app/features/recurring/presentation/recurring_section.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
 /// Новый счёт [created] становится основным, если он в основной валюте, а
@@ -48,6 +50,8 @@ class _BalanceTabState extends State<BalanceTab> {
   AccountsRepository? _repository;
   late Stream<List<Account>> _accounts;
   late Stream<Map<String, Money>> _balances;
+  RecurringRepository? _recurringRepository;
+  late Stream<List<RecurringListItem>> _recurring;
 
   // Потоки создаём один раз и заново только при смене репозитория: в build
   // каждая перерисовка начинала бы подписку заново.
@@ -59,6 +63,11 @@ class _BalanceTabState extends State<BalanceTab> {
       _repository = repository;
       _accounts = repository.watchAll();
       _balances = repository.watchBalances();
+    }
+    final recurring = AppScope.of(context).recurring;
+    if (!identical(recurring, _recurringRepository)) {
+      _recurringRepository = recurring;
+      _recurring = recurring.watchAll();
     }
   }
 
@@ -173,6 +182,20 @@ class _BalanceTabState extends State<BalanceTab> {
               ),
             );
           },
+        ),
+        const SizedBox(height: 24),
+        RecurringSection(
+          items: _recurring,
+          // Без BrowseScope (в части тестов) день берём из часов; в
+          // приложении он обновляется при возврате и смене дня.
+          today:
+              context
+                  .dependOnInheritedWidgetOfExactType<BrowseScope>()
+                  ?.notifier
+                  ?.today ??
+              AppScope.of(context).clock.today(),
+          // Форма платежа - следующие шаги (6.11).
+          onAdd: () {},
         ),
       ],
     );

@@ -623,6 +623,12 @@ class FakeRecurringRepository extends Fake implements RecurringRepository {
   /// Что бросить из `materializeDue` (если не `null`).
   Error? materializeError;
 
+  /// Что отдаст `watchAll` (список читается в момент вызова).
+  List<RecurringListItem> items = const [];
+
+  @override
+  Stream<List<RecurringListItem>> watchAll() => Stream.value(items);
+
   @override
   Future<int> materializeDue(DateOnly today) async {
     materializedDays.add(today);
