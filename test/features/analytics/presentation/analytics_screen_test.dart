@@ -13,6 +13,7 @@ import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
+import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -35,6 +36,8 @@ Future<void> _pump(
   DateOnly? firstDay,
   bool firstDayKnown = false,
   void Function(DateOnly, DateOnly)? onCustom,
+  AnalyticsSection section = AnalyticsSection.categories,
+  ValueChanged<AnalyticsSection>? onSection,
 }) async {
   tester.view.physicalSize = const Size(360, 800);
   tester.view.devicePixelRatio = 1;
@@ -53,6 +56,8 @@ Future<void> _pump(
           firstDay: firstDay,
           firstDayKnown: firstDayKnown,
           onCustomRangeSelected: onCustom,
+          section: section,
+          onSectionSelected: onSection,
           today: _today,
           onKindSelected: onKindSelected ?? (_) {},
           onPrevious: onPrevious,
@@ -76,6 +81,96 @@ void main() {
     }
     expect(find.widgetWithText(ChoiceChip, 'Свой'), findsOneWidget);
     expect(find.text('Октябрь 2026'), findsOneWidget);
+  });
+
+  group('строка разделов', () {
+    Stream<PeriodTransactions> someData() => Stream.value((
+      range: monthRange(DateOnly(2026, 10, 1)),
+      previousRange: monthRange(DateOnly(2026, 9, 1)),
+      transactions: [
+        Transaction(
+          id: 'a',
+          type: TransactionType.expense,
+          amount: Money.fromMinor(100, 'RUB'),
+          occurredOn: DateOnly(2026, 10, 2),
+          occurredAt: DateTime.utc(2026, 10, 2, 9),
+          categoryId: 'food',
+        ),
+      ],
+    ));
+
+    testWidgets('по умолчанию «Категории»: два раздела и прежнее содержимое', (
+      tester,
+    ) async {
+      await _pump(tester, transactions: someData());
+      await tester.pump();
+
+      expect(find.widgetWithText(Tab, 'Категории'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Сравнение'), findsOneWidget);
+      expect(find.byType(PeriodSummaryCard), findsOneWidget);
+      expect(find.byKey(analyticsComparisonKey), findsNothing);
+    });
+
+    testWidgets('касание «Сравнение» зовёт колбэк с разделом', (tester) async {
+      final calls = <AnalyticsSection>[];
+      await _pump(tester, transactions: someData(), onSection: calls.add);
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(Tab, 'Сравнение'));
+      await tester.pump();
+
+      expect(calls, [AnalyticsSection.comparison]);
+    });
+
+    testWidgets('раздел «Сравнение»: содержимое другое, период на месте', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        transactions: someData(),
+        section: AnalyticsSection.comparison,
+      );
+      await tester.pump();
+
+      expect(find.byKey(analyticsComparisonKey), findsOneWidget);
+      expect(find.byType(PeriodSummaryCard), findsNothing);
+      expect(find.text('Октябрь 2026'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Месяц'), findsOneWidget);
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+    });
+
+    testWidgets('свайпа между разделами нет: нет TabBarView', (tester) async {
+      await _pump(tester, transactions: someData());
+      await tester.pump();
+
+      expect(find.byType(TabBarView), findsNothing);
+    });
+
+    testWidgets('шрифт 200% на 360 dp: строка прокручивается, без '
+        'переполнения', (tester) async {
+      await _pump(tester, textScale: 2, transactions: someData());
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(tester.widget<TabBar>(find.byType(TabBar)).isScrollable, isTrue);
+      await tester.drag(find.byType(TabBar), const Offset(-300, 0));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.widgetWithText(Tab, 'Сравнение'), findsOneWidget);
+    });
+
+    testWidgets('скринридер: вкладка с названием и номером', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, transactions: someData());
+      await tester.pump();
+
+      final label = tester
+          .getSemantics(find.widgetWithText(Tab, 'Сравнение'))
+          .label;
+      expect(label, contains('Сравнение'));
+      expect(label, contains('2'));
+      handle.dispose();
+    });
   });
 
   testWidgets('выбранный чип отмечен «выбрано» для скринридера', (

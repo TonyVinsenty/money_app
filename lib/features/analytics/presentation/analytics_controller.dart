@@ -4,6 +4,10 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
+/// Разделы вкладки «Аналитика» (ADR 0012, п. 1). Порядок — как в строке
+/// разделов слева направо.
+enum AnalyticsSection { categories, dynamics, comparison, operations }
+
 /// Выбранный период экрана «Аналитика»: вид (день, неделя, месяц, год) и
 /// сдвиг назад/вперёд. Только в памяти, про виджеты и `lib/app` не знает
 /// (ADR 0002); «сегодня» передаётся снаружи, часы не читаются.
@@ -26,7 +30,20 @@ class AnalyticsController extends ChangeNotifier {
   AnalyticsPeriod _period;
   TransactionType _type = TransactionType.expense;
 
+  AnalyticsSection _section = AnalyticsSection.categories;
+
   AnalyticsPeriod get period => _period;
+
+  /// Выбранный раздел вкладки; по умолчанию «Категории». Только в памяти,
+  /// от периода и типа не зависит.
+  AnalyticsSection get section => _section;
+
+  /// Выбирает раздел. Тот же раздел — ничего не делает.
+  void selectSection(AnalyticsSection section) {
+    if (section == _section) return;
+    _section = section;
+    notifyListeners();
+  }
 
   /// Какие операции показывают кольцо и список категорий; по умолчанию расходы.
   /// Не зависит от периода: при смене периода остаётся прежним.

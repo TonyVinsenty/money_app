@@ -390,4 +390,44 @@ void main() {
       expect(c.type, TransactionType.income);
     });
   });
+
+  group('раздел', () {
+    test('по умолчанию «Категории»', () {
+      expect(make().section, AnalyticsSection.categories);
+    });
+
+    test('выбор раздела уведомляет один раз; тот же раздел — ни разу', () {
+      final c = make();
+      final counter = _Counter(c);
+
+      c.selectSection(AnalyticsSection.comparison);
+      expect(c.section, AnalyticsSection.comparison);
+      expect(counter.count, 1);
+
+      c.selectSection(AnalyticsSection.comparison);
+      expect(counter.count, 1);
+    });
+
+    test('смена периода, вида и типа раздел не сбрасывает', () {
+      final c = make(firstDay: DateOnly(2026, 1, 1))
+        ..selectSection(AnalyticsSection.comparison)
+        ..selectKind(PeriodKind.week)
+        ..previous()
+        ..selectType(TransactionType.income)
+        ..selectCustomRange(DateOnly(2026, 9, 1), DateOnly(2026, 9, 15))
+        ..updateToday(DateOnly(2026, 10, 5));
+
+      expect(c.section, AnalyticsSection.comparison);
+    });
+
+    test('смена раздела период и тип не меняет', () {
+      final c = make()..selectType(TransactionType.income);
+      final period = c.period;
+
+      c.selectSection(AnalyticsSection.comparison);
+
+      expect(c.period, period);
+      expect(c.type, TransactionType.income);
+    });
+  });
 }

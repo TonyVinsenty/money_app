@@ -8,6 +8,8 @@ import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
+import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
+import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -29,6 +31,19 @@ typedef PeriodTransactions = ({
 
 /// Ключ скелетона до первого ответа базы.
 const Key analyticsSkeletonKey = ValueKey('analytics-skeleton');
+
+/// Ключ заготовки раздела «Сравнение» (заменяется содержимым шага a.5).
+const Key analyticsComparisonKey = ValueKey('analytics-comparison');
+
+/// Ключ строки разделов.
+const Key analyticsSectionBarKey = ValueKey('analytics-section-bar');
+
+/// Разделы, которые уже есть на экране, слева направо. Остальные добавят
+/// свои шаги (ROADMAP, a.4).
+const List<AnalyticsSection> _shownSections = [
+  AnalyticsSection.categories,
+  AnalyticsSection.comparison,
+];
 
 /// Виды периода, которые можно выбрать чипом, в порядке слева направо.
 const List<(PeriodKind, String)> _kindChips = [
@@ -70,6 +85,8 @@ class AnalyticsScreen extends StatelessWidget {
     this.type = TransactionType.expense,
     this.onTypeSelected,
     this.onOpenCategory,
+    this.section = AnalyticsSection.categories,
+    this.onSectionSelected,
     this.firstDay,
     this.firstDayKnown = false,
     this.onCustomRangeSelected,
@@ -124,6 +141,14 @@ class AnalyticsScreen extends StatelessWidget {
   /// вызывающий; без колбэка строки не кнопки.
   final ValueChanged<Category>? onOpenCategory;
 
+  /// Раздел, содержимое которого показано под выбором периода. Раздел, которого
+  /// на экране ещё нет, показывается как «Категории».
+  final AnalyticsSection section;
+
+  /// Выбран другой раздел касанием строки разделов; без колбэка строка
+  /// недоступна.
+  final ValueChanged<AnalyticsSection>? onSectionSelected;
+
   /// Стандартный выбор интервала. Последний день — сегодня, первый — день
   /// первой операции (без операций — сегодня). Отмена ничего не меняет.
   Future<void> _pickCustomRange(BuildContext context) async {
@@ -155,6 +180,8 @@ class AnalyticsScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _SectionBar(section: section, onSelected: onSectionSelected),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 4,
           runSpacing: 4,
@@ -203,33 +230,93 @@ class AnalyticsScreen extends StatelessWidget {
             hasOtherCurrencies: hasOtherCurrencies,
             symbol: currencySymbol,
           ),
-          dataBuilder: (context, data) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              PeriodSummaryCard(
-                summary: summarizePeriod(
-                  data.transactions,
-                  data.range,
-                  currency: currency,
+          dataBuilder: (context, data) => section == AnalyticsSection.comparison
+              ? const SizedBox(key: analyticsComparisonKey)
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PeriodSummaryCard(
+                      summary: summarizePeriod(
+                        data.transactions,
+                        data.range,
+                        currency: currency,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    AsyncView<List<Category>>(
+                      stream: categories,
+                      errorBuilder: (context, error) => const _SummaryError(),
+                      dataBuilder: (context, all) => CategoryBreakdownCard(
+                        currency: currency,
+                        transactions: data.transactions,
+                        range: data.range,
+                        categories: all,
+                        type: type,
+                        onTypeSelected: onTypeSelected,
+                        onOpenCategory: onOpenCategory,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              AsyncView<List<Category>>(
-                stream: categories,
-                errorBuilder: (context, error) => const _SummaryError(),
-                dataBuilder: (context, all) => CategoryBreakdownCard(
-                  currency: currency,
-                  transactions: data.transactions,
-                  range: data.range,
-                  categories: all,
-                  type: type,
-                  onTypeSelected: onTypeSelected,
-                  onOpenCategory: onOpenCategory,
-                ),
-              ),
-            ],
-          ),
         ),
+      ],
+    );
+  }
+}
+
+/// Строка разделов: прокручиваемый `TabBar` (при крупном шрифте уходит вбок, а
+/// не обрезается). Содержимое меняется только касанием, свайпа между
+/// разделами нет (ADR 0012, п. 1): палец на кольце и столбиках двигается вбок.
+class _SectionBar extends StatefulWidget {
+  const _SectionBar({required this.section, required this.onSelected});
+
+  final AnalyticsSection section;
+  final ValueChanged<AnalyticsSection>? onSelected;
+
+  @override
+  State<_SectionBar> createState() => _SectionBarState();
+}
+
+class _SectionBarState extends State<_SectionBar>
+    with SingleTickerProviderStateMixin {
+  late final TabController _controller = TabController(
+    length: _shownSections.length,
+    vsync: this,
+    initialIndex: _indexOf(widget.section),
+  );
+
+  static int _indexOf(AnalyticsSection section) {
+    final index = _shownSections.indexOf(section);
+    return index < 0 ? 0 : index;
+  }
+
+  @override
+  void didUpdateWidget(_SectionBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final index = _indexOf(widget.section);
+    if (_controller.index != index) _controller.index = index;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final onSelected = widget.onSelected;
+    return TabBar(
+      key: analyticsSectionBarKey,
+      controller: _controller,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      onTap: onSelected == null
+          ? null
+          : (index) => onSelected(_shownSections[index]),
+      tabs: [
+        for (final section in _shownSections)
+          Tab(text: analyticsSectionTitle(section)),
       ],
     );
   }

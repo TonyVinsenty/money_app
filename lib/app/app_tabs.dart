@@ -588,6 +588,8 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         firstDayKnown: controller.firstDayKnown,
         type: controller.type,
         onTypeSelected: controller.selectType,
+        section: controller.section,
+        onSectionSelected: controller.selectSection,
         onCustomRangeSelected: controller.selectCustomRange,
         currency: _currency!,
         hasOtherCurrencies: _hasOther,

@@ -19,6 +19,7 @@ import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/comparison.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
+import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
@@ -374,6 +375,43 @@ void main() {
         .setHistorySort(HistorySort.oldestFirst);
     await tester.pumpAndSettle();
     expect(repo.requests.where((r) => r == week), hasLength(1));
+  });
+
+  testWidgets('раздел «Сравнение»: период и тип те же, переживает смену '
+      'вкладки, «Очистить всё» возвращает «Категории»', (tester) async {
+    await _pump(
+      tester,
+      firstDay: DateOnly(2026, 9, 10),
+      repo: _Repo(_sept),
+      categories: _twoCategories,
+    );
+    await _tap(tester, _prev);
+    await tester.pumpAndSettle();
+    await _tap(tester, _incomeSegment);
+
+    await _tap(tester, find.widgetWithText(Tab, 'Сравнение'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(analyticsComparisonKey), findsOneWidget);
+    expect(find.byType(DonutChart), findsNothing);
+    expect(find.text('Сентябрь 2026'), findsOneWidget);
+
+    // Октябрь пуст: вместо раздела общий текст «пусто»; раздел не потерян.
+    await _tap(tester, _next);
+    await tester.pumpAndSettle();
+    expect(find.text('За этот период операций нет'), findsOneWidget);
+    await _tap(tester, _prev);
+    await tester.pumpAndSettle();
+    expect(find.byKey(analyticsComparisonKey), findsOneWidget);
+
+    await _openTab(tester, 'Главная');
+    await _openTab(tester, 'Аналитика');
+    expect(find.byKey(analyticsComparisonKey), findsOneWidget);
+
+    BrowseScope.of(tester.element(find.byType(AppShell))).resetAfterEraseAll();
+    await tester.pumpAndSettle();
+    expect(find.byKey(analyticsComparisonKey), findsNothing);
+    expect(find.widgetWithText(Tab, 'Категории'), findsOneWidget);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
   });
 
   testWidgets('вкладка просит окно данных; прошлый месяц не попадает в итоги', (
