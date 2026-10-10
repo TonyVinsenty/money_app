@@ -19,6 +19,7 @@ import 'package:money_app/features/recurring/data/recurring_repository_impl.dart
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/presentation/due_banner.dart';
 import 'package:money_app/features/recurring/presentation/due_section.dart';
+import 'package:money_app/features/recurring/presentation/due_tab_badge.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -125,6 +126,13 @@ void main() {
     final money = formatMoney(Money.fromMinor(65000, 'RUB'));
     final dash = String.fromCharCode(0x2014);
     expect(find.text('К оплате: Интернет $dash $money'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(DueTabBadge.badgeKey),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
 
     // Тап по плашке открывает «Баланс» с блоком «К оплате».
     await tester.tap(find.byKey(DueBanner.bannerKey));
@@ -138,6 +146,7 @@ void main() {
     await tester.tap(payButton);
     await settleDatabase(tester);
     expect(find.byKey(DueSection.titleKey), findsNothing);
+    expect(find.byKey(DueTabBadge.badgeKey), findsNothing);
 
     // В «Истории» появилась операция.
     await tester.tap(

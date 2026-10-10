@@ -9,7 +9,13 @@ class AppTab {
     required this.selectedIcon,
     required this.builder,
     this.actionsBuilder,
+    this.decorateIcon,
   });
+
+  /// Необязательная обёртка значка вкладки (например, кружок с числом).
+  /// Применяется к обеим иконкам; строится заново с каркасом, поэтому сама
+  /// обёртка должна слушать свой источник данных.
+  final Widget Function(BuildContext context, Widget icon)? decorateIcon;
 
   final String label;
 
@@ -185,6 +191,9 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  static Widget _decorated(BuildContext context, AppTab tab, Widget icon) =>
+      tab.decorateIcon?.call(context, icon) ?? icon;
+
   /// Нижняя панель с подписями в одну строку. Масштаб шрифта подписей не
   /// больше [_maxLabelScale] (как у таб-бара iOS), а если самая длинная подпись
   /// всё равно шире своей вкладки, размер шрифта уменьшается, и слово не рвётся
@@ -236,8 +245,12 @@ class _AppShellState extends State<AppShell> {
               destinations: [
                 for (final tab in widget.tabs)
                   NavigationDestination(
-                    icon: Icon(tab.icon),
-                    selectedIcon: Icon(tab.selectedIcon),
+                    icon: _decorated(context, tab, Icon(tab.icon)),
+                    selectedIcon: _decorated(
+                      context,
+                      tab,
+                      Icon(tab.selectedIcon),
+                    ),
                     label: tab.label,
                   ),
               ],

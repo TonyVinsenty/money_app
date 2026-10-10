@@ -25,6 +25,7 @@ import 'package:money_app/features/export/data/transactions_exporter.dart';
 import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/recurring/presentation/due_banner.dart';
+import 'package:money_app/features/recurring/presentation/due_tab_badge.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -61,6 +62,8 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
     icon: Icons.account_balance_wallet_outlined,
     selectedIcon: Icons.account_balance_wallet,
     builder: (_) => const BalanceTab(),
+    decorateIcon: (context, icon) =>
+        DueTabBadge(dues: BrowseScope.duesOf(context), icon: icon),
   ),
   AppTab(
     label: 'Настройки',

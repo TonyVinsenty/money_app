@@ -223,6 +223,12 @@ String dueBannerSemantics(List<RecurringDue> dues) {
   return '$dueSectionTitleBase ${_dueCountText(dues.length)}. Открыть';
 }
 
+/// Число в кружке на значке «Баланс»: больше 99 - «99+».
+String dueBadgeText(int count) => count > 99 ? '99+' : '$count';
+
+/// Озвучка значка, склеивается с подписью вкладки: «Баланс, к оплате: 3».
+String dueBadgeSemantics(int count) => 'к оплате: $count';
+
 /// Категория в архиве (Р8); те же тексты в форме платежа и в «К оплате».
 String dueCategoryArchivedText(String name) =>
     'Категория «$name» в архиве — выберите другую';
