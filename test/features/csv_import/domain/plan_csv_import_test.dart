@@ -90,6 +90,7 @@ CsvImportPlan _plan(
     deletedTransactionIds: deleted,
     ids: _SeqIds(),
     isKnownIconKey: (key) => key == 'star' || key == 'cart',
+    today: DateOnly(2026, 10, 7),
     openingBalances: balances,
     accounts: accounts,
     deletedAccountIds: deletedAccounts,
@@ -168,6 +169,7 @@ void main() {
       deletedCategoryIds: const {'GONE-1'},
       ids: _SeqIds(),
       isKnownIconKey: (_) => true,
+      today: DateOnly(2026, 10, 7),
     );
     expect(plan.categoriesToCreate.single.id, 'new-1');
     expect(plan.transactions.single.categoryId, 'new-1');

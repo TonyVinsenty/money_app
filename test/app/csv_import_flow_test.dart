@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_tabs.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
 import 'package:money_app/features/csv_import/presentation/csv_import_screen.dart';
@@ -149,5 +150,6 @@ CsvImportPlan _planFor(File file) {
     deletedTransactionIds: const {},
     ids: FakeIdGenerator(),
     isKnownIconKey: (_) => true,
+    today: DateOnly(2026, 10, 7),
   );
 }

@@ -234,6 +234,7 @@ String _rowErrorText(CsvRowError error) {
       value == null
           ? 'не указан тип'
           : 'тип $value — нужен «$csvTypeExpense», «$csvTypeIncome», '
+                '«$csvTypeRecurringExpense», «$csvTypeRecurringIncome», '
                 '«$csvTypeOpeningBalance» или «$csvTypeTransfer»',
     final CsvInvalidAmount amountError =>
       value == null
@@ -294,9 +295,17 @@ String _rowErrorText(CsvRowError error) {
                 '(колонка «$csvColumnNote»)'
           : 'название регулярного платежа длиннее $recurringTitleMaxLength '
                 'символов',
-    CsvRecurringArchivedLink() =>
-      'регулярный платёж привязан к архивной категории или счёту '
-          '${value ?? ''}: верните её из архива или очистите ячейку с ID',
+    CsvRecurringArchivedLink(:final link) => switch (link) {
+      CsvArchivedLink.account =>
+        'регулярный платёж привязан к архивному счёту ${value ?? ''}: '
+            'верните его из архива или очистите ячейку с ID',
+      CsvArchivedLink.category =>
+        'регулярный платёж привязан к архивной категории ${value ?? ''}: '
+            'верните её из архива или очистите ячейку с ID',
+      CsvArchivedLink.subcategory =>
+        'регулярный платёж привязан к архивной подкатегории ${value ?? ''}: '
+            'верните её из архива или очистите ячейку с ID',
+    },
     CsvTransferNoAccount() => 'у перевода не указан счёт',
     CsvTransferNoToAccount() => 'у перевода не указан счёт зачисления',
     CsvTransferSameAccount() => 'у перевода счёт и счёт зачисления совпадают',

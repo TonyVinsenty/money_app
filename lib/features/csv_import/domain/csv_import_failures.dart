@@ -251,8 +251,14 @@ final class CsvRecurringTitle extends CsvRowError {
 /// счёту; [value] - их название. У обычных операций архив допустим (история),
 /// у платежа - нет: он продолжит приходить в «К оплате».
 final class CsvRecurringArchivedLink extends CsvRowError {
-  const CsvRecurringArchivedLink(super.line, super.value);
+  const CsvRecurringArchivedLink(super.line, super.value, this.link);
+
+  /// Что именно в архиве: от этого зависит род в тексте.
+  final CsvArchivedLink link;
 }
+
+/// Вид архивной связи платежа.
+enum CsvArchivedLink { category, subcategory, account }
 
 /// У `Перевод` не указан `Счёт` (откуда): ни имени, ни ID.
 final class CsvTransferNoAccount extends CsvRowError {

@@ -948,6 +948,19 @@ void main() {
       expect(message(0, 0, 2), 'Созданы 2 счёта');
     });
 
+    test('итог с регулярными платежами', () {
+      String message({int tx = 0, int acc = 0, required int rec}) =>
+          importResultMessage(
+            CsvImportResult(transactions: tx, accounts: acc, recurring: rec),
+          );
+      expect(message(rec: 3), 'Добавлены регулярные платежи: 3');
+      expect(
+        message(tx: 5, rec: 2),
+        'Загружено 5 операций, регулярные платежи: 2',
+      );
+      expect(message(acc: 2, rec: 1), 'Созданы 2 счёта, регулярные платежи: 1');
+    });
+
     testWidgets('только счета: SnackBar «Созданы 2 счёта»', (tester) async {
       await tester.pumpWidget(
         _app(

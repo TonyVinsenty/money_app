@@ -95,6 +95,7 @@ CsvImportPlan planCsvImport({
   required Set<String> deletedTransactionIds,
   required IdGenerator ids,
   required bool Function(String iconKey) isKnownIconKey,
+  required DateOnly today,
   Set<String> deletedCategoryIds = const {},
   List<ParsedOpeningBalance> openingBalances = const [],
   List<Account> accounts = const [],
@@ -105,7 +106,6 @@ CsvImportPlan planCsvImport({
   List<ParsedRecurring> recurring = const [],
   Set<String> liveRecurringIds = const {},
   Set<String> deletedRecurringIds = const {},
-  DateOnly? today,
 }) {
   final live = {for (final id in liveTransactionIds) id.toLowerCase()};
   final deleted = {for (final id in deletedTransactionIds) id.toLowerCase()};
@@ -315,20 +315,33 @@ CsvImportPlan planCsvImport({
     // Операции архив допускают (история), платёж - нет: репозиторий его
     // отклонил бы и уронил весь импорт. Новые категории и счета не архивные,
     // архивными бывают только найденные по id.
-    final archived = [
-      resolved.category,
-      resolved.subcategory,
-    ].whereType<Category>().where((c) => c.isArchived).firstOrNull;
-    final archivedAccount = resolved.account?.isArchived == true
-        ? resolved.account
-        : null;
-    if (archived != null || archivedAccount != null) {
-      errors.add(
-        CsvRecurringArchivedLink(
-          row.line,
-          archived?.name ?? archivedAccount!.name,
-        ),
+    final category = resolved.category;
+    final subcategory = resolved.subcategory;
+    final account = resolved.account;
+    final CsvRecurringArchivedLink? archivedLink;
+    if (category.isArchived) {
+      archivedLink = CsvRecurringArchivedLink(
+        row.line,
+        category.name,
+        CsvArchivedLink.category,
       );
+    } else if (subcategory != null && subcategory.isArchived) {
+      archivedLink = CsvRecurringArchivedLink(
+        row.line,
+        subcategory.name,
+        CsvArchivedLink.subcategory,
+      );
+    } else if (account != null && account.isArchived) {
+      archivedLink = CsvRecurringArchivedLink(
+        row.line,
+        account.name,
+        CsvArchivedLink.account,
+      );
+    } else {
+      archivedLink = null;
+    }
+    if (archivedLink != null) {
+      errors.add(archivedLink);
       continue;
     }
     recurringPlanned.add(

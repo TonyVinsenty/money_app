@@ -548,8 +548,7 @@ void main() {
     const rentId = 'eeeeeeee-0000-4000-8000-000000000001';
     const salaryId = 'eeeeeeee-0000-4000-8000-000000000002';
 
-    Future<void> seedPayments() async {
-      await seedSource();
+    Future<void> createPayments() async {
       // Старый якорь: без trackedThrough = день загрузки «К оплате» дало бы
       // август, сентябрь и октябрь.
       await env.recurring.create(
@@ -580,6 +579,11 @@ void main() {
           remind: false,
         ),
       );
+    }
+
+    Future<void> seedPayments() async {
+      await seedSource();
+      await createPayments();
     }
 
     test('экспорт -> пустая база -> импорт -> экспорт: тот же файл, '
@@ -646,6 +650,103 @@ void main() {
       expect(plan.errors.single.value, 'Старое');
       expect(plan.recurring, isEmpty);
       expect(await target.recurring.watchAll().first, isEmpty);
+    });
+
+    Future<CsvImportPlan> prepareIn(_Env target, String csv) async {
+      final parsed =
+          parseCsvImport(utf8.encode(csv), clock: env.clock) as CsvImportParsed;
+      return target.writer.prepare(
+        parsed.rows,
+        openingBalances: parsed.openingBalances,
+        transfers: parsed.transfers,
+        recurring: parsed.recurring,
+      );
+    }
+
+    test('свой файл повторно: живой платёж в базе, категория и счёт в архиве '
+        '- «уже есть», не ошибка', () async {
+      await seedPayments();
+      final csv = await env.export();
+
+      final other = await openInMemoryDatabase();
+      addTearDown(other.close);
+      final target = _Env(other, env.clock);
+      await target.import(csv);
+      await target.accounts.archive(_card);
+      await target.categories.archive(_food);
+
+      final plan = await prepareIn(target, csv);
+
+      expect(plan.errors, isEmpty);
+      expect(plan.recurring, isEmpty);
+      expect(plan.skippedExisting, greaterThanOrEqualTo(2));
+    });
+
+    /// Файл с платежами и база, куда загружен тот же файл без платежей.
+    Future<(_Env, String)> targetWithoutPayments() async {
+      await seedSource();
+      final withoutPayments = await env.export();
+      await createPayments();
+      final csv = await env.export();
+      final other = await openInMemoryDatabase();
+      addTearDown(other.close);
+      final target = _Env(other, env.clock);
+      await target.import(withoutPayments);
+      return (target, csv);
+    }
+
+    test('архивный счёт, платежа в базе нет: ошибка плана про счёт', () async {
+      final (target, csv) = await targetWithoutPayments();
+      await target.accounts.archive(_card);
+
+      final plan = await prepareIn(target, csv);
+
+      final error = plan.errors.single as CsvRecurringArchivedLink;
+      expect(error.link, CsvArchivedLink.account);
+      expect(error.value, 'Карта');
+      expect(plan.recurring, hasLength(1));
+    });
+
+    test('архивная подкатегория, платежа в базе нет: ошибка плана про '
+        'подкатегорию', () async {
+      final (target, csv) = await targetWithoutPayments();
+      await target.categories.archive(_cafe);
+
+      final plan = await prepareIn(target, csv);
+
+      final error = plan.errors.single as CsvRecurringArchivedLink;
+      expect(error.link, CsvArchivedLink.subcategory);
+      expect(error.value, 'Кафе');
+    });
+
+    test('сбой createImported откатывает всю загрузку', () async {
+      final plan = CsvImportPlan(
+        transactions: [_tx(_txId(1))],
+        skippedExisting: 0,
+        skippedDeleted: 0,
+        categoriesToCreate: [_top(_food, CategoryKind.expense, 'Еда', 0)],
+        accountsToCreate: [_account(_card, 'Карта', 100)],
+        recurring: [
+          RecurringPayment(
+            id: rentId,
+            title: 'Интернет',
+            type: TransactionType.expense,
+            amount: Money.fromMinor(65000, 'RUB'),
+            categoryId: 'missing',
+            unit: RepeatUnit.month,
+            every: 1,
+            startsOn: DateOnly(2026, 11, 5),
+          ),
+        ],
+        errors: const [],
+      );
+
+      await expectLater(env.writer.write(plan), throwsArgumentError);
+
+      expect(await env.categoryCount(), 0);
+      expect(await env.transactionCount(), 0);
+      expect(await env.accounts.findById(_card), isNull);
+      expect(await env.recurring.watchAll().first, isEmpty);
     });
   });
 }

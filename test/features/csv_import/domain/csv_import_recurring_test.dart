@@ -17,6 +17,11 @@ import '../../../support/fixed_clock.dart';
 final _clock = FixedClock(DateTime(2026, 10, 7, 9, 30));
 const _pid = '0199aaaa-bbbb-7ccc-8ddd-eeeeeeeeeec1';
 
+/// Заранее посчитанные UUID v5 (пространство `csvImportFingerprintNamespace`)
+/// для строки платежа `_line()` и строки операции без id.
+const _pinnedRecurringId = 'c880a605-ecd1-57f4-8b28-e9d1a3208ad4';
+const _pinnedOperationId = '393eda0c-61c4-5122-8d41-418b8b43fae8';
+
 const _header =
     'Дата;Тип;Сумма;Валюта;Категория;Подкатегория;Комментарий;'
     'ID операции;Повтор;Каждые;До;Напоминать';
@@ -248,6 +253,16 @@ void main() {
       // Тот же результат при другом порядке и числе других строк.
       final other = _parsed('${_line(title: 'Свет')}\r\n${_line()}');
       expect(_plan(other).recurring.last.id, first.id);
+    });
+
+    test('отпечатки строк без id закреплены конкретными значениями: смена '
+        'формата отпечатка задвоила бы данные при повторной загрузке', () {
+      final payment = _plan(_parsed(_line())).recurring.single;
+      expect(payment.id, _pinnedRecurringId);
+      final operation = _plan(
+        _parsed('05.10.2026;Расход;-650,00;;Связь;;Интернет;;;;;'),
+      ).transactions.single;
+      expect(operation.id, _pinnedOperationId);
     });
 
     test('отпечаток зависит от повтора, даты и названия; одинаковые строки '

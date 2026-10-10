@@ -78,6 +78,7 @@ CsvImportPlan _plan(
   deletedTransactionIds: const {},
   ids: _SeqIds(),
   isKnownIconKey: (_) => true,
+  today: DateOnly(2026, 10, 7),
   accounts: accounts,
   openingBalances: balances,
   parsedTransfers: transfers,
