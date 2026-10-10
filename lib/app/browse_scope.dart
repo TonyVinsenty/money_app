@@ -32,6 +32,13 @@ class BrowseScope extends InheritedNotifier<BrowseController> {
     return scope.notifier!;
   }
 
+  /// Контроллер без подписки на его изменения: для обработчиков нажатий.
+  static BrowseController controllerOf(BuildContext context) {
+    final scope = context.getInheritedWidgetOfExactType<BrowseScope>();
+    if (scope == null) throw FlutterError(_notFound);
+    return scope.notifier!;
+  }
+
   /// Уведомитель выбранной вкладки (без подписки на контроллер).
   static ValueNotifier<int> selectedTabOf(BuildContext context) {
     final scope = context.getInheritedWidgetOfExactType<BrowseScope>();

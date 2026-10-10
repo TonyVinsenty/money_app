@@ -424,10 +424,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const Divider(),
         ListTile(
-          title: Text(
-            clearAllItemLabel,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
+          title: const Text(clearAllItemLabel),
+          // Цвет ошибки только у доступного пункта; у недоступного ListTile
+          // сам берёт цвет неактивного.
+          textColor: _busy ? null : Theme.of(context).colorScheme.error,
           subtitle: const Text(clearAllItemSubtitle),
           trailing: _erasing
               ? const SizedBox.square(

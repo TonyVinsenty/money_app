@@ -143,7 +143,7 @@ class SettingsTab extends StatelessWidget {
       ).exportToTempFile(),
       onImportCsv: () => _importCsv(context, services),
       onClearAll: () async {
-        final browse = BrowseScope.of(context);
+        final browse = BrowseScope.controllerOf(context);
         await services.dataEraser.eraseAll();
         browse.updateToday(services.clock.today());
         browse.resetAfterEraseAll();

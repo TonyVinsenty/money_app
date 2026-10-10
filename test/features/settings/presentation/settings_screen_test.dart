@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -118,9 +119,10 @@ void main() {
       await tester.pumpWidget(_app());
 
       expect(find.text('Стереть операции, категории и счета'), findsOneWidget);
-      final title = tester.widget<Text>(find.text('Очистить всё'));
-      final context = tester.element(find.text('Очистить всё'));
-      expect(title.style?.color, Theme.of(context).colorScheme.error);
+      expect(
+        _titleColor(tester),
+        Theme.of(tester.element(find.byType(SettingsScreen))).colorScheme.error,
+      );
     });
 
     testWidgets('диалог: тексты дословно, кнопки по порядку', (tester) async {
@@ -313,10 +315,37 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Очистить всё'));
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        _titleColor(tester),
+        isNot(
+          Theme.of(tester.element(find.byType(SettingsScreen)))
+              .colorScheme
+              .error,
+        ),
+      );
       gate.complete('/tmp/x.csv');
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('два тапа по «Стереть всё» без pump: один вызов, каркас жив', (
+      tester,
+    ) async {
+      tall(tester);
+      var erased = 0;
+      await tester.pumpWidget(_app(onClearAll: () async => erased++));
+
+      await openDialog(tester);
+      final accept = find.text('Стереть всё');
+      await tester.tap(accept);
+      await tester.tap(accept, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(erased, 1);
+      expect(find.byType(SettingsScreen), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     for (final scale in [1.0, 2.0]) {
@@ -865,3 +894,10 @@ void main() {
     });
   });
 }
+
+/// Цвет, которым нарисован заголовок пункта «Очистить всё».
+Color? _titleColor(WidgetTester tester) => tester
+    .renderObject<RenderParagraph>(find.text('Очистить всё'))
+    .text
+    .style
+    ?.color;

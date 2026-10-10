@@ -6,6 +6,7 @@ import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
 import 'package:money_app/features/categories/data/default_categories_seeder.dart';
 import 'package:money_app/features/categories/domain/default_categories.dart';
+import 'package:money_app/features/settings/domain/settings_repository.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 
 import '../support/fake_id_generator.dart';
@@ -174,6 +175,14 @@ void main() {
     test(
       'guard: every table except app_settings and categories is empty',
       () async {
+        // До стирания непусты все таблицы, кроме настроек: новая таблица без
+        // строки в фикстуре уронит тест здесь.
+        for (final table in db.allTables) {
+          final name = table.actualTableName;
+          if (name == 'app_settings') continue;
+          expect(await count(name), greaterThan(0), reason: 'fixture $name');
+        }
+
         await eraser().eraseAll();
 
         for (final table in db.allTables) {
@@ -185,12 +194,28 @@ void main() {
     );
 
     test('watchAll of accounts and transactions emit empty lists', () async {
-      await eraser().eraseAll();
-
       final accounts = DriftAccountsRepository(db, clock: clock);
       final transactions = DriftTransactionsRepository(db, clock: clock);
-      expect(await accounts.watchAll().first, isEmpty);
-      expect(await transactions.watchAll().first, isEmpty);
+      final accountEvents = <int>[];
+      final transactionEvents = <int>[];
+      final subs = [
+        accounts.watchAll().listen((l) => accountEvents.add(l.length)),
+        transactions.watchAll().listen((l) => transactionEvents.add(l.length)),
+      ];
+      addTearDown(() async {
+        for (final s in subs) {
+          await s.cancel();
+        }
+      });
+      await pumpEventQueue();
+      expect(accountEvents.last, greaterThan(0));
+      expect(transactionEvents.last, greaterThan(0));
+
+      await eraser().eraseAll();
+      await pumpEventQueue();
+
+      expect(accountEvents.last, 0);
+      expect(transactionEvents.last, 0);
     });
   });
 }
@@ -232,7 +257,9 @@ Future<void> _fillEverything(AppDatabase db) async {
   );
   await run(
     'INSERT INTO app_settings (key, value, updated_at) VALUES '
-    "('theme', 'dark', $t), ('default_currency', 'USD', $t), "
-    "('default_account_id', 'acc-1', $t), ('last_export_at', '$t', $t)",
+    "('$themeModeSettingKey', 'dark', $t), "
+    "('$mainCurrencySettingKey', 'USD', $t), "
+    "('$defaultAccountSettingKey', 'acc-1', $t), "
+    "('$lastExportDaySettingKey', '20261005', $t)",
   );
 }

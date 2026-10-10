@@ -20,6 +20,7 @@ import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
+import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/categories/domain/default_categories.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
@@ -158,6 +159,13 @@ void main() {
     await _openTab(tester, 'Аналитика');
     await tester.tap(find.byTooltip('Предыдущий месяц'));
     await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(CategoryBreakdownCard.typeKey),
+        matching: find.text('Доходы'),
+      ),
+    );
+    await tester.pumpAndSettle();
     final analyticsLabelBefore = tester
         .widget<PeriodSwitcher>(find.byType(PeriodSwitcher))
         .label;
@@ -216,6 +224,9 @@ void main() {
     expect(find.byKey(AccountsSection.addButtonKey), findsOneWidget);
 
     await _openTab(tester, 'Главная');
+    expect(find.text('Октябрь 2026'), findsOneWidget);
+    expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
+    expect(find.textContaining('0,00'), findsWidgets);
     expect(find.textContaining('123'), findsNothing);
     expect(find.textContaining('Продукт'), findsNothing);
 
@@ -233,8 +244,12 @@ void main() {
     );
     expect(find.text(firstExpense.name), findsOneWidget);
     expect(find.byKey(AccountChip.chipKey), findsNothing);
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+    // Закрываем шаги быстрого ввода, пока снова не видна нижняя навигация.
+    for (var i = 0; i < 4; i++) {
+      if (find.byType(NavigationBar).hitTestable().evaluate().isNotEmpty) break;
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+    }
 
     // Новый рублёвый счёт становится основным сам.
     final repo = DriftAccountsRepository(_db, clock: _clock);
@@ -246,6 +261,31 @@ void main() {
     await adopted;
     expect(_settings.defaultAccountId, 'acc-new');
 
+    // «Аналитика»: вид сброшен на «Расходы» (до стирания был «Доходы»).
+    // Карточка видна, только когда есть операция, поэтому добавляем одну.
+    await tester.runAsync(() async {
+      final category =
+          await (_db.select(_db.categories)
+                ..where((c) => c.kind.equals('expense') & c.parentId.isNull())
+                ..limit(1))
+              .getSingle();
+      await DriftTransactionsRepository(_db, clock: _clock).add(
+        Transaction(
+          id: 't-after',
+          type: TransactionType.expense,
+          amount: Money.fromMinor(5000, 'RUB'),
+          occurredOn: DateOnly(2026, 10, 10),
+          occurredAt: DateTime.utc(2026, 10, 10, 9),
+          categoryId: category.id,
+        ),
+      );
+    });
+    await _openTab(tester, 'Аналитика');
+    await _settle(tester);
+    final typeButton = tester.widget<SegmentedButton<TransactionType>>(
+      find.byKey(CategoryBreakdownCard.typeKey),
+    );
+    expect(typeButton.selected, {TransactionType.expense});
     await tester.pumpWidget(const SizedBox());
   });
 }
