@@ -142,7 +142,12 @@ class SettingsTab extends StatelessWidget {
         clock: services.clock,
       ).exportToTempFile(),
       onImportCsv: () => _importCsv(context, services),
-      onClearAll: services.dataEraser.eraseAll,
+      onClearAll: () async {
+        final browse = BrowseScope.of(context);
+        await services.dataEraser.eraseAll();
+        browse.updateToday(services.clock.today());
+        browse.resetAfterEraseAll();
+      },
       // Репозиторий берём здесь, под AppScope: открытый маршрут его не видит.
       onOpenCategories: () => Navigator.of(context).pushNamed(
         AppRoutes.categories,
@@ -402,6 +407,7 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
   String? _currency;
   String? _streamCurrency;
   AnalyticsController? _controller;
+  int _generation = 0;
   TransactionsRepository? _transactionsRepository;
   CategoriesRepository? _categoriesRepository;
   late Stream<PeriodTransactions> _transactions;
@@ -433,6 +439,13 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
       _categoriesRepository = services.categories;
       _categories = services.categories.watchAll();
     }
+    // «Очистить всё»: период и выбор вида — как при запуске.
+    if (_controller != null && browse.eraseGeneration != _generation) {
+      _controller!.dispose();
+      _controller = null;
+      _streamPeriod = null;
+    }
+    _generation = browse.eraseGeneration;
     final controller = _controller;
     if (controller == null) {
       _controller = AnalyticsController(

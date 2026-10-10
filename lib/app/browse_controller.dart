@@ -169,6 +169,24 @@ class BrowseController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Счётчик «Очистить всё»: растёт при каждом [resetAfterEraseAll]. По его
+  /// смене вкладка «Аналитика» создаёт свой контроллер заново.
+  int get eraseGeneration => _eraseGeneration;
+  int _eraseGeneration = 0;
+
+  /// После «Очистить всё» всё как при запуске: текущий месяц, ручной и
+  /// временный фильтры сняты (в них могли остаться id стёртых счёта и
+  /// категорий), поиск пуст, сортировка по умолчанию. Один раз уведомляет.
+  void resetAfterEraseAll() {
+    _month = monthRange(_today);
+    _manualFilter = HistoryFilter.off;
+    _temporaryFilter = null;
+    _historySearch = '';
+    _historySort = HistorySort.newestFirst;
+    _eraseGeneration++;
+    notifyListeners();
+  }
+
   AnalyticsPeriod get _asPeriod => AnalyticsPeriod(PeriodKind.month, _month);
 
   AnalyticsPeriod _previous() => previousPeriod(_asPeriod)!;

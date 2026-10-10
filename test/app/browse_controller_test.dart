@@ -405,4 +405,30 @@ void main() {
       expect(c.historyFilter, HistoryFilter(type: HistoryTypeFilter.income));
     });
   });
+
+  group('resetAfterEraseAll', () {
+    test('из марта с фильтрами и поиском: всё как при запуске, '
+        'одно уведомление', () {
+      final march = make(DateOnly(2026, 10, 4), firstDay: DateOnly(2026, 3, 1));
+      while (march.month != _month(2026, 3)) {
+        march.previousMonth();
+      }
+      march.setHistoryFilter(HistoryFilter.account('acc-1'));
+      march.showCategoryExpenses({'cat-1'});
+      march.setHistorySearch('кофе');
+      march.setHistorySort(HistorySort.oldestFirst);
+      final generation = march.eraseGeneration;
+      notifications = 0;
+
+      march.resetAfterEraseAll();
+
+      expect(march.month, _month(2026, 10));
+      expect(march.historyFilter, HistoryFilter.off);
+      expect(march.hasTemporaryFilter, isFalse);
+      expect(march.historySearch, '');
+      expect(march.historySort, HistorySort.newestFirst);
+      expect(march.eraseGeneration, generation + 1);
+      expect(notifications, 1);
+    });
+  });
 }
