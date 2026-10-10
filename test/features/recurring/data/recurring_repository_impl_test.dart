@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/errors/data_corrupted_exception.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/data/categories_repository_impl.dart';
@@ -43,6 +44,41 @@ final class _DriftHarness implements RecurringHarness {
 
   @override
   Future<void> archiveAccount(String id) => _accounts.archive(id);
+
+  @override
+  Future<void> markDue(
+    String paymentId,
+    DateOnly dueOn,
+    RecurringDueStatus status, {
+    bool transactionDeleted = false,
+  }) async {
+    String? transactionId;
+    if (status == RecurringDueStatus.paid) {
+      transactionId = 'tx-$paymentId-${dueOn.toInt()}';
+      await db.customStatement(
+        'INSERT INTO transactions (id, type, amount_minor, currency, '
+        'occurred_on, occurred_at, category_id, created_at, updated_at, '
+        'deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          transactionId,
+          'expense',
+          65000,
+          'RUB',
+          dueOn.toInt(),
+          1,
+          'food',
+          1,
+          1,
+          transactionDeleted ? 5 : null,
+        ],
+      );
+    }
+    await db.customStatement(
+      'UPDATE recurring_dues SET status = ?, transaction_id = ?, '
+      'resolved_at = 1 WHERE payment_id = ? AND due_on = ?',
+      [status.name, transactionId, paymentId, dueOn.toInt()],
+    );
+  }
 
   @override
   Future<void> close() => db.close();

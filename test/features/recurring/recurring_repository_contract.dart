@@ -7,6 +7,7 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/domain/recurring_rules.dart';
+import 'package:money_app/features/recurring/domain/recurring_schedule.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../../support/fixed_clock.dart';
@@ -20,6 +21,15 @@ abstract class RecurringHarness {
   Future<void> addAccount(Account account);
   Future<void> archiveCategory(String id);
   Future<void> archiveAccount(String id);
+
+  /// Переводит запись «к оплате» в [status]; для `paid` создаёт операцию
+  /// (удалённую, если [transactionDeleted]).
+  Future<void> markDue(
+    String paymentId,
+    DateOnly dueOn,
+    RecurringDueStatus status, {
+    bool transactionDeleted = false,
+  });
   Future<void> close();
 }
 
@@ -397,6 +407,190 @@ void runRecurringRepositoryContract(
           await expectLater(repo.restore('nope'), throwsArgumentError);
         },
       );
+    });
+
+    group('materializeDue and watchDue', () {
+      final today = DateOnly(2026, 10, 10);
+
+      Future<List<(String, DateOnly)>> due() async => [
+        for (final d in await repo.watchDue().first) (d.payment.id, d.dueOn),
+      ];
+
+      test('five runs in a row are the same as one', () async {
+        await repo.create(payment('a', startsOn: DateOnly(2026, 8, 5)));
+        expect(await repo.materializeDue(today), 3);
+        for (var i = 0; i < 4; i++) {
+          expect(await repo.materializeDue(today), 0);
+        }
+        expect(await due(), [
+          ('a', DateOnly(2026, 8, 5)),
+          ('a', DateOnly(2026, 9, 5)),
+          ('a', DateOnly(2026, 10, 5)),
+        ]);
+        expect((await repo.findById('a'))!.trackedThrough, today);
+      });
+
+      test('two skipped months are caught up on the next run', () async {
+        await repo.create(payment('a', startsOn: DateOnly(2026, 7, 5)));
+        await repo.materializeDue(DateOnly(2026, 8, 10));
+        expect((await due()).length, 2);
+        expect(await repo.materializeDue(today), 2);
+        expect(
+          [for (final d in await due()) d.$2],
+          [
+            DateOnly(2026, 7, 5),
+            DateOnly(2026, 8, 5),
+            DateOnly(2026, 9, 5),
+            DateOnly(2026, 10, 5),
+          ],
+        );
+      });
+
+      test('a payment for today is in the list at once', () async {
+        await repo.create(payment('a', startsOn: today));
+        expect(await repo.materializeDue(today), 1);
+        final item = (await repo.watchDue().first).single;
+        expect(item.dueOn, today);
+        expect(item.status, RecurringDueStatus.pending);
+        expect(item.payment.id, 'a');
+      });
+
+      test(
+        'a payment from the future gets nothing and keeps its mark',
+        () async {
+          await repo.create(payment('a', startsOn: DateOnly(2026, 10, 11)));
+          expect(await repo.materializeDue(today), 0);
+          expect(await due(), isEmpty);
+          expect(
+            (await repo.findById('a'))!.trackedThrough,
+            DateOnly(2026, 10, 10),
+          );
+          // На следующий день платёж наступает.
+          expect(await repo.materializeDue(DateOnly(2026, 10, 11)), 1);
+        },
+      );
+
+      test('endsOn in the past: no new dues after the last one', () async {
+        await repo.create(
+          payment(
+            'a',
+            startsOn: DateOnly(2026, 1, 5),
+            endsOn: DateOnly(2026, 3, 5),
+          ),
+        );
+        await repo.materializeDue(DateOnly(2026, 2, 10));
+        expect((await due()).length, 2);
+        expect(await repo.materializeDue(today), 1);
+        expect(await repo.materializeDue(DateOnly(2027, 1, 1)), 0);
+        expect((await due()).length, 3);
+      });
+
+      test('a deleted payment is hidden and gets no new dues', () async {
+        await repo.create(payment('a', startsOn: DateOnly(2026, 8, 5)));
+        await repo.create(payment('b', startsOn: DateOnly(2026, 9, 5)));
+        await repo.materializeDue(DateOnly(2026, 9, 10));
+        await repo.softDelete('a');
+        expect([for (final d in await due()) d.$1], ['b']);
+        expect(await repo.materializeDue(today), 1); // только b, 5 октября
+        await repo.restore('a');
+        expect((await due()).where((d) => d.$1 == 'a').length, 2);
+      });
+
+      test('editing the schedule does not duplicate dates', () async {
+        await repo.create(payment('a', startsOn: DateOnly(2026, 8, 5)));
+        await repo.materializeDue(DateOnly(2026, 9, 10)); // 5 авг, 5 сен
+        await repo.update(
+          payment(
+            'a',
+            startsOn: DateOnly(2026, 8, 5),
+            unit: RepeatUnit.week,
+            title: 'Weekly',
+          ),
+        );
+        await repo.materializeDue(today);
+        final dates = [for (final d in await due()) d.$2];
+        expect(dates.toSet().length, dates.length);
+        // Старые записи на месте, новые считаются по новому расписанию.
+        expect(
+          dates,
+          containsAll([DateOnly(2026, 8, 5), DateOnly(2026, 9, 5)]),
+        );
+        expect(dates, contains(DateOnly(2026, 10, 7)));
+        expect(await repo.materializeDue(today), 0);
+      });
+
+      test('only pending and paid-with-deleted-operation are shown', () async {
+        await repo.create(payment('a', startsOn: DateOnly(2026, 6, 5)));
+        await repo.materializeDue(today); // июнь - октябрь
+        await h.markDue('a', DateOnly(2026, 6, 5), RecurringDueStatus.skipped);
+        await h.markDue('a', DateOnly(2026, 7, 5), RecurringDueStatus.paid);
+        await h.markDue(
+          'a',
+          DateOnly(2026, 8, 5),
+          RecurringDueStatus.paid,
+          transactionDeleted: true,
+        );
+        final items = await repo.watchDue().first;
+        expect(
+          [for (final d in items) d.dueOn],
+          [DateOnly(2026, 8, 5), DateOnly(2026, 9, 5), DateOnly(2026, 10, 5)],
+        );
+        expect(items.first.status, RecurringDueStatus.paid);
+        expect(items[1].status, RecurringDueStatus.pending);
+      });
+
+      test('order: date, then title; the amount is the current one', () async {
+        await repo.create(
+          payment('b', title: 'beta', startsOn: DateOnly(2026, 10, 3)),
+        );
+        await repo.create(
+          payment('a', title: 'Alpha', startsOn: DateOnly(2026, 10, 3)),
+        );
+        await repo.create(
+          payment('c', title: 'Early', startsOn: DateOnly(2026, 10, 1)),
+        );
+        await repo.materializeDue(today);
+        await repo.update(
+          payment(
+            'a',
+            title: 'Alpha',
+            startsOn: DateOnly(2026, 10, 3),
+          ).withAmount(Money.fromMinor(70000, 'RUB')),
+        );
+        final items = await repo.watchDue().first;
+        expect([for (final d in items) d.payment.id], ['c', 'a', 'b']);
+        expect(items[1].payment.amount, Money.fromMinor(70000, 'RUB'));
+      });
+
+      test(
+        'the safety limit: 60 per payment per run, the rest next time',
+        () async {
+          final p = payment(
+            'a',
+            startsOn: DateOnly(2025, 1, 1),
+            unit: RepeatUnit.week,
+          );
+          await repo.create(p);
+          final total = dueDates(p, p.startsOn, today).length;
+          expect(total, greaterThan(60));
+          expect(await repo.materializeDue(today), 60);
+          expect(await repo.materializeDue(today), total - 60);
+          expect(await repo.materializeDue(today), 0);
+          expect((await repo.watchDue().first).length, total);
+          expect((await repo.findById('a'))!.trackedThrough, today);
+        },
+      );
+
+      test('watchDue sends a new list after materializing', () async {
+        await repo.create(payment('a', startsOn: today));
+        final seen = <int>[];
+        final sub = repo.watchDue().listen((items) => seen.add(items.length));
+        await pumpEventQueue();
+        await repo.materializeDue(today);
+        await pumpEventQueue();
+        await sub.cancel();
+        expect(seen, [0, 1]);
+      });
     });
   });
 }

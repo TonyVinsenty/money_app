@@ -1,5 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/errors/data_corrupted_exception.dart';
+import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/recurring/data/recurring_payment_mapper.dart';
@@ -8,13 +10,35 @@ import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/domain/recurring_rules.dart';
 import 'package:money_app/features/recurring/domain/recurring_schedule.dart';
 
+/// Запрос «К оплате»: записи живых платежей, ожидающие оплаты, и оплаченные с
+/// удалённой операцией (ADR 0011, п. 6). Вынесен отдельно, чтобы тест плана
+/// запроса смотрел на тот же запрос.
+JoinedSelectStatement<HasResultSet, dynamic> recurringDueQuery(AppDatabase db) {
+  final d = db.recurringDues;
+  final p = db.recurringPayments;
+  final t = db.transactions;
+  return db.select(d).join([
+    innerJoin(p, p.id.equalsExp(d.paymentId)),
+    leftOuterJoin(t, t.id.equalsExp(d.transactionId)),
+  ])..where(
+    p.deletedAt.isNull() &
+        (d.status.equals('pending') |
+            (d.status.equals('paid') & t.deletedAt.isNotNull())),
+  );
+}
+
 /// Реализация [RecurringRepository] на drift. Условие `deleted_at IS NULL`
 /// стоит в каждом запросе по живым платежам.
 class DriftRecurringRepository implements RecurringRepository {
-  DriftRecurringRepository(this._db, {this._clock = const SystemClock()});
+  DriftRecurringRepository(
+    this._db, {
+    this._clock = const SystemClock(),
+    this._ids = const UuidV7Generator(),
+  });
 
   final AppDatabase _db;
   final Clock _clock;
+  final IdGenerator _ids;
 
   @override
   Stream<List<RecurringListItem>> watchAll() {
@@ -124,6 +148,98 @@ class DriftRecurringRepository implements RecurringRepository {
         ),
       );
     });
+  }
+
+  @override
+  Future<int> materializeDue(DateOnly today) {
+    return _db.transaction(() async {
+      final rows = await (_db.select(
+        _db.recurringPayments,
+      )..where((p) => p.deletedAt.isNull())).get();
+      final nowMs = _nowMs();
+      var created = 0;
+      for (final row in rows) {
+        final payment = recurringPaymentFromRow(row);
+        // Платёж из будущего: записей нет, trackedThrough не трогаем.
+        if (payment.startsOn > today) continue;
+        final tracked = payment.trackedThrough;
+        final next = tracked?.addDays(1);
+        final from = next == null || next < payment.startsOn
+            ? payment.startsOn
+            : next;
+        final end = payment.endsOn;
+        final to = end != null && end < today ? end : today;
+        var dates = dueDates(payment, from, to);
+        var through = today;
+        if (dates.length > maxNewDuesPerRun) {
+          dates = dates.sublist(0, maxNewDuesPerRun);
+          through = dates.last;
+        }
+        for (final date in dates) {
+          created += await _db.customUpdate(
+            'INSERT INTO recurring_dues (id, payment_id, due_on, status, '
+            'created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) '
+            'ON CONFLICT DO NOTHING',
+            variables: [
+              Variable<String>(_ids.newId()),
+              Variable<String>(payment.id),
+              Variable<int>(date.toInt()),
+              Variable<String>(RecurringDueStatus.pending.name),
+              Variable<int>(nowMs),
+              Variable<int>(nowMs),
+            ],
+            updates: {_db.recurringDues},
+          );
+        }
+        if (tracked == null || through > tracked) {
+          await _write(
+            payment.id,
+            RecurringPaymentsCompanion(trackedThrough: Value(through)),
+          );
+        }
+      }
+      return created;
+    });
+  }
+
+  @override
+  Stream<List<RecurringDue>> watchDue() {
+    return recurringDueQuery(_db).watch().map((rows) {
+      final dues = <RecurringDue>[];
+      for (final row in rows) {
+        final due = row.readTable(_db.recurringDues);
+        dues.add(
+          RecurringDue(
+            id: due.id,
+            payment: recurringPaymentFromRow(
+              row.readTable(_db.recurringPayments),
+            ),
+            dueOn: due.dueOn,
+            status: _statusFromSql(due),
+          ),
+        );
+      }
+      dues.sort(_compareDues);
+      return dues;
+    });
+  }
+
+  static RecurringDueStatus _statusFromSql(RecurringDueRow row) {
+    for (final status in RecurringDueStatus.values) {
+      if (status.name == row.status) return status;
+    }
+    throw DataCorruptedException(
+      'Recurring due row "${row.id}" has bad status "${row.status}"',
+    );
+  }
+
+  static int _compareDues(RecurringDue a, RecurringDue b) {
+    final byDate = a.dueOn.compareTo(b.dueOn);
+    if (byDate != 0) return byDate;
+    final byTitle = a.payment.title.toLowerCase().compareTo(
+      b.payment.title.toLowerCase(),
+    );
+    return byTitle != 0 ? byTitle : a.id.compareTo(b.id);
   }
 
   @override

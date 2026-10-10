@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
@@ -18,6 +19,8 @@ class InMemoryRecurringRepository implements RecurringRepository {
   final categories = <Category>[];
   final accounts = <Account>[];
   final _payments = <RecurringPayment>[];
+  final _dues = <_Due>[];
+  var _nextDueId = 0;
   final _changes = StreamController<void>.broadcast();
 
   List<RecurringListItem> _items() {
@@ -197,6 +200,99 @@ class InMemoryRecurringRepository implements RecurringRepository {
   }
 
   @override
+  Future<int> materializeDue(DateOnly today) async {
+    var created = 0;
+    for (var i = 0; i < _payments.length; i++) {
+      final payment = _payments[i];
+      if (payment.isDeleted || payment.startsOn > today) continue;
+      final tracked = payment.trackedThrough;
+      final next = tracked?.addDays(1);
+      final from = next == null || next < payment.startsOn
+          ? payment.startsOn
+          : next;
+      final end = payment.endsOn;
+      final to = end != null && end < today ? end : today;
+      var dates = dueDates(payment, from, to);
+      var through = today;
+      if (dates.length > maxNewDuesPerRun) {
+        dates = dates.sublist(0, maxNewDuesPerRun);
+        through = dates.last;
+      }
+      for (final date in dates) {
+        final exists = _dues.any(
+          (d) => d.paymentId == payment.id && d.dueOn == date,
+        );
+        if (exists) continue;
+        // Идентификаторы по возрастанию: порядок «по id» предсказуем.
+        final id = 'due-${(_nextDueId++).toString().padLeft(6, '0')}';
+        _dues.add(_Due(id, payment.id, date));
+        created++;
+      }
+      if (tracked == null || through > tracked) {
+        _payments[i] = _stamped(
+          payment.withTrackedThrough(through),
+          createdAt: payment.createdAt!,
+          updatedAt: payment.updatedAt!,
+        );
+      }
+    }
+    _changes.add(null);
+    return created;
+  }
+
+  List<RecurringDue> _dueItems() {
+    final items = <RecurringDue>[];
+    for (final d in _dues) {
+      final payment = _payments.firstWhere((p) => p.id == d.paymentId);
+      if (payment.isDeleted) continue;
+      final shown =
+          d.status == RecurringDueStatus.pending ||
+          (d.status == RecurringDueStatus.paid && d.transactionDeleted);
+      if (!shown) continue;
+      items.add(
+        RecurringDue(
+          id: d.id,
+          payment: payment,
+          dueOn: d.dueOn,
+          status: d.status,
+        ),
+      );
+    }
+    items.sort((a, b) {
+      final byDate = a.dueOn.compareTo(b.dueOn);
+      if (byDate != 0) return byDate;
+      final byTitle = a.payment.title.toLowerCase().compareTo(
+        b.payment.title.toLowerCase(),
+      );
+      return byTitle != 0 ? byTitle : a.id.compareTo(b.id);
+    });
+    return items;
+  }
+
+  @override
+  Stream<List<RecurringDue>> watchDue() => Stream.multi((c) {
+    c.add(_dueItems());
+    final sub = _changes.stream.listen((_) => c.add(_dueItems()));
+    c.onCancel = sub.cancel;
+  });
+
+  /// Тестовый помощник: переводит запись в [status]; для `paid` операция
+  /// считается удалённой, если [transactionDeleted].
+  void markDue(
+    String paymentId,
+    DateOnly dueOn,
+    RecurringDueStatus status, {
+    bool transactionDeleted = false,
+  }) {
+    final d = _dues.firstWhere(
+      (d) => d.paymentId == paymentId && d.dueOn == dueOn,
+    );
+    d.status = status;
+    d.transactionDeleted = transactionDeleted;
+    _changes.add(null);
+  }
+
+  @override
   Future<void> restore(String id) async {
     final i = _index(id);
     if (i < 0) {
@@ -211,4 +307,14 @@ class InMemoryRecurringRepository implements RecurringRepository {
     );
     _changes.add(null);
   }
+}
+
+class _Due {
+  _Due(this.id, this.paymentId, this.dueOn);
+
+  final String id;
+  final String paymentId;
+  final DateOnly dueOn;
+  var status = RecurringDueStatus.pending;
+  var transactionDeleted = false;
 }

@@ -8,6 +8,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
 import 'package:money_app/features/accounts/data/transfers_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/recurring/data/recurring_repository_impl.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 
 import '../../support/fixed_clock.dart';
@@ -245,6 +246,67 @@ void main() {
 
       expect(text, isNot(contains('transactions_occurred_on_at')));
       expect(text, contains('SCAN transactions'));
+    });
+  });
+
+  group('"To pay" query (recurring dues)', () {
+    late AppDatabase db;
+
+    setUp(() async {
+      db = AppDatabase(NativeDatabase.memory());
+      await db.customSelect('SELECT 1').get();
+      await db.customStatement(
+        'INSERT INTO categories (id, kind, name, icon_key, parent_id, '
+        'sort_order, created_at, updated_at) '
+        "VALUES ('c', 'expense', 'Cat', 'icon', NULL, 0, 1, 1)",
+      );
+      await db.customStatement(
+        'INSERT INTO transactions (id, type, amount_minor, currency, '
+        'occurred_on, occurred_at, category_id, created_at, updated_at) '
+        "VALUES ('t', 'expense', 100, 'RUB', 20260101, 1, 'c', 1, 1)",
+      );
+      for (var i = 0; i < 5; i++) {
+        await db.customStatement(
+          'INSERT INTO recurring_payments (id, title, type, amount_minor, '
+          'currency, category_id, unit, every, starts_on, remind, '
+          'created_at, updated_at) '
+          "VALUES ('p$i', 'Pay $i', 'expense', 100, 'RUB', 'c', 'month', 1, "
+          '20260101, 1, 1, 1)',
+        );
+        for (var m = 1; m <= 12; m++) {
+          await db.customStatement(
+            'INSERT INTO recurring_dues (id, payment_id, due_on, status, '
+            'created_at, updated_at) '
+            "VALUES ('d$i-$m', 'p$i', ${20260100 + m}, 'pending', 1, 1)",
+          );
+        }
+      }
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('joins go through indexes, not full scans', () async {
+      final select = recurringDueQuery(db).constructQuery();
+      final rows = await db
+          .customSelect(
+            'EXPLAIN QUERY PLAN ${select.sql}',
+            variables: [
+              for (final a in select.boundVariables) Variable<Object>(a!),
+            ],
+          )
+          .get();
+      final text = rows.map((r) => r.read<String>('detail')).join('\n');
+      // Платежей единицы, поэтому ведущая таблица может обходиться целиком,
+      // но каждая следующая (записи, операции) ищется по индексу.
+      final scans = RegExp(
+        r'^SCAN (\w+)',
+        multiLine: true,
+      ).allMatches(text).map((m) => m.group(1)!).toList();
+      expect(scans.length, lessThanOrEqualTo(1), reason: text);
+      expect(text, contains('SEARCH'), reason: text);
+      expect(text, contains('INDEX'), reason: text);
     });
   });
 }

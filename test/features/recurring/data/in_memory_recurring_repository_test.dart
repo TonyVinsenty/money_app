@@ -1,3 +1,4 @@
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
@@ -34,6 +35,19 @@ final class _FakeHarness implements RecurringHarness {
     final i = fake.accounts.indexWhere((a) => a.id == id);
     fake.accounts[i] = fake.accounts[i].archived(clock.now().toUtc());
   }
+
+  @override
+  Future<void> markDue(
+    String paymentId,
+    DateOnly dueOn,
+    RecurringDueStatus status, {
+    bool transactionDeleted = false,
+  }) async => fake.markDue(
+    paymentId,
+    dueOn,
+    status,
+    transactionDeleted: transactionDeleted,
+  );
 
   @override
   Future<void> close() async {}

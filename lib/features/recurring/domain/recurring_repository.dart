@@ -11,6 +11,32 @@ final class RecurringListItem {
   final DateOnly? nextDue;
 }
 
+/// Состояние записи «к оплате» (ADR 0011, п. 4).
+enum RecurringDueStatus { pending, paid, skipped }
+
+/// Запись «к оплате»: наступившая дата живого платежа.
+///
+/// Сумма и прочие данные берутся из [payment] как есть сейчас (копии нет).
+/// Статус - `pending`, либо `paid`, если созданная операция удалена
+/// (ADR 0011, п. 6).
+final class RecurringDue {
+  const RecurringDue({
+    required this.id,
+    required this.payment,
+    required this.dueOn,
+    required this.status,
+  });
+
+  final String id;
+  final RecurringPayment payment;
+  final DateOnly dueOn;
+  final RecurringDueStatus status;
+}
+
+/// Сколько новых записей на один платёж создаёт один запуск
+/// `materializeDue` (ADR 0011, п. 5); остальное догонится следующим запуском.
+const maxNewDuesPerRun = 60;
+
 /// Хранилище регулярных платежей (ADR 0011).
 ///
 /// Общие ошибки методов:
@@ -39,6 +65,16 @@ abstract interface class RecurringRepository {
 
   /// Мягко удаляет платёж [id]. Операции, уже созданные по нему, остаются.
   Future<void> softDelete(String id);
+
+  /// Создаёт записи «к оплате» для всех наступивших дат живых платежей до
+  /// [today] включительно и возвращает, сколько записей добавлено (ADR 0011,
+  /// п. 5). Всё в одной транзакции; повторный запуск ничего не добавляет.
+  /// Не больше [maxNewDuesPerRun] записей на платёж за запуск.
+  Future<int> materializeDue(DateOnly today);
+
+  /// Поток записей «к оплате»: `pending` и `paid` с удалённой операцией, только
+  /// у живых платежей. Порядок: дата, затем название, затем `id` записи.
+  Stream<List<RecurringDue>> watchDue();
 
   /// Возвращает удалённый платёж [id] («Отменить»); у живого - ничего не
   /// меняет. Платежа нет вовсе - [ArgumentError].
