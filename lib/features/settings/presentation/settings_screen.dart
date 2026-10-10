@@ -78,6 +78,18 @@ String importDoneMessage(int count) {
 /// переводы — «Загружены 2 перевода» (глагол по первому числу); счета
 /// добавляются в конце: «…, создано 2 счёта».
 String importResultMessage(CsvImportResult result) {
+  final recurring = result.recurring;
+  if (recurring == 0) return _importCountsMessage(result);
+  final tail = 'регулярные платежи: ${_countFormat.format(recurring)}';
+  if (result.transactions == 0 &&
+      result.transfers == 0 &&
+      result.accounts == 0) {
+    return 'Добавлены $tail';
+  }
+  return '${_importCountsMessage(result)}, $tail';
+}
+
+String _importCountsMessage(CsvImportResult result) {
   final accounts = result.accounts;
   final transactions = result.transactions;
   final transfers = result.transfers;

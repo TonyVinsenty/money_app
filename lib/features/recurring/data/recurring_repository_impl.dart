@@ -92,6 +92,13 @@ class DriftRecurringRepository implements RecurringRepository {
 
   @override
   Future<void> create(RecurringPayment payment) {
+    return _insert(payment.withTrackedThrough(payment.startsOn.addDays(-1)));
+  }
+
+  @override
+  Future<void> createImported(RecurringPayment payment) => _insert(payment);
+
+  Future<void> _insert(RecurringPayment payment) {
     return _db.transaction(() async {
       await _checkLinks(
         payment,
@@ -104,7 +111,7 @@ class DriftRecurringRepository implements RecurringRepository {
           .into(_db.recurringPayments)
           .insert(
             recurringPaymentToCompanion(
-              payment.withTrackedThrough(payment.startsOn.addDays(-1)),
+              payment,
               createdAt: now,
               updatedAt: now,
             ),

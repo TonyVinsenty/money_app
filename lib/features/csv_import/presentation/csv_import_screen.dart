@@ -104,11 +104,13 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
           :final errors,
           :final openingBalances,
           :final transfers,
+          :final recurring,
         ):
           final plan = await widget.store.prepare(
             rows,
             openingBalances: openingBalances,
             transfers: transfers,
+            recurring: recurring,
           );
           final all = _byLine([...errors, ...plan.errors]);
           if (all.isNotEmpty) {
@@ -119,7 +121,10 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
               plan,
               csvImportNewCategoryGroups(plan.categoriesToCreate, existing),
               noRows:
-                  rows.isEmpty && openingBalances.isEmpty && transfers.isEmpty,
+                  rows.isEmpty &&
+                  openingBalances.isEmpty &&
+                  transfers.isEmpty &&
+                  recurring.isEmpty,
             );
           }
       }
@@ -142,6 +147,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
       transactions: plan.transactions.length,
       accounts: plan.accountsToCreate,
       transfers: plan.transfers.length,
+      recurring: plan.recurring.length,
     ),
   };
 
@@ -149,6 +155,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
   static bool _nothingToWrite(CsvImportPlan plan) =>
       plan.transactions.isEmpty &&
       plan.transfers.isEmpty &&
+      plan.recurring.isEmpty &&
       plan.accountsToCreate.isEmpty;
 
   /// Содержимое экрана сменилось целиком, а фокус VoiceOver и TalkBack
@@ -199,6 +206,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
         CsvImportResult(
           transactions: plan.transactions.length,
           transfers: plan.transfers.length,
+          recurring: plan.recurring.length,
           accounts: plan.accountsToCreate.length,
         ),
       );
@@ -254,6 +262,8 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             csvImportWillAdd(plan.transactions.length),
           if (plan.transfers.isNotEmpty)
             csvImportWillAddTransfers(plan.transfers.length),
+          if (plan.recurring.isNotEmpty)
+            csvImportWillAddRecurring(plan.recurring.length),
           if (plan.transactions.isEmpty && accounts.isNotEmpty)
             csvImportWillCreateAccounts(accounts.length),
         ].indexed)

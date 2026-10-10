@@ -312,6 +312,25 @@ CsvImportPlan planCsvImport({
     }
     final resolved = resolve(row);
     if (resolved == null) continue;
+    // Операции архив допускают (история), платёж - нет: репозиторий его
+    // отклонил бы и уронил весь импорт. Новые категории и счета не архивные,
+    // архивными бывают только найденные по id.
+    final archived = [
+      resolved.category,
+      resolved.subcategory,
+    ].whereType<Category>().where((c) => c.isArchived).firstOrNull;
+    final archivedAccount = resolved.account?.isArchived == true
+        ? resolved.account
+        : null;
+    if (archived != null || archivedAccount != null) {
+      errors.add(
+        CsvRecurringArchivedLink(
+          row.line,
+          archived?.name ?? archivedAccount!.name,
+        ),
+      );
+      continue;
+    }
     recurringPlanned.add(
       RecurringPayment(
         id: id,

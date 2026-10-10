@@ -1,11 +1,13 @@
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
 /// Подготовка и запись импорта CSV (ADR 0009, п. 6).
@@ -19,6 +21,8 @@ class CsvImportWriter implements CsvImportStore {
     required this._accounts,
     required this._transfers,
     required this._transactions,
+    required this._recurring,
+    required this._clock,
     required this._ids,
     required this._isKnownIconKey,
   });
@@ -28,6 +32,8 @@ class CsvImportWriter implements CsvImportStore {
   final AccountsRepository _accounts;
   final TransfersRepository _transfers;
   final TransactionsRepository _transactions;
+  final RecurringRepository _recurring;
+  final Clock _clock;
   final IdGenerator _ids;
 
   /// Знает ли приложение значок (список значков живёт в `core/ui`).
@@ -39,6 +45,7 @@ class CsvImportWriter implements CsvImportStore {
     List<ParsedCsvRow> rows, {
     List<ParsedOpeningBalance> openingBalances = const [],
     List<ParsedTransfer> transfers = const [],
+    List<ParsedRecurring> recurring = const [],
   }) async {
     final categories = await _categories.watchAll().first;
     final accounts = await _accounts.watchAll().first;
@@ -81,6 +88,18 @@ class CsvImportWriter implements CsvImportStore {
       (row.read(tx.deletedAt) == null ? live : deleted).add(row.read(tx.id)!);
     }
 
+    final rec = _db.recurringPayments;
+    final recRows = await (_db.selectOnly(
+      rec,
+    )..addColumns([rec.id, rec.deletedAt])).get();
+    final liveRecurring = <String>{};
+    final deletedRecurring = <String>{};
+    for (final row in recRows) {
+      (row.read(rec.deletedAt) == null ? liveRecurring : deletedRecurring).add(
+        row.read(rec.id)!,
+      );
+    }
+
     return planCsvImport(
       rows: rows,
       categories: categories,
@@ -95,6 +114,10 @@ class CsvImportWriter implements CsvImportStore {
       parsedTransfers: transfers,
       liveTransferIds: liveTransfers,
       deletedTransferIds: deletedTransfers,
+      recurring: recurring,
+      liveRecurringIds: liveRecurring,
+      deletedRecurringIds: deletedRecurring,
+      today: _clock.today(),
     );
   }
 
@@ -110,7 +133,8 @@ class CsvImportWriter implements CsvImportStore {
     if (plan.accountsToCreate.isEmpty &&
         plan.categoriesToCreate.isEmpty &&
         plan.transactions.isEmpty &&
-        plan.transfers.isEmpty) {
+        plan.transfers.isEmpty &&
+        plan.recurring.isEmpty) {
       return;
     }
     await _db.transaction(() async {
@@ -127,6 +151,10 @@ class CsvImportWriter implements CsvImportStore {
       for (final transfer in plan.transfers) {
         // Как у операций: счета могут быть архивными (история).
         await _transfers.addImported(transfer);
+      }
+      for (final payment in plan.recurring) {
+        // trackedThrough = день загрузки уже стоит в плане.
+        await _recurring.createImported(payment);
       }
     });
   }

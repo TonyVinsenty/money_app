@@ -247,6 +247,13 @@ final class CsvRecurringTitle extends CsvRowError {
   const CsvRecurringTitle(super.line, super.value);
 }
 
+/// Регулярный платёж привязан по ID к архивной категории, подкатегории или
+/// счёту; [value] - их название. У обычных операций архив допустим (история),
+/// у платежа - нет: он продолжит приходить в «К оплате».
+final class CsvRecurringArchivedLink extends CsvRowError {
+  const CsvRecurringArchivedLink(super.line, super.value);
+}
+
 /// У `Перевод` не указан `Счёт` (откуда): ни имени, ни ID.
 final class CsvTransferNoAccount extends CsvRowError {
   const CsvTransferNoAccount(super.line, super.value);

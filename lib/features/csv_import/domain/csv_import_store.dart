@@ -10,6 +10,7 @@ abstract interface class CsvImportStore {
     List<ParsedCsvRow> rows, {
     List<ParsedOpeningBalance> openingBalances = const [],
     List<ParsedTransfer> transfers = const [],
+    List<ParsedRecurring> recurring = const [],
   });
 
   /// Пишет план целиком или ничего (одна транзакция).

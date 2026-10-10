@@ -31,6 +31,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/csv_import/data/csv_import_writer.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
+import 'package:money_app/features/recurring/data/recurring_repository_impl.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/history_view.dart';
@@ -118,6 +119,12 @@ Future<void> _pumpApp(WidgetTester tester) async {
       accounts: DriftAccountsRepository(_db, clock: importClock),
       transfers: DriftTransfersRepository(_db, clock: importClock),
       transactions: transactions,
+      recurring: DriftRecurringRepository(
+        _db,
+        transactions,
+        clock: importClock,
+      ),
+      clock: importClock,
       ids: FakeIdGenerator(prefix: 'new'),
       isKnownIconKey: (_) => true,
     );

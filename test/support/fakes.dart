@@ -604,6 +604,7 @@ class PlannedCsvImportStore implements CsvImportStore {
     List<ParsedCsvRow> rows, {
     List<ParsedOpeningBalance> openingBalances = const [],
     List<ParsedTransfer> transfers = const [],
+    List<ParsedRecurring> recurring = const [],
   }) async {
     preparedRows = rows;
     return plan;

@@ -136,7 +136,11 @@ class InMemoryRecurringRepository implements RecurringRepository {
   }
 
   @override
-  Future<void> create(RecurringPayment payment) async {
+  Future<void> create(RecurringPayment payment) =>
+      createImported(payment.withTrackedThrough(payment.startsOn.addDays(-1)));
+
+  @override
+  Future<void> createImported(RecurringPayment payment) async {
     _checkLinks(
       payment,
       categoryArchived: true,
@@ -144,13 +148,7 @@ class InMemoryRecurringRepository implements RecurringRepository {
       accountArchived: true,
     );
     final now = _clock.now().toUtc();
-    _payments.add(
-      _stamped(
-        payment.withTrackedThrough(payment.startsOn.addDays(-1)),
-        createdAt: now,
-        updatedAt: now,
-      ),
-    );
+    _payments.add(_stamped(payment, createdAt: now, updatedAt: now));
     _changes.add(null);
   }
 

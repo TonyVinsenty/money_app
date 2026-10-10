@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -43,11 +44,14 @@ class _PlanningStore implements CsvImportStore {
     List<ParsedCsvRow> rows, {
     List<ParsedOpeningBalance> openingBalances = const [],
     List<ParsedTransfer> transfers = const [],
+    List<ParsedRecurring> recurring = const [],
   }) async {
     final error = prepareError;
     if (error != null) return Future.error(error);
     return planCsvImport(
       rows: rows,
+      recurring: recurring,
+      today: DateOnly(2026, 10, 7),
       openingBalances: openingBalances,
       parsedTransfers: transfers,
       isKnownIconKey: (_) => true,
@@ -740,6 +744,61 @@ void main() {
         'Будет добавлена 1 операция. Будет добавлен 1 перевод. '
             'Будут созданы 2 счёта: Карта, Наличные',
       ]);
+    });
+  });
+
+  group('регулярные платежи', () {
+    const header =
+        'Дата;Тип;Сумма;Категория;Комментарий;ID категории;Повтор;Каждые;'
+        'До;Напоминать\n';
+    const payment =
+        '05.11.2026;Регулярный расход;-650;Еда;Интернет;;месяц;1;;да\n';
+
+    testWidgets('предпросмотр, объявление, «Загрузить» и итог', (tester) async {
+      final announcements = _captureAnnouncements(tester);
+      final store = _PlanningStore(categories: [_food]);
+      final results = await _open(tester, store: store, csv: '$header$payment');
+
+      expect(find.text('Будут добавлены регулярные платежи: 1'), findsOne);
+      expect(find.text(csvImportNothingToAddMessage), findsNothing);
+      expect(announcements, ['Будут добавлены регулярные платежи: 1']);
+
+      await tester.tap(find.text(csvImportLoadButton));
+      await tester.pumpAndSettle();
+
+      expect(store.written.single.recurring.single.trackedThrough, isNotNull);
+      expect(results, [const CsvImportResult(transactions: 0, recurring: 1)]);
+    });
+
+    testWidgets('платёж на архивную категорию: ошибка строки, без записи', (
+      tester,
+    ) async {
+      const id = 'aaaaaaaa-0000-4000-8000-00000000000a';
+      final archived = Category.topLevel(
+        id: id,
+        kind: CategoryKind.expense,
+        name: 'Еда',
+        iconKey: 'restaurant',
+        sortOrder: 0,
+      ).archived(DateTime.utc(2026, 1, 1));
+      final store = _PlanningStore(categories: [archived]);
+      await _open(
+        tester,
+        store: store,
+        csv:
+            '$header'
+            '05.11.2026;Регулярный расход;-650;Еда;Интернет;$id;месяц;1;;да\n',
+      );
+
+      expect(
+        find.text(
+          'Строка 2: регулярный платёж привязан к архивной категории или '
+          'счёту «Еда»: верните её из архива или очистите ячейку с ID',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(csvImportLoadButton), findsNothing);
+      expect(store.written, isEmpty);
     });
   });
 }

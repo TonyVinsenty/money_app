@@ -14,9 +14,12 @@ import 'package:money_app/features/categories/data/categories_repository_impl.da
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/csv_import/data/csv_import_writer.dart';
+import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
+import 'package:money_app/features/recurring/data/recurring_repository_impl.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
@@ -47,12 +50,15 @@ final class _Env {
       accounts = DriftAccountsRepository(db, clock: clock),
       transactions = DriftTransactionsRepository(db, clock: clock),
       transfers = DriftTransfersRepository(db, clock: clock) {
+    recurring = DriftRecurringRepository(db, transactions, clock: clock);
     writer = CsvImportWriter(
       db: db,
       categories: categories,
       accounts: accounts,
       transfers: transfers,
       transactions: transactions,
+      recurring: recurring,
+      clock: clock,
       ids: FakeIdGenerator(prefix: 'new'),
       isKnownIconKey: (key) => key == 'x',
     );
@@ -64,6 +70,7 @@ final class _Env {
   final DriftAccountsRepository accounts;
   final DriftTransactionsRepository transactions;
   final DriftTransfersRepository transfers;
+  late final DriftRecurringRepository recurring;
   late final CsvImportWriter writer;
 
   Future<String> export() async => buildTransactionsCsv(
@@ -71,6 +78,9 @@ final class _Env {
     categories: await categories.watchAll().first,
     accounts: await accounts.watchAll().first,
     transfers: await transfers.findAllLive(),
+    recurring: [
+      for (final item in await recurring.watchAll().first) item.payment,
+    ],
   );
 
   Future<int> categoryCount() async =>
@@ -89,6 +99,7 @@ final class _Env {
       parsed.rows,
       openingBalances: parsed.openingBalances,
       transfers: parsed.transfers,
+      recurring: parsed.recurring,
     );
     await writer.write(plan);
     return plan;
@@ -531,5 +542,110 @@ void main() {
     expect(plan.categoriesToCreate.single.id, 'new-1');
     expect((await env.categories.findById('new-1'))?.name, 'Еда');
     expect(await env.categories.findById(_food), isNull);
+  });
+
+  group('регулярные платежи', () {
+    const rentId = 'eeeeeeee-0000-4000-8000-000000000001';
+    const salaryId = 'eeeeeeee-0000-4000-8000-000000000002';
+
+    Future<void> seedPayments() async {
+      await seedSource();
+      // Старый якорь: без trackedThrough = день загрузки «К оплате» дало бы
+      // август, сентябрь и октябрь.
+      await env.recurring.create(
+        RecurringPayment(
+          id: rentId,
+          title: 'Интернет',
+          type: TransactionType.expense,
+          amount: Money.fromMinor(65000, 'RUB'),
+          categoryId: _food,
+          subcategoryId: _cafe,
+          accountId: _card,
+          unit: RepeatUnit.month,
+          every: 1,
+          startsOn: DateOnly(2026, 8, 5),
+        ),
+      );
+      await env.recurring.create(
+        RecurringPayment(
+          id: salaryId,
+          title: 'Аванс',
+          type: TransactionType.income,
+          amount: Money.fromMinor(4000000, 'RUB'),
+          categoryId: _salary,
+          unit: RepeatUnit.week,
+          every: 2,
+          startsOn: DateOnly(2026, 9, 1),
+          endsOn: DateOnly(2026, 12, 31),
+          remind: false,
+        ),
+      );
+    }
+
+    test('экспорт -> пустая база -> импорт -> экспорт: тот же файл, '
+        '«К оплате» пуст, повторный импорт - «уже есть»', () async {
+      await seedPayments();
+      final first = await env.export();
+      expect(first, contains('Регулярный расход'));
+
+      final other = await openInMemoryDatabase();
+      addTearDown(other.close);
+      final target = _Env(other, env.clock);
+      final plan = await target.import(first);
+
+      expect(plan.recurring, hasLength(2));
+      expect(utf8.encode(await target.export()), utf8.encode(first));
+      final saved = await target.recurring.findById(rentId);
+      expect(saved?.trackedThrough, DateOnly(2026, 10, 7));
+
+      // Тот же день: старые даты не создаются.
+      expect(await target.recurring.materializeDue(DateOnly(2026, 10, 7)), 0);
+      expect(await target.recurring.watchDue().first, isEmpty);
+
+      final again = await target.import(first);
+      expect(again.recurring, isEmpty);
+      expect(again.skippedExisting, greaterThanOrEqualTo(2));
+      expect(utf8.encode(await target.export()), utf8.encode(first));
+    });
+
+    test('платёж на архивную категорию по id: ошибка плана, база '
+        'не меняется', () async {
+      await env.categories.create(
+        _top(_old, CategoryKind.expense, 'Старое', 0),
+      );
+      await env.recurring.create(
+        RecurringPayment(
+          id: rentId,
+          title: 'Старый',
+          type: TransactionType.expense,
+          amount: Money.fromMinor(100, 'RUB'),
+          categoryId: _old,
+          unit: RepeatUnit.month,
+          every: 1,
+          startsOn: DateOnly(2026, 11, 1),
+        ),
+      );
+      final csv = await env.export();
+
+      final other = await openInMemoryDatabase();
+      addTearDown(other.close);
+      final target = _Env(other, env.clock);
+      await target.categories.create(
+        _top(_old, CategoryKind.expense, 'Старое', 0),
+      );
+      await target.categories.archive(_old);
+
+      final parsed =
+          parseCsvImport(utf8.encode(csv), clock: env.clock) as CsvImportParsed;
+      final plan = await target.writer.prepare(
+        parsed.rows,
+        recurring: parsed.recurring,
+      );
+
+      expect(plan.errors.single, isA<CsvRecurringArchivedLink>());
+      expect(plan.errors.single.value, 'Старое');
+      expect(plan.recurring, isEmpty);
+      expect(await target.recurring.watchAll().first, isEmpty);
+    });
   });
 }

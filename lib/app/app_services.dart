@@ -78,6 +78,8 @@ final class AppServices {
         accounts: accounts,
         transfers: transfers,
         transactions: transactions,
+        recurring: recurring,
+        clock: clock,
         ids: ids,
         isKnownIconKey: isKnownCategoryIconKey,
       ),

@@ -59,6 +59,11 @@ abstract interface class RecurringRepository {
   /// сегодня сразу попадёт в «К оплате».
   Future<void> create(RecurringPayment payment);
 
+  /// Как [create], но `trackedThrough` берётся из [payment] как есть: импорт
+  /// CSV ставит день загрузки, чтобы прошлые даты не попали в «К оплате»
+  /// (ADR 0011, п. 10). Связи проверяются так же (архив отклоняется).
+  Future<void> createImported(RecurringPayment payment);
+
   /// Заменяет поля платежа [payment.id], кроме служебных `trackedThrough` и
   /// `createdAt`. Архивность категории и счёта проверяется только у тех
   /// связей, которые изменились.

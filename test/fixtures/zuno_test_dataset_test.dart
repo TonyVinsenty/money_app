@@ -18,6 +18,7 @@ import 'package:money_app/features/csv_import/data/csv_import_writer.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
+import 'package:money_app/features/recurring/data/recurring_repository_impl.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -63,6 +64,8 @@ final class _Env {
       accounts: DriftAccountsRepository(db, clock: clock),
       transfers: DriftTransfersRepository(db, clock: clock),
       transactions: transactions,
+      recurring: DriftRecurringRepository(db, transactions, clock: clock),
+      clock: clock,
       ids: FakeIdGenerator(prefix: 'new'),
       isKnownIconKey: (_) => true,
     );

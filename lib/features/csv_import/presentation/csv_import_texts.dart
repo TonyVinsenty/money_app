@@ -81,6 +81,10 @@ String csvImportWillAddTransfers(int count) {
   return '$verb ${formatCount(count)} $noun';
 }
 
+/// Одна форма для любого числа: «Будут добавлены регулярные платежи: 2».
+String csvImportWillAddRecurring(int count) =>
+    'Будут добавлены регулярные платежи: ${formatCount(count)}';
+
 /// «Будет создан 1 счёт», «Будут созданы 2 счёта», «Будет создано 5 счетов».
 String csvImportWillCreateAccounts(int count) {
   final verb = pluralRu(
@@ -122,10 +126,12 @@ String csvImportPreviewAnnouncement({
   required int transactions,
   required List<Account> accounts,
   int transfers = 0,
+  int recurring = 0,
 }) {
   final parts = <String>[];
   if (transactions > 0) parts.add(csvImportWillAdd(transactions));
   if (transfers > 0) parts.add(csvImportWillAddTransfers(transfers));
+  if (recurring > 0) parts.add(csvImportWillAddRecurring(recurring));
   if (accounts.isNotEmpty) {
     final names = [for (final a in csvImportSortedAccounts(accounts)) a.name];
     final shown = names.take(csvImportAnnouncedAccountsLimit).join(', ');
@@ -288,6 +294,9 @@ String _rowErrorText(CsvRowError error) {
                 '(колонка «$csvColumnNote»)'
           : 'название регулярного платежа длиннее $recurringTitleMaxLength '
                 'символов',
+    CsvRecurringArchivedLink() =>
+      'регулярный платёж привязан к архивной категории или счёту '
+          '${value ?? ''}: верните её из архива или очистите ячейку с ID',
     CsvTransferNoAccount() => 'у перевода не указан счёт',
     CsvTransferNoToAccount() => 'у перевода не указан счёт зачисления',
     CsvTransferSameAccount() => 'у перевода счёт и счёт зачисления совпадают',
