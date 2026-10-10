@@ -134,6 +134,46 @@ void main() {
       );
     });
 
+    test('процент округлился до нуля: «<1 %» и «меньше 1 процента»', () {
+      final tiny = _change(100001, 100000);
+      expect(
+        comparisonSummaryText(tiny, expense, 'в августе'),
+        'на 0,01$_nbsp₽ больше (<1$_nbsp%), чем в августе',
+      );
+      expect(
+        comparisonSummaryText(tiny, expense, 'в августе', spoken: true),
+        'на 0 рублей 1 копейка больше, меньше 1 процента, чем в августе',
+      );
+      expect(comparisonRowDelta(tiny), '↑ на 0,01$_nbsp₽ (<1$_nbsp%)');
+    });
+
+    test('большой процент с разделителем разрядов', () {
+      expect(signedPercent(1420), '+1${_nbsp}420$_nbsp%');
+      expect(comparisonRowDelta(_change(152000, 10000)), contains('+1'));
+      expect(
+        comparisonRowDelta(_change(152000, 10000)),
+        endsWith('(+1${_nbsp}420$_nbsp%)'),
+      );
+    });
+
+    test('озвучка исчезнувшей категории без повтора суммы', () {
+      expect(
+        comparisonRowSpoken('Кафе', _change(0, 300000)),
+        'Кафе, 0 рублей, раньше было 3000 рублей, минус 100 процентов',
+      );
+    });
+
+    test('озвучка итога: сумма словами', () {
+      expect(
+        comparisonTotalTitle(
+          expense,
+          Money.fromMinor(300000, 'RUB'),
+          spoken: true,
+        ),
+        'Расходы: 3000 рублей',
+      );
+    });
+
     test('прошлое пусто: слово по типу, первая буква большая', () {
       expect(
         comparisonSummaryText(_change(5000, 0), expense, 'в августе'),

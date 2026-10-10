@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
@@ -72,22 +73,32 @@ String comparisonPhrase(DateRange range, DateOnly today) {
 }
 
 /// Т2. Заголовок итога: «Расходы: 48 200,00 ₽».
-String comparisonTotalTitle(TransactionType type, Money total) =>
+String comparisonTotalTitle(
+  TransactionType type,
+  Money total, {
+  bool spoken = false,
+}) =>
     '${type == TransactionType.expense ? 'Расходы' : 'Доходы'}: '
-    '${formatMoney(total)}';
+    '${spoken ? spokenMoney(total) : formatMoney(total)}';
+
+final NumberFormat _percentFormat = NumberFormat.decimalPattern('ru');
 
 /// Т2. Процент со знаком: «+12 %», «\u22124 %», «0 %».
-String signedPercent(int percent) {
+String signedPercent(int percent, {bool isBelowOne = false}) {
+  // Разница есть, но процент округлился до 0: «<1 %» без знака, направление
+  // уже сказано словами «больше»/«меньше».
+  if (isBelowOne) return '<1$_nbsp%';
   final sign = percent > 0
       ? '+'
       : percent < 0
       ? _minus
       : '';
-  return '$sign${percent.abs()}$_nbsp%';
+  return '$sign${_percentFormat.format(percent.abs())}$_nbsp%';
 }
 
 /// Т2. Процент со знаком для скринридера: «плюс 40 процентов».
-String spokenSignedPercent(int percent) {
+String spokenSignedPercent(int percent, {bool isBelowOne = false}) {
+  if (isBelowOne) return 'меньше 1 процента';
   final words = pluralRu(percent.abs(), 'процент', 'процента', 'процентов');
   final sign = percent > 0
       ? 'плюс '
@@ -117,8 +128,8 @@ String comparisonSummaryText(
   final percent = change.percent!;
   final money = spoken ? spokenMoney(amount) : formatMoney(amount);
   final percentText = spoken
-      ? spokenSignedPercent(percent)
-      : '(${signedPercent(percent)})';
+      ? spokenSignedPercent(percent, isBelowOne: percent == 0)
+      : '(${signedPercent(percent, isBelowOne: percent == 0)})';
   final word = more ? 'больше' : 'меньше';
   return spoken
       ? 'на $money $word, $percentText, чем $phrase'
@@ -147,7 +158,8 @@ String comparisonRowDelta(AmountChange change) {
   final more = !difference.isNegative;
   final amount = formatMoney(more ? difference : -difference);
   final arrow = more ? '↑' : '↓';
-  return '$arrow на $amount (${signedPercent(change.percent!)})';
+  final percent = change.percent!;
+  return '$arrow на $amount (${signedPercent(percent, isBelowOne: percent == 0)})';
 }
 
 /// Т2. Озвучка строки категории: «Кафе, 8000 рублей, больше на 2300 рублей,
@@ -156,14 +168,18 @@ String comparisonRowSpoken(String name, AmountChange change) {
   final now = spokenMoney(change.current);
   if (change.previous.isZero) return '$name, $now, раньше не было';
   final difference = change.difference;
-  final was = change.current.isZero
-      ? ', было ${spokenMoney(change.previous)}'
-      : '';
-  if (difference.isZero) return '$name, $now$was, столько же';
+  final percent = change.percent!;
+  final percentText = spokenSignedPercent(percent, isBelowOne: percent == 0);
+  if (change.current.isZero) {
+    // Исчезнувшая категория: разница равна прежней сумме, не повторяем её.
+    return '$name, $now, раньше было ${spokenMoney(change.previous)}, '
+        '$percentText';
+  }
+  if (difference.isZero) return '$name, $now, столько же';
   final more = !difference.isNegative;
   final amount = spokenMoney(more ? difference : -difference);
-  return '$name, $now$was, ${more ? 'больше' : 'меньше'} на $amount, '
-      '${spokenSignedPercent(change.percent!)}';
+  return '$name, $now, ${more ? 'больше' : 'меньше'} на $amount, '
+      '$percentText';
 }
 
 /// Т2. Когда в выбранном типе нет ничего ни сейчас, ни в сравнении.

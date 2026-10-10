@@ -440,6 +440,45 @@ void main() {
     );
   });
 
+  testWidgets('«Сравнение»: смена «сегодня» в том же месяце двигает подпись', (
+    tester,
+  ) async {
+    final repo = _Repo([
+      Transaction(
+        id: 'early',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(100000, 'RUB'),
+        occurredOn: DateOnly(2026, 9, 2),
+        occurredAt: DateTime.utc(2026, 9, 2, 9),
+        categoryId: 'food',
+      ),
+      Transaction(
+        id: 'now',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(50000, 'RUB'),
+        occurredOn: DateOnly(2026, 10, 1),
+        occurredAt: DateTime.utc(2026, 10, 1, 9),
+        categoryId: 'food',
+      ),
+    ]);
+    await _pump(
+      tester,
+      firstDay: DateOnly(2026, 9, 2),
+      repo: repo,
+      categories: _twoCategories,
+    );
+    await _tap(tester, find.widgetWithText(Tab, 'Сравнение'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1\u20134 сентября'), findsWidgets);
+
+    BrowseScope.of(tester.element(find.byType(AppShell)))
+        .updateToday(DateOnly(2026, 10, 5));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('1\u20135 сентября'), findsWidgets);
+    expect(find.textContaining('1\u20134 сентября'), findsNothing);
+  });
+
   testWidgets('вкладка просит окно данных; прошлый месяц не попадает в итоги', (
     tester,
   ) async {

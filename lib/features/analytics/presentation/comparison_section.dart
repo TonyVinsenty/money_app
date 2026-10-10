@@ -110,7 +110,8 @@ class ComparisonSection extends StatelessWidget {
               container: true,
               excludeSemantics: true,
               label:
-                  '$title. ${comparisonSummaryText(total, type, phrase, spoken: true)}',
+                  '${comparisonTotalTitle(type, total.current, spoken: true)}. '
+                  '${comparisonSummaryText(total, type, phrase, spoken: true)}',
               child: Column(
                 key: totalKey,
                 crossAxisAlignment: CrossAxisAlignment.start,

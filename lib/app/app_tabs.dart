@@ -555,7 +555,7 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
     _streamCurrency = currency;
     // Окно шире периода: от начала периода сравнения до конца периода
     // (ADR 0012, п. 2). Отбор по текущему периоду делают экран и domain.
-    final window = DateRange(previousRange.start, range.end);
+    final window = dataWindow(period, _controller!.today);
     _transactions = repository
         .watchInPeriod(window, currency: currency)
         .map(

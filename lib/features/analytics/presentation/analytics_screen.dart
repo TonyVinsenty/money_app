@@ -147,7 +147,7 @@ class AnalyticsScreen extends StatelessWidget {
   final AnalyticsSection section;
 
   /// Выбран другой раздел касанием строки разделов; без колбэка строка
-  /// недоступна.
+  /// не реагирует на касания.
   final ValueChanged<AnalyticsSection>? onSectionSelected;
 
   /// Стандартный выбор интервала. Последний день — сегодня, первый — день
@@ -322,18 +322,23 @@ class _SectionBarState extends State<_SectionBar>
   @override
   Widget build(BuildContext context) {
     final onSelected = widget.onSelected;
-    return TabBar(
-      key: analyticsSectionBarKey,
-      controller: _controller,
-      isScrollable: true,
-      tabAlignment: TabAlignment.start,
-      onTap: onSelected == null
-          ? null
-          : (index) => onSelected(_shownSections[index]),
-      tabs: [
-        for (final section in _shownSections)
-          Tab(text: analyticsSectionTitle(section)),
-      ],
+    // Без колбэка строка не реагирует на касания (сам TabBar переключил бы
+    // вкладку и без onTap), поэтому касания выключены целиком.
+    return IgnorePointer(
+      ignoring: onSelected == null,
+      child: TabBar(
+        key: analyticsSectionBarKey,
+        controller: _controller,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
+        onTap: onSelected == null
+            ? null
+            : (index) => onSelected(_shownSections[index]),
+        tabs: [
+          for (final section in _shownSections)
+            Tab(text: analyticsSectionTitle(section)),
+        ],
+      ),
     );
   }
 }
