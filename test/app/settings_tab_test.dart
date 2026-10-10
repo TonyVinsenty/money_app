@@ -43,6 +43,7 @@ class _TotalsOnlyRepository extends FakeTransactionsRepository {
 Future<AppSettingsController> _pump(
   WidgetTester tester, {
   FixedClock? clock,
+  _TotalsOnlyRepository? transactions,
 }) async {
   final settings = AppSettingsController();
   addTearDown(settings.dispose);
@@ -62,7 +63,7 @@ Future<AppSettingsController> _pump(
             settings: settings,
             categories: categories,
             clock: clock,
-            transactions: _TotalsOnlyRepository(),
+            transactions: transactions ?? _TotalsOnlyRepository(),
           ),
           child: BrowseHost(child: AppShell(tabs: defaultAppTabs)),
         ),
@@ -176,6 +177,33 @@ void main() {
       find.textContaining('Последний экспорт: 31 декабря 2026'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('предупреждение об экспорте: есть операции - видно; '
+      '«Очистить всё» и экспорт его убирают', (tester) async {
+    final repo = _TotalsOnlyRepository()..firstDay = DateOnly(2026, 12, 1);
+    final settings = await _pump(
+      tester,
+      clock: FixedClock(DateTime(2027, 1, 2, 12)),
+      transactions: repo,
+    );
+    const warning = 'Последний экспорт: ещё не было — сделайте копию';
+    expect(find.text(warning), findsOneWidget);
+
+    // Как после «Очистить всё»: операций больше нет.
+    repo.setFirstDay(null);
+    await tester.pumpAndSettle();
+    expect(find.text(warning), findsNothing);
+    expect(find.text('Последний экспорт: ещё не было'), findsOneWidget);
+
+    // Операции появились снова, затем экспорт: предупреждение пропадает.
+    repo.setFirstDay(DateOnly(2026, 12, 1));
+    await tester.pumpAndSettle();
+    expect(find.text(warning), findsOneWidget);
+    tester.widget<SettingsScreen>(find.byType(SettingsScreen)).onExportShared();
+    await tester.pumpAndSettle();
+    expect(settings.lastExportDay, DateOnly(2027, 1, 2));
+    expect(find.textContaining('сделайте копию'), findsNothing);
   });
 
   testWidgets('вкладка «Баланс» показывает счета, а не заглушку', (

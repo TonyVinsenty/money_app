@@ -500,9 +500,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 today: widget.today,
                 hasOperations: widget.hasOperations,
               )
-              ? Text(
-                  staleExportLabel(widget.lastExportDay, widget.today),
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Значок только для глаз: смысл несут слова.
+                    ExcludeSemantics(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2, right: 6),
+                        child: Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.tertiary,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        staleExportLabel(widget.lastExportDay, widget.today),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.tertiary,
+                        ),
+                      ),
+                    ),
+                  ],
                 )
               : Text(lastExportLabel(widget.lastExportDay, widget.today)),
           // Пока идёт выгрузка, вместо стрелки крутится индикатор, а пункт

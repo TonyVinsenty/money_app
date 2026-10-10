@@ -114,7 +114,8 @@ void main() {
       const text = 'Последний экспорт: 22 сентября — давно, сделайте копию';
       final widget = await subtitle(tester, text);
       final context = tester.element(find.text(text));
-      expect(widget.style?.color, Theme.of(context).colorScheme.error);
+      expect(widget.style?.color, Theme.of(context).colorScheme.tertiary);
+      expect(find.byIcon(Icons.info_outline), findsOneWidget);
     });
 
     testWidgets('15 дней назад, но операций нет: без предупреждения', (

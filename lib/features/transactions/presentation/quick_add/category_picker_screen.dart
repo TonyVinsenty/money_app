@@ -132,8 +132,8 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen> {
       );
       if (!mounted || found.isEmpty) return;
       setState(() => _suggestions = found);
-    } on Object {
-      return;
+    } on Object catch (error) {
+      debugPrint('Не удалось получить подсказки категорий: $error');
     }
   }
 

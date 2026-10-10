@@ -7,6 +7,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -24,6 +25,7 @@ class _Transactions extends FakeTransactionsRepository {
 
   final List<Transaction> history;
   final added = <Transaction>[];
+  final deleted = <String>[];
   DateRange? askedRange;
 
   @override
@@ -39,7 +41,7 @@ class _Transactions extends FakeTransactionsRepository {
   Future<void> add(Transaction transaction) async => added.add(transaction);
 
   @override
-  Future<void> softDelete(String id) async {}
+  Future<void> softDelete(String id) async => deleted.add(id);
 }
 
 class _Categories extends FakeCategoriesRepository {
@@ -81,6 +83,15 @@ final _cafe = Category.topLevel(
   sortOrder: 1,
 );
 
+final _account = Account(
+  id: 'acc',
+  name: 'Карта',
+  iconKey: 'card',
+  openingBalance: Money.zero('RUB'),
+  sortOrder: 0,
+  currencyDigits: 2,
+);
+
 var _n = 0;
 
 List<Transaction> _history(
@@ -101,7 +112,7 @@ List<Transaction> _history(
     ),
 ];
 
-Widget _app(_Transactions transactions) {
+Widget _app(_Transactions transactions, {bool withAccount = false}) {
   final categories = _Categories([_food, _shop, _cafe]);
   return MaterialApp(
     theme: AppTheme.light(),
@@ -120,6 +131,8 @@ Widget _app(_Transactions transactions) {
                   categories: categories,
                   transactions: transactions,
                   idGenerator: FakeIdGenerator(),
+                  accounts: withAccount ? Stream.value([_account]) : null,
+                  defaultAccountId: withAccount ? 'acc' : null,
                 ),
               ),
             ),
@@ -189,6 +202,21 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Отменить'), findsOneWidget);
+  });
+
+  testWidgets('чип сохраняет на основной счёт, «Отменить» удаляет запись', (
+    tester,
+  ) async {
+    final repo = _Transactions(_history(_food, _shop));
+    await tester.pumpWidget(_app(repo, withAccount: true));
+    await _toPicker(tester);
+    await tester.tap(find.text('Продукты · Пятёрочка'));
+    await tester.pumpAndSettle();
+
+    expect(repo.added.single.accountId, 'acc');
+    await tester.tap(find.text('Отменить'));
+    await tester.pumpAndSettle();
+    expect(repo.deleted, [repo.added.single.id]);
   });
 
   testWidgets('пара без подкатегории сохраняется без неё', (tester) async {

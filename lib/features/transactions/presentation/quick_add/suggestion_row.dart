@@ -36,16 +36,13 @@ class SuggestionRow extends StatelessWidget {
         runSpacing: 8,
         children: [
           for (final s in suggestions)
-            Semantics(
-              button: true,
-              label: spokenOf(s),
-              excludeSemantics: true,
-              onTap: () => onSelected(s),
-              child: ActionChip(
-                // Текст чипа может быть длинным: пусть переносится.
-                label: Text(labelOf(s)),
-                onPressed: () => onSelected(s),
-              ),
+            // Один узел для скринридера: сам чип. Озвучку задаёт
+            // semanticsLabel текста; значок только для глаз.
+            ActionChip(
+              avatar: const ExcludeSemantics(child: Icon(Icons.bolt, size: 18)),
+              // Текст чипа может быть длинным: пусть переносится.
+              label: Text(labelOf(s), semanticsLabel: spokenOf(s)),
+              onPressed: () => onSelected(s),
             ),
         ],
       ),
