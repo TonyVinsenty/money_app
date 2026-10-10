@@ -30,8 +30,13 @@ class HomeScreen extends StatelessWidget {
     this.onPreviousMonth,
     this.onNextMonth,
     this.currency = rubCurrencyCode,
+    this.balanceLine,
     super.key,
   });
+
+  /// Сумма для строки «Баланс» в центре кольца; `null` в потоке или нет
+  /// потока - строки нет. Поток один и тот же между перерисовками.
+  final Stream<Money?>? balanceLine;
 
   /// Код основной валюты: в ней кольцо считает операции [monthTransactions].
   final String currency;
@@ -104,6 +109,7 @@ class HomeScreen extends StatelessWidget {
                   month: month,
                   isCurrentMonth: isCurrentMonth,
                   currency: currency,
+                  balanceLine: balanceLine,
                   ringSize: ring,
                   onOpenCategory: onOpenCategory,
                 ),

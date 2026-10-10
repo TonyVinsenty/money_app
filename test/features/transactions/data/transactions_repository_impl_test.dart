@@ -1288,6 +1288,22 @@ void main() {
         expect(await total(currency: 'EUR'), Money.zero('EUR'));
       });
 
+      test('the widest period (all time, as the Home balance line asks) counts '
+          'every live row of the currency', () async {
+        final allTime = DateRange(DateOnly(1, 1, 1), DateOnly(9999, 12, 31));
+        await repo.add(tx('old', day: DateOnly(2001, 1, 1), amountMinor: 1));
+        await repo.add(tx('new', day: DateOnly(2026, 9, 15), amountMinor: 20));
+        await repo.add(tx('usd', amountMinor: 300, currency: 'USD'));
+        await repo.add(tx('gone', amountMinor: 4000));
+        await repo.softDelete('gone');
+
+        expect(await total(period: allTime), Money.fromMinor(21, 'RUB'));
+        expect(
+          await total(period: allTime, currency: 'USD'),
+          Money.fromMinor(300, 'USD'),
+        );
+      });
+
       test('the default currency is RUB', () async {
         await repo.add(tx('rub', amountMinor: 100));
         await repo.add(tx('usd', amountMinor: 7, currency: 'USD'));

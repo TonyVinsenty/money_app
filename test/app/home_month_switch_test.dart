@@ -219,7 +219,8 @@ void main() {
     final repo = fixtureRepo();
     await _pump(tester, repo);
     final initial = repo.watchCalls;
-    expect(initial, 3);
+    // Три потока месяца и два итога «Баланса» за всё время (по умолчанию).
+    expect(initial, 5);
 
     _browse.setHistoryFilter(HistoryFilter.expenseCategories({'food'}));
     await tester.pump();
@@ -231,6 +232,7 @@ void main() {
 
     await tester.tap(_prev);
     await tester.pump();
+    // Строка «Баланс» от месяца не зависит: её потоки остаются прежними.
     expect(repo.watchCalls, initial + 3);
     await tester.pump();
     expect(repo.watchCalls, initial + 3);

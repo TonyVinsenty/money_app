@@ -8,6 +8,7 @@ import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/app/browse_scope.dart';
+import 'package:money_app/app/home_balance_stream.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
@@ -23,6 +24,7 @@ import 'package:money_app/features/csv_import/presentation/pick_csv_file.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
 import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -224,13 +226,38 @@ class _HomeTabState extends State<HomeTab> {
       _categoriesRepository = services.categories;
       _categories = services.categories.watchAll();
     }
+    // Строка «Баланс» не зависит от месяца: поток новый только при смене
+    // настройки, основной валюты или репозиториев.
+    final line = services.settings.homeBalanceLine;
+    if (line != _balanceLine ||
+        currency != _balanceCurrency ||
+        !identical(services.transactions, _balanceTransactions) ||
+        !identical(services.accounts, _balanceAccounts)) {
+      _balanceLine = line;
+      _balanceCurrency = currency;
+      _balanceTransactions = services.transactions;
+      _balanceAccounts = services.accounts;
+      _balance = watchHomeBalance(
+        line: line,
+        currency: currency,
+        transactions: services.transactions,
+        accounts: services.accounts,
+      );
+    }
   }
+
+  HomeBalanceLine? _balanceLine;
+  String? _balanceCurrency;
+  TransactionsRepository? _balanceTransactions;
+  AccountsRepository? _balanceAccounts;
+  late Stream<Money?> _balance;
 
   @override
   Widget build(BuildContext context) {
     final browse = BrowseScope.of(context);
     final month = _month!;
     return HomeScreen(
+      balanceLine: _balance,
       monthExpenses: _monthExpenses,
       monthIncome: _monthIncome,
       monthTransactions: _monthTransactions,

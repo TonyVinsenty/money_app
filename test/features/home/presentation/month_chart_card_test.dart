@@ -72,6 +72,7 @@ Future<void> _pump(
   double width = 360,
   ThemeMode mode = ThemeMode.light,
   ValueChanged<Set<String>>? onOpen,
+  Stream<Money?>? balanceLine,
 }) async {
   tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1;
@@ -99,6 +100,7 @@ Future<void> _pump(
                 month: _month,
                 ringSize: ringSize,
                 onOpenCategory: onOpen,
+                balanceLine: balanceLine,
               ),
             ),
           ),
@@ -1070,5 +1072,149 @@ void main() {
       (dot.decoration! as BoxDecoration).color,
       AppColors.light.chartPalette.first,
     );
+  });
+
+  group('строка «Баланс»', () {
+    Money rub(int minor) => Money.fromMinor(minor, 'RUB');
+    final base = [_income(1200000), _expense('food', 100)];
+
+    Future<void> pumpWith(
+      WidgetTester tester,
+      Stream<Money?>? balance, {
+      double textScale = 1,
+      double width = 360,
+      double ringSize = 280,
+    }) async {
+      await _pump(
+        tester,
+        transactions: Stream.value(base),
+        balanceLine: balance,
+        textScale: textScale,
+        width: width,
+        ringSize: ringSize,
+      );
+      await tester.pump();
+    }
+
+    testWidgets('плюс: под «Всего» строка со знаком, как у «Всего»', (
+      tester,
+    ) async {
+      await pumpWith(tester, Stream.value(rub(4530000)));
+
+      final text = 'Баланс: +${_money(4530000)}';
+      expect(_inRing(text), findsOneWidget);
+      final total = tester.getRect(_inRing('Всего'));
+      final line = tester.getRect(_inRing(text));
+      expect(line.top, greaterThan(total.bottom - 1));
+      final style = tester.widget<Text>(_inRing(text)).style!;
+      expect(style.color, AppColors.light.income);
+      expect(
+        style.fontSize,
+        lessThan(
+          tester.widget<Text>(_inRing('+${_money(1199900)}')).style!.fontSize!,
+        ),
+      );
+    });
+
+    testWidgets('минус: знак и цвет расхода', (tester) async {
+      await pumpWith(tester, Stream.value(rub(-250000)));
+
+      final text = 'Баланс: ${_money(-250000)}';
+      expect(_inRing(text), findsOneWidget);
+      expect(
+        tester.widget<Text>(_inRing(text)).style!.color,
+        AppColors.light.expense,
+      );
+    });
+
+    testWidgets('ноль: без знака и без цвета', (tester) async {
+      await pumpWith(tester, Stream.value(rub(0)));
+
+      final text = 'Баланс: ${_money(0)}';
+      expect(_inRing(text), findsOneWidget);
+      final color = tester.widget<Text>(_inRing(text)).style!.color;
+      expect(color, isNot(AppColors.light.income));
+      expect(color, isNot(AppColors.light.expense));
+    });
+
+    testWidgets(
+      'нет потока, null, ожидание и ошибка: строки нет, кольцо цело',
+      (tester) async {
+        final pending = StreamController<Money?>();
+        addTearDown(pending.close);
+        final cases = <Stream<Money?>?>[
+          null,
+          Stream.value(null),
+          pending.stream,
+          Stream<Money?>.error(StateError('boom')),
+        ];
+        for (final stream in cases) {
+          await pumpWith(tester, stream);
+          expect(find.textContaining('Баланс'), findsNothing);
+          expect(_inRing('Всего'), findsOneWidget);
+          expect(find.byType(DonutChart), findsOneWidget);
+        }
+      },
+    );
+
+    testWidgets('озвучка кольца: с «Баланс» и без него', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpWith(tester, Stream.value(rub(4530000)));
+      expect(
+        find.bySemanticsLabel(
+          'Диаграмма расходов за сентябрь. '
+          'Всего: плюс ${spokenMoney(rub(1199900))}. '
+          'Баланс: плюс ${spokenMoney(rub(4530000))}',
+        ),
+        findsOneWidget,
+      );
+
+      await pumpWith(tester, Stream.value(rub(-100)));
+      expect(
+        find.bySemanticsLabel(
+          'Диаграмма расходов за сентябрь. '
+          'Всего: плюс ${spokenMoney(rub(1199900))}. '
+          'Баланс: ${spokenMoney(rub(-100))}',
+        ),
+        findsOneWidget,
+      );
+
+      await pumpWith(tester, Stream.value(null));
+      expect(
+        find.bySemanticsLabel(
+          'Диаграмма расходов за сентябрь. '
+          'Всего: плюс ${spokenMoney(rub(1199900))}',
+        ),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    for (final (width, scale, ring) in [
+      (360.0, 2.0, 160.0),
+      (360.0, 1.0, 280.0),
+      (320.0, 2.0, 160.0),
+    ]) {
+      testWidgets('ширина $width, шрифт $scale: без переполнения, строка '
+          'внутри дырки кольца', (tester) async {
+        await pumpWith(
+          tester,
+          Stream.value(rub(123456789012)),
+          textScale: scale,
+          width: width,
+          ringSize: ring,
+        );
+
+        expect(tester.takeException(), isNull);
+        final line = find.textContaining('Баланс: +');
+        expect(line, findsOneWidget);
+        final box = tester.getRect(find.byType(DonutChart));
+        final rect = tester.getRect(line);
+        expect(box.contains(rect.topLeft), isTrue);
+        expect(box.contains(rect.bottomRight), isTrue);
+        final hole = box.width * 0.66;
+        expect(rect.width, lessThanOrEqualTo(hole + 0.5));
+      });
+    }
   });
 }

@@ -81,8 +81,13 @@ class MonthChartCard extends StatefulWidget {
     this.onOpenCategory,
     this.isCurrentMonth = true,
     this.currency = rubCurrencyCode,
+    this.balanceLine,
     super.key,
   });
+
+  /// Сумма для строки «Баланс» под «Всего» в центре кольца. Нет потока,
+  /// `null` в нём, ожидание или ошибка - строки нет. Поток создаёт вызывающий.
+  final Stream<Money?>? balanceLine;
 
   /// Код валюты кольца (основная валюта); операции других валют в поток не
   /// приходят.
@@ -260,54 +265,63 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final lit = _highlight;
     final highlighted = lit != null && lit < slices.length ? lit : null;
 
-    // spokenMoney сам добавляет «минус»; для плюса приставку ставим тут.
-    final balanceSpoken = balance > Money.zero(data.currency)
-        ? 'плюс ${spokenMoney(balance)}'
-        : spokenMoney(balance);
-    final label =
-        'Диаграмма расходов за ${formatMonthName(month)}. '
-        'Всего: $balanceSpoken';
-
     final side = widget.ringSize;
 
     // Квадрат с жёсткими сторонами: карточка на «Главной» тянется по
     // intrinsic-высоте содержимого, а при одной лишь ширине кольцо мерилось бы
     // по всей ширине карточки, и экран прокручивался бы зря.
-    final ring = SizedBox.square(
-      dimension: side,
-      child: DonutChart(
-        segments: [
-          for (var i = 0; i < slices.length; i++)
-            DonutSegment(
-              weight: slices[i].amount.minorUnits,
-              color: _sliceColor(slices[i], i, colors),
-            ),
-        ],
-        highlightedIndex: highlighted,
-        onHighlight: (index) => setState(() => _highlight = index),
-        onSelect: open == null
-            ? null
-            : (index) {
-                if (index >= slices.length) return;
-                final ids = idsOf(slices[index]);
-                if (ids != null) open(ids);
-              },
-        semanticsLabel: label,
-        center: SizedBox(
-          width: side * 0.66,
-          child: highlighted == null
-              ? _totalCenter(theme, colors, balance)
-              : _sliceCenter(
-                  theme,
-                  slices[highlighted],
-                  slices[highlighted].isOther
-                      ? 'Остальное'
-                      : names[slices[highlighted].categoryIds.single] ??
-                            noCategoryLabel,
-                ),
+    Widget ringWith(Money? line) {
+      final label =
+          'Диаграмма расходов за ${formatMonthName(month)}. '
+          'Всего: ${_spokenSigned(balance)}'
+          '${line == null ? '' : '. Баланс: ${_spokenSigned(line)}'}';
+      return SizedBox.square(
+        dimension: side,
+        child: DonutChart(
+          segments: [
+            for (var i = 0; i < slices.length; i++)
+              DonutSegment(
+                weight: slices[i].amount.minorUnits,
+                color: _sliceColor(slices[i], i, colors),
+              ),
+          ],
+          highlightedIndex: highlighted,
+          onHighlight: (index) => setState(() => _highlight = index),
+          onSelect: open == null
+              ? null
+              : (index) {
+                  if (index >= slices.length) return;
+                  final ids = idsOf(slices[index]);
+                  if (ids != null) open(ids);
+                },
+          semanticsLabel: label,
+          center: SizedBox(
+            width: side * 0.66,
+            child: highlighted == null
+                ? _totalCenter(theme, colors, balance, line)
+                : _sliceCenter(
+                    theme,
+                    slices[highlighted],
+                    slices[highlighted].isOther
+                        ? 'Остальное'
+                        : names[slices[highlighted].categoryIds.single] ??
+                              noCategoryLabel,
+                  ),
+          ),
         ),
-      ),
-    );
+      );
+    }
+
+    // Строка «Баланс» приходит отдельным потоком: пока данных нет, при ошибке
+    // и при null кольцо рисуется без неё.
+    final balanceStream = widget.balanceLine;
+    final ring = balanceStream == null
+        ? ringWith(null)
+        : StreamBuilder<Money?>(
+            stream: balanceStream,
+            builder: (context, snapshot) =>
+                ringWith(snapshot.hasError ? null : snapshot.data),
+          );
 
     final Widget legend = items.isEmpty
         ? Text(
@@ -339,15 +353,22 @@ class _MonthChartCardState extends State<MonthChartCard> {
   /// Центр без подсветки: «Всего» и баланс месяца (доходы минус расходы). Цвет и
   /// знак только у суммы: плюс цветом дохода, минус цветом расхода, ноль
   /// нейтрально.
-  Widget _totalCenter(ThemeData theme, AppColors colors, Money balance) {
-    final color = balance.isZero
+  ///
+  /// Под ними - мельче - строка «Баланс: …» ([line]), если она есть; знак и
+  /// цвет те же, что у «Всего».
+  Widget _totalCenter(
+    ThemeData theme,
+    AppColors colors,
+    Money balance,
+    Money? line,
+  ) {
+    Color? colorOf(Money m) => m.isZero
         ? null
-        : balance.isNegative
+        : m.isNegative
         ? colors.expense
         : colors.income;
-    final text = balance.isZero || balance.isNegative
-        ? formatMoney(balance)
-        : '+${formatMoney(balance)}';
+    final color = colorOf(balance);
+    final text = _signedText(balance);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -366,9 +387,25 @@ class _MonthChartCardState extends State<MonthChartCard> {
             style: theme.textTheme.headlineSmall?.copyWith(color: color),
           ),
         ),
+        if (line != null)
+          _fit(
+            Text(
+              'Баланс: ${_signedText(line)}',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(color: colorOf(line)),
+            ),
+          ),
       ],
     );
   }
+
+  /// Сумма с «+» для плюса (минус даёт formatMoney, ноль без знака).
+  String _signedText(Money m) =>
+      m.isZero || m.isNegative ? formatMoney(m) : '+${formatMoney(m)}';
+
+  /// spokenMoney сам добавляет «минус»; для плюса приставку ставим тут.
+  String _spokenSigned(Money m) =>
+      m > Money.zero(m.currency) ? 'плюс ${spokenMoney(m)}' : spokenMoney(m);
 
   /// Строка в дырке кольца: длинная сумма уменьшается, а не вылезает.
   Widget _fit(Widget child) => FittedBox(fit: BoxFit.scaleDown, child: child);
