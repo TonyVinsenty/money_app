@@ -11,6 +11,7 @@ import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/app/home_balance_stream.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -76,11 +77,22 @@ final List<AppTab> defaultAppTabs = List.unmodifiable(<AppTab>[
 
 /// Вкладка «Настройки»: связывает экран фичи `settings` с настройками
 /// приложения и маршрутами. Сам `SettingsScreen` их не знает (ADR 0002).
-class SettingsTab extends StatelessWidget {
+class SettingsTab extends StatefulWidget {
   const SettingsTab({this.pickFile = pickCsvFile, super.key});
 
   /// Окно выбора файла для загрузки из CSV; в тестах — фейк.
   final PickFile pickFile;
+
+  @override
+  State<SettingsTab> createState() => _SettingsTabState();
+}
+
+class _SettingsTabState extends State<SettingsTab> {
+  /// Самый ранний день операций (`null` - операций нет): нужен, чтобы
+  /// предупреждать о давнем экспорте только при непустой базе. Поток берём
+  /// один раз, иначе каждая перерисовка подписывалась бы заново.
+  Stream<DateOnly?>? _firstDay;
+  TransactionsRepository? _firstDayRepository;
 
   /// Выбор файла → экран «Загрузка из CSV» → итог загрузки или `null`.
   /// Копия файла удаляется после закрытия экрана.
@@ -89,7 +101,7 @@ class SettingsTab extends StatelessWidget {
     AppServices services,
   ) async {
     final navigator = Navigator.of(context);
-    final path = await pickFile();
+    final path = await widget.pickFile();
     if (path == null) return null;
     try {
       return await navigator.pushNamed<CsvImportResult>(
@@ -116,8 +128,28 @@ class SettingsTab extends StatelessWidget {
     // AppScope.of подписывает вкладку на настройки: выбранная тема в списке
     // обновляется сразу после нажатия.
     final services = AppScope.of(context);
+    if (_firstDayRepository != services.transactions) {
+      _firstDayRepository = services.transactions;
+      _firstDay = services.transactions.watchFirstDay();
+    }
+    return StreamBuilder<DateOnly?>(
+      stream: _firstDay,
+      builder: (context, snapshot) => _screen(
+        context,
+        services,
+        hasOperations: snapshot.hasData && snapshot.data != null,
+      ),
+    );
+  }
+
+  Widget _screen(
+    BuildContext context,
+    AppServices services, {
+    required bool hasOperations,
+  }) {
     final settings = services.settings;
     return SettingsScreen(
+      hasOperations: hasOperations,
       themeMode: settings.themeMode,
       onThemeModeChanged: settings.setThemeMode,
       homeBalanceLine: settings.homeBalanceLine,

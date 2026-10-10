@@ -21,6 +21,7 @@ Widget _app({
   Future<String> Function()? onExport,
   ShareFile? shareFile,
   DateOnly? lastExportDay,
+  bool hasOperations = false,
   VoidCallback? onExportShared,
   Future<CsvImportResult?> Function()? onImportCsv,
   Future<void> Function()? onClearAll,
@@ -53,6 +54,7 @@ Widget _app({
           onExportCsv: onExport ?? () async => '/tmp/zuno-export.csv',
           shareFile: shareFile ?? (_) async => true,
           lastExportDay: lastExportDay,
+          hasOperations: hasOperations,
           today: DateOnly(2026, 10, 7),
           onExportShared: onExportShared ?? () {},
           onImportCsv: onImportCsv ?? () async => null,
@@ -90,6 +92,54 @@ void main() {
   ) async {
     await tester.pumpWidget(_app());
     expect(find.text('Версия 0.1.0 (19)'), findsOneWidget);
+  });
+
+  group('предупреждение о давнем экспорте', () {
+    // «Сегодня» в тестовом экране — 7 октября 2026.
+    Future<Text> subtitle(WidgetTester tester, String text) async =>
+        tester.widget<Text>(find.text(text));
+
+    testWidgets('14 дней назад: без предупреждения', (tester) async {
+      await tester.pumpWidget(
+        _app(lastExportDay: DateOnly(2026, 9, 23), hasOperations: true),
+      );
+      expect(find.text('Последний экспорт: 23 сентября'), findsOneWidget);
+      expect(find.textContaining('сделайте копию'), findsNothing);
+    });
+
+    testWidgets('15 дней назад: слова и цвет предупреждения', (tester) async {
+      await tester.pumpWidget(
+        _app(lastExportDay: DateOnly(2026, 9, 22), hasOperations: true),
+      );
+      const text = 'Последний экспорт: 22 сентября — давно, сделайте копию';
+      final widget = await subtitle(tester, text);
+      final context = tester.element(find.text(text));
+      expect(widget.style?.color, Theme.of(context).colorScheme.error);
+    });
+
+    testWidgets('15 дней назад, но операций нет: без предупреждения', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(lastExportDay: DateOnly(2026, 9, 22)));
+      expect(find.textContaining('сделайте копию'), findsNothing);
+    });
+
+    testWidgets('экспорта не было: пустая база - без предупреждения', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app());
+      expect(find.text('Последний экспорт: ещё не было'), findsOneWidget);
+    });
+
+    testWidgets('экспорта не было, операции есть: предупреждение', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(hasOperations: true));
+      expect(
+        find.text('Последний экспорт: ещё не было — сделайте копию'),
+        findsOneWidget,
+      );
+    });
   });
 
   testWidgets('три варианта темы, выбран текущий', (tester) async {

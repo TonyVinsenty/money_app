@@ -159,6 +159,26 @@ String lastExportLabel(DateOnly? day, DateOnly today) {
   return 'Последний экспорт: $text';
 }
 
+/// Через сколько дней без выгрузки напоминаем о копии (больше этого числа).
+const staleExportDays = 14;
+
+/// Нужно ли предупреждение «давно не было экспорта»: операции есть, а
+/// выгрузки не было или с неё прошло больше [staleExportDays] дней.
+bool isExportStale({
+  required DateOnly? lastExportDay,
+  required DateOnly today,
+  required bool hasOperations,
+}) {
+  if (!hasOperations) return false;
+  if (lastExportDay == null) return true;
+  return lastExportDay.addDays(staleExportDays) < today;
+}
+
+/// Подпись под пунктом экспорта, когда нужна копия: слова, а не только цвет.
+String staleExportLabel(DateOnly? day, DateOnly today) => day == null
+    ? 'Последний экспорт: ещё не было — сделайте копию'
+    : '${lastExportLabel(day, today)} — давно, сделайте копию';
+
 /// Экран (вкладка) «Настройки»: выбор темы, переход к категориям и экспорт CSV.
 ///
 /// Экран не знает, где хранится тема, как устроена база и как отправляется файл:
@@ -180,6 +200,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onImportCsv,
     required this.onClearAll,
     required this.version,
+    this.hasOperations = false,
     this.shareFile = shareCsvFile,
     super.key,
   });
@@ -216,6 +237,9 @@ class SettingsScreen extends StatefulWidget {
   /// или `null`, если ничего не загружено (отмена). Бросает исключение, если
   /// файл не удалось открыть.
   final Future<CsvImportResult?> Function() onImportCsv;
+
+  /// Есть ли в базе хотя бы одна операция (без неё предупреждать не о чем).
+  final bool hasOperations;
 
   /// Версия приложения вида «0.1.0+19»; показывается внизу списка.
   final String version;
@@ -470,7 +494,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const Divider(),
         ListTile(
           title: const Text(exportCsvItemLabel),
-          subtitle: Text(lastExportLabel(widget.lastExportDay, widget.today)),
+          subtitle:
+              isExportStale(
+                lastExportDay: widget.lastExportDay,
+                today: widget.today,
+                hasOperations: widget.hasOperations,
+              )
+              ? Text(
+                  staleExportLabel(widget.lastExportDay, widget.today),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                )
+              : Text(lastExportLabel(widget.lastExportDay, widget.today)),
           // Пока идёт выгрузка, вместо стрелки крутится индикатор, а пункт
           // недоступен: повторное нажатие не запустит вторую выгрузку.
           trailing: _exporting
