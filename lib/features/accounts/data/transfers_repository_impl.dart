@@ -138,6 +138,24 @@ class DriftTransfersRepository implements TransfersRepository {
         (t) => OrderingTerm.desc(t.occurredAt),
         (t) => OrderingTerm.desc(t.id),
       ]);
+    return _watchMapped(query);
+  }
+
+  @override
+  Stream<List<Transfer>> watchAll() {
+    final query = _db.select(_db.transfers)
+      ..where((t) => t.deletedAt.isNull())
+      ..orderBy([
+        (t) => OrderingTerm.desc(t.occurredOn),
+        (t) => OrderingTerm.desc(t.occurredAt),
+        (t) => OrderingTerm.desc(t.id),
+      ]);
+    return _watchMapped(query);
+  }
+
+  Stream<List<Transfer>> _watchMapped(
+    SimpleSelectStatement<$TransfersTable, TransferRow> query,
+  ) {
     return query
         .watch()
         .map((rows) => rows.map(transferFromRow).toList())

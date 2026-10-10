@@ -34,4 +34,8 @@ abstract interface class TransfersRepository {
   /// Поток не удалённых переводов, где [accountId] — «откуда» или «куда»:
   /// от новых к старым (день, момент, `id`), как в «Истории».
   Stream<List<Transfer>> watchForAccount(String accountId);
+
+  /// Поток всех не удалённых переводов (журнал счетов): от новых к старым
+  /// (день, момент, `id`).
+  Stream<List<Transfer>> watchAll();
 }

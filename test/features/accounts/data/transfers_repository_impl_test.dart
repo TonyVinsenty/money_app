@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/errors/data_corrupted_exception.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
@@ -229,6 +230,74 @@ void main() {
       expect(await idsFor('c'), ['other', 'morning']);
     },
   );
+
+  Future<List<String>> allIds() async => [
+    for (final t in await transfers.watchAll().first) t.id,
+  ];
+
+  test('watchAll: all accounts, newest first, id breaks ties', () async {
+    await transfers.add(tr('old', day: 1));
+    await transfers.add(tr('other', from: 'b', to: 'c', day: 9));
+    await transfers.add(tr('m', from: 'c', to: 'a', day: 5, hour: 8));
+    await transfers.add(tr('e', day: 5, hour: 20));
+    await transfers.add(tr('s1', day: 5, hour: 8));
+    expect(await allIds(), ['other', 'e', 's1', 'm', 'old']);
+  });
+
+  test(
+    'watchAll: empty, and deleted transfers are out until restore',
+    () async {
+      expect(await allIds(), isEmpty);
+      await transfers.add(tr('t1'));
+      await transfers.add(tr('t2', day: 2));
+      await transfers.softDelete('t1');
+      expect(await allIds(), ['t2']);
+      await transfers.restore('t1');
+      expect(await allIds(), ['t2', 't1']);
+    },
+  );
+
+  test('watchAll: transfers of different currencies', () async {
+    await addAccount('u1', currency: 'USD');
+    await addAccount('u2', currency: 'USD');
+    await transfers.add(tr('rub', day: 1));
+    await transfers.add(
+      tr('usd', from: 'u1', to: 'u2', currency: 'USD', day: 2),
+    );
+    final list = await transfers.watchAll().first;
+    expect([for (final t in list) t.amount.currency], ['USD', 'RUB']);
+  });
+
+  test('watchAll emits again after add, update and softDelete', () async {
+    final expectation = expectLater(
+      transfers.watchAll().map((l) => [for (final t in l) '${t.id}:${t.note}']),
+      emitsInOrder([
+        isEmpty,
+        ['t1:null'],
+        ['t1:rent'],
+        isEmpty,
+      ]),
+    );
+    await Future<void>.delayed(Duration.zero);
+    await transfers.add(tr('t1'));
+    await Future<void>.delayed(Duration.zero);
+    await transfers.update(tr('t1', note: 'rent'));
+    await Future<void>.delayed(Duration.zero);
+    await transfers.softDelete('t1');
+    await expectation;
+  });
+
+  test('watchAll: a corrupted row is DataCorruptedException', () async {
+    await db.customStatement(
+      'INSERT INTO transfers (id, from_account_id, to_account_id, '
+      'amount_minor, currency, occurred_on, occurred_at, created_at, '
+      "updated_at) VALUES ('bad', 'a', 'b', 100, 'RUB', 20261340, 1, 1, 1)",
+    );
+    await expectLater(
+      transfers.watchAll().first,
+      throwsA(isA<DataCorruptedException>()),
+    );
+  });
 
   test('watchForAccount emits again after a write', () async {
     final stream = transfers.watchForAccount('a');

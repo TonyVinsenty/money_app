@@ -6,6 +6,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
+import 'package:money_app/features/accounts/data/transfers_repository_impl.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 
@@ -204,6 +205,33 @@ void main() {
           }
         }
       }
+    });
+
+    test('transfers watchAll: the SQL drift builds uses '
+        'transfers_occurred_on_at, no full scan', () async {
+      final spy = _SelectSpy();
+      final spied = AppDatabase(NativeDatabase.memory().interceptWith(spy));
+      addTearDown(spied.close);
+      await spied.customSelect('SELECT 1').get();
+      await DriftTransfersRepository(
+        spied,
+        clock: FixedClock(DateTime.utc(2026, 10, 10, 12)),
+      ).watchAll().first;
+
+      final select = spy.selects.lastWhere(
+        (s) => s.sql.contains('FROM "transfers"'),
+      );
+      final rows = await spied
+          .customSelect(
+            'EXPLAIN QUERY PLAN ${select.sql}',
+            variables: [for (final a in select.args) Variable<Object>(a)],
+          )
+          .get();
+      final text = rows.map((r) => r.read<String>('detail')).join('\n');
+      expect(text, contains('INDEX transfers_occurred_on_at'), reason: text);
+      // Читаются все живые переводы, поэтому обход есть, но по индексу
+      // (уже в нужном порядке); сортировка только по `id` для равных моментов.
+      expect(text, contains('SCAN transfers USING INDEX'), reason: text);
     });
 
     test('documentation: without "deleted_at IS NULL" the partial index is '

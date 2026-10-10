@@ -31,6 +31,9 @@ class FakeTransfersRepository extends Fake implements TransfersRepository {
   @override
   Stream<List<Transfer>> watchForAccount(String accountId) =>
       Stream.value(const []);
+
+  @override
+  Stream<List<Transfer>> watchAll() => Stream.value(const []);
 }
 
 /// Фейк переводов «в памяти»: `add`, `update`, `softDelete`, `restore`
@@ -49,19 +52,26 @@ class InMemoryTransfersRepository extends Fake implements TransfersRepository {
   Exception? failDeleteWith;
 
   @override
-  Stream<List<Transfer>> watchForAccount(String accountId) => Stream.multi((c) {
-    List<Transfer> read() =>
-        [
-          for (final t in all)
-            if (t.fromAccountId == accountId || t.toAccountId == accountId) t,
-        ]..sort((a, b) {
-          final byDay = b.occurredOn.compareTo(a.occurredOn);
-          return byDay != 0 ? byDay : b.occurredAt.compareTo(a.occurredAt);
-        });
-    c.add(read());
-    final sub = _changes.stream.listen((_) => c.add(read()));
-    c.onCancel = sub.cancel;
-  });
+  Stream<List<Transfer>> watchForAccount(String accountId) =>
+      _watch((t) => t.fromAccountId == accountId || t.toAccountId == accountId);
+
+  @override
+  Stream<List<Transfer>> watchAll() => _watch((_) => true);
+
+  Stream<List<Transfer>> _watch(bool Function(Transfer) test) =>
+      Stream.multi((c) {
+        List<Transfer> read() =>
+            [
+              for (final t in all)
+                if (test(t)) t,
+            ]..sort((a, b) {
+              final byDay = b.occurredOn.compareTo(a.occurredOn);
+              return byDay != 0 ? byDay : b.occurredAt.compareTo(a.occurredAt);
+            });
+        c.add(read());
+        final sub = _changes.stream.listen((_) => c.add(read()));
+        c.onCancel = sub.cancel;
+      });
 
   @override
   Future<List<Transfer>> findAllLive() async => List.of(all);
