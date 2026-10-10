@@ -12,6 +12,7 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
+import 'package:money_app/features/recurring/domain/recurring_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 
 /// Тексты экрана загрузки из CSV (шаг i.15). Здесь же — как превратить ошибки
@@ -259,6 +260,34 @@ String _rowErrorText(CsvRowError error) {
     CsvTransferCurrencyNoOpeningBalance() =>
       'перевод в валюте ${error.value}: в файле нет начального остатка '
           'счёта в этой валюте',
+    CsvRecurringColumnOnOperation(:final column) =>
+      'в колонке «$column» стоит $value — у обычной операции она должна быть '
+          'пустой. Похоже, колонки съехали',
+    CsvInvalidRepeat() =>
+      value == null
+          ? 'не указан повтор — нужно «$csvRepeatWeek», «$csvRepeatMonth» '
+                'или «$csvRepeatYear»'
+          : 'повтор $value — нужно «$csvRepeatWeek», «$csvRepeatMonth» '
+                'или «$csvRepeatYear»',
+    CsvEveryOutOfRange() =>
+      'в колонке «$csvColumnEvery» ${value ?? 'пусто'} — нужно целое число '
+          'от $recurringEveryMin до $recurringEveryMax или пусто',
+    CsvInvalidUntil() =>
+      'в колонке «$csvColumnUntil» $value — нужна настоящая дата в виде '
+          'ДД.ММ.ГГГГ или пусто',
+    CsvUntilBeforeStart() =>
+      'в колонке «$csvColumnUntil» $value — это раньше даты первого платежа',
+    CsvInvalidRemind() =>
+      'в колонке «$csvColumnRemind» ${value ?? 'пусто'} — нужно '
+          '«$csvRemindYes», «$csvRemindNo» или пусто',
+    CsvRecurringZeroAmount() =>
+      'сумма $value — у регулярного платежа нужна сумма больше нуля',
+    CsvRecurringTitle() =>
+      value == null
+          ? 'у регулярного платежа не указано название '
+                '(колонка «$csvColumnNote»)'
+          : 'название регулярного платежа длиннее $recurringTitleMaxLength '
+                'символов',
     CsvTransferNoAccount() => 'у перевода не указан счёт',
     CsvTransferNoToAccount() => 'у перевода не указан счёт зачисления',
     CsvTransferSameAccount() => 'у перевода счёт и счёт зачисления совпадают',

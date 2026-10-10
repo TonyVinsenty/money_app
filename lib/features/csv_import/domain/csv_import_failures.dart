@@ -202,6 +202,51 @@ final class CsvExtraCells extends CsvRowError {
   const CsvExtraCells(super.line, super.value);
 }
 
+/// У обычной операции, остатка или перевода заполнена колонка [column]
+/// (`Повтор`, `Каждые`, `До` или `Напоминать`) со значением [value] -
+/// колонки съехали.
+final class CsvRecurringColumnOnOperation extends CsvRowError {
+  const CsvRecurringColumnOnOperation(super.line, super.value, this.column);
+
+  final String column;
+}
+
+/// `Повтор` регулярного платежа не `неделя`, `месяц` или `год` (или пуст).
+final class CsvInvalidRepeat extends CsvRowError {
+  const CsvInvalidRepeat(super.line, super.value);
+}
+
+/// `Каждые` не целое число от 1 до 99.
+final class CsvEveryOutOfRange extends CsvRowError {
+  const CsvEveryOutOfRange(super.line, super.value);
+}
+
+/// `До` не `Д.М.ГГГГ` или такого дня нет в календаре.
+final class CsvInvalidUntil extends CsvRowError {
+  const CsvInvalidUntil(super.line, super.value);
+}
+
+/// `До` раньше даты первого платежа.
+final class CsvUntilBeforeStart extends CsvRowError {
+  const CsvUntilBeforeStart(super.line, super.value);
+}
+
+/// `Напоминать` не `да` и не `нет`.
+final class CsvInvalidRemind extends CsvRowError {
+  const CsvInvalidRemind(super.line, super.value);
+}
+
+/// У регулярного платежа сумма 0 ([value] - как в файле).
+final class CsvRecurringZeroAmount extends CsvRowError {
+  const CsvRecurringZeroAmount(super.line, super.value);
+}
+
+/// Название регулярного платежа (`Комментарий`) пустое или длиннее 40
+/// символов; [value] - название (пусто, если его нет).
+final class CsvRecurringTitle extends CsvRowError {
+  const CsvRecurringTitle(super.line, super.value);
+}
+
 /// У `Перевод` не указан `Счёт` (откуда): ни имени, ни ID.
 final class CsvTransferNoAccount extends CsvRowError {
   const CsvTransferNoAccount(super.line, super.value);

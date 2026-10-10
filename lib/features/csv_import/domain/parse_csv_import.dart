@@ -11,6 +11,8 @@ import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
+import 'package:money_app/features/recurring/domain/recurring_rules.dart';
 import 'package:money_app/features/transactions/domain/occurrence.dart';
 import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -59,6 +61,33 @@ final class ParsedCsvRow {
   /// Ключи значков как в файле (обрезаны по краям); `null` — значка нет.
   final String? categoryIconKey;
   final String? subcategoryIconKey;
+}
+
+/// Строка `Регулярный расход`/`Регулярный доход`, прошедшая все проверки
+/// (ADR 0011, п. 10). Общие поля (сумма, категория, счёт, id платежа в
+/// [ParsedCsvRow.transactionId], название в [ParsedCsvRow.note]) лежат в
+/// [row]; `row.day` — дата первого платежа (может быть в будущем), а
+/// `row.occurredAt` — только полночь UTC этого дня и в запись не идёт.
+final class ParsedRecurring {
+  const ParsedRecurring({
+    required this.row,
+    required this.unit,
+    required this.every,
+    required this.endsOn,
+    required this.remind,
+  });
+
+  final ParsedCsvRow row;
+  final RepeatUnit unit;
+
+  /// 1-99 (пустая ячейка - 1).
+  final int every;
+
+  /// Последний день включительно; `null` - бессрочно.
+  final DateOnly? endsOn;
+
+  /// Пустая ячейка - `да`.
+  final bool remind;
 }
 
 /// Строка `Начальный остаток`, прошедшая все проверки (ADR 0010, п. 10).
@@ -152,7 +181,11 @@ final class CsvImportParsed extends CsvImportParseResult {
     required this.errors,
     this.openingBalances = const [],
     this.transfers = const [],
+    this.recurring = const [],
   });
+
+  /// Строки регулярных платежей.
+  final List<ParsedRecurring> recurring;
 
   /// Доходы и расходы.
   final List<ParsedCsvRow> rows;
@@ -221,6 +254,7 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
   final rows = <ParsedCsvRow>[];
   final openingBalances = <ParsedOpeningBalance>[];
   final transfers = <ParsedTransfer>[];
+  final recurring = <ParsedRecurring>[];
   final errors = <CsvRowError>[];
   final seenIds = <String>{};
   for (var i = 1; i < table.length; i++) {
@@ -238,6 +272,19 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
     }
 
     final typeText = field(csvColumnType).trim().toLowerCase();
+    if (_recurringTypes.contains(typeText)) {
+      final payment = _parseRecurring(i + 1, field, clock, seenIds, errors);
+      if (payment != null) recurring.add(payment);
+      continue;
+    }
+    // Повтор, Каждые, До, Напоминать бывают только у регулярных платежей.
+    for (final column in _recurringColumns) {
+      final value = field(column).trim();
+      if (value.isNotEmpty) {
+        errors.add(CsvRecurringColumnOnOperation(i + 1, value, column));
+        break;
+      }
+    }
     if (typeText == csvTypeOpeningBalance.toLowerCase()) {
       final balance = _parseOpeningBalance(i + 1, field, clock, errors);
       if (balance != null) openingBalances.add(balance);
@@ -256,18 +303,102 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
     errors: errors,
     openingBalances: openingBalances,
     transfers: transfers,
+    recurring: recurring,
   );
 }
 
-/// Разбирает одну строку; ошибки дописывает в [errors]. Вернёт строку,
-/// только если ошибок в ней нет.
-ParsedCsvRow? _parseRow(
+final Set<String> _recurringTypes = {
+  csvTypeRecurringExpense.toLowerCase(),
+  csvTypeRecurringIncome.toLowerCase(),
+};
+const List<String> _recurringColumns = [
+  csvColumnRepeat,
+  csvColumnEvery,
+  csvColumnUntil,
+  csvColumnRemind,
+];
+
+/// Строка регулярного платежа: общие поля разбирает [_parseRow] (дата в
+/// будущем здесь не ошибка), остальное - здесь. Все ошибки строки собираются.
+ParsedRecurring? _parseRecurring(
   int line,
   String Function(String column) field,
   Clock clock,
   Set<String> seenIds,
   List<CsvRowError> errors,
 ) {
+  final before = errors.length;
+  final row = _parseRow(line, field, clock, seenIds, errors, recurring: true);
+
+  final amountText = field(csvColumnAmount).trim();
+  if (row != null && row.amount.isZero) {
+    errors.add(CsvRecurringZeroAmount(line, amountText));
+  }
+  final title = normalizeTransactionNote(field(csvColumnNote));
+  final titleLength = title?.runes.length ?? 0;
+  // Слишком длинный комментарий уже назван ошибкой в _parseRow.
+  if (titleLength == 0 ||
+      (titleLength > recurringTitleMaxLength &&
+          titleLength <= transactionNoteMaxLength)) {
+    errors.add(CsvRecurringTitle(line, title ?? ''));
+  }
+
+  final repeatText = field(csvColumnRepeat).trim();
+  final unit = switch (repeatText.toLowerCase()) {
+    csvRepeatWeek => RepeatUnit.week,
+    csvRepeatMonth => RepeatUnit.month,
+    csvRepeatYear => RepeatUnit.year,
+    _ => null,
+  };
+  if (unit == null) errors.add(CsvInvalidRepeat(line, repeatText));
+
+  final everyText = field(csvColumnEvery).trim();
+  final every = everyText.isEmpty ? 1 : int.tryParse(everyText);
+  final everyOk =
+      every != null && every >= recurringEveryMin && every <= recurringEveryMax;
+  if (!everyOk) errors.add(CsvEveryOutOfRange(line, everyText));
+
+  final untilText = field(csvColumnUntil).trim();
+  final until = _parseDay(untilText);
+  if (untilText.isNotEmpty) {
+    if (until == null) {
+      errors.add(CsvInvalidUntil(line, untilText));
+    } else if (row != null && until < row.day) {
+      errors.add(CsvUntilBeforeStart(line, untilText));
+    }
+  }
+
+  final remindText = field(csvColumnRemind).trim().toLowerCase();
+  final remind = switch (remindText) {
+    '' || csvRemindYes => true,
+    csvRemindNo => false,
+    _ => null,
+  };
+  if (remind == null) {
+    errors.add(CsvInvalidRemind(line, field(csvColumnRemind).trim()));
+  }
+
+  if (errors.length > before || row == null || unit == null) return null;
+  return ParsedRecurring(
+    row: row,
+    unit: unit,
+    every: every!,
+    endsOn: until,
+    remind: remind!,
+  );
+}
+
+/// Разбирает одну строку; ошибки дописывает в [errors]. Вернёт строку,
+/// только если ошибок в ней нет. [recurring] - строка регулярного платежа:
+/// тип из `Регулярный …`, дата может быть в будущем.
+ParsedCsvRow? _parseRow(
+  int line,
+  String Function(String column) field,
+  Clock clock,
+  Set<String> seenIds,
+  List<CsvRowError> errors, {
+  bool recurring = false,
+}) {
   final today = clock.today();
   final before = errors.length;
 
@@ -275,14 +406,14 @@ ParsedCsvRow? _parseRow(
   final day = _parseDay(dateText);
   if (day == null) {
     errors.add(CsvInvalidDate(line, dateText));
-  } else if (day > today) {
+  } else if (day > today && !recurring) {
     errors.add(CsvFutureDate(line, dateText));
   }
 
   final typeText = field(csvColumnType).trim();
   final type = switch (typeText.toLowerCase()) {
-    'расход' => TransactionType.expense,
-    'доход' => TransactionType.income,
+    'расход' || 'регулярный расход' => TransactionType.expense,
+    'доход' || 'регулярный доход' => TransactionType.income,
     _ => null,
   };
   if (type == null) errors.add(CsvInvalidType(line, typeText));
@@ -385,7 +516,9 @@ ParsedCsvRow? _parseRow(
   return ParsedCsvRow(
     line: line,
     day: day,
-    occurredAt: _momentOf(day, field(csvColumnOccurredAtUtc), clock),
+    occurredAt: recurring
+        ? DateTime.utc(day.year, day.month, day.day)
+        : _momentOf(day, field(csvColumnOccurredAtUtc), clock),
     type: type,
     amount: amount,
     categoryName: category,

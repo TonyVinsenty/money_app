@@ -3,6 +3,7 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
@@ -12,6 +13,7 @@ import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:uuid/uuid.dart';
@@ -41,7 +43,12 @@ final class CsvImportPlan {
     required this.errors,
     this.accountsToCreate = const [],
     this.transfers = const [],
+    this.recurring = const [],
   });
+
+  /// Регулярные платежи к добавлению, в порядке строк файла; пишутся после
+  /// операций.
+  final List<RecurringPayment> recurring;
 
   /// Операции к добавлению, в порядке строк файла.
   final List<Transaction> transactions;
@@ -78,7 +85,9 @@ final class CsvImportPlan {
 /// `Начальный остаток`. [isKnownIconKey] говорит, знает ли приложение значок:
 /// пустой и незнакомый ключ из файла заменяется на «Другое» (ADR 0010, п. 17).
 /// [parsedTransfers] - строки `Перевод`, [liveTransferIds] и
-/// [deletedTransferIds] - id переводов в базе.
+/// [deletedTransferIds] - id переводов в базе. [recurring] - строки
+/// регулярных платежей, [liveRecurringIds] и [deletedRecurringIds] - id
+/// платежей в базе, [today] - день загрузки (станет `trackedThrough`).
 CsvImportPlan planCsvImport({
   required List<ParsedCsvRow> rows,
   required List<Category> categories,
@@ -93,6 +102,10 @@ CsvImportPlan planCsvImport({
   List<ParsedTransfer> parsedTransfers = const [],
   Set<String> liveTransferIds = const {},
   Set<String> deletedTransferIds = const {},
+  List<ParsedRecurring> recurring = const [],
+  Set<String> liveRecurringIds = const {},
+  Set<String> deletedRecurringIds = const {},
+  DateOnly? today,
 }) {
   final live = {for (final id in liveTransactionIds) id.toLowerCase()};
   final deleted = {for (final id in deletedTransactionIds) id.toLowerCase()};
@@ -121,26 +134,10 @@ CsvImportPlan planCsvImport({
   final fingerprintCounts = <String, int>{};
   var skippedDeleted = 0;
 
-  for (final row in rows) {
-    final String id;
-    final given = row.transactionId;
-    if (given != null) {
-      id = given.toLowerCase();
-    } else {
-      final base = _fingerprintBase(row);
-      final n = (fingerprintCounts[base] ?? 0) + 1;
-      fingerprintCounts[base] = n;
-      id = const Uuid().v5(csvImportFingerprintNamespace, '$base$_sep$n');
-    }
-    if (live.contains(id)) {
-      skippedExisting++;
-      continue;
-    }
-    if (deleted.contains(id)) {
-      skippedDeleted++;
-      continue;
-    }
-
+  // Категория, подкатегория и счёт строки: найденные или будущие (их создаст
+  // импорт). `null` - строка с ошибкой, она уже записана в [errors]. Общая
+  // для операций и регулярных платежей.
+  _Resolved? resolve(ParsedCsvRow row) {
     final kind = row.type.categoryKind;
 
     // Сначала только проверки: пока строка может оказаться с ошибкой,
@@ -205,7 +202,7 @@ CsvImportPlan planCsvImport({
       );
       rowFailed = true;
     }
-    if (rowFailed) continue;
+    if (rowFailed) return null;
 
     // Строка годна: создаём недостающее.
     if (account == null && accountName != null) {
@@ -246,6 +243,30 @@ CsvImportPlan planCsvImport({
           );
     }
 
+    return (category: category, subcategory: subcategory, account: account);
+  }
+
+  for (final row in rows) {
+    final String id;
+    final given = row.transactionId;
+    if (given != null) {
+      id = given.toLowerCase();
+    } else {
+      final base = _fingerprintBase(row);
+      final n = (fingerprintCounts[base] ?? 0) + 1;
+      fingerprintCounts[base] = n;
+      id = const Uuid().v5(csvImportFingerprintNamespace, '$base$_sep$n');
+    }
+    if (live.contains(id)) {
+      skippedExisting++;
+      continue;
+    }
+    if (deleted.contains(id)) {
+      skippedDeleted++;
+      continue;
+    }
+    final resolved = resolve(row);
+    if (resolved == null) continue;
     transactions.add(
       Transaction(
         id: id,
@@ -253,10 +274,59 @@ CsvImportPlan planCsvImport({
         amount: row.amount,
         occurredOn: row.day,
         occurredAt: row.occurredAt,
-        categoryId: category.id,
-        subcategoryId: subcategory?.id,
+        categoryId: resolved.category.id,
+        subcategoryId: resolved.subcategory?.id,
         note: row.note,
-        accountId: account?.id,
+        accountId: resolved.account?.id,
+      ),
+    );
+  }
+
+  // Регулярные платежи: дубли - по id, без id - по отпечатку; существующий
+  // платёж не обновляется. trackedThrough = день загрузки (ADR 0011, п. 10).
+  final liveRecurring = {for (final id in liveRecurringIds) id.toLowerCase()};
+  final deletedRecurring = {
+    for (final id in deletedRecurringIds) id.toLowerCase(),
+  };
+  final recurringPrints = <String, int>{};
+  final recurringPlanned = <RecurringPayment>[];
+  for (final payment in recurring) {
+    final row = payment.row;
+    final String id;
+    final given = row.transactionId;
+    if (given != null) {
+      id = given.toLowerCase();
+    } else {
+      final base = _recurringFingerprintBase(payment);
+      final n = (recurringPrints[base] ?? 0) + 1;
+      recurringPrints[base] = n;
+      id = const Uuid().v5(csvImportFingerprintNamespace, '$base$_sep$n');
+    }
+    if (liveRecurring.contains(id)) {
+      skippedExisting++;
+      continue;
+    }
+    if (deletedRecurring.contains(id)) {
+      skippedDeleted++;
+      continue;
+    }
+    final resolved = resolve(row);
+    if (resolved == null) continue;
+    recurringPlanned.add(
+      RecurringPayment(
+        id: id,
+        title: row.note!,
+        type: row.type,
+        amount: row.amount,
+        categoryId: resolved.category.id,
+        subcategoryId: resolved.subcategory?.id,
+        accountId: resolved.account?.id,
+        unit: payment.unit,
+        every: payment.every,
+        startsOn: row.day,
+        endsOn: payment.endsOn,
+        remind: payment.remind,
+        trackedThrough: today,
       ),
     );
   }
@@ -294,6 +364,7 @@ CsvImportPlan planCsvImport({
     accountsToCreate: accountBook.planned,
     transactions: transactions,
     transfers: transfers,
+    recurring: recurringPlanned,
     skippedExisting: skippedExisting,
     skippedDeleted: skippedDeleted,
     categoriesToCreate: planned,
@@ -635,6 +706,30 @@ int _pow10(int n) {
     result *= 10;
   }
   return result;
+}
+
+typedef _Resolved = ({
+  Category category,
+  Category? subcategory,
+  Account? account,
+});
+
+/// Отпечаток платежа: тип, сумма, валюта, категория, подкатегория, название,
+/// повтор и дата первого платежа. Метка `recurring` отделяет его от операций.
+String _recurringFingerprintBase(ParsedRecurring payment) {
+  final row = payment.row;
+  return [
+    'recurring',
+    row.day.toString(),
+    row.type.name,
+    row.amount.minorUnits.toString(),
+    row.amount.currency,
+    categoryNameKey(row.categoryName),
+    categoryNameKey(row.subcategoryName ?? ''),
+    row.note ?? '',
+    payment.unit.name,
+    payment.every.toString(),
+  ].join(_sep);
 }
 
 String _fingerprintBase(ParsedCsvRow row) {
