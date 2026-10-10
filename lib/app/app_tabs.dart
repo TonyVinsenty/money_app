@@ -17,6 +17,7 @@ import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
+import 'package:money_app/features/analytics/domain/comparison.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -488,6 +489,7 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
   late Stream<bool> _hasOther;
   late Stream<List<Category>> _categories;
   AnalyticsPeriod? _streamPeriod;
+  DateRange? _streamPreviousRange;
   TransactionsRepository? _streamRepository;
 
   // Потоки создаём один раз и заново только при смене периода или сервисов:
@@ -539,18 +541,27 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
     final period = _controller!.period;
     final repository = _transactionsRepository!;
     final currency = _currency!;
+    final range = period.range;
+    final previousRange = comparisonRange(period, _controller!.today);
     if (period == _streamPeriod &&
+        previousRange == _streamPreviousRange &&
         identical(repository, _streamRepository) &&
         currency == _streamCurrency) {
       return;
     }
     _streamPeriod = period;
+    _streamPreviousRange = previousRange;
     _streamRepository = repository;
     _streamCurrency = currency;
-    final range = period.range;
+    // Окно шире периода: от начала периода сравнения до конца периода
+    // (ADR 0012, п. 2). Отбор по текущему периоду делают экран и domain.
+    final window = DateRange(previousRange.start, range.end);
     _transactions = repository
-        .watchInPeriod(range, currency: currency)
-        .map((list) => (range: range, transactions: list));
+        .watchInPeriod(window, currency: currency)
+        .map(
+          (list) =>
+              (range: range, previousRange: previousRange, transactions: list),
+        );
   }
 
   @override

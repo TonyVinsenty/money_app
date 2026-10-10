@@ -17,8 +17,13 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 /// Операции вместе с периодом, для которого их запросили. Пока после смены
 /// периода не пришёл новый ответ, на экране остаются прежние операции, и итог
 /// считается по прежнему периоду, а не по новому (иначе мигало бы «пусто»).
+///
+/// В [transactions] лежит окно данных: операции периода [range] и периода
+/// сравнения [previousRange] (ADR 0012, п. 2). «Категории» и «пусто» считают
+/// только [range].
 typedef PeriodTransactions = ({
   DateRange range,
+  DateRange previousRange,
   List<Transaction> transactions,
 });
 
@@ -191,7 +196,8 @@ class AnalyticsScreen extends StatelessWidget {
           stream: transactions,
           loadingBuilder: (_) => const _SummarySkeleton(),
           errorBuilder: (context, error) => const _SummaryError(),
-          isEmpty: (data) => data.transactions.isEmpty,
+          isEmpty: (data) =>
+              !data.transactions.any((t) => data.range.contains(t.occurredOn)),
           emptyBuilder: (_) => _EmptyPeriod(
             noOperationsAtAll: firstDayKnown && firstDay == null,
             hasOtherCurrencies: hasOtherCurrencies,

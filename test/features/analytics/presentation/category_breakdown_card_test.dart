@@ -132,7 +132,11 @@ Future<void> _pump(
 }
 
 Stream<PeriodTransactions> _data(List<Transaction> list, [DateRange? range]) =>
-    Stream.value((range: range ?? _september, transactions: list));
+    Stream.value((
+      range: range ?? _september,
+      previousRange: monthRange(DateOnly(2026, 8, 1)),
+      transactions: list,
+    ));
 
 /// Точка кольца на [turn] оборота по часовой стрелке от «12 часов».
 Offset _ringPoint(WidgetTester tester, double turn) {

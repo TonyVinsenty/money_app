@@ -16,6 +16,8 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/analytics/domain/analytics_period.dart';
+import 'package:money_app/features/analytics/domain/comparison.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
@@ -355,7 +357,11 @@ void main() {
   ) async {
     final repo = _Repo();
     await _pump(tester, repo: repo);
-    final week = weekRange(DateOnly(2026, 10, 4));
+    // Запрашивается окно данных: прошлый период плюс текущий (ADR 0012).
+    final week = dataWindow(
+      currentPeriod(PeriodKind.week, DateOnly(2026, 10, 4)),
+      DateOnly(2026, 10, 4),
+    );
     expect(repo.requests.where((r) => r == week), isEmpty);
 
     await _tap(tester, find.widgetWithText(ChoiceChip, 'Неделя'));
@@ -368,6 +374,30 @@ void main() {
         .setHistorySort(HistorySort.oldestFirst);
     await tester.pumpAndSettle();
     expect(repo.requests.where((r) => r == week), hasLength(1));
+  });
+
+  testWidgets('вкладка просит окно данных; прошлый месяц не попадает в итоги', (
+    tester,
+  ) async {
+    final repo = _Repo([
+      _tx('sep', 'food', TransactionType.expense),
+      Transaction(
+        id: 'oct',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(30000, 'RUB'),
+        occurredOn: DateOnly(2026, 10, 2),
+        occurredAt: DateTime.utc(2026, 10, 2, 9),
+        categoryId: 'food',
+      ),
+    ]);
+    await _pump(tester, firstDay: DateOnly(2026, 9, 10), repo: repo);
+
+    // Сегодня 4 октября: сравнение с 1-4 сентября, окно с 1 сентября.
+    expect(
+      repo.requests,
+      contains(DateRange(DateOnly(2026, 9, 1), DateOnly(2026, 10, 31))),
+    );
+    expect(find.text('Операций: 1'), findsOneWidget);
   });
 
   testWidgets('строка категории открывает экран категории за тот же период', (

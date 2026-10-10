@@ -197,6 +197,7 @@ void main() {
       tester,
       transactions: Stream.value((
         range: monthRange(DateOnly(2026, 9, 1)),
+        previousRange: monthRange(DateOnly(2026, 8, 1)),
         transactions: [
           Transaction(
             id: 'a',
@@ -248,8 +249,11 @@ void main() {
           categoryId: 'food',
         );
 
-    Stream<PeriodTransactions> data(List<Transaction> list) =>
-        Stream.value((range: september, transactions: list));
+    Stream<PeriodTransactions> data(List<Transaction> list) => Stream.value((
+      range: september,
+      previousRange: monthRange(DateOnly(2026, 8, 1)),
+      transactions: list,
+    ));
 
     Money rub(int minor) => Money.fromMinor(minor, 'RUB');
 
@@ -363,6 +367,52 @@ void main() {
       expect(find.byType(PeriodSummaryCard), findsNothing);
     });
 
+    testWidgets('операции периода сравнения не попадают в итоги и кольцо', (
+      tester,
+    ) async {
+      final august = Transaction(
+        id: 'aug',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(500000, 'RUB'),
+        occurredOn: DateOnly(2026, 8, 20),
+        occurredAt: DateTime.utc(2026, 8, 20, 9),
+        categoryId: 'food',
+      );
+      await _pump(
+        tester,
+        transactions: data([august, tx(TransactionType.expense, 1000)]),
+      );
+      await tester.pump();
+
+      expect(find.text('Операций: 1'), findsOneWidget);
+      expect(
+        textOf(tester, PeriodSummaryCard.expenseKey),
+        '−${formatMoney(rub(1000))}',
+      );
+      expect(find.textContaining(formatMoney(rub(501000))), findsNothing);
+    });
+
+    testWidgets('в периоде пусто, в сравнении нет: «За этот период '
+        'операций нет»', (tester) async {
+      final august = Transaction(
+        id: 'aug',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(500000, 'RUB'),
+        occurredOn: DateOnly(2026, 8, 20),
+        occurredAt: DateTime.utc(2026, 8, 20, 9),
+        categoryId: 'food',
+      );
+      await _pump(
+        tester,
+        firstDay: DateOnly(2026, 8, 20),
+        transactions: data([august]),
+      );
+      await tester.pump();
+
+      expect(find.text('За этот период операций нет'), findsOneWidget);
+      expect(find.byType(PeriodSummaryCard), findsNothing);
+    });
+
     testWidgets('первая операция неизвестна: приглашения нет, прежний текст', (
       tester,
     ) async {
@@ -408,7 +458,11 @@ void main() {
       expect(find.text('За этот период операций нет'), findsNothing);
       expect(find.byType(PeriodSummaryCard), findsNothing);
 
-      controller.add((range: september, transactions: const []));
+      controller.add((
+        range: september,
+        previousRange: monthRange(DateOnly(2026, 8, 1)),
+        transactions: const [],
+      ));
       await tester.pump();
 
       expect(find.byKey(analyticsSkeletonKey), findsNothing);

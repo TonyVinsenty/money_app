@@ -44,6 +44,7 @@ Widget _analytics({Stream<bool>? other}) => MaterialApp(
       onNext: null,
       transactions: Stream.value((
         range: currentPeriod(PeriodKind.month, _today).range,
+        previousRange: monthRange(DateOnly(2026, 9, 1)),
         transactions: <Transaction>[],
       )),
       categories: Stream.value(const <Category>[]),
