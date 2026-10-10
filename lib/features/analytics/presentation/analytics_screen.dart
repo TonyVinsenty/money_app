@@ -11,6 +11,7 @@ import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
+import 'package:money_app/features/analytics/presentation/comparison_section.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -32,7 +33,7 @@ typedef PeriodTransactions = ({
 /// Ключ скелетона до первого ответа базы.
 const Key analyticsSkeletonKey = ValueKey('analytics-skeleton');
 
-/// Ключ заготовки раздела «Сравнение» (заменяется содержимым шага a.5).
+/// Ключ раздела «Сравнение».
 const Key analyticsComparisonKey = ValueKey('analytics-comparison');
 
 /// Ключ строки разделов.
@@ -231,7 +232,22 @@ class AnalyticsScreen extends StatelessWidget {
             symbol: currencySymbol,
           ),
           dataBuilder: (context, data) => section == AnalyticsSection.comparison
-              ? const SizedBox(key: analyticsComparisonKey)
+              ? AsyncView<List<Category>>(
+                  stream: categories,
+                  errorBuilder: (context, error) => const _SummaryError(),
+                  dataBuilder: (context, all) => ComparisonSection(
+                    key: analyticsComparisonKey,
+                    transactions: data.transactions,
+                    range: data.range,
+                    previousRange: data.previousRange,
+                    categories: all,
+                    today: today,
+                    type: type,
+                    currency: currency,
+                    onTypeSelected: onTypeSelected,
+                    onOpenCategory: onOpenCategory,
+                  ),
+                )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

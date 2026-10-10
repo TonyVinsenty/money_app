@@ -131,6 +131,7 @@ void main() {
         section: AnalyticsSection.comparison,
       );
       await tester.pump();
+      await tester.pump();
 
       expect(find.byKey(analyticsComparisonKey), findsOneWidget);
       expect(find.byType(PeriodSummaryCard), findsNothing);

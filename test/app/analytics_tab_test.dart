@@ -22,6 +22,7 @@ import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
+import 'package:money_app/features/analytics/presentation/comparison_section.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -412,6 +413,31 @@ void main() {
     expect(find.byKey(analyticsComparisonKey), findsNothing);
     expect(find.widgetWithText(Tab, 'Категории'), findsOneWidget);
     expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+  });
+
+  testWidgets('«Сравнение»: строка категории открывает экран категории за '
+      'текущий период', (tester) async {
+    await _pump(
+      tester,
+      firstDay: DateOnly(2026, 9, 10),
+      repo: _Repo(_sept),
+      categories: _twoCategories,
+    );
+    await _tap(tester, _prev);
+    await tester.pumpAndSettle();
+    await _tap(tester, find.widgetWithText(Tab, 'Сравнение'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(ComparisonSection.rowKey('food')));
+    await tester.tap(find.byKey(ComparisonSection.rowKey('food')));
+    await tester.pumpAndSettle();
+
+    final screen = find.byType(CategoryBreakdownScreen);
+    expect(screen, findsOneWidget);
+    expect(
+      find.descendant(of: screen, matching: find.text('Сентябрь 2026')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('вкладка просит окно данных; прошлый месяц не попадает в итоги', (
