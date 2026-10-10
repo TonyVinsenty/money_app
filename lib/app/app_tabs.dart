@@ -24,6 +24,7 @@ import 'package:money_app/features/csv_import/presentation/pick_csv_file.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
 import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
+import 'package:money_app/features/recurring/presentation/due_banner.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -272,6 +273,10 @@ class _HomeTabState extends State<HomeTab> {
         browse.showCategoryExpenses(ids);
         BrowseScope.selectedTabOf(context).value = historyTabIndex;
       },
+      banner: DueBanner(
+        dues: BrowseScope.duesOf(context),
+        onTap: () => BrowseScope.selectedTabOf(context).value = balanceTabIndex,
+      ),
     );
   }
 }

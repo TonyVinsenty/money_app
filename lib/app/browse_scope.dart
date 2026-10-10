@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_services.dart';
@@ -19,12 +20,25 @@ class BrowseScope extends InheritedNotifier<BrowseController> {
   const BrowseScope({
     required BrowseController controller,
     required this.selectedTab,
+    required this.dues,
     required super.child,
     super.key,
   }) : super(notifier: controller);
 
   /// Номер выбранной вкладки нижней навигации.
   final ValueNotifier<int> selectedTab;
+
+  /// Записи «К оплате»: один поток `watchDue` на плашку «Главной» и значок
+  /// вкладки «Баланс».
+  final ValueListenable<List<RecurringDue>> dues;
+
+  /// Записи «К оплате» (без подписки на контроллер); слушать через
+  /// `ValueListenableBuilder`.
+  static ValueListenable<List<RecurringDue>> duesOf(BuildContext context) {
+    final scope = context.getInheritedWidgetOfExactType<BrowseScope>();
+    if (scope == null) throw FlutterError(_notFound);
+    return scope.dues;
+  }
 
   /// Контроллер ближайшего [BrowseScope]; виджет зависит от его изменений.
   static BrowseController of(BuildContext context) {
@@ -119,7 +133,20 @@ class _BrowseHostState extends State<BrowseHost> {
     }
     _services = services;
     _materializeIfDayChanged(services);
+    if (!identical(services.recurring, _duesFor)) {
+      _duesFor = services.recurring;
+      unawaited(_duesSubscription?.cancel());
+      _duesSubscription = services.recurring.watchDue().listen(
+        (list) => _dues.value = list,
+        onError: (Object e) => debugPrint('К оплате: $e'),
+      );
+    }
   }
+
+  // Единственная подписка на watchDue: из неё берут плашка и значок.
+  final ValueNotifier<List<RecurringDue>> _dues = ValueNotifier(const []);
+  StreamSubscription<List<RecurringDue>>? _duesSubscription;
+  RecurringRepository? _duesFor;
 
   // Записи «К оплате» (ADR 0011, п. 5): при запуске и при возврате в
   // приложение, если сменился день. Не ждём: первый кадр не задерживается.
@@ -157,8 +184,10 @@ class _BrowseHostState extends State<BrowseHost> {
     _lifecycle.dispose();
     _selectedTab.removeListener(_onTabChanged);
     _subscription?.cancel();
+    unawaited(_duesSubscription?.cancel());
     _controller?.dispose();
     _selectedTab.dispose();
+    _dues.dispose();
     super.dispose();
   }
 
@@ -167,6 +196,7 @@ class _BrowseHostState extends State<BrowseHost> {
     return BrowseScope(
       controller: _controller!,
       selectedTab: _selectedTab,
+      dues: _dues,
       child: widget.child,
     );
   }

@@ -1,8 +1,10 @@
 import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 // Тексты раздела «Регулярные платежи» (ROADMAP, Р1 и Р2; утверждены
@@ -66,6 +68,7 @@ String recurringLastDayHint(int day) =>
     'В месяцы, где нет $day-го, — в последний день месяца';
 
 final String _minus = String.fromCharCode(0x2212);
+final String _emDash = String.fromCharCode(0x2014);
 
 /// Сумма строки со знаком: у расхода настоящий минус (U+2212), у дохода «+».
 String recurringAmountText(RecurringPayment payment) {
@@ -195,6 +198,30 @@ String dueEditSemantics(String title) => '$dueEditButton: $title';
 /// После «Пропустить»: «Платёж «Интернет» за 5 октября пропущен».
 String dueSkippedMessage(String title, DateOnly day) =>
     'Платёж «$title» за ${formatDayMonth(day)} пропущен';
+
+/// Плашка на «Главной» (Р10): «К оплате: Интернет — 650,00 ₽» или
+/// «К оплате: 3 платежа».
+String dueBannerText(List<RecurringDue> dues) {
+  if (dues.length == 1) {
+    final p = dues.single.payment;
+    return '$dueSectionTitleBase: ${p.title} $_emDash '
+        '${formatMoney(p.amount)}';
+  }
+  return '$dueSectionTitleBase: ${_dueCountText(dues.length)}';
+}
+
+String _dueCountText(int n) =>
+    '$n ${pluralRu(n, 'платёж', 'платежа', 'платежей')}';
+
+/// Озвучка плашки. Для нескольких - по Р10: «К оплате 3 платежа. Открыть».
+// Для одного платежа Р10 текста не даёт: по образцу, с названием и суммой.
+String dueBannerSemantics(List<RecurringDue> dues) {
+  if (dues.length == 1) {
+    final p = dues.single.payment;
+    return '$dueSectionTitleBase ${p.title}, ${spokenMoney(p.amount)}. Открыть';
+  }
+  return '$dueSectionTitleBase ${_dueCountText(dues.length)}. Открыть';
+}
 
 /// Категория в архиве (Р8); те же тексты в форме платежа и в «К оплате».
 String dueCategoryArchivedText(String name) =>

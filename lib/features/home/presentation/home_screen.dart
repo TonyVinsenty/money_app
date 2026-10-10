@@ -31,8 +31,14 @@ class HomeScreen extends StatelessWidget {
     this.onNextMonth,
     this.currency = rubCurrencyCode,
     this.balanceLine,
+    this.banner,
     super.key,
   });
+
+  /// Плашка над итогами (например, «К оплате»), которую собирает приложение.
+  /// Сама должна быть нулевой высоты, когда показывать нечего; `null` - слота
+  /// нет совсем.
+  final Widget? banner;
 
   /// Сумма для строки «Баланс» в центре кольца; `null` в потоке или нет
   /// потока - строки нет. Поток один и тот же между перерисовками.
@@ -87,6 +93,7 @@ class HomeScreen extends StatelessWidget {
           );
           return CustomScrollView(
             slivers: [
+              if (banner != null) SliverToBoxAdapter(child: banner),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 16),
