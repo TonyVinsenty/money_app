@@ -5,8 +5,11 @@
 «Снимок» схемы — файл `drift_schemas/drift_schema_vN.json`: точная копия схемы версии N.
 По нему тесты строят настоящую базу «как была в версии N» и сверяют с ней приложение.
 
-Настоящая миграция v1 -> v2 появится на этапе 5 (источники денег). Сейчас версия одна,
-инструкция описывает порядок действий заранее. Пример теста: `test/core/database/schema_v1_test.dart`.
+Настоящая миграция v1 -> v2 сделана на этапе 5 (счета и переводы, ADR 0010) и выпущена
+(сборка 0.1.0+17 на iPhone). Образец тестов — `test/core/database/schema_v2_test.dart`:
+«свежая база = снимок v2», `CHECK` и индексы, тест `migration v1 -> v2 keeps data and leaves
+account_id empty` (данные v1 переживают миграцию) и `an interrupted migration rolls back and can
+be retried` (миграция в одной транзакции). Тест схемы v1 — `test/core/database/schema_v1_test.dart`.
 
 ## Порядок
 
@@ -26,7 +29,8 @@
    Затем тест «база версии 1 -> миграция -> версия 2, данные на месте»:
    `schema = await verifier.schemaAt(1)`, вставить строки через `schema.rawDatabase.execute(...)`,
    открыть `AppDatabase(schema.newConnection())`, вызвать `verifier.migrateAndValidate(db, 2)`
-   и прочитать данные (образец — третий тест в `schema_v1_test.dart`).
+   и прочитать данные (образец — тест `migration v1 -> v2 keeps data and leaves account_id empty`
+   в `schema_v2_test.dart`).
 6. **Обновить тест схемы версии 1 не нужно:** он проверяет именно v1 по снимку v1.
    Добавьте аналогичный `schema_v2_test.dart` («свежая база = снимок v2»).
 
