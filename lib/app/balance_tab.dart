@@ -204,6 +204,11 @@ class _BalanceTabState extends State<BalanceTab> {
                 arguments: RecurringFormRouteArguments(
                   currency: currencyInfoFor(services.settings.mainCurrencyCode),
                   today: today,
+                  recurring: services.recurring,
+                  categories: services.categories,
+                  accounts: services.accounts,
+                  idGenerator: services.idGenerator,
+                  defaultAccountId: services.settings.defaultAccountId,
                 ),
               ),
             );

@@ -41,6 +41,7 @@ const String recurringFormNoEnd = 'Без окончания';
 const String recurringFormEndClear = 'Убрать окончание';
 const String recurringFormSave = 'Сохранить';
 
+const String recurringErrorCategory = 'Выберите категорию';
 const String recurringErrorEmptyTitle = 'Введите название';
 const String recurringErrorTitleTooLong = 'Название — не длиннее 40 символов';
 const String recurringErrorAmountZero = 'Сумма должна быть больше нуля';

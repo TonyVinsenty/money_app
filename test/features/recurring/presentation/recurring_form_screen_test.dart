@@ -12,6 +12,7 @@ import 'package:money_app/features/recurring/presentation/recurring_section.dart
 import 'package:money_app/features/recurring/presentation/recurring_texts.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
+import '../../../support/fake_id_generator.dart';
 import '../../../support/fakes.dart';
 
 Future<void> pumpForm(WidgetTester tester, DateOnly today) async {
@@ -21,7 +22,16 @@ Future<void> pumpForm(WidgetTester tester, DateOnly today) async {
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light(),
-      home: RecurringFormScreen(currency: currencyInfoFor('RUB'), today: today),
+      home: RecurringFormScreen(
+        currency: currencyInfoFor('RUB'),
+        today: today,
+        repository: FakeRecurringRepository(),
+        idGenerator: FakeIdGenerator(),
+        categories: Stream.value(const []),
+        accounts: Stream.value(const []),
+        onPickCategory: (context, type) async => null,
+        onPickAccount: (context, accounts, selectedId) async => null,
+      ),
     ),
   );
 }

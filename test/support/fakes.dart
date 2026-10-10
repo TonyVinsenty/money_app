@@ -282,6 +282,9 @@ class InMemoryAccountsRepository extends Fake implements AccountsRepository {
 /// подкатегории, переопределяют метод.
 class FakeCategoriesRepository extends Fake implements CategoriesRepository {
   @override
+  Stream<List<Category>> watchAll() => Stream.value(const []);
+
+  @override
   Stream<List<Category>> watchSubcategories(String parentId) =>
       Stream.value(const []);
 }

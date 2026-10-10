@@ -27,13 +27,17 @@ import 'package:money_app/features/categories/presentation/subcategories_screen.
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/presentation/csv_import_screen.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/presentation/recurring_form_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
+import 'package:money_app/features/transactions/presentation/edit/edit_category_picker_screen.dart';
+import 'package:money_app/features/transactions/presentation/edit/edit_subcategory_picker_screen.dart';
 import 'package:money_app/features/transactions/presentation/edit/edit_transaction_screen.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/account_chip.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
 /// Имена маршрутов приложения. Живут в `lib/app/`, потому что только
@@ -89,16 +93,56 @@ abstract final class AppRoutes {
   static const recurringForm = '/recurring-form';
 }
 
-/// Аргументы маршрута [AppRoutes.recurringForm]: основная валюта и сегодняшний
-/// день.
+/// Аргументы маршрута [AppRoutes.recurringForm]: основная валюта, сегодняшний
+/// день и сервисы (их достаёт тот, кто открывает маршрут).
 final class RecurringFormRouteArguments {
   const RecurringFormRouteArguments({
     required this.currency,
     required this.today,
+    required this.recurring,
+    required this.categories,
+    required this.accounts,
+    required this.idGenerator,
+    this.defaultAccountId,
   });
 
   final CurrencyInfo currency;
   final DateOnly today;
+  final RecurringRepository recurring;
+  final CategoriesRepository categories;
+  final AccountsRepository accounts;
+  final IdGenerator idGenerator;
+  final String? defaultAccountId;
+}
+
+/// Выбор категории (и подкатегории) для формы платежа: те же сетки, что в
+/// правке операции. Назад на любом шаге - `null`.
+Future<RecurringCategoryChoice?> pickRecurringCategory(
+  BuildContext context,
+  TransactionType type,
+  CategoriesRepository categories,
+) async {
+  final navigator = Navigator.of(context);
+  final category = await navigator.push<Category>(
+    MaterialPageRoute<Category>(
+      builder: (_) =>
+          EditCategoryPickerScreen(type: type, categories: categories),
+    ),
+  );
+  if (category == null) return null;
+  final subs = [
+    for (final c in await categories.watchSubcategories(category.id).first)
+      if (!c.isArchived) c,
+  ];
+  if (subs.isEmpty) return (category: category, subcategory: null);
+  final choice = await navigator.push<SubcategoryChoice>(
+    MaterialPageRoute<SubcategoryChoice>(
+      builder: (_) =>
+          EditSubcategoryPickerScreen(parent: category, subcategories: subs),
+    ),
+  );
+  if (choice == null) return null;
+  return (category: category, subcategory: choice.subcategory);
 }
 
 /// Аргументы маршрута [AppRoutes.balanceJournal]. Потоки создаются один раз
@@ -553,6 +597,18 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
         builder: (_) => RecurringFormScreen(
           currency: arguments.currency,
           today: arguments.today,
+          repository: arguments.recurring,
+          idGenerator: arguments.idGenerator,
+          categories: arguments.categories.watchAll(),
+          accounts: arguments.accounts.watchAll(),
+          defaultAccountId: arguments.defaultAccountId,
+          onPickCategory: (context, type) =>
+              pickRecurringCategory(context, type, arguments.categories),
+          onPickAccount: (context, accounts, selectedId) => showAccountSheet(
+            context,
+            accounts: accounts,
+            selectedId: selectedId,
+          ),
         ),
       );
     case AppRoutes.accountForm:
