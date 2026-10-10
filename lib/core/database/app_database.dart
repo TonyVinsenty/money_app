@@ -4,6 +4,8 @@ import 'package:money_app/core/database/converters/transaction_type_converter.da
 import 'package:money_app/core/database/tables/accounts.dart';
 import 'package:money_app/core/database/tables/app_settings.dart';
 import 'package:money_app/core/database/tables/categories.dart';
+import 'package:money_app/core/database/tables/recurring_dues.dart';
+import 'package:money_app/core/database/tables/recurring_payments.dart';
 import 'package:money_app/core/database/tables/transactions.dart';
 import 'package:money_app/core/database/tables/transfers.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -16,13 +18,21 @@ part 'app_database.g.dart';
 /// Исполнитель запросов ([QueryExecutor]) приходит параметром: в приложении
 /// это будет файловая база, в тестах — `NativeDatabase.memory()`.
 @DriftDatabase(
-  tables: [AppSettings, Categories, Transactions, Accounts, Transfers],
+  tables: [
+    AppSettings,
+    Categories,
+    Transactions,
+    Accounts,
+    Transfers,
+    RecurringPayments,
+    RecurringDues,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -44,6 +54,17 @@ class AppDatabase extends _$AppDatabase {
           await m.createIndex(transfersOccurredOnAt);
           await m.createIndex(transfersFromAccount);
           await m.createIndex(transfersToAccount);
+        });
+      }
+      if (from < 3) {
+        // v2 -> v3 (ADR 0011, п. 9): только новые таблицы и индексы, старые
+        // таблицы с настоящими данными не меняются. Одна транзакция: при сбое
+        // откатывается всё.
+        await transaction(() async {
+          await m.createTable(recurringPayments);
+          await m.createTable(recurringDues);
+          await m.createIndex(recurringDuesPaymentDue);
+          await m.createIndex(recurringDuesTransaction);
         });
       }
     },

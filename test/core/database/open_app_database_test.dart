@@ -64,7 +64,7 @@ void main() {
       expect(dbFile().lengthSync(), greaterThan(0));
     });
 
-    test('creates the schema with all five tables', () async {
+    test('creates the schema with all seven tables', () async {
       final db = await open(tempDir);
 
       final rows = await db
@@ -81,6 +81,8 @@ void main() {
         'transactions',
         'accounts',
         'transfers',
+        'recurring_payments',
+        'recurring_dues',
       });
     });
 
@@ -99,15 +101,15 @@ void main() {
     });
 
     test(
-      'user_version is 2 and foreign keys are on, also after reopen',
+      'user_version is 3 and foreign keys are on, also after reopen',
       () async {
         final first = await open(tempDir);
-        expect(await readPragma(first, 'user_version'), 2);
+        expect(await readPragma(first, 'user_version'), 3);
         expect(await readPragma(first, 'foreign_keys'), 1);
         await first.close();
 
         final second = await open(tempDir);
-        expect(await readPragma(second, 'user_version'), 2);
+        expect(await readPragma(second, 'user_version'), 3);
         expect(await readPragma(second, 'foreign_keys'), 1);
       },
     );

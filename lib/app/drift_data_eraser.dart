@@ -6,7 +6,8 @@ import 'package:money_app/features/settings/domain/data_eraser.dart';
 
 /// Стирает данные пользователя в базе drift одной транзакцией.
 ///
-/// Удаление настоящее (не мягкое), в порядке внешних ключей: переводы,
+/// Удаление настоящее (не мягкое), в порядке внешних ключей: записи «к оплате»,
+/// регулярные платежи, переводы,
 /// операции, счета, подкатегории, категории. Затем в той же транзакции
 /// засеваем стандартные категории: таблица пуста, поэтому засев сработает.
 /// Таблицу `app_settings` не трогаем: тема, валюта и прочее остаются.
@@ -25,6 +26,8 @@ class DriftDataEraser implements DataEraser {
   @override
   Future<void> eraseAll() {
     return _db.transaction(() async {
+      await _db.delete(_db.recurringDues).go();
+      await _db.delete(_db.recurringPayments).go();
       await _db.delete(_db.transfers).go();
       await _db.delete(_db.transactions).go();
       await _db.delete(_db.accounts).go();

@@ -3074,6 +3074,1543 @@ class TransfersCompanion extends UpdateCompanion<TransferRow> {
   }
 }
 
+class $RecurringPaymentsTable extends RecurringPayments
+    with TableInfo<$RecurringPaymentsTable, RecurringPaymentRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecurringPaymentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<TransactionType, String> type =
+      GeneratedColumn<String>(
+        'type',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<TransactionType>($RecurringPaymentsTable.$convertertype);
+  static const VerificationMeta _amountMinorMeta = const VerificationMeta(
+    'amountMinor',
+  );
+  @override
+  late final GeneratedColumn<int> amountMinor = GeneratedColumn<int>(
+    'amount_minor',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _currencyMeta = const VerificationMeta(
+    'currency',
+  );
+  @override
+  late final GeneratedColumn<String> currency = GeneratedColumn<String>(
+    'currency',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _categoryIdMeta = const VerificationMeta(
+    'categoryId',
+  );
+  @override
+  late final GeneratedColumn<String> categoryId = GeneratedColumn<String>(
+    'category_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES categories (id)',
+    ),
+  );
+  static const VerificationMeta _subcategoryIdMeta = const VerificationMeta(
+    'subcategoryId',
+  );
+  @override
+  late final GeneratedColumn<String> subcategoryId = GeneratedColumn<String>(
+    'subcategory_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES categories (id)',
+    ),
+  );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES accounts (id)',
+    ),
+  );
+  static const VerificationMeta _unitMeta = const VerificationMeta('unit');
+  @override
+  late final GeneratedColumn<String> unit = GeneratedColumn<String>(
+    'unit',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _everyMeta = const VerificationMeta('every');
+  @override
+  late final GeneratedColumn<int> every = GeneratedColumn<int>(
+    'every',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateOnly, int> startsOn =
+      GeneratedColumn<int>(
+        'starts_on',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateOnly>($RecurringPaymentsTable.$converterstartsOn);
+  @override
+  late final GeneratedColumnWithTypeConverter<DateOnly?, int> endsOn =
+      GeneratedColumn<int>(
+        'ends_on',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      ).withConverter<DateOnly?>($RecurringPaymentsTable.$converterendsOnn);
+  static const VerificationMeta _remindMeta = const VerificationMeta('remind');
+  @override
+  late final GeneratedColumn<bool> remind = GeneratedColumn<bool>(
+    'remind',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("remind" IN (0, 1))',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateOnly?, int> trackedThrough =
+      GeneratedColumn<int>(
+        'tracked_through',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      ).withConverter<DateOnly?>(
+        $RecurringPaymentsTable.$convertertrackedThroughn,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAt = GeneratedColumn<int>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    type,
+    amountMinor,
+    currency,
+    categoryId,
+    subcategoryId,
+    accountId,
+    unit,
+    every,
+    startsOn,
+    endsOn,
+    remind,
+    trackedThrough,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'recurring_payments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecurringPaymentRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('amount_minor')) {
+      context.handle(
+        _amountMinorMeta,
+        amountMinor.isAcceptableOrUnknown(
+          data['amount_minor']!,
+          _amountMinorMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_amountMinorMeta);
+    }
+    if (data.containsKey('currency')) {
+      context.handle(
+        _currencyMeta,
+        currency.isAcceptableOrUnknown(data['currency']!, _currencyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_currencyMeta);
+    }
+    if (data.containsKey('category_id')) {
+      context.handle(
+        _categoryIdMeta,
+        categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryIdMeta);
+    }
+    if (data.containsKey('subcategory_id')) {
+      context.handle(
+        _subcategoryIdMeta,
+        subcategoryId.isAcceptableOrUnknown(
+          data['subcategory_id']!,
+          _subcategoryIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    }
+    if (data.containsKey('unit')) {
+      context.handle(
+        _unitMeta,
+        unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_unitMeta);
+    }
+    if (data.containsKey('every')) {
+      context.handle(
+        _everyMeta,
+        every.isAcceptableOrUnknown(data['every']!, _everyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_everyMeta);
+    }
+    if (data.containsKey('remind')) {
+      context.handle(
+        _remindMeta,
+        remind.isAcceptableOrUnknown(data['remind']!, _remindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_remindMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecurringPaymentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecurringPaymentRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      type: $RecurringPaymentsTable.$convertertype.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}type'],
+        )!,
+      ),
+      amountMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount_minor'],
+      )!,
+      currency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}currency'],
+      )!,
+      categoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category_id'],
+      )!,
+      subcategoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subcategory_id'],
+      ),
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      ),
+      unit: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}unit'],
+      )!,
+      every: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}every'],
+      )!,
+      startsOn: $RecurringPaymentsTable.$converterstartsOn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}starts_on'],
+        )!,
+      ),
+      endsOn: $RecurringPaymentsTable.$converterendsOnn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}ends_on'],
+        ),
+      ),
+      remind: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}remind'],
+      )!,
+      trackedThrough: $RecurringPaymentsTable.$convertertrackedThroughn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}tracked_through'],
+        ),
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at'],
+      ),
+    );
+  }
+
+  @override
+  $RecurringPaymentsTable createAlias(String alias) {
+    return $RecurringPaymentsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<TransactionType, String> $convertertype =
+      const TransactionTypeConverter();
+  static TypeConverter<DateOnly, int> $converterstartsOn =
+      const DateOnlyConverter();
+  static TypeConverter<DateOnly, int> $converterendsOn =
+      const DateOnlyConverter();
+  static TypeConverter<DateOnly?, int?> $converterendsOnn =
+      NullAwareTypeConverter.wrap($converterendsOn);
+  static TypeConverter<DateOnly, int> $convertertrackedThrough =
+      const DateOnlyConverter();
+  static TypeConverter<DateOnly?, int?> $convertertrackedThroughn =
+      NullAwareTypeConverter.wrap($convertertrackedThrough);
+}
+
+class RecurringPaymentRow extends DataClass
+    implements Insertable<RecurringPaymentRow> {
+  /// UUID v7, создаётся вне базы (ADR 0001).
+  final String id;
+
+  /// Название 1-40 символов; оно же комментарий создаваемой операции.
+  final String title;
+  final TransactionType type;
+
+  /// Сумма в копейках, строго больше нуля.
+  final int amountMinor;
+  final String currency;
+  final String categoryId;
+  final String? subcategoryId;
+
+  /// Счёт платежа; NULL — «без счёта».
+  final String? accountId;
+
+  /// `week` / `month` / `year`.
+  final String unit;
+
+  /// «Каждые N», 1-99.
+  final int every;
+
+  /// Дата первого платежа (ГГГГММДД): якорь расписания.
+  final DateOnly startsOn;
+
+  /// Последний возможный день включительно; NULL — бессрочно.
+  final DateOnly? endsOn;
+
+  /// Напоминать уведомлением (0/1; CHECK на 0 и 1 добавляет drift).
+  final bool remind;
+
+  /// До какого дня включительно уже созданы записи «к оплате» (служебное).
+  final DateOnly? trackedThrough;
+  final int createdAt;
+  final int updatedAt;
+
+  /// Мягкое удаление (миллисекунды эпохи UTC); NULL — строка «живая».
+  final int? deletedAt;
+  const RecurringPaymentRow({
+    required this.id,
+    required this.title,
+    required this.type,
+    required this.amountMinor,
+    required this.currency,
+    required this.categoryId,
+    this.subcategoryId,
+    this.accountId,
+    required this.unit,
+    required this.every,
+    required this.startsOn,
+    this.endsOn,
+    required this.remind,
+    this.trackedThrough,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['title'] = Variable<String>(title);
+    {
+      map['type'] = Variable<String>(
+        $RecurringPaymentsTable.$convertertype.toSql(type),
+      );
+    }
+    map['amount_minor'] = Variable<int>(amountMinor);
+    map['currency'] = Variable<String>(currency);
+    map['category_id'] = Variable<String>(categoryId);
+    if (!nullToAbsent || subcategoryId != null) {
+      map['subcategory_id'] = Variable<String>(subcategoryId);
+    }
+    if (!nullToAbsent || accountId != null) {
+      map['account_id'] = Variable<String>(accountId);
+    }
+    map['unit'] = Variable<String>(unit);
+    map['every'] = Variable<int>(every);
+    {
+      map['starts_on'] = Variable<int>(
+        $RecurringPaymentsTable.$converterstartsOn.toSql(startsOn),
+      );
+    }
+    if (!nullToAbsent || endsOn != null) {
+      map['ends_on'] = Variable<int>(
+        $RecurringPaymentsTable.$converterendsOnn.toSql(endsOn),
+      );
+    }
+    map['remind'] = Variable<bool>(remind);
+    if (!nullToAbsent || trackedThrough != null) {
+      map['tracked_through'] = Variable<int>(
+        $RecurringPaymentsTable.$convertertrackedThroughn.toSql(trackedThrough),
+      );
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<int>(deletedAt);
+    }
+    return map;
+  }
+
+  RecurringPaymentsCompanion toCompanion(bool nullToAbsent) {
+    return RecurringPaymentsCompanion(
+      id: Value(id),
+      title: Value(title),
+      type: Value(type),
+      amountMinor: Value(amountMinor),
+      currency: Value(currency),
+      categoryId: Value(categoryId),
+      subcategoryId: subcategoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(subcategoryId),
+      accountId: accountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountId),
+      unit: Value(unit),
+      every: Value(every),
+      startsOn: Value(startsOn),
+      endsOn: endsOn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endsOn),
+      remind: Value(remind),
+      trackedThrough: trackedThrough == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trackedThrough),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+    );
+  }
+
+  factory RecurringPaymentRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecurringPaymentRow(
+      id: serializer.fromJson<String>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      type: serializer.fromJson<TransactionType>(json['type']),
+      amountMinor: serializer.fromJson<int>(json['amountMinor']),
+      currency: serializer.fromJson<String>(json['currency']),
+      categoryId: serializer.fromJson<String>(json['categoryId']),
+      subcategoryId: serializer.fromJson<String?>(json['subcategoryId']),
+      accountId: serializer.fromJson<String?>(json['accountId']),
+      unit: serializer.fromJson<String>(json['unit']),
+      every: serializer.fromJson<int>(json['every']),
+      startsOn: serializer.fromJson<DateOnly>(json['startsOn']),
+      endsOn: serializer.fromJson<DateOnly?>(json['endsOn']),
+      remind: serializer.fromJson<bool>(json['remind']),
+      trackedThrough: serializer.fromJson<DateOnly?>(json['trackedThrough']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+      deletedAt: serializer.fromJson<int?>(json['deletedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'title': serializer.toJson<String>(title),
+      'type': serializer.toJson<TransactionType>(type),
+      'amountMinor': serializer.toJson<int>(amountMinor),
+      'currency': serializer.toJson<String>(currency),
+      'categoryId': serializer.toJson<String>(categoryId),
+      'subcategoryId': serializer.toJson<String?>(subcategoryId),
+      'accountId': serializer.toJson<String?>(accountId),
+      'unit': serializer.toJson<String>(unit),
+      'every': serializer.toJson<int>(every),
+      'startsOn': serializer.toJson<DateOnly>(startsOn),
+      'endsOn': serializer.toJson<DateOnly?>(endsOn),
+      'remind': serializer.toJson<bool>(remind),
+      'trackedThrough': serializer.toJson<DateOnly?>(trackedThrough),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+      'deletedAt': serializer.toJson<int?>(deletedAt),
+    };
+  }
+
+  RecurringPaymentRow copyWith({
+    String? id,
+    String? title,
+    TransactionType? type,
+    int? amountMinor,
+    String? currency,
+    String? categoryId,
+    Value<String?> subcategoryId = const Value.absent(),
+    Value<String?> accountId = const Value.absent(),
+    String? unit,
+    int? every,
+    DateOnly? startsOn,
+    Value<DateOnly?> endsOn = const Value.absent(),
+    bool? remind,
+    Value<DateOnly?> trackedThrough = const Value.absent(),
+    int? createdAt,
+    int? updatedAt,
+    Value<int?> deletedAt = const Value.absent(),
+  }) => RecurringPaymentRow(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    type: type ?? this.type,
+    amountMinor: amountMinor ?? this.amountMinor,
+    currency: currency ?? this.currency,
+    categoryId: categoryId ?? this.categoryId,
+    subcategoryId: subcategoryId.present
+        ? subcategoryId.value
+        : this.subcategoryId,
+    accountId: accountId.present ? accountId.value : this.accountId,
+    unit: unit ?? this.unit,
+    every: every ?? this.every,
+    startsOn: startsOn ?? this.startsOn,
+    endsOn: endsOn.present ? endsOn.value : this.endsOn,
+    remind: remind ?? this.remind,
+    trackedThrough: trackedThrough.present
+        ? trackedThrough.value
+        : this.trackedThrough,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+  );
+  RecurringPaymentRow copyWithCompanion(RecurringPaymentsCompanion data) {
+    return RecurringPaymentRow(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      type: data.type.present ? data.type.value : this.type,
+      amountMinor: data.amountMinor.present
+          ? data.amountMinor.value
+          : this.amountMinor,
+      currency: data.currency.present ? data.currency.value : this.currency,
+      categoryId: data.categoryId.present
+          ? data.categoryId.value
+          : this.categoryId,
+      subcategoryId: data.subcategoryId.present
+          ? data.subcategoryId.value
+          : this.subcategoryId,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      unit: data.unit.present ? data.unit.value : this.unit,
+      every: data.every.present ? data.every.value : this.every,
+      startsOn: data.startsOn.present ? data.startsOn.value : this.startsOn,
+      endsOn: data.endsOn.present ? data.endsOn.value : this.endsOn,
+      remind: data.remind.present ? data.remind.value : this.remind,
+      trackedThrough: data.trackedThrough.present
+          ? data.trackedThrough.value
+          : this.trackedThrough,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecurringPaymentRow(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('type: $type, ')
+          ..write('amountMinor: $amountMinor, ')
+          ..write('currency: $currency, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('subcategoryId: $subcategoryId, ')
+          ..write('accountId: $accountId, ')
+          ..write('unit: $unit, ')
+          ..write('every: $every, ')
+          ..write('startsOn: $startsOn, ')
+          ..write('endsOn: $endsOn, ')
+          ..write('remind: $remind, ')
+          ..write('trackedThrough: $trackedThrough, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    type,
+    amountMinor,
+    currency,
+    categoryId,
+    subcategoryId,
+    accountId,
+    unit,
+    every,
+    startsOn,
+    endsOn,
+    remind,
+    trackedThrough,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecurringPaymentRow &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.type == this.type &&
+          other.amountMinor == this.amountMinor &&
+          other.currency == this.currency &&
+          other.categoryId == this.categoryId &&
+          other.subcategoryId == this.subcategoryId &&
+          other.accountId == this.accountId &&
+          other.unit == this.unit &&
+          other.every == this.every &&
+          other.startsOn == this.startsOn &&
+          other.endsOn == this.endsOn &&
+          other.remind == this.remind &&
+          other.trackedThrough == this.trackedThrough &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt);
+}
+
+class RecurringPaymentsCompanion extends UpdateCompanion<RecurringPaymentRow> {
+  final Value<String> id;
+  final Value<String> title;
+  final Value<TransactionType> type;
+  final Value<int> amountMinor;
+  final Value<String> currency;
+  final Value<String> categoryId;
+  final Value<String?> subcategoryId;
+  final Value<String?> accountId;
+  final Value<String> unit;
+  final Value<int> every;
+  final Value<DateOnly> startsOn;
+  final Value<DateOnly?> endsOn;
+  final Value<bool> remind;
+  final Value<DateOnly?> trackedThrough;
+  final Value<int> createdAt;
+  final Value<int> updatedAt;
+  final Value<int?> deletedAt;
+  final Value<int> rowid;
+  const RecurringPaymentsCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.type = const Value.absent(),
+    this.amountMinor = const Value.absent(),
+    this.currency = const Value.absent(),
+    this.categoryId = const Value.absent(),
+    this.subcategoryId = const Value.absent(),
+    this.accountId = const Value.absent(),
+    this.unit = const Value.absent(),
+    this.every = const Value.absent(),
+    this.startsOn = const Value.absent(),
+    this.endsOn = const Value.absent(),
+    this.remind = const Value.absent(),
+    this.trackedThrough = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RecurringPaymentsCompanion.insert({
+    required String id,
+    required String title,
+    required TransactionType type,
+    required int amountMinor,
+    required String currency,
+    required String categoryId,
+    this.subcategoryId = const Value.absent(),
+    this.accountId = const Value.absent(),
+    required String unit,
+    required int every,
+    required DateOnly startsOn,
+    this.endsOn = const Value.absent(),
+    required bool remind,
+    this.trackedThrough = const Value.absent(),
+    required int createdAt,
+    required int updatedAt,
+    this.deletedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       title = Value(title),
+       type = Value(type),
+       amountMinor = Value(amountMinor),
+       currency = Value(currency),
+       categoryId = Value(categoryId),
+       unit = Value(unit),
+       every = Value(every),
+       startsOn = Value(startsOn),
+       remind = Value(remind),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<RecurringPaymentRow> custom({
+    Expression<String>? id,
+    Expression<String>? title,
+    Expression<String>? type,
+    Expression<int>? amountMinor,
+    Expression<String>? currency,
+    Expression<String>? categoryId,
+    Expression<String>? subcategoryId,
+    Expression<String>? accountId,
+    Expression<String>? unit,
+    Expression<int>? every,
+    Expression<int>? startsOn,
+    Expression<int>? endsOn,
+    Expression<bool>? remind,
+    Expression<int>? trackedThrough,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+    Expression<int>? deletedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (type != null) 'type': type,
+      if (amountMinor != null) 'amount_minor': amountMinor,
+      if (currency != null) 'currency': currency,
+      if (categoryId != null) 'category_id': categoryId,
+      if (subcategoryId != null) 'subcategory_id': subcategoryId,
+      if (accountId != null) 'account_id': accountId,
+      if (unit != null) 'unit': unit,
+      if (every != null) 'every': every,
+      if (startsOn != null) 'starts_on': startsOn,
+      if (endsOn != null) 'ends_on': endsOn,
+      if (remind != null) 'remind': remind,
+      if (trackedThrough != null) 'tracked_through': trackedThrough,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RecurringPaymentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? title,
+    Value<TransactionType>? type,
+    Value<int>? amountMinor,
+    Value<String>? currency,
+    Value<String>? categoryId,
+    Value<String?>? subcategoryId,
+    Value<String?>? accountId,
+    Value<String>? unit,
+    Value<int>? every,
+    Value<DateOnly>? startsOn,
+    Value<DateOnly?>? endsOn,
+    Value<bool>? remind,
+    Value<DateOnly?>? trackedThrough,
+    Value<int>? createdAt,
+    Value<int>? updatedAt,
+    Value<int?>? deletedAt,
+    Value<int>? rowid,
+  }) {
+    return RecurringPaymentsCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      type: type ?? this.type,
+      amountMinor: amountMinor ?? this.amountMinor,
+      currency: currency ?? this.currency,
+      categoryId: categoryId ?? this.categoryId,
+      subcategoryId: subcategoryId ?? this.subcategoryId,
+      accountId: accountId ?? this.accountId,
+      unit: unit ?? this.unit,
+      every: every ?? this.every,
+      startsOn: startsOn ?? this.startsOn,
+      endsOn: endsOn ?? this.endsOn,
+      remind: remind ?? this.remind,
+      trackedThrough: trackedThrough ?? this.trackedThrough,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(
+        $RecurringPaymentsTable.$convertertype.toSql(type.value),
+      );
+    }
+    if (amountMinor.present) {
+      map['amount_minor'] = Variable<int>(amountMinor.value);
+    }
+    if (currency.present) {
+      map['currency'] = Variable<String>(currency.value);
+    }
+    if (categoryId.present) {
+      map['category_id'] = Variable<String>(categoryId.value);
+    }
+    if (subcategoryId.present) {
+      map['subcategory_id'] = Variable<String>(subcategoryId.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (unit.present) {
+      map['unit'] = Variable<String>(unit.value);
+    }
+    if (every.present) {
+      map['every'] = Variable<int>(every.value);
+    }
+    if (startsOn.present) {
+      map['starts_on'] = Variable<int>(
+        $RecurringPaymentsTable.$converterstartsOn.toSql(startsOn.value),
+      );
+    }
+    if (endsOn.present) {
+      map['ends_on'] = Variable<int>(
+        $RecurringPaymentsTable.$converterendsOnn.toSql(endsOn.value),
+      );
+    }
+    if (remind.present) {
+      map['remind'] = Variable<bool>(remind.value);
+    }
+    if (trackedThrough.present) {
+      map['tracked_through'] = Variable<int>(
+        $RecurringPaymentsTable.$convertertrackedThroughn.toSql(
+          trackedThrough.value,
+        ),
+      );
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<int>(deletedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecurringPaymentsCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('type: $type, ')
+          ..write('amountMinor: $amountMinor, ')
+          ..write('currency: $currency, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('subcategoryId: $subcategoryId, ')
+          ..write('accountId: $accountId, ')
+          ..write('unit: $unit, ')
+          ..write('every: $every, ')
+          ..write('startsOn: $startsOn, ')
+          ..write('endsOn: $endsOn, ')
+          ..write('remind: $remind, ')
+          ..write('trackedThrough: $trackedThrough, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RecurringDuesTable extends RecurringDues
+    with TableInfo<$RecurringDuesTable, RecurringDueRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RecurringDuesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _paymentIdMeta = const VerificationMeta(
+    'paymentId',
+  );
+  @override
+  late final GeneratedColumn<String> paymentId = GeneratedColumn<String>(
+    'payment_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES recurring_payments (id)',
+    ),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<DateOnly, int> dueOn =
+      GeneratedColumn<int>(
+        'due_on',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: true,
+      ).withConverter<DateOnly>($RecurringDuesTable.$converterdueOn);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transactionIdMeta = const VerificationMeta(
+    'transactionId',
+  );
+  @override
+  late final GeneratedColumn<String> transactionId = GeneratedColumn<String>(
+    'transaction_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES transactions (id)',
+    ),
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<int> resolvedAt = GeneratedColumn<int>(
+    'resolved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<int> createdAt = GeneratedColumn<int>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAt = GeneratedColumn<int>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    paymentId,
+    dueOn,
+    status,
+    transactionId,
+    resolvedAt,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'recurring_dues';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RecurringDueRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('payment_id')) {
+      context.handle(
+        _paymentIdMeta,
+        paymentId.isAcceptableOrUnknown(data['payment_id']!, _paymentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_paymentIdMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('transaction_id')) {
+      context.handle(
+        _transactionIdMeta,
+        transactionId.isAcceptableOrUnknown(
+          data['transaction_id']!,
+          _transactionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RecurringDueRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RecurringDueRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      paymentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payment_id'],
+      )!,
+      dueOn: $RecurringDuesTable.$converterdueOn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}due_on'],
+        )!,
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      transactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transaction_id'],
+      ),
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}resolved_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RecurringDuesTable createAlias(String alias) {
+    return $RecurringDuesTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<DateOnly, int> $converterdueOn =
+      const DateOnlyConverter();
+}
+
+class RecurringDueRow extends DataClass implements Insertable<RecurringDueRow> {
+  /// UUID v7, создаётся вне базы (ADR 0001).
+  final String id;
+  final String paymentId;
+  final DateOnly dueOn;
+
+  /// `pending` / `paid` / `skipped`.
+  final String status;
+
+  /// Операция, созданная по кнопке «Оплачено»; только у статуса `paid`.
+  final String? transactionId;
+
+  /// Когда отмечено (миллисекунды эпохи UTC).
+  final int? resolvedAt;
+  final int createdAt;
+  final int updatedAt;
+  const RecurringDueRow({
+    required this.id,
+    required this.paymentId,
+    required this.dueOn,
+    required this.status,
+    this.transactionId,
+    this.resolvedAt,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['payment_id'] = Variable<String>(paymentId);
+    {
+      map['due_on'] = Variable<int>(
+        $RecurringDuesTable.$converterdueOn.toSql(dueOn),
+      );
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || transactionId != null) {
+      map['transaction_id'] = Variable<String>(transactionId);
+    }
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<int>(resolvedAt);
+    }
+    map['created_at'] = Variable<int>(createdAt);
+    map['updated_at'] = Variable<int>(updatedAt);
+    return map;
+  }
+
+  RecurringDuesCompanion toCompanion(bool nullToAbsent) {
+    return RecurringDuesCompanion(
+      id: Value(id),
+      paymentId: Value(paymentId),
+      dueOn: Value(dueOn),
+      status: Value(status),
+      transactionId: transactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(transactionId),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory RecurringDueRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RecurringDueRow(
+      id: serializer.fromJson<String>(json['id']),
+      paymentId: serializer.fromJson<String>(json['paymentId']),
+      dueOn: serializer.fromJson<DateOnly>(json['dueOn']),
+      status: serializer.fromJson<String>(json['status']),
+      transactionId: serializer.fromJson<String?>(json['transactionId']),
+      resolvedAt: serializer.fromJson<int?>(json['resolvedAt']),
+      createdAt: serializer.fromJson<int>(json['createdAt']),
+      updatedAt: serializer.fromJson<int>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'paymentId': serializer.toJson<String>(paymentId),
+      'dueOn': serializer.toJson<DateOnly>(dueOn),
+      'status': serializer.toJson<String>(status),
+      'transactionId': serializer.toJson<String?>(transactionId),
+      'resolvedAt': serializer.toJson<int?>(resolvedAt),
+      'createdAt': serializer.toJson<int>(createdAt),
+      'updatedAt': serializer.toJson<int>(updatedAt),
+    };
+  }
+
+  RecurringDueRow copyWith({
+    String? id,
+    String? paymentId,
+    DateOnly? dueOn,
+    String? status,
+    Value<String?> transactionId = const Value.absent(),
+    Value<int?> resolvedAt = const Value.absent(),
+    int? createdAt,
+    int? updatedAt,
+  }) => RecurringDueRow(
+    id: id ?? this.id,
+    paymentId: paymentId ?? this.paymentId,
+    dueOn: dueOn ?? this.dueOn,
+    status: status ?? this.status,
+    transactionId: transactionId.present
+        ? transactionId.value
+        : this.transactionId,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  RecurringDueRow copyWithCompanion(RecurringDuesCompanion data) {
+    return RecurringDueRow(
+      id: data.id.present ? data.id.value : this.id,
+      paymentId: data.paymentId.present ? data.paymentId.value : this.paymentId,
+      dueOn: data.dueOn.present ? data.dueOn.value : this.dueOn,
+      status: data.status.present ? data.status.value : this.status,
+      transactionId: data.transactionId.present
+          ? data.transactionId.value
+          : this.transactionId,
+      resolvedAt: data.resolvedAt.present
+          ? data.resolvedAt.value
+          : this.resolvedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecurringDueRow(')
+          ..write('id: $id, ')
+          ..write('paymentId: $paymentId, ')
+          ..write('dueOn: $dueOn, ')
+          ..write('status: $status, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    paymentId,
+    dueOn,
+    status,
+    transactionId,
+    resolvedAt,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RecurringDueRow &&
+          other.id == this.id &&
+          other.paymentId == this.paymentId &&
+          other.dueOn == this.dueOn &&
+          other.status == this.status &&
+          other.transactionId == this.transactionId &&
+          other.resolvedAt == this.resolvedAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class RecurringDuesCompanion extends UpdateCompanion<RecurringDueRow> {
+  final Value<String> id;
+  final Value<String> paymentId;
+  final Value<DateOnly> dueOn;
+  final Value<String> status;
+  final Value<String?> transactionId;
+  final Value<int?> resolvedAt;
+  final Value<int> createdAt;
+  final Value<int> updatedAt;
+  final Value<int> rowid;
+  const RecurringDuesCompanion({
+    this.id = const Value.absent(),
+    this.paymentId = const Value.absent(),
+    this.dueOn = const Value.absent(),
+    this.status = const Value.absent(),
+    this.transactionId = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RecurringDuesCompanion.insert({
+    required String id,
+    required String paymentId,
+    required DateOnly dueOn,
+    required String status,
+    this.transactionId = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    required int createdAt,
+    required int updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       paymentId = Value(paymentId),
+       dueOn = Value(dueOn),
+       status = Value(status),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<RecurringDueRow> custom({
+    Expression<String>? id,
+    Expression<String>? paymentId,
+    Expression<int>? dueOn,
+    Expression<String>? status,
+    Expression<String>? transactionId,
+    Expression<int>? resolvedAt,
+    Expression<int>? createdAt,
+    Expression<int>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (paymentId != null) 'payment_id': paymentId,
+      if (dueOn != null) 'due_on': dueOn,
+      if (status != null) 'status': status,
+      if (transactionId != null) 'transaction_id': transactionId,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RecurringDuesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? paymentId,
+    Value<DateOnly>? dueOn,
+    Value<String>? status,
+    Value<String?>? transactionId,
+    Value<int?>? resolvedAt,
+    Value<int>? createdAt,
+    Value<int>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return RecurringDuesCompanion(
+      id: id ?? this.id,
+      paymentId: paymentId ?? this.paymentId,
+      dueOn: dueOn ?? this.dueOn,
+      status: status ?? this.status,
+      transactionId: transactionId ?? this.transactionId,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (paymentId.present) {
+      map['payment_id'] = Variable<String>(paymentId.value);
+    }
+    if (dueOn.present) {
+      map['due_on'] = Variable<int>(
+        $RecurringDuesTable.$converterdueOn.toSql(dueOn.value),
+      );
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (transactionId.present) {
+      map['transaction_id'] = Variable<String>(transactionId.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<int>(resolvedAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<int>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<int>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RecurringDuesCompanion(')
+          ..write('id: $id, ')
+          ..write('paymentId: $paymentId, ')
+          ..write('dueOn: $dueOn, ')
+          ..write('status: $status, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3082,6 +4619,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $TransactionsTable transactions = $TransactionsTable(this);
   late final $TransfersTable transfers = $TransfersTable(this);
+  late final $RecurringPaymentsTable recurringPayments =
+      $RecurringPaymentsTable(this);
+  late final $RecurringDuesTable recurringDues = $RecurringDuesTable(this);
   late final Index categoriesLevelOrder = Index(
     'categories_level_order',
     'CREATE INDEX categories_level_order ON categories (parent_id, sort_order) WHERE deleted_at IS NULL',
@@ -3118,6 +4658,14 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'transfers_to_account',
     'CREATE INDEX transfers_to_account ON transfers (to_account_id) WHERE deleted_at IS NULL',
   );
+  late final Index recurringDuesPaymentDue = Index(
+    'recurring_dues_payment_due',
+    'CREATE UNIQUE INDEX recurring_dues_payment_due ON recurring_dues (payment_id, due_on)',
+  );
+  late final Index recurringDuesTransaction = Index(
+    'recurring_dues_transaction',
+    'CREATE INDEX recurring_dues_transaction ON recurring_dues (transaction_id) WHERE transaction_id IS NOT NULL',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3128,6 +4676,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     accounts,
     transactions,
     transfers,
+    recurringPayments,
+    recurringDues,
     categoriesLevelOrder,
     categoriesKindLevelOrder,
     transactionsOccurredOnAt,
@@ -3137,6 +4687,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     transfersOccurredOnAt,
     transfersFromAccount,
     transfersToAccount,
+    recurringDuesPaymentDue,
+    recurringDuesTransaction,
   ];
 }
 
@@ -3400,6 +4952,50 @@ final class $$CategoriesTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$RecurringPaymentsTable, List<RecurringPaymentRow>>
+  _recurringPaymentsInCategoryTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.recurringPayments,
+        aliasName: 'categories__id__recurring_payments__category_id',
+      );
+
+  $$RecurringPaymentsTableProcessedTableManager
+  get recurringPaymentsInCategory {
+    final manager = $$RecurringPaymentsTableTableManager(
+      $_db,
+      $_db.recurringPayments,
+    ).filter((f) => f.categoryId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _recurringPaymentsInCategoryTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RecurringPaymentsTable, List<RecurringPaymentRow>>
+  _recurringPaymentsInSubcategoryTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.recurringPayments,
+        aliasName: 'categories__id__recurring_payments__subcategory_id',
+      );
+
+  $$RecurringPaymentsTableProcessedTableManager
+  get recurringPaymentsInSubcategory {
+    final manager = $$RecurringPaymentsTableTableManager(
+      $_db,
+      $_db.recurringPayments,
+    ).filter((f) => f.subcategoryId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _recurringPaymentsInSubcategoryTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$CategoriesTableFilterComposer
@@ -3520,6 +5116,56 @@ class $$CategoriesTableFilterComposer
           }) => $$TransactionsTableFilterComposer(
             $db: $db,
             $table: $db.transactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> recurringPaymentsInCategory(
+    Expression<bool> Function($$RecurringPaymentsTableFilterComposer f) f,
+  ) {
+    final $$RecurringPaymentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurringPayments,
+      getReferencedColumn: (t) => t.categoryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringPaymentsTableFilterComposer(
+            $db: $db,
+            $table: $db.recurringPayments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> recurringPaymentsInSubcategory(
+    Expression<bool> Function($$RecurringPaymentsTableFilterComposer f) f,
+  ) {
+    final $$RecurringPaymentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurringPayments,
+      getReferencedColumn: (t) => t.subcategoryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringPaymentsTableFilterComposer(
+            $db: $db,
+            $table: $db.recurringPayments,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3718,6 +5364,58 @@ class $$CategoriesTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> recurringPaymentsInCategory<T extends Object>(
+    Expression<T> Function($$RecurringPaymentsTableAnnotationComposer a) f,
+  ) {
+    final $$RecurringPaymentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.recurringPayments,
+          getReferencedColumn: (t) => t.categoryId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$RecurringPaymentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.recurringPayments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
+
+  Expression<T> recurringPaymentsInSubcategory<T extends Object>(
+    Expression<T> Function($$RecurringPaymentsTableAnnotationComposer a) f,
+  ) {
+    final $$RecurringPaymentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.recurringPayments,
+          getReferencedColumn: (t) => t.subcategoryId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$RecurringPaymentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.recurringPayments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$CategoriesTableTableManager
@@ -3737,6 +5435,8 @@ class $$CategoriesTableTableManager
             bool parentId,
             bool transactionsInCategory,
             bool transactionsInSubcategory,
+            bool recurringPaymentsInCategory,
+            bool recurringPaymentsInSubcategory,
           })
         > {
   $$CategoriesTableTableManager(_$AppDatabase db, $CategoriesTable table)
@@ -3815,12 +5515,16 @@ class $$CategoriesTableTableManager
                 parentId = false,
                 transactionsInCategory = false,
                 transactionsInSubcategory = false,
+                recurringPaymentsInCategory = false,
+                recurringPaymentsInSubcategory = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (transactionsInCategory) db.transactions,
                     if (transactionsInSubcategory) db.transactions,
+                    if (recurringPaymentsInCategory) db.recurringPayments,
+                    if (recurringPaymentsInSubcategory) db.recurringPayments,
                   ],
                   addJoins:
                       <
@@ -3896,6 +5600,48 @@ class $$CategoriesTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (recurringPaymentsInCategory)
+                        await $_getPrefetchedData<
+                          CategoryRow,
+                          $CategoriesTable,
+                          RecurringPaymentRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CategoriesTableReferences
+                              ._recurringPaymentsInCategoryTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CategoriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recurringPaymentsInCategory,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.categoryId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (recurringPaymentsInSubcategory)
+                        await $_getPrefetchedData<
+                          CategoryRow,
+                          $CategoriesTable,
+                          RecurringPaymentRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CategoriesTableReferences
+                              ._recurringPaymentsInSubcategoryTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CategoriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recurringPaymentsInSubcategory,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.subcategoryId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -3920,6 +5666,8 @@ typedef $$CategoriesTableProcessedTableManager =
         bool parentId,
         bool transactionsInCategory,
         bool transactionsInSubcategory,
+        bool recurringPaymentsInCategory,
+        bool recurringPaymentsInSubcategory,
       })
     >;
 typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
@@ -4006,6 +5754,27 @@ final class $$AccountsTableReferences
     ).filter((f) => f.toAccountId.id.sqlEquals($_itemColumn<String>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_transfersToAccountTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$RecurringPaymentsTable, List<RecurringPaymentRow>>
+  _recurringPaymentsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.recurringPayments,
+        aliasName: 'accounts__id__recurring_payments__account_id',
+      );
+
+  $$RecurringPaymentsTableProcessedTableManager get recurringPaymentsRefs {
+    final manager = $$RecurringPaymentsTableTableManager(
+      $_db,
+      $_db.recurringPayments,
+    ).filter((f) => f.accountId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _recurringPaymentsRefsTable($_db),
+    );
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -4142,6 +5911,31 @@ class $$AccountsTableFilterComposer
           }) => $$TransfersTableFilterComposer(
             $db: $db,
             $table: $db.transfers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> recurringPaymentsRefs(
+    Expression<bool> Function($$RecurringPaymentsTableFilterComposer f) f,
+  ) {
+    final $$RecurringPaymentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurringPayments,
+      getReferencedColumn: (t) => t.accountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringPaymentsTableFilterComposer(
+            $db: $db,
+            $table: $db.recurringPayments,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4339,6 +6133,32 @@ class $$AccountsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> recurringPaymentsRefs<T extends Object>(
+    Expression<T> Function($$RecurringPaymentsTableAnnotationComposer a) f,
+  ) {
+    final $$RecurringPaymentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.recurringPayments,
+          getReferencedColumn: (t) => t.accountId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$RecurringPaymentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.recurringPayments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$AccountsTableTableManager
@@ -4358,6 +6178,7 @@ class $$AccountsTableTableManager
             bool transactionsRefs,
             bool transfersFromAccount,
             bool transfersToAccount,
+            bool recurringPaymentsRefs,
           })
         > {
   $$AccountsTableTableManager(_$AppDatabase db, $AccountsTable table)
@@ -4440,6 +6261,7 @@ class $$AccountsTableTableManager
                 transactionsRefs = false,
                 transfersFromAccount = false,
                 transfersToAccount = false,
+                recurringPaymentsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -4447,6 +6269,7 @@ class $$AccountsTableTableManager
                     if (transactionsRefs) db.transactions,
                     if (transfersFromAccount) db.transfers,
                     if (transfersToAccount) db.transfers,
+                    if (recurringPaymentsRefs) db.recurringPayments,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -4514,6 +6337,27 @@ class $$AccountsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (recurringPaymentsRefs)
+                        await $_getPrefetchedData<
+                          AccountRow,
+                          $AccountsTable,
+                          RecurringPaymentRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$AccountsTableReferences
+                              ._recurringPaymentsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$AccountsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recurringPaymentsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.accountId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -4538,6 +6382,7 @@ typedef $$AccountsTableProcessedTableManager =
         bool transactionsRefs,
         bool transfersFromAccount,
         bool transfersToAccount,
+        bool recurringPaymentsRefs,
       })
     >;
 typedef $$TransactionsTableCreateCompanionBuilder =
@@ -4627,6 +6472,24 @@ final class $$TransactionsTableReferences
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$RecurringDuesTable, List<RecurringDueRow>>
+  _recurringDuesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.recurringDues,
+    aliasName: 'transactions__id__recurring_dues__transaction_id',
+  );
+
+  $$RecurringDuesTableProcessedTableManager get recurringDuesRefs {
+    final manager = $$RecurringDuesTableTableManager(
+      $_db,
+      $_db.recurringDues,
+    ).filter((f) => f.transactionId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_recurringDuesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
     );
   }
 }
@@ -4759,6 +6622,31 @@ class $$TransactionsTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> recurringDuesRefs(
+    Expression<bool> Function($$RecurringDuesTableFilterComposer f) f,
+  ) {
+    final $$RecurringDuesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurringDues,
+      getReferencedColumn: (t) => t.transactionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringDuesTableFilterComposer(
+            $db: $db,
+            $table: $db.recurringDues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 }
 
@@ -5005,6 +6893,31 @@ class $$TransactionsTableAnnotationComposer
     );
     return composer;
   }
+
+  Expression<T> recurringDuesRefs<T extends Object>(
+    Expression<T> Function($$RecurringDuesTableAnnotationComposer a) f,
+  ) {
+    final $$RecurringDuesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurringDues,
+      getReferencedColumn: (t) => t.transactionId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringDuesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.recurringDues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TransactionsTableTableManager
@@ -5024,6 +6937,7 @@ class $$TransactionsTableTableManager
             bool categoryId,
             bool subcategoryId,
             bool accountId,
+            bool recurringDuesRefs,
           })
         > {
   $$TransactionsTableTableManager(_$AppDatabase db, $TransactionsTable table)
@@ -5110,10 +7024,17 @@ class $$TransactionsTableTableManager
               )
               .toList(),
           prefetchHooksCallback:
-              ({categoryId = false, subcategoryId = false, accountId = false}) {
+              ({
+                categoryId = false,
+                subcategoryId = false,
+                accountId = false,
+                recurringDuesRefs = false,
+              }) {
                 return PrefetchHooks(
                   db: db,
-                  explicitlyWatchedTables: [],
+                  explicitlyWatchedTables: [
+                    if (recurringDuesRefs) db.recurringDues,
+                  ],
                   addJoins:
                       <
                         T extends TableManagerState<
@@ -5167,7 +7088,29 @@ class $$TransactionsTableTableManager
                         return state;
                       },
                   getPrefetchedDataCallback: (items) async {
-                    return [];
+                    return [
+                      if (recurringDuesRefs)
+                        await $_getPrefetchedData<
+                          TransactionRow,
+                          $TransactionsTable,
+                          RecurringDueRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TransactionsTableReferences
+                              ._recurringDuesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TransactionsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recurringDuesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.transactionId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
                   },
                 );
               },
@@ -5191,6 +7134,7 @@ typedef $$TransactionsTableProcessedTableManager =
         bool categoryId,
         bool subcategoryId,
         bool accountId,
+        bool recurringDuesRefs,
       })
     >;
 typedef $$TransfersTableCreateCompanionBuilder = TransfersCompanion Function({
@@ -5713,6 +7657,1317 @@ typedef $$TransfersTableProcessedTableManager =
       TransferRow,
       PrefetchHooks Function({bool fromAccountId, bool toAccountId})
     >;
+typedef $$RecurringPaymentsTableCreateCompanionBuilder =
+    RecurringPaymentsCompanion Function({
+      required String id,
+      required String title,
+      required TransactionType type,
+      required int amountMinor,
+      required String currency,
+      required String categoryId,
+      Value<String?> subcategoryId,
+      Value<String?> accountId,
+      required String unit,
+      required int every,
+      required DateOnly startsOn,
+      Value<DateOnly?> endsOn,
+      required bool remind,
+      Value<DateOnly?> trackedThrough,
+      required int createdAt,
+      required int updatedAt,
+      Value<int?> deletedAt,
+      Value<int> rowid,
+    });
+typedef $$RecurringPaymentsTableUpdateCompanionBuilder =
+    RecurringPaymentsCompanion Function({
+      Value<String> id,
+      Value<String> title,
+      Value<TransactionType> type,
+      Value<int> amountMinor,
+      Value<String> currency,
+      Value<String> categoryId,
+      Value<String?> subcategoryId,
+      Value<String?> accountId,
+      Value<String> unit,
+      Value<int> every,
+      Value<DateOnly> startsOn,
+      Value<DateOnly?> endsOn,
+      Value<bool> remind,
+      Value<DateOnly?> trackedThrough,
+      Value<int> createdAt,
+      Value<int> updatedAt,
+      Value<int?> deletedAt,
+      Value<int> rowid,
+    });
+
+final class $$RecurringPaymentsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $RecurringPaymentsTable,
+          RecurringPaymentRow
+        > {
+  $$RecurringPaymentsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $CategoriesTable _categoryIdTable(_$AppDatabase db) => db.categories
+      .createAlias('recurring_payments__category_id__categories__id');
+
+  $$CategoriesTableProcessedTableManager get categoryId {
+    final $_column = $_itemColumn<String>('category_id')!;
+
+    final manager = $$CategoriesTableTableManager(
+      $_db,
+      $_db.categories,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_categoryIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $CategoriesTable _subcategoryIdTable(_$AppDatabase db) => db.categories
+      .createAlias('recurring_payments__subcategory_id__categories__id');
+
+  $$CategoriesTableProcessedTableManager? get subcategoryId {
+    final $_column = $_itemColumn<String>('subcategory_id');
+    if ($_column == null) return null;
+    final manager = $$CategoriesTableTableManager(
+      $_db,
+      $_db.categories,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_subcategoryIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $AccountsTable _accountIdTable(_$AppDatabase db) =>
+      db.accounts.createAlias('recurring_payments__account_id__accounts__id');
+
+  $$AccountsTableProcessedTableManager? get accountId {
+    final $_column = $_itemColumn<String>('account_id');
+    if ($_column == null) return null;
+    final manager = $$AccountsTableTableManager(
+      $_db,
+      $_db.accounts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_accountIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static MultiTypedResultKey<$RecurringDuesTable, List<RecurringDueRow>>
+  _recurringDuesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.recurringDues,
+    aliasName: 'recurring_payments__id__recurring_dues__payment_id',
+  );
+
+  $$RecurringDuesTableProcessedTableManager get recurringDuesRefs {
+    final manager = $$RecurringDuesTableTableManager(
+      $_db,
+      $_db.recurringDues,
+    ).filter((f) => f.paymentId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_recurringDuesRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$RecurringPaymentsTableFilterComposer
+    extends Composer<_$AppDatabase, $RecurringPaymentsTable> {
+  $$RecurringPaymentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<TransactionType, TransactionType, String>
+  get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get currency => $composableBuilder(
+    column: $table.currency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get every => $composableBuilder(
+    column: $table.every,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateOnly, DateOnly, int> get startsOn =>
+      $composableBuilder(
+        column: $table.startsOn,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnWithTypeConverterFilters<DateOnly?, DateOnly, int> get endsOn =>
+      $composableBuilder(
+        column: $table.endsOn,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<bool> get remind => $composableBuilder(
+    column: $table.remind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateOnly?, DateOnly, int> get trackedThrough =>
+      $composableBuilder(
+        column: $table.trackedThrough,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$CategoriesTableFilterComposer get categoryId {
+    final $$CategoriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.categoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableFilterComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CategoriesTableFilterComposer get subcategoryId {
+    final $$CategoriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.subcategoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableFilterComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountsTableFilterComposer get accountId {
+    final $$AccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<bool> recurringDuesRefs(
+    Expression<bool> Function($$RecurringDuesTableFilterComposer f) f,
+  ) {
+    final $$RecurringDuesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurringDues,
+      getReferencedColumn: (t) => t.paymentId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringDuesTableFilterComposer(
+            $db: $db,
+            $table: $db.recurringDues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$RecurringPaymentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RecurringPaymentsTable> {
+  $$RecurringPaymentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get currency => $composableBuilder(
+    column: $table.currency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get unit => $composableBuilder(
+    column: $table.unit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get every => $composableBuilder(
+    column: $table.every,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startsOn => $composableBuilder(
+    column: $table.startsOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endsOn => $composableBuilder(
+    column: $table.endsOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get remind => $composableBuilder(
+    column: $table.remind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get trackedThrough => $composableBuilder(
+    column: $table.trackedThrough,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$CategoriesTableOrderingComposer get categoryId {
+    final $$CategoriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.categoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CategoriesTableOrderingComposer get subcategoryId {
+    final $$CategoriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.subcategoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountsTableOrderingComposer get accountId {
+    final $$AccountsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableOrderingComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RecurringPaymentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RecurringPaymentsTable> {
+  $$RecurringPaymentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<TransactionType, String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get currency =>
+      $composableBuilder(column: $table.currency, builder: (column) => column);
+
+  GeneratedColumn<String> get unit =>
+      $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<int> get every =>
+      $composableBuilder(column: $table.every, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateOnly, int> get startsOn =>
+      $composableBuilder(column: $table.startsOn, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateOnly?, int> get endsOn =>
+      $composableBuilder(column: $table.endsOn, builder: (column) => column);
+
+  GeneratedColumn<bool> get remind =>
+      $composableBuilder(column: $table.remind, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateOnly?, int> get trackedThrough =>
+      $composableBuilder(
+        column: $table.trackedThrough,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  $$CategoriesTableAnnotationComposer get categoryId {
+    final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.categoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CategoriesTableAnnotationComposer get subcategoryId {
+    final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.subcategoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$AccountsTableAnnotationComposer get accountId {
+    final $$AccountsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.accountId,
+      referencedTable: $db.accounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$AccountsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.accounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  Expression<T> recurringDuesRefs<T extends Object>(
+    Expression<T> Function($$RecurringDuesTableAnnotationComposer a) f,
+  ) {
+    final $$RecurringDuesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.recurringDues,
+      getReferencedColumn: (t) => t.paymentId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringDuesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.recurringDues,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$RecurringPaymentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RecurringPaymentsTable,
+          RecurringPaymentRow,
+          $$RecurringPaymentsTableFilterComposer,
+          $$RecurringPaymentsTableOrderingComposer,
+          $$RecurringPaymentsTableAnnotationComposer,
+          $$RecurringPaymentsTableCreateCompanionBuilder,
+          $$RecurringPaymentsTableUpdateCompanionBuilder,
+          (RecurringPaymentRow, $$RecurringPaymentsTableReferences),
+          RecurringPaymentRow,
+          PrefetchHooks Function({
+            bool categoryId,
+            bool subcategoryId,
+            bool accountId,
+            bool recurringDuesRefs,
+          })
+        > {
+  $$RecurringPaymentsTableTableManager(
+    _$AppDatabase db,
+    $RecurringPaymentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecurringPaymentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecurringPaymentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecurringPaymentsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<TransactionType> type = const Value.absent(),
+                Value<int> amountMinor = const Value.absent(),
+                Value<String> currency = const Value.absent(),
+                Value<String> categoryId = const Value.absent(),
+                Value<String?> subcategoryId = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
+                Value<String> unit = const Value.absent(),
+                Value<int> every = const Value.absent(),
+                Value<DateOnly> startsOn = const Value.absent(),
+                Value<DateOnly?> endsOn = const Value.absent(),
+                Value<bool> remind = const Value.absent(),
+                Value<DateOnly?> trackedThrough = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecurringPaymentsCompanion(
+                id: id,
+                title: title,
+                type: type,
+                amountMinor: amountMinor,
+                currency: currency,
+                categoryId: categoryId,
+                subcategoryId: subcategoryId,
+                accountId: accountId,
+                unit: unit,
+                every: every,
+                startsOn: startsOn,
+                endsOn: endsOn,
+                remind: remind,
+                trackedThrough: trackedThrough,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String title,
+                required TransactionType type,
+                required int amountMinor,
+                required String currency,
+                required String categoryId,
+                Value<String?> subcategoryId = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
+                required String unit,
+                required int every,
+                required DateOnly startsOn,
+                Value<DateOnly?> endsOn = const Value.absent(),
+                required bool remind,
+                Value<DateOnly?> trackedThrough = const Value.absent(),
+                required int createdAt,
+                required int updatedAt,
+                Value<int?> deletedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecurringPaymentsCompanion.insert(
+                id: id,
+                title: title,
+                type: type,
+                amountMinor: amountMinor,
+                currency: currency,
+                categoryId: categoryId,
+                subcategoryId: subcategoryId,
+                accountId: accountId,
+                unit: unit,
+                every: every,
+                startsOn: startsOn,
+                endsOn: endsOn,
+                remind: remind,
+                trackedThrough: trackedThrough,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RecurringPaymentsTable, RecurringPaymentRow>(
+                    table,
+                  ),
+                  $$RecurringPaymentsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({
+                categoryId = false,
+                subcategoryId = false,
+                accountId = false,
+                recurringDuesRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (recurringDuesRefs) db.recurringDues,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (categoryId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.categoryId,
+                            referencedTable: $$RecurringPaymentsTableReferences
+                                ._categoryIdTable(db),
+                            referencedColumn: $$RecurringPaymentsTableReferences
+                                ._categoryIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (subcategoryId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.subcategoryId,
+                            referencedTable: $$RecurringPaymentsTableReferences
+                                ._subcategoryIdTable(db),
+                            referencedColumn: $$RecurringPaymentsTableReferences
+                                ._subcategoryIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+                        if (accountId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.accountId,
+                            referencedTable: $$RecurringPaymentsTableReferences
+                                ._accountIdTable(db),
+                            referencedColumn: $$RecurringPaymentsTableReferences
+                                ._accountIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (recurringDuesRefs)
+                        await $_getPrefetchedData<
+                          RecurringPaymentRow,
+                          $RecurringPaymentsTable,
+                          RecurringDueRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$RecurringPaymentsTableReferences
+                              ._recurringDuesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$RecurringPaymentsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).recurringDuesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.paymentId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$RecurringPaymentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RecurringPaymentsTable,
+      RecurringPaymentRow,
+      $$RecurringPaymentsTableFilterComposer,
+      $$RecurringPaymentsTableOrderingComposer,
+      $$RecurringPaymentsTableAnnotationComposer,
+      $$RecurringPaymentsTableCreateCompanionBuilder,
+      $$RecurringPaymentsTableUpdateCompanionBuilder,
+      (RecurringPaymentRow, $$RecurringPaymentsTableReferences),
+      RecurringPaymentRow,
+      PrefetchHooks Function({
+        bool categoryId,
+        bool subcategoryId,
+        bool accountId,
+        bool recurringDuesRefs,
+      })
+    >;
+typedef $$RecurringDuesTableCreateCompanionBuilder =
+    RecurringDuesCompanion Function({
+      required String id,
+      required String paymentId,
+      required DateOnly dueOn,
+      required String status,
+      Value<String?> transactionId,
+      Value<int?> resolvedAt,
+      required int createdAt,
+      required int updatedAt,
+      Value<int> rowid,
+    });
+typedef $$RecurringDuesTableUpdateCompanionBuilder =
+    RecurringDuesCompanion Function({
+      Value<String> id,
+      Value<String> paymentId,
+      Value<DateOnly> dueOn,
+      Value<String> status,
+      Value<String?> transactionId,
+      Value<int?> resolvedAt,
+      Value<int> createdAt,
+      Value<int> updatedAt,
+      Value<int> rowid,
+    });
+
+final class $$RecurringDuesTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $RecurringDuesTable, RecurringDueRow> {
+  $$RecurringDuesTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $RecurringPaymentsTable _paymentIdTable(_$AppDatabase db) => db
+      .recurringPayments
+      .createAlias('recurring_dues__payment_id__recurring_payments__id');
+
+  $$RecurringPaymentsTableProcessedTableManager get paymentId {
+    final $_column = $_itemColumn<String>('payment_id')!;
+
+    final manager = $$RecurringPaymentsTableTableManager(
+      $_db,
+      $_db.recurringPayments,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_paymentIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $TransactionsTable _transactionIdTable(_$AppDatabase db) => db
+      .transactions
+      .createAlias('recurring_dues__transaction_id__transactions__id');
+
+  $$TransactionsTableProcessedTableManager? get transactionId {
+    final $_column = $_itemColumn<String>('transaction_id');
+    if ($_column == null) return null;
+    final manager = $$TransactionsTableTableManager(
+      $_db,
+      $_db.transactions,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_transactionIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$RecurringDuesTableFilterComposer
+    extends Composer<_$AppDatabase, $RecurringDuesTable> {
+  $$RecurringDuesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<DateOnly, DateOnly, int> get dueOn =>
+      $composableBuilder(
+        column: $table.dueOn,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$RecurringPaymentsTableFilterComposer get paymentId {
+    final $$RecurringPaymentsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.paymentId,
+      referencedTable: $db.recurringPayments,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringPaymentsTableFilterComposer(
+            $db: $db,
+            $table: $db.recurringPayments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TransactionsTableFilterComposer get transactionId {
+    final $$TransactionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.transactionId,
+      referencedTable: $db.transactions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionsTableFilterComposer(
+            $db: $db,
+            $table: $db.transactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RecurringDuesTableOrderingComposer
+    extends Composer<_$AppDatabase, $RecurringDuesTable> {
+  $$RecurringDuesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dueOn => $composableBuilder(
+    column: $table.dueOn,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$RecurringPaymentsTableOrderingComposer get paymentId {
+    final $$RecurringPaymentsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.paymentId,
+      referencedTable: $db.recurringPayments,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$RecurringPaymentsTableOrderingComposer(
+            $db: $db,
+            $table: $db.recurringPayments,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$TransactionsTableOrderingComposer get transactionId {
+    final $$TransactionsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.transactionId,
+      referencedTable: $db.transactions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionsTableOrderingComposer(
+            $db: $db,
+            $table: $db.transactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RecurringDuesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RecurringDuesTable> {
+  $$RecurringDuesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<DateOnly, int> get dueOn =>
+      $composableBuilder(column: $table.dueOn, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<int> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  $$RecurringPaymentsTableAnnotationComposer get paymentId {
+    final $$RecurringPaymentsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.paymentId,
+          referencedTable: $db.recurringPayments,
+          getReferencedColumn: (t) => t.id,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$RecurringPaymentsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.recurringPayments,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
+
+  $$TransactionsTableAnnotationComposer get transactionId {
+    final $$TransactionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.transactionId,
+      referencedTable: $db.transactions,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TransactionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.transactions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$RecurringDuesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RecurringDuesTable,
+          RecurringDueRow,
+          $$RecurringDuesTableFilterComposer,
+          $$RecurringDuesTableOrderingComposer,
+          $$RecurringDuesTableAnnotationComposer,
+          $$RecurringDuesTableCreateCompanionBuilder,
+          $$RecurringDuesTableUpdateCompanionBuilder,
+          (RecurringDueRow, $$RecurringDuesTableReferences),
+          RecurringDueRow,
+          PrefetchHooks Function({bool paymentId, bool transactionId})
+        > {
+  $$RecurringDuesTableTableManager(_$AppDatabase db, $RecurringDuesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RecurringDuesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RecurringDuesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RecurringDuesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> paymentId = const Value.absent(),
+                Value<DateOnly> dueOn = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> transactionId = const Value.absent(),
+                Value<int?> resolvedAt = const Value.absent(),
+                Value<int> createdAt = const Value.absent(),
+                Value<int> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RecurringDuesCompanion(
+                id: id,
+                paymentId: paymentId,
+                dueOn: dueOn,
+                status: status,
+                transactionId: transactionId,
+                resolvedAt: resolvedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String paymentId,
+                required DateOnly dueOn,
+                required String status,
+                Value<String?> transactionId = const Value.absent(),
+                Value<int?> resolvedAt = const Value.absent(),
+                required int createdAt,
+                required int updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => RecurringDuesCompanion.insert(
+                id: id,
+                paymentId: paymentId,
+                dueOn: dueOn,
+                status: status,
+                transactionId: transactionId,
+                resolvedAt: resolvedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RecurringDuesTable, RecurringDueRow>(table),
+                  $$RecurringDuesTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({paymentId = false, transactionId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (paymentId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.paymentId,
+                        referencedTable: $$RecurringDuesTableReferences
+                            ._paymentIdTable(db),
+                        referencedColumn: $$RecurringDuesTableReferences
+                            ._paymentIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+                    if (transactionId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.transactionId,
+                        referencedTable: $$RecurringDuesTableReferences
+                            ._transactionIdTable(db),
+                        referencedColumn: $$RecurringDuesTableReferences
+                            ._transactionIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$RecurringDuesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RecurringDuesTable,
+      RecurringDueRow,
+      $$RecurringDuesTableFilterComposer,
+      $$RecurringDuesTableOrderingComposer,
+      $$RecurringDuesTableAnnotationComposer,
+      $$RecurringDuesTableCreateCompanionBuilder,
+      $$RecurringDuesTableUpdateCompanionBuilder,
+      (RecurringDueRow, $$RecurringDuesTableReferences),
+      RecurringDueRow,
+      PrefetchHooks Function({bool paymentId, bool transactionId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5727,4 +8982,8 @@ class $AppDatabaseManager {
       $$TransactionsTableTableManager(_db, _db.transactions);
   $$TransfersTableTableManager get transfers =>
       $$TransfersTableTableManager(_db, _db.transfers);
+  $$RecurringPaymentsTableTableManager get recurringPayments =>
+      $$RecurringPaymentsTableTableManager(_db, _db.recurringPayments);
+  $$RecurringDuesTableTableManager get recurringDues =>
+      $$RecurringDuesTableTableManager(_db, _db.recurringDues);
 }

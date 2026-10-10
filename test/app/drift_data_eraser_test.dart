@@ -117,12 +117,16 @@ void main() {
       expect(await count('transactions'), 2);
       expect(await count('transfers'), 1);
       expect(await count('accounts'), 3);
+      expect(await count('recurring_payments'), 1);
+      expect(await count('recurring_dues'), 2);
 
       await eraser().eraseAll();
 
       expect(await count('transactions'), 0);
       expect(await count('transfers'), 0);
       expect(await count('accounts'), 0);
+      expect(await count('recurring_payments'), 0);
+      expect(await count('recurring_dues'), 0);
       await expectStandardCategories();
     });
 
@@ -148,6 +152,8 @@ void main() {
       expect(await count('transactions'), 2);
       expect(await count('transfers'), 1);
       expect(await count('accounts'), 3);
+      expect(await count('recurring_payments'), 1);
+      expect(await count('recurring_dues'), 2);
       final categoriesAfter = await db
           .customSelect('SELECT id FROM categories ORDER BY id')
           .get();
@@ -254,6 +260,19 @@ Future<void> _fillEverything(AppDatabase db) async {
     'currency, occurred_on, occurred_at, note, created_at, updated_at, '
     'deleted_at) VALUES '
     "('tr-1', 'acc-1', 'acc-2', 300, 'RUB', 20261010, $t, NULL, $t, $t, NULL)",
+  );
+  await run(
+    'INSERT INTO recurring_payments (id, title, type, amount_minor, currency, '
+    'category_id, subcategory_id, account_id, unit, every, starts_on, ends_on, '
+    'remind, tracked_through, created_at, updated_at, deleted_at) VALUES '
+    "('rp-1', 'Internet', 'expense', 65000, 'RUB', 'old-1', 'sub-1', 'acc-1', "
+    "'month', 1, 20261005, NULL, 1, 20261010, $t, $t, NULL)",
+  );
+  await run(
+    'INSERT INTO recurring_dues (id, payment_id, due_on, status, '
+    'transaction_id, resolved_at, created_at, updated_at) VALUES '
+    "('rd-1', 'rp-1', 20261005, 'paid', 'tx-1', $t, $t, $t), "
+    "('rd-2', 'rp-1', 20261105, 'pending', NULL, NULL, $t, $t)",
   );
   await run(
     'INSERT INTO app_settings (key, value, updated_at) VALUES '
