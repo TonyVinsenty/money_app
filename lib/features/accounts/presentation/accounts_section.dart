@@ -29,8 +29,15 @@ class AccountsSection extends StatelessWidget {
     this.onRestoreAccount,
     this.onOpenOrder,
     this.onTransfer,
+    this.onOpenJournal,
     super.key,
   });
+
+  /// «История»: открыть журнал счетов. Кнопка справа от заголовка, видна, если
+  /// есть хотя бы один счёт (в том числе только архивные).
+  final VoidCallback? onOpenJournal;
+
+  static const journalKey = ValueKey('accounts-journal');
 
   /// «Перевод»: открыть форму перевода. Кнопка видна, если есть два не
   /// архивных счёта одной валюты.
@@ -97,23 +104,21 @@ class AccountsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          accountsSectionTitle,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
         AsyncView<List<Account>>(
           stream: accounts,
-          loadingBuilder: (_) => _withAdd(const AsyncLoading()),
-          errorBuilder: (context, error) => _withAdd(_error(context, error)),
+          loadingBuilder: (_) => _withAdd(context, const AsyncLoading()),
+          errorBuilder: (context, error) =>
+              _withAdd(context, _error(context, error)),
           // Пусто - когда нет вообще никаких счетов: если все в архиве, раздел
           // «Архив» всё равно нужен.
           isEmpty: (all) => all.isEmpty,
-          emptyBuilder: (context) => _withAdd(_emptyText(context)),
+          emptyBuilder: (context) => _withAdd(context, _emptyText(context)),
           dataBuilder: (context, all) => AsyncView<Map<String, Money>>(
             stream: balances,
-            loadingBuilder: (_) => _withAdd(const AsyncLoading()),
-            errorBuilder: (context, error) => _withAdd(_error(context, error)),
+            loadingBuilder: (_) =>
+                _withAdd(context, const AsyncLoading(), journal: true),
+            errorBuilder: (context, error) =>
+                _withAdd(context, _error(context, error), journal: true),
             dataBuilder: (context, byId) {
               final shown = _visible(all);
               final archived = [
@@ -122,11 +127,12 @@ class AccountsSection extends StatelessWidget {
               ];
               // Счёт уже появился, а его остаток ещё считается: ждём.
               if (shown.any((a) => !byId.containsKey(a.id))) {
-                return _withAdd(const AsyncLoading());
+                return _withAdd(context, const AsyncLoading(), journal: true);
               }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _header(context, journal: true),
                   if (shown.isEmpty)
                     _emptyText(context)
                   else ...[
@@ -191,10 +197,47 @@ class AccountsSection extends StatelessWidget {
 
   /// Состояния без ряда кнопок (загрузка, ошибка, нет счетов): «Добавить
   /// счёт» под ними на всю ширину.
-  Widget _withAdd(Widget body) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [body, const SizedBox(height: 8), _addButton()],
-  );
+  Widget _withAdd(BuildContext context, Widget body, {bool journal = false}) =>
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _header(context, journal: journal),
+          body,
+          const SizedBox(height: 8),
+          _addButton(),
+        ],
+      );
+
+  /// Заголовок «Счета»; с кнопкой «История», когда счета уже есть. Заголовок
+  /// живёт в состояниях потока, а не над ним: поток счетов слушается один раз.
+  Widget _header(BuildContext context, {required bool journal}) {
+    final title = Text(
+      accountsSectionTitle,
+      style: Theme.of(context).textTheme.titleMedium,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: journal && onOpenJournal != null
+          ? Row(
+              children: [
+                Expanded(child: title),
+                Semantics(
+                  label: balanceJournalButtonSpoken,
+                  button: true,
+                  excludeSemantics: true,
+                  onTap: onOpenJournal,
+                  child: TextButton.icon(
+                    key: journalKey,
+                    onPressed: onOpenJournal,
+                    icon: const Icon(Icons.history),
+                    label: const Text(balanceJournalButton),
+                  ),
+                ),
+              ],
+            )
+          : title,
+    );
+  }
 
   /// Ряд «Перевод» | «Добавить счёт» 50/50; на узком экране или при крупном
   /// шрифте - столбик («Перевод» сверху). Меньше двух счетов - «Перевод» нет;

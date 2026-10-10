@@ -14,6 +14,7 @@ import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
 import 'package:money_app/features/accounts/presentation/account_screen.dart';
 import 'package:money_app/features/accounts/presentation/accounts_order_screen.dart';
+import 'package:money_app/features/accounts/presentation/balance_journal_screen.dart';
 import 'package:money_app/features/accounts/presentation/transfer_form_screen.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
@@ -77,6 +78,36 @@ abstract final class AppRoutes {
   /// Форма перевода между счетами (новый или правка). Аргумент маршрута —
   /// [TransferFormRouteArguments].
   static const transferForm = '/transfer-form';
+
+  /// Экран «История счетов». Аргумент маршрута —
+  /// [BalanceJournalRouteArguments].
+  static const balanceJournal = '/balance-journal';
+}
+
+/// Аргументы маршрута [AppRoutes.balanceJournal]. Потоки создаются один раз
+/// здесь, чтобы перерисовка маршрута не начинала подписку заново.
+final class BalanceJournalRouteArguments {
+  BalanceJournalRouteArguments({
+    required this.accounts,
+    required this.transfers,
+    required this.idGenerator,
+    required this.clock,
+    required this.settings,
+    this.onShowTransactions,
+  });
+
+  final AccountsRepository accounts;
+  final TransfersRepository transfers;
+  final IdGenerator idGenerator;
+  final Clock clock;
+  final AppSettingsController settings;
+
+  /// «Операции» с экрана счёта, открытого из журнала (как в
+  /// [AccountRouteArguments]).
+  final ValueChanged<String>? onShowTransactions;
+
+  late final Stream<List<Account>> accountsStream = accounts.watchAll();
+  late final Stream<List<Transfer>> transfersStream = transfers.watchAll();
 }
 
 /// Аргументы маршрута [AppRoutes.transferForm]. [fromAccountId] подставляется
@@ -529,6 +560,53 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           clock: arguments.clock,
           fromAccountId: arguments.fromAccountId,
           editing: arguments.editing,
+        ),
+      );
+    case AppRoutes.balanceJournal:
+      final arguments = settings.arguments;
+      if (arguments is! BalanceJournalRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.balanceJournal} ожидает аргумент '
+              'BalanceJournalRouteArguments (репозитории, часы, настройки)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (context) => BalanceJournalScreen(
+          accounts: arguments.accountsStream,
+          transfers: arguments.transfersStream,
+          today: arguments.clock.today(),
+          onOpenTransfer: (transfer) => Navigator.of(context).pushNamed<void>(
+            AppRoutes.transferForm,
+            arguments: TransferFormRouteArguments(
+              accounts: arguments.accounts,
+              transfers: arguments.transfers,
+              idGenerator: arguments.idGenerator,
+              clock: arguments.clock,
+              editing: transfer,
+            ),
+          ),
+          onOpenAccount: (account) => Navigator.of(context).pushNamed<void>(
+            AppRoutes.account,
+            arguments: AccountRouteArguments(
+              accounts: arguments.accounts,
+              idGenerator: arguments.idGenerator,
+              accountId: account.id,
+              settings: arguments.settings,
+              transfers: arguments.transfers,
+              clock: arguments.clock,
+              // Экран счёта закроется сам; журнал закрываем здесь, иначе
+              // вкладка переключится у него за спиной.
+              onShowTransactions: arguments.onShowTransactions == null
+                  ? null
+                  : (id) {
+                      Navigator.of(context).pop();
+                      arguments.onShowTransactions!(id);
+                    },
+            ),
+          ),
         ),
       );
     case AppRoutes.accountsOrder:

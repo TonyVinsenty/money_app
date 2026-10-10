@@ -102,6 +102,25 @@ class _BalanceTabState extends State<BalanceTab> {
               ),
             ),
           ),
+          onOpenJournal: () {
+            final services = AppScope.of(context);
+            unawaited(
+              Navigator.of(context).pushNamed<void>(
+                AppRoutes.balanceJournal,
+                arguments: BalanceJournalRouteArguments(
+                  accounts: services.accounts,
+                  transfers: services.transfers,
+                  idGenerator: services.idGenerator,
+                  clock: services.clock,
+                  settings: services.settings,
+                  onShowTransactions: (id) {
+                    BrowseScope.of(context).showAccountTransactions(id);
+                    BrowseScope.selectedTabOf(context).value = historyTabIndex;
+                  },
+                ),
+              ),
+            );
+          },
           onTransfer: () {
             final services = AppScope.of(context);
             unawaited(
