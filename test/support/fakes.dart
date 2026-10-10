@@ -632,6 +632,10 @@ class FakeRecurringRepository extends Fake implements RecurringRepository {
   @override
   Stream<List<RecurringListItem>> watchAll() => Stream.value(items);
 
+  /// «К оплате» в этом фейке всегда пусто.
+  @override
+  Stream<List<RecurringDue>> watchDue() => Stream.value(const []);
+
   @override
   Future<int> materializeDue(DateOnly today) async {
     materializedDays.add(today);

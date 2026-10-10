@@ -5,6 +5,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_scope.dart';
+import 'package:money_app/app/due_actions.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -15,10 +16,13 @@ import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
+import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
+import 'package:money_app/features/recurring/presentation/due_section.dart';
 import 'package:money_app/features/recurring/presentation/recurring_section.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/account_chip.dart';
 
 /// Новый счёт [created] становится основным, если он в основной валюте, а
 /// основного счёта ещё нет (первый счёт этой валюты; или прежний основной
@@ -55,6 +59,9 @@ class _BalanceTabState extends State<BalanceTab> {
   late Stream<Map<String, Money>> _balances;
   RecurringRepository? _recurringRepository;
   late Stream<List<RecurringListItem>> _recurring;
+  late Stream<List<RecurringDue>> _dues;
+  late Stream<List<Category>> _dueCategories;
+  late Stream<List<Account>> _dueAccounts;
 
   // Потоки создаём один раз и заново только при смене репозитория: в build
   // каждая перерисовка начинала бы подписку заново.
@@ -71,6 +78,9 @@ class _BalanceTabState extends State<BalanceTab> {
     if (!identical(recurring, _recurringRepository)) {
       _recurringRepository = recurring;
       _recurring = recurring.watchAll();
+      _dues = recurring.watchDue();
+      _dueCategories = AppScope.of(context).categories.watchAll();
+      _dueAccounts = AppScope.of(context).accounts.watchAll();
     }
   }
 
@@ -195,6 +205,27 @@ class _BalanceTabState extends State<BalanceTab> {
           },
         ),
         const SizedBox(height: 24),
+        DueSection(
+          dues: _dues,
+          categories: _dueCategories,
+          accounts: _dueAccounts,
+          today: today,
+          onPay: (due, {required amount, required day, required accountId}) =>
+              DueActions(AppScope.of(context)).pay(
+                context,
+                due,
+                amount: amount,
+                day: day,
+                accountId: accountId,
+              ),
+          onSkip: (due) => DueActions(AppScope.of(context)).skip(context, due),
+          onEdit: (payment) => _openRecurringForm(today, editing: payment),
+          onPickAccount: (context, accounts, selectedId) => showAccountSheet(
+            context,
+            accounts: accounts,
+            selectedId: selectedId,
+          ),
+        ),
         RecurringSection(
           items: _recurring,
           today: today,
