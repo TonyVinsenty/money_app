@@ -5,6 +5,8 @@
          показывает предпросмотр жеста «Назад» (что будет под текущим экраном),
          а на Android 16+ / targetSdk 36 этот режим станет обязательным.
          Наш PopScope в AppShell с ним совместим. -->
+    <!-- Android 13+: разрешение на показ уведомлений о регулярных платежах. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
@@ -46,6 +48,10 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        <!-- Приёмник будильников напоминаний: только для самого приложения. -->
+        <receiver
+            android:name=".ReminderReceiver"
+            android:exported="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -54,8 +54,64 @@ List<String> checkRemindersSwift(String source) {
   return errors;
 }
 
+List<String> checkRemindersKotlin(String kotlin, String manifest) {
+  final errors = checkRemindersCommon(kotlin);
+  for (final needle in [
+    'setAndAllowWhileIdle',
+    'FLAG_IMMUTABLE',
+    'ReminderReceiver',
+    'areNotificationsEnabled',
+  ]) {
+    if (!kotlin.contains(needle)) errors.add('Не найдено $needle');
+  }
+  if (!manifest.contains('android.permission.POST_NOTIFICATIONS')) {
+    errors.add('В манифесте нет POST_NOTIFICATIONS');
+  }
+  if (manifest.contains('SCHEDULE_EXACT_ALARM')) {
+    errors.add('Точные будильники не нужны (ADR 0011)');
+  }
+  final receiver = RegExp(r'<receiver[^>]*ReminderReceiver[^>]*>')
+      .firstMatch(manifest)
+      ?.group(0);
+  if (receiver == null || !receiver.contains('android:exported="false"')) {
+    errors.add('Приёмник ReminderReceiver должен быть exported="false"');
+  }
+  return errors;
+}
+
 void main() {
   final swift = File('ios/Runner/AppDelegate.swift').readAsStringSync();
+  const androidMain = 'android/app/src/main';
+  final kotlin =
+      File('$androidMain/kotlin/com/tonyvinsenty/zuno/MainActivity.kt')
+          .readAsStringSync() +
+      File('$androidMain/kotlin/com/tonyvinsenty/zuno/ReminderReceiver.kt')
+          .readAsStringSync();
+  final manifest = File('$androidMain/AndroidManifest.xml').readAsStringSync();
+
+  test('Kotlin и манифест: канал, методы, ключи, неточные будильники', () {
+    expect(checkRemindersKotlin(kotlin, manifest), isEmpty);
+  });
+
+  test('сторож замечает экспортируемый приёмник и точные будильники', () {
+    expect(
+      checkRemindersKotlin(
+        kotlin,
+        manifest.replaceFirstMapped(
+          RegExp(r'(<receiver[^>]*)android:exported="false"'),
+          (m) => '${m[1]}android:exported="true"',
+        ),
+      ),
+      isNotEmpty,
+    );
+    expect(
+      checkRemindersKotlin(
+        kotlin.replaceAll('setAndAllowWhileIdle', 'setExact'),
+        manifest,
+      ),
+      isNotEmpty,
+    );
+  });
 
   test('AppDelegate.swift: канал, методы, ключи и планирование', () {
     expect(checkRemindersSwift(swift), isEmpty);

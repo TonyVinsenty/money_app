@@ -1,5 +1,8 @@
 package com.tonyvinsenty.zuno
 
+import android.Manifest
+import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
@@ -7,6 +10,7 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -16,9 +20,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.IOException
+import java.util.Calendar
 
 class MainActivity : FlutterActivity() {
 
@@ -177,6 +183,128 @@ class MainActivity : FlutterActivity() {
                     result.error("copy_failed", e.message, null)
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, remindersChannelName)
+            .setMethodCallHandler { call, result -> handleReminders(call, result) }
+    }
+
+    // Канал напоминаний (ADR 0011, п. 11): имя, методы и ключи — как в
+    // lib/features/recurring/data/reminders_channel.dart, reminder_plan.dart
+    // и в ios/Runner/AppDelegate.swift.
+    private val remindersChannelName = "com.tonyvinsenty.zuno/reminders"
+    private val notificationsRequestCode = 4102
+    private val maxReminders = 40
+    private val prefs by lazy { getSharedPreferences("reminders", MODE_PRIVATE) }
+
+    // Ожидающий ответ Dart, пока открыт системный запрос разрешения.
+    private var pendingPermission: MethodChannel.Result? = null
+
+    // Разрешение на Android 13+ нужно просить отдельно; ниже достаточно, чтобы
+    // уведомления не были выключены в настройках системы.
+    private fun notificationsGranted(): Boolean {
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        if (!manager.areNotificationsEnabled()) return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun handleReminders(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "requestPermission" -> {
+                ensureReminderChannel(this)
+                if (notificationsGranted()) {
+                    result.success(true)
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && pendingPermission == null) {
+                    pendingPermission = result
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), notificationsRequestCode)
+                } else {
+                    result.success(false)
+                }
+            }
+            // Правило: выдано -> "granted"; не выдано и уже спрашивали (флаг
+            // "asked") или уведомления выключены в системе -> "denied"; иначе
+            // "notDetermined". Ниже Android 13 спрашивать нечего: "granted"/"denied".
+            "permissionStatus" -> {
+                val status = when {
+                    notificationsGranted() -> "granted"
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> "denied"
+                    prefs.getBoolean("asked", false) -> "denied"
+                    else -> "notDetermined"
+                }
+                result.success(status)
+            }
+            "replaceAll" -> {
+                val items = call.arguments as? List<*>
+                if (items == null) {
+                    result.error("bad_args", "Не передан список напоминаний", null)
+                    return
+                }
+                try {
+                    scheduleReminders(items)
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("schedule_failed", e.message, null)
+                }
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    @Deprecated("FlutterActivity наследует Activity, поэтому ответ окна приходит сюда")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != notificationsRequestCode) return
+        prefs.edit().putBoolean("asked", true).apply()
+        val result = pendingPermission ?: return
+        pendingPermission = null
+        result.success(notificationsGranted())
+    }
+
+    // Снимает свои будильники с кодами 0..39 и ставит новые. Время — местное
+    // «настенное» по часам и поясу устройства; будильник неточный
+    // (setAndAllowWhileIdle), без разрешения на точные.
+    private fun scheduleReminders(items: List<*>) {
+        val alarms = getSystemService(ALARM_SERVICE) as AlarmManager
+        for (code in 0 until maxReminders) {
+            val old = PendingIntent.getBroadcast(
+                this,
+                code,
+                Intent(this, ReminderReceiver::class.java),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+            )
+            if (old != null) {
+                alarms.cancel(old)
+                old.cancel()
+            }
+        }
+        val now = System.currentTimeMillis()
+        for (raw in items.take(maxReminders)) {
+            val item = raw as? Map<*, *> ?: throw IllegalArgumentException("Неверный элемент напоминания")
+            fun number(key: String) =
+                (item[key] as? Number)?.toInt() ?: throw IllegalArgumentException("Нет поля $key")
+            val id = number("id")
+            val at = Calendar.getInstance().apply {
+                clear()
+                set(number("year"), number("month") - 1, number("day"), number("hour"), number("minute"), 0)
+            }.timeInMillis
+            if (id !in 0 until maxReminders || at <= now) continue
+            val intent = Intent(this, ReminderReceiver::class.java).apply {
+                putExtra("id", id)
+                putExtra("title", item["title"] as? String ?: "")
+                putExtra("body", item["body"] as? String ?: "")
+            }
+            val pending = PendingIntent.getBroadcast(
+                this,
+                id,
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
+        }
     }
 
     // Канал выбора файла: имя и метод — как в lib/features/csv_import/presentation/pick_csv_file.dart
