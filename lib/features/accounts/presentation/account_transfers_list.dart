@@ -115,7 +115,13 @@ class AccountTransfersList extends StatelessWidget {
                     ),
                   ),
                 ),
-                subtitle: t.note == null ? null : Text(t.note!),
+                subtitle: t.note == null
+                    ? null
+                    : Text(
+                        t.note!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                 onTap: () => onOpen(t),
               ),
             ),

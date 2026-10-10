@@ -66,7 +66,9 @@ class InMemoryTransfersRepository extends Fake implements TransfersRepository {
                 if (test(t)) t,
             ]..sort((a, b) {
               final byDay = b.occurredOn.compareTo(a.occurredOn);
-              return byDay != 0 ? byDay : b.occurredAt.compareTo(a.occurredAt);
+              if (byDay != 0) return byDay;
+              final byMoment = b.occurredAt.compareTo(a.occurredAt);
+              return byMoment != 0 ? byMoment : b.id.compareTo(a.id);
             });
         c.add(read());
         final sub = _changes.stream.listen((_) => c.add(read()));

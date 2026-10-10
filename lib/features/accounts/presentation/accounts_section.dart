@@ -215,8 +215,10 @@ class AccountsSection extends StatelessWidget {
       accountsSectionTitle,
       style: Theme.of(context).textTheme.titleMedium,
     );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    // Высота 48 одинакова во всех состояниях: заголовок не прыгает, когда
+    // появляется кнопка.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
       child: journal && onOpenJournal != null
           ? Row(
               children: [
@@ -235,7 +237,7 @@ class AccountsSection extends StatelessWidget {
                 ),
               ],
             )
-          : title,
+          : Align(alignment: AlignmentDirectional.centerStart, child: title),
     );
   }
 

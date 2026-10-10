@@ -171,17 +171,21 @@ class _JournalList extends StatelessWidget {
       String spoken,
       VoidCallback? onTap,
     ) = switch (e) {
+      // Экран счёта показывает только не архивные счета, поэтому строки
+      // архивного счёта не нажимаются.
       AccountCreatedEntry(:final account) => (
         accountIconFor(account.iconKey).icon,
         journalCreatedTitle(account.name),
         journalCreatedSpoken(account.name, day),
-        onOpenAccount == null ? null : () => onOpenAccount!(account),
+        onOpenAccount == null || account.isArchived
+            ? null
+            : () => onOpenAccount!(account),
       ),
       AccountArchivedEntry(:final account) => (
-        accountIconFor(account.iconKey).icon,
+        Icons.archive_outlined,
         journalArchivedTitle(account.name),
         journalArchivedSpoken(account.name, day),
-        onOpenAccount == null ? null : () => onOpenAccount!(account),
+        null,
       ),
       TransferEntry(:final transfer) => (
         Icons.swap_horiz,
@@ -212,7 +216,13 @@ class _JournalList extends StatelessWidget {
         minTileHeight: 48,
         leading: Icon(icon),
         title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
-        subtitle: transfer?.note == null ? null : Text(transfer!.note!),
+        subtitle: transfer?.note == null
+            ? null
+            : Text(
+                transfer!.note!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
         trailing: transfer == null
             ? null
             : ConstrainedBox(
@@ -231,8 +241,9 @@ class _JournalList extends StatelessWidget {
     );
   }
 
-  /// Валюта перевода - валюта счёта «Откуда» (знаки после запятой из него).
+  /// Валюта перевода - валюта счёта «Откуда» (знаки после запятой из него);
+  /// если его нет - счёта «Куда» (валюта у них общая).
   CurrencyInfo _currency(Transfer t) =>
-      _find(t.fromAccountId)?.currencyInfo ??
+      (_find(t.fromAccountId) ?? _find(t.toAccountId))?.currencyInfo ??
       currencyInfoFor(t.amount.currency, digits: 2);
 }

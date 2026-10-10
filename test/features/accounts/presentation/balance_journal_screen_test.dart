@@ -194,6 +194,52 @@ void main() {
     );
   });
 
+  testWidgets('rows of an archived account are not tappable', (tester) async {
+    final handle = tester.ensureSemantics();
+    Account? opened;
+    await pump(
+      tester,
+      accounts: Stream.value([card]),
+      onOpenAccount: (v) => opened = v,
+    );
+    for (final title in [
+      journalCreatedTitle('Карта'),
+      journalArchivedTitle('Карта'),
+    ]) {
+      expect(
+        tester.widget<ListTile>(find.widgetWithText(ListTile, title)).onTap,
+        isNull,
+      );
+      await tester.tap(find.text(title));
+    }
+    expect(opened, isNull);
+    expect(
+      tester.getSemantics(find.text(journalCreatedTitle('Карта'))),
+      isNot(matchesSemantics(isButton: true)),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('a vanished partner account reads as "другой счёт"', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pump(
+      tester,
+      accounts: Stream.value([cash]),
+      transfers: Stream.value([transfer('t1', 'gone', 'a2', 100, 9)]),
+    );
+    expect(find.text('$transferUnknownPartner → Наличные'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(
+        'Перевод со счёта $transferUnknownPartner на счёт Наличные, '
+        '1 рубль, вчера',
+      ),
+      findsOneWidget,
+    );
+    handle.dispose();
+  });
+
   testWidgets('amounts in a custom currency with 4 digits and in BTC', (
     tester,
   ) async {

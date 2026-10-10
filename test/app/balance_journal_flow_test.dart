@@ -23,6 +23,7 @@ import 'package:money_app/features/accounts/presentation/accounts_section.dart';
 import 'package:money_app/features/accounts/presentation/balance_journal_screen.dart';
 import 'package:money_app/features/accounts/presentation/transfer_form_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/transactions/domain/history_view.dart';
 
 import '../support/fake_id_generator.dart';
 import '../support/fixed_clock.dart';
@@ -160,5 +161,35 @@ void main() {
     await tester.tap(find.text(journalCreatedTitle('Карта')));
     await tester.pumpAndSettle();
     expect(find.byType(AccountScreen), findsOneWidget);
+  });
+
+  testWidgets('rows of an archived account do nothing on tap', (tester) async {
+    await _pumpApp(tester);
+    await tester.tap(find.text(journalArchivedTitle('Наличные')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(journalCreatedTitle('Наличные')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountScreen), findsNothing);
+    expect(find.byType(BalanceJournalScreen), findsOneWidget);
+  });
+
+  testWidgets('"Операции" from the journal closes both screens and opens '
+      'History filtered by the account', (tester) async {
+    await _pumpApp(tester);
+    await tester.tap(find.text(journalCreatedTitle('Карта')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(AccountScreen.operationsKey));
+    await tester.tap(find.byKey(AccountScreen.operationsKey));
+    await tester.pumpAndSettle();
+    expect(find.byType(AccountScreen), findsNothing);
+    expect(find.byType(BalanceJournalScreen), findsNothing);
+    expect(
+      BrowseScope.selectedTabOf(tester.element(find.byType(AppShell))).value,
+      historyTabIndex,
+    );
+    expect(
+      BrowseScope.of(tester.element(find.byType(AppShell))).historyFilter,
+      HistoryFilter.account('acc-card'),
+    );
   });
 }

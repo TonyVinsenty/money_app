@@ -136,8 +136,14 @@ void main() {
     expect(r.map(label), ['created:b', 'created:a']);
   });
 
-  test('dayOf по умолчанию берёт местный день момента', () {
-    final r = buildBalanceJournal([acc('a', createdAt: d1)], []);
-    expect(r.single.day, DateOnly.fromDateTime(d1));
+  test('без dayOf результат тот же, что с DateOnly.fromDateTime', () {
+    final accounts = [acc('a', createdAt: d1, archivedAt: d5)];
+    final byDefault = buildBalanceJournal(accounts, []);
+    final explicit = buildBalanceJournal(
+      accounts,
+      [],
+      dayOf: DateOnly.fromDateTime,
+    );
+    expect(byDefault.map((e) => e.day), explicit.map((e) => e.day));
   });
 }
