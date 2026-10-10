@@ -16,6 +16,9 @@ const defaultAccountSettingKey = 'default_account_id';
 /// ГГГГММДД строкой (например, `20261007`).
 const lastExportDaySettingKey = 'last_export_day';
 
+/// Ключ настройки «время напоминаний». Значение — `ЧЧ:ММ` (например, `10:00`).
+const reminderTimeSettingKey = 'reminder_time';
+
 /// Хранилище настроек «ключ — значение» (ADR 0002: интерфейс в `domain`,
 /// реализация в `data`). Значения — строки; что они значат, решает вызывающий.
 abstract interface class SettingsRepository {

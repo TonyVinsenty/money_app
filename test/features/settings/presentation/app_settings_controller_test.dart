@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/domain/settings_repository.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -422,6 +423,33 @@ void main() {
       expect(repo.writes, 1);
       expect(controller.lastExportDay, DateOnly(2026, 10, 7));
       expect(errors, isEmpty);
+    });
+
+    test('время напоминаний: 10:00 по умолчанию, пишется и читается', () async {
+      final repo = _FakeSettingsRepository();
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      expect(controller.reminderTime, ReminderTime(10, 0));
+
+      controller.setReminderTime(ReminderTime(8, 5));
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.data[reminderTimeSettingKey], '08:05');
+
+      final other = AppSettingsController();
+      addTearDown(other.dispose);
+      await other.attach(repo);
+      expect(other.reminderTime, ReminderTime(8, 5));
+    });
+
+    test('испорченное время напоминаний - 10:00', () {
+      for (final bad in [null, '', 'abc', '25:00', '10:60', '1000']) {
+        expect(
+          reminderTimeFromStored(bad),
+          ReminderTime(10, 0),
+          reason: '$bad',
+        );
+      }
     });
 
     test('ошибка чтения: день остаётся null', () async {

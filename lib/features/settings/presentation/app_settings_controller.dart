@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show ChangeNotifier, debugPrint;
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/domain/settings_repository.dart';
 
@@ -64,6 +65,22 @@ DateOnly? lastExportDayFromStored(String? value) {
   } on ArgumentError {
     return null;
   }
+}
+
+/// Строка для записи в базу: `ЧЧ:ММ`.
+String reminderTimeToStored(ReminderTime time) => time.toString();
+
+/// Обратное преобразование. Пусто или испорчено — 10:00 (по умолчанию).
+ReminderTime reminderTimeFromStored(String? value) {
+  final match = value == null
+      ? null
+      : RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(value);
+  if (match != null) {
+    final hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    if (hour <= 23 && minute <= 59) return ReminderTime(hour, minute);
+  }
+  return ReminderTime.defaultTime();
 }
 
 /// Настройки приложения, которые можно менять на лету.
@@ -163,6 +180,33 @@ class AppSettingsController extends ChangeNotifier {
   /// День последней выгрузки CSV или `null`, если её ещё не было.
   DateOnly? get lastExportDay => _lastExportDay;
 
+  ReminderTime _reminderTime = ReminderTime.defaultTime();
+
+  /// Время напоминаний (по умолчанию 10:00).
+  ReminderTime get reminderTime => _reminderTime;
+
+  /// Меняет время сразу, запись в базу идёт в фоне; ошибка записи только
+  /// попадает в лог.
+  void setReminderTime(ReminderTime value) {
+    if (value == _reminderTime) return;
+    _reminderTime = value;
+    notifyListeners();
+    unawaited(_persistReminderTime(value));
+  }
+
+  Future<void> _persistReminderTime(ReminderTime value) async {
+    final repository = _repository;
+    if (repository == null) return;
+    try {
+      await repository.write(
+        reminderTimeSettingKey,
+        reminderTimeToStored(value),
+      );
+    } catch (error) {
+      debugPrint('Не удалось сохранить время напоминаний: $error');
+    }
+  }
+
   /// Подключает хранилище и применяет сохранённую в нём тему. Ошибка чтения
   /// не пробрасывается: тема остаётся прежней («как в системе» при старте).
   Future<void> attach(SettingsRepository repository) async {
@@ -218,6 +262,17 @@ class AppSettingsController extends ChangeNotifier {
       }
     } catch (error) {
       debugPrint('Не удалось прочитать день выгрузки из настроек: $error');
+    }
+    try {
+      final stored = await repository.read(reminderTimeSettingKey);
+      if (_repository != repository) return;
+      final time = reminderTimeFromStored(stored);
+      if (time != _reminderTime) {
+        _reminderTime = time;
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint('Не удалось прочитать время напоминаний из настроек: $error');
     }
   }
 
