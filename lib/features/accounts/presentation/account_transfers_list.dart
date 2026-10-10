@@ -64,12 +64,15 @@ class AccountTransfersList extends StatelessWidget {
           if (t.occurredOn != shownDay) {
             shownDay = t.occurredOn;
             children.add(
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  historyDayLabel(t.occurredOn, today: today),
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+              Semantics(
+                header: true,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    historyDayLabel(t.occurredOn, today: today),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -87,6 +90,7 @@ class AccountTransfersList extends StatelessWidget {
                 t.amount,
                 currency,
                 _spokenDay(t.occurredOn),
+                note: t.note,
               ),
               button: true,
               excludeSemantics: true,
@@ -96,7 +100,20 @@ class AccountTransfersList extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 minTileHeight: 48,
                 title: Text(
-                  transferRowText(outgoing, partner, t.amount, currency),
+                  transferRowTitle(outgoing, partner),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.sizeOf(context).width * 0.4,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      transferRowAmount(outgoing, t.amount, currency),
+                    ),
+                  ),
                 ),
                 subtitle: t.note == null ? null : Text(t.note!),
                 onTap: () => onOpen(t),
@@ -109,7 +126,13 @@ class AccountTransfersList extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 24),
-            Text(transfersSectionTitle, style: theme.textTheme.titleMedium),
+            Semantics(
+              header: true,
+              child: Text(
+                transfersSectionTitle,
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
             ...children,
           ],
         );

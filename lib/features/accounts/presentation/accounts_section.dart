@@ -205,13 +205,25 @@ class AccountsSection extends StatelessWidget {
       return Padding(padding: const EdgeInsets.only(top: 8), child: add);
     }
     final canTransfer = canTransferAny(shown);
-    final transfer = OutlinedButton.icon(
+    final transferButton = OutlinedButton.icon(
       key: transferKey,
       style: _buttonStyle,
       onPressed: canTransfer ? onTransfer : null,
       icon: const Icon(Icons.swap_horiz),
       label: const Text(transferButtonLabel),
     );
+    // Причина неактивной кнопки читается вместе с ней, а строка под рядом для
+    // скринридера скрыта (ниже), чтобы не звучать дважды.
+    final transfer = canTransfer
+        ? transferButton
+        : Semantics(
+            label: transferButtonLabel,
+            hint: transferNeedPairHint,
+            button: true,
+            enabled: false,
+            excludeSemantics: true,
+            child: transferButton,
+          );
     final stacked =
         MediaQuery.sizeOf(context).width < 340 || fontScaleOf(context) >= 1.3;
     final theme = Theme.of(context);
@@ -235,11 +247,13 @@ class AccountsSection extends StatelessWidget {
           if (!canTransfer)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                transferNeedPairHint,
-                key: transferHintKey,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              child: ExcludeSemantics(
+                child: Text(
+                  transferNeedPairHint,
+                  key: transferHintKey,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ),

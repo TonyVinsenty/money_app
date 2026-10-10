@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -120,6 +122,37 @@ List<Account> threeRub() => [
   acc('a3', 'Копилка'),
 ];
 
+/// Переводы, у которых запись зависает, пока тест не завершит [release].
+class SlowTransfersRepository extends InMemoryTransfersRepository {
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Future<void> add(Transfer transfer) async {
+    await release.future;
+    await super.add(transfer);
+  }
+}
+
+/// Переводы, которые считают вызовы `add` и `softDelete`.
+class CountingTransfersRepository extends InMemoryTransfersRepository {
+  CountingTransfersRepository([super.initial]);
+
+  int addCalls = 0;
+  int deleteCalls = 0;
+
+  @override
+  Future<void> add(Transfer transfer) async {
+    addCalls++;
+    await super.add(transfer);
+  }
+
+  @override
+  Future<void> softDelete(String id) async {
+    deleteCalls++;
+    await super.softDelete(id);
+  }
+}
+
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
 
@@ -221,6 +254,7 @@ void main() {
       ...threeRub(),
       acc('a5', 'Доллары', currency: 'USD'),
       acc('a6', 'Копилка USD', currency: 'USD'),
+      acc('a7', 'Ещё USD', currency: 'USD'),
     ]);
     await pumpForm(tester, accounts, InMemoryTransfersRepository());
     await pick(tester, TransferFormScreen.toKey, 'Наличные');
@@ -229,7 +263,7 @@ void main() {
 
     await pick(tester, TransferFormScreen.fromKey, 'Доллары');
     expect(dropdown(tester, TransferFormScreen.toKey).initialValue, isNull);
-    expect(optionIds(tester, TransferFormScreen.toKey), ['a6']);
+    expect(optionIds(tester, TransferFormScreen.toKey), ['a6', 'a7']);
     expect(find.text(r'$'), findsOneWidget);
   });
 
@@ -289,6 +323,185 @@ void main() {
     expect(t.amount, Money.fromMinor(200000, 'RUB'));
     expect(t.occurredAt, old.occurredAt);
     expect(find.text(transferEditSavedText), findsOneWidget);
+  });
+
+  testWidgets('target is filled in when there is exactly one option', (
+    tester,
+  ) async {
+    final accounts = InMemoryAccountsRepository([
+      acc('a1', 'Карта'),
+      acc('a2', 'Наличные'),
+      acc('a5', 'Доллары', currency: 'USD'),
+      acc('a6', 'Копилка USD', currency: 'USD'),
+      acc('a7', 'Ещё USD', currency: 'USD'),
+    ]);
+    await pumpForm(tester, accounts, InMemoryTransfersRepository());
+    // RUB: один вариант - подставлен.
+    expect(dropdown(tester, TransferFormScreen.toKey).initialValue, 'a2');
+    // USD: два варианта - не подставлен.
+    await pick(tester, TransferFormScreen.fromKey, 'Доллары');
+    expect(dropdown(tester, TransferFormScreen.toKey).initialValue, isNull);
+    // Обратно в RUB: снова ровно один вариант.
+    await pick(tester, TransferFormScreen.fromKey, 'Карта');
+    expect(dropdown(tester, TransferFormScreen.toKey).initialValue, 'a2');
+  });
+
+  testWidgets('currency change hint goes away after picking or typing', (
+    tester,
+  ) async {
+    final accounts = InMemoryAccountsRepository([
+      ...threeRub(),
+      acc('a5', 'Доллары', currency: 'USD'),
+      acc('a6', 'Копилка USD', currency: 'USD'),
+      acc('a7', 'Ещё USD', currency: 'USD'),
+    ]);
+    await pumpForm(tester, accounts, InMemoryTransfersRepository());
+    expect(find.text(transferCurrencyChangedHint), findsNothing);
+
+    await pick(tester, TransferFormScreen.fromKey, 'Доллары');
+    expect(find.text(transferCurrencyChangedHint), findsOneWidget);
+    await pick(tester, TransferFormScreen.toKey, 'Копилка USD');
+    expect(find.text(transferCurrencyChangedHint), findsNothing);
+
+    await pick(tester, TransferFormScreen.fromKey, 'Карта');
+    expect(find.text(transferCurrencyChangedHint), findsOneWidget);
+    await tester.enterText(find.byKey(TransferFormScreen.amountKey), '1');
+    await tester.pump();
+    expect(find.text(transferCurrencyChangedHint), findsNothing);
+  });
+
+  testWidgets('double tap on Save writes once', (tester) async {
+    final transfers = CountingTransfersRepository();
+    await pumpForm(tester, InMemoryAccountsRepository(threeRub()), transfers);
+    await pick(tester, TransferFormScreen.toKey, 'Наличные');
+    await tester.enterText(find.byKey(TransferFormScreen.amountKey), '100');
+    await tester.tap(find.byKey(TransferFormScreen.saveKey));
+    await tester.tap(
+      find.byKey(TransferFormScreen.saveKey),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    expect(transfers.addCalls, 1);
+    expect(transfers.all, hasLength(1));
+  });
+
+  testWidgets('closing the form during the write does not crash', (
+    tester,
+  ) async {
+    final transfers = SlowTransfersRepository();
+    await pumpForm(tester, InMemoryAccountsRepository(threeRub()), transfers);
+    await pick(tester, TransferFormScreen.toKey, 'Наличные');
+    await tester.enterText(find.byKey(TransferFormScreen.amountKey), '100');
+    await tester.tap(find.byKey(TransferFormScreen.saveKey));
+    await tester.pump();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    transfers.release.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('open'), findsOneWidget);
+    expect(transfers.all, hasLength(1));
+  });
+
+  testWidgets('delete icon is read once as the delete-transfer label', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final old = Transfer(
+      id: 'old',
+      fromAccountId: 'a1',
+      toAccountId: 'a2',
+      amount: Money.fromMinor(100, 'RUB'),
+      occurredOn: DateOnly(2026, 9, 10),
+      occurredAt: DateTime.utc(2026, 9, 10, 9),
+    );
+    await pumpForm(
+      tester,
+      InMemoryAccountsRepository(threeRub()),
+      InMemoryTransfersRepository([old]),
+      editing: old,
+    );
+    expect(find.bySemanticsLabel(transferDeleteSemantic), findsOneWidget);
+    expect(find.bySemanticsLabel(transferDeleteTooltip), findsNothing);
+    expect(find.byTooltip(transferDeleteTooltip), findsOneWidget);
+    handle.dispose();
+  });
+
+  testWidgets('double tap on Delete deletes once', (tester) async {
+    final old = Transfer(
+      id: 'old',
+      fromAccountId: 'a1',
+      toAccountId: 'a2',
+      amount: Money.fromMinor(100, 'RUB'),
+      occurredOn: DateOnly(2026, 9, 10),
+      occurredAt: DateTime.utc(2026, 9, 10, 9),
+    );
+    final transfers = CountingTransfersRepository([old]);
+    await pumpForm(
+      tester,
+      InMemoryAccountsRepository(threeRub()),
+      transfers,
+      editing: old,
+    );
+    await tester.tap(find.byTooltip(transferDeleteTooltip));
+    await tester.tap(
+      find.byTooltip(transferDeleteTooltip),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    expect(transfers.deleteCalls, 1);
+  });
+
+  testWidgets('amount is filled in once; later account updates keep typing', (
+    tester,
+  ) async {
+    final old = Transfer(
+      id: 'old',
+      fromAccountId: 'a1',
+      toAccountId: 'a2',
+      amount: Money.fromMinor(150050, 'RUB'),
+      occurredOn: DateOnly(2026, 9, 10),
+      occurredAt: DateTime.utc(2026, 9, 10, 9),
+    );
+    final accounts = InMemoryAccountsRepository(threeRub());
+    await pumpForm(
+      tester,
+      accounts,
+      InMemoryTransfersRepository([old]),
+      editing: old,
+    );
+    final field = find.byKey(TransferFormScreen.amountKey);
+    expect(tester.widget<TextField>(field).controller!.text, isNotEmpty);
+    await tester.enterText(field, '');
+    // Поток счетов ответил ещё раз: пустое поле не должно заполниться снова.
+    await accounts.update('a3', name: 'Копилка 2', iconKey: 'card');
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+  });
+
+  testWidgets('editing a transfer from an archived source keeps it', (
+    tester,
+  ) async {
+    final old = Transfer(
+      id: 'old',
+      fromAccountId: 'a4',
+      toAccountId: 'a1',
+      amount: Money.fromMinor(100, 'RUB'),
+      occurredOn: DateOnly(2026, 9, 10),
+      occurredAt: DateTime.utc(2026, 9, 10, 9),
+    );
+    final transfers = InMemoryTransfersRepository([old]);
+    final accounts = InMemoryAccountsRepository([
+      ...threeRub(),
+      acc('a4', 'Старая', archived: true),
+    ]);
+    await pumpForm(tester, accounts, transfers, editing: old);
+    expect(find.text(transferArchivedAccountName('Старая')), findsOneWidget);
+    expect(dropdown(tester, TransferFormScreen.fromKey).initialValue, 'a4');
+    await tester.enterText(find.byKey(TransferFormScreen.amountKey), '7');
+    await save(tester);
+    expect(transfers.all.single.fromAccountId, 'a4');
+    expect(transfers.all.single.amount, Money.fromMinor(700, 'RUB'));
   });
 
   for (final scale in [1.0, 2.0]) {
@@ -372,6 +585,22 @@ void main() {
       ]);
       expect(transferEnabled(tester), isFalse);
       expect(find.text(transferNeedPairHint), findsOneWidget);
+    });
+
+    testWidgets('disabled Transfer speaks its reason once', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpTab(tester, [
+        acc('a1', 'Карта'),
+        acc('a5', 'Доллары', currency: 'USD'),
+      ]);
+      expect(
+        tester.getSemantics(find.byKey(AccountsSection.transferKey)).hint,
+        transferNeedPairHint,
+      );
+      // Видимая строка под рядом скринридером не читается.
+      expect(find.bySemanticsLabel(transferNeedPairHint), findsNothing);
+      expect(find.text(transferNeedPairHint), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('archived pair does not count', (tester) async {

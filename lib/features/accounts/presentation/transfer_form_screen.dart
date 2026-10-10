@@ -76,6 +76,13 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
   String? _toError;
   String? _saveError;
 
+  /// Сумма правки уже подставлена из перевода (делается один раз).
+  bool _amountPrefilled = false;
+
+  /// «Откуда» сменили на другую валюту: «Куда» и сумма сброшены, под «Куда»
+  /// стоит подсказка, пока не выбран счёт или не введена сумма.
+  bool _currencyChanged = false;
+
   Transfer? get _editing => widget.editing;
 
   @override
@@ -93,7 +100,8 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
         setState(() {
           _all = all;
           _fromId ??= _firstWithPair(all);
-          if (editing != null && _amount.text.isEmpty) {
+          if (editing == null) _autoPickTarget();
+          if (editing != null && !_amountPrefilled) {
             final from = _byId(editing.fromAccountId);
             if (from != null) {
               _amount.text = formatMoney(
@@ -101,6 +109,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
                 currency: from.currencyInfo,
                 withCurrencySymbol: false,
               );
+              _amountPrefilled = true;
             }
           }
         });
@@ -144,6 +153,14 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
   String _name(Account a) =>
       a.isArchived ? transferArchivedAccountName(a.name) : a.name;
 
+  /// «Куда» подставляется сам, если подходящий счёт ровно один.
+  void _autoPickTarget() {
+    final from = _byId(_fromId);
+    if (from == null || _toId != null) return;
+    final targets = transferTargets(_all ?? const [], from);
+    if (targets.length == 1) _toId = targets.single.id;
+  }
+
   /// Смена «Откуда»: «Куда» сбрасывается, если больше не подходит; при смене
   /// валюты сумма очищается (другие знаки после запятой).
   void _onFromChanged(String? id) {
@@ -162,7 +179,9 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
       }
       if (prev != null && next != null && prev.currency != next.currency) {
         _amount.clear();
+        _currencyChanged = true;
       }
+      _autoPickTarget();
     });
   }
 
@@ -226,7 +245,8 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
       } else {
         await transfers.update(transfer);
       }
-      navigator.pop();
+      // Пользователь мог уйти назад во время записи: закрывать нечего.
+      if (mounted) navigator.pop();
       messenger.hideCurrentSnackBar();
       if (editing != null) {
         messenger.showSnackBar(
@@ -366,6 +386,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
     required String? value,
     required ValueChanged<String?> onChanged,
     String? errorText,
+    String? helperText,
   }) {
     return KeyedSubtree(
       key: key,
@@ -379,6 +400,8 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
           labelText: label,
           errorText: errorText,
           errorMaxLines: 3,
+          helperText: helperText,
+          helperMaxLines: 3,
         ),
         items: [
           for (final a in options)
@@ -433,9 +456,11 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
             options: toOptions,
             value: _toId,
             errorText: _toError,
+            helperText: _currencyChanged ? transferCurrencyChangedHint : null,
             onChanged: (id) => setState(() {
               _toId = id;
               _toError = null;
+              _currencyChanged = false;
             }),
           ),
           const SizedBox(height: 16),
@@ -454,7 +479,10 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
               errorText: _amountError,
               errorMaxLines: 3,
             ),
-            onChanged: (_) => setState(() => _amountError = null),
+            onChanged: (_) => setState(() {
+              _amountError = null;
+              _currencyChanged = false;
+            }),
           ),
           const SizedBox(height: 16),
           Align(
@@ -485,12 +513,21 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
         title: Text(title),
         actions: [
           if (_editing != null)
-            IconButton(
-              tooltip: transferDeleteTooltip,
-              onPressed: _saving ? null : () => unawaited(_delete()),
-              icon: const Icon(
-                Icons.delete_outline,
-                semanticLabel: transferDeleteSemantic,
+            // Скринридер читает только «Удалить перевод»; подсказка «Удалить»
+            // остаётся для глаз (при долгом нажатии).
+            Semantics(
+              label: transferDeleteSemantic,
+              button: true,
+              enabled: !_saving,
+              onTap: _saving ? null : () => unawaited(_delete()),
+              excludeSemantics: true,
+              child: Tooltip(
+                message: transferDeleteTooltip,
+                excludeFromSemantics: true,
+                child: IconButton(
+                  onPressed: _saving ? null : () => unawaited(_delete()),
+                  icon: const Icon(Icons.delete_outline),
+                ),
               ),
             ),
         ],

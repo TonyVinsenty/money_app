@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/balance_tab.dart';
+import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -102,16 +103,17 @@ void main() {
     await openAccount(tester, cardAndCash, transfers);
 
     expect(find.text(transfersSectionTitle), findsOneWidget);
-    expect(
-      find.text('→ Наличные ${formatMoney(-rub(500000))}'),
-      findsOneWidget,
-    );
-    expect(find.text('← Наличные +${formatMoney(rub(30000))}'), findsOneWidget);
+    expect(find.text('→ Наличные'), findsOneWidget);
+    expect(find.text(formatMoney(-rub(500000))), findsOneWidget);
+    expect(find.text('← Наличные'), findsOneWidget);
+    expect(find.text('+${formatMoney(rub(30000))}'), findsOneWidget);
     expect(find.text('Аренда'), findsOneWidget);
     expect(find.text('7 сентября'), findsNothing);
+    // С комментарием озвучка заканчивается комментарием.
     expect(
       find.bySemanticsLabel(
-        'Перевод на счёт Наличные, минус 5000 рублей, 7 сентября',
+        'Перевод на счёт Наличные, минус 5000 рублей, 7 сентября, '
+        'комментарий: Аренда',
       ),
       findsOneWidget,
     );
@@ -138,10 +140,74 @@ void main() {
       acc('a1', 'Карта'),
       acc('a2', 'Старая', archived: true),
     ], transfers);
+    expect(find.text('→ Старая (в архиве)'), findsOneWidget);
+    expect(find.text(formatMoney(-rub(100))), findsOneWidget);
+  });
+
+  testWidgets('unknown partner is called "другой счёт", also spoken', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final transfers = InMemoryTransfersRepository([
+      transfer('t1', 'a1', 'gone', 100, 7),
+    ]);
+    await openAccount(tester, cardAndCash, transfers);
+    expect(find.text('→ $transferUnknownPartner'), findsOneWidget);
     expect(
-      find.text('→ Старая (в архиве) ${formatMoney(-rub(100))}'),
+      find.bySemanticsLabel(
+        RegExp(
+          'Перевод на счёт $transferUnknownPartner, минус 1 рубль, 7 сентября',
+        ),
+      ),
       findsOneWidget,
     );
+    handle.dispose();
+  });
+
+  testWidgets('section title and day headings are headers', (tester) async {
+    final handle = tester.ensureSemantics();
+    final transfers = InMemoryTransfersRepository([
+      transfer('t1', 'a1', 'a2', 100, 7),
+    ]);
+    await openAccount(tester, cardAndCash, transfers);
+    expect(
+      tester
+          .getSemantics(find.text(transfersSectionTitle))
+          .flagsCollection
+          .isHeader,
+      isTrue,
+    );
+    expect(
+      tester
+          .getSemantics(
+            find.text(
+              historyDayLabel(
+                DateOnly(2026, 9, 7),
+                today: DateOnly(2026, 9, 20),
+              ),
+            ),
+          )
+          .flagsCollection
+          .isHeader,
+      isTrue,
+    );
+    handle.dispose();
+  });
+
+  testWidgets('long partner name and amount live in one row without overflow', (
+    tester,
+  ) async {
+    final transfers = InMemoryTransfersRepository([
+      transfer('t1', 'a1', 'a2', 123456789, 7),
+    ]);
+    await openAccount(
+      tester,
+      [acc('a1', 'Карта'), acc('a2', 'Очень длинное название для проверки')],
+      transfers,
+      textScale: 2,
+    );
+    expect(find.byKey(AccountTransfersList.rowKey('t1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('tap opens edit form; delete closes it, undo restores', (

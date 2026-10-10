@@ -206,27 +206,40 @@ const String transferDeletedText = 'Перевод удалён';
 const String transferDeleteFailedText =
     'Не удалось удалить. Попробуйте ещё раз';
 
-/// Строка списка: «→ Наличные», сумма со знаком (исходящий) или «← Карта», сумма со знаком плюс.
-String transferRowText(
-  bool outgoing,
-  String partner,
-  Money amount,
-  CurrencyInfo currency,
-) => outgoing
-    ? '→ $partner ${formatMoney(-amount, currency: currency)}'
-    : '← $partner +${formatMoney(amount, currency: currency)}';
+/// Запасное имя партнёра, если счёта не нашли (утверждено 2026-10-10).
+const String transferUnknownPartner = 'другой счёт';
+
+/// Имя в строке списка: «→ Наличные» (исходящий) или «← Карта».
+String transferRowTitle(bool outgoing, String partner) =>
+    '${outgoing ? '→' : '←'} ${partner.isEmpty ? transferUnknownPartner : partner}';
+
+/// Сумма справа: со знаком минус для исходящего и плюс для входящего.
+String transferRowAmount(bool outgoing, Money amount, CurrencyInfo currency) =>
+    outgoing
+    ? formatMoney(-amount, currency: currency)
+    : '+${formatMoney(amount, currency: currency)}';
 
 /// Озвучка строки (вариант Б): «Перевод на счёт Наличные, минус 5000 рублей,
-/// 7 октября» / «Перевод со счёта Карта, плюс 5000 рублей, 7 октября».
+/// 7 октября» / «Перевод со счёта Карта, плюс 5000 рублей, 7 октября»; с
+/// комментарием в конце: «..., комментарий: снял в банкомате».
 String transferRowSpoken(
   bool outgoing,
   String partner,
   Money amount,
   CurrencyInfo currency,
-  String day,
-) => outgoing
-    ? 'Перевод на счёт $partner, ${spokenMoney(-amount, currency: currency)}, $day'
-    : 'Перевод со счёта $partner, плюс ${spokenMoney(amount, currency: currency)}, $day';
+  String day, {
+  String? note,
+}) {
+  final name = partner.isEmpty ? transferUnknownPartner : partner;
+  final head = outgoing
+      ? 'Перевод на счёт $name, ${spokenMoney(-amount, currency: currency)}'
+      : 'Перевод со счёта $name, плюс ${spokenMoney(amount, currency: currency)}';
+  return '$head, $day${note == null ? '' : ', комментарий: $note'}';
+}
+
+// Подсказка после смены валюты «Откуда» (утверждено 2026-10-10).
+const String transferCurrencyChangedHint =
+    'Валюта изменилась — выберите счёт и введите сумму';
 
 // Подсказка у неактивной кнопки «Перевод» (утверждено 2026-10-10).
 const String transferNeedPairHint = 'Нужны два счёта в одной валюте';
