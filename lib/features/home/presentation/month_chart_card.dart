@@ -362,12 +362,11 @@ class _MonthChartCardState extends State<MonthChartCard> {
     Money balance,
     Money? line,
   ) {
-    Color? colorOf(Money m) => m.isZero
+    final color = balance.isZero
         ? null
-        : m.isNegative
+        : balance.isNegative
         ? colors.expense
         : colors.income;
-    final color = colorOf(balance);
     final text = _signedText(balance);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -392,7 +391,9 @@ class _MonthChartCardState extends State<MonthChartCard> {
             Text(
               'Баланс: ${_signedText(line)}',
               textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall?.copyWith(color: colorOf(line)),
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
       ],

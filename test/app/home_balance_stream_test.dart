@@ -201,4 +201,140 @@ void main() {
       expect(live.last, Money.fromMinor(150, 'RUB'));
     });
   });
+
+  group('повторная подписка и отписка', () {
+    for (final line in HomeBalanceLine.values) {
+      test('$line: подписка, отписка и снова подписка работают', () async {
+        final a = _account('a', 'RUB', 100);
+        final accounts = FakeAccountsRepository(
+          accounts: [a],
+          balances: {a.id: Money.fromMinor(100, 'RUB')},
+        );
+        final stream = watchHomeBalance(
+          line: line,
+          currency: 'RUB',
+          transactions: _Totals(income: 30, expense: 10),
+          accounts: accounts,
+        );
+        final expected = switch (line) {
+          HomeBalanceLine.none => null,
+          HomeBalanceLine.allTime => Money.fromMinor(20, 'RUB'),
+          HomeBalanceLine.accounts => Money.fromMinor(100, 'RUB'),
+        };
+
+        expect(await stream.first, expected);
+        expect(await stream.first, expected);
+        final third = <Money?>[];
+        final sub = stream.listen(third.add);
+        await Future<void>.delayed(Duration.zero);
+        await sub.cancel();
+        expect(third, [expected]);
+      });
+    }
+
+    test('закрывается, когда закрылись оба источника', () async {
+      final repo = _Tracking();
+      var done = false;
+      final sub = watchHomeBalance(
+        line: HomeBalanceLine.allTime,
+        currency: 'RUB',
+        transactions: repo,
+        accounts: FakeAccountsRepository(),
+      ).listen((_) {}, onDone: () => done = true);
+      await Future<void>.delayed(Duration.zero);
+
+      await repo.created[0].close();
+      await Future<void>.delayed(Duration.zero);
+      expect(done, isFalse);
+      await repo.created[1].close();
+      await Future<void>.delayed(Duration.zero);
+      expect(done, isTrue);
+      await sub.cancel();
+    });
+
+    test('отписка снимает подписки с обоих источников', () async {
+      final repo = _Tracking();
+      final stream = watchHomeBalance(
+        line: HomeBalanceLine.allTime,
+        currency: 'RUB',
+        transactions: repo,
+        accounts: FakeAccountsRepository(),
+      );
+      final sub = stream.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.created, hasLength(2));
+      expect(repo.created.every((c) => c.hasListener), isTrue);
+
+      await sub.cancel();
+      expect(repo.created.any((c) => c.hasListener), isFalse);
+
+      // Новый слушатель получает свежие источники.
+      final second = stream.listen((_) {});
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.created, hasLength(4));
+      expect(repo.created.skip(2).every((c) => c.hasListener), isTrue);
+      await second.cancel();
+    });
+  });
+
+  test('accounts: остатка для счёта ещё нет - событие пропускается', () async {
+    final a = _account('a', 'RUB', 100);
+    final accountsController = StreamController<List<Account>>();
+    final balancesController = StreamController<Map<String, Money>>();
+    final repo = _LiveAccounts(
+      accountsController.stream,
+      balancesController.stream,
+    );
+    final values = <Money?>[];
+    final errors = <Object>[];
+    final sub = watchHomeBalance(
+      line: HomeBalanceLine.accounts,
+      currency: 'RUB',
+      transactions: _Totals(),
+      accounts: repo,
+    ).listen(values.add, onError: errors.add);
+
+    accountsController.add([a]);
+    balancesController.add(const {});
+    await Future<void>.delayed(Duration.zero);
+    expect(values, isEmpty);
+    expect(errors, isEmpty);
+
+    balancesController.add({a.id: Money.fromMinor(100, 'RUB')});
+    await Future<void>.delayed(Duration.zero);
+    expect(values, [Money.fromMinor(100, 'RUB')]);
+    expect(errors, isEmpty);
+    await sub.cancel();
+    await accountsController.close();
+    await balancesController.close();
+  });
+}
+
+/// Репозиторий, который запоминает созданные потоки итогов.
+class _Tracking extends FakeTransactionsRepository {
+  final created = <StreamController<Money>>[];
+
+  @override
+  Stream<Money> watchTotal({
+    required TransactionType type,
+    required DateRange period,
+    String currency = 'RUB',
+  }) {
+    final controller = StreamController<Money>();
+    created.add(controller);
+    return controller.stream;
+  }
+}
+
+class _LiveAccounts extends FakeAccountsRepository {
+  _LiveAccounts(this._accounts, this._balances);
+
+  final Stream<List<Account>> _accounts;
+  final Stream<Map<String, Money>> _balances;
+
+  @override
+  Stream<List<Account>> watchAll() => _accounts;
+
+  @override
+  Stream<Map<String, Money>> watchBalances() => _balances;
 }

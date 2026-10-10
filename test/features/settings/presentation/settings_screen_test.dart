@@ -110,16 +110,9 @@ void main() {
   }
 
   group('строка «Баланс» на Главной', () {
-    void tall(WidgetTester tester) {
-      tester.view.physicalSize = const Size(800, 2400);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-    }
-
     testWidgets('раздел виден, тексты дословно, выбран текущий', (
       tester,
     ) async {
-      tall(tester);
       await tester.pumpWidget(_app(balanceLine: HomeBalanceLine.accounts));
 
       expect(find.text('Строка «Баланс» на Главной'), findsOneWidget);
@@ -144,7 +137,6 @@ void main() {
       ('Не показывать', HomeBalanceLine.none),
     ]) {
       testWidgets('тап «$label» сообщает $line', (tester) async {
-        tall(tester);
         final start = line == HomeBalanceLine.none
             ? HomeBalanceLine.allTime
             : HomeBalanceLine.none;

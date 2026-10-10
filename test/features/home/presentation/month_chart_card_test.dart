@@ -1096,7 +1096,7 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('плюс: под «Всего» строка со знаком, как у «Всего»', (
+    testWidgets('плюс: под «Всего» строка со знаком, цвет нейтральный', (
       tester,
     ) async {
       await pumpWith(tester, Stream.value(rub(4530000)));
@@ -1107,7 +1107,12 @@ void main() {
       final line = tester.getRect(_inRing(text));
       expect(line.top, greaterThan(total.bottom - 1));
       final style = tester.widget<Text>(_inRing(text)).style!;
-      expect(style.color, AppColors.light.income);
+      expect(
+        style.color,
+        Theme.of(tester.element(find.byType(DonutChart)))
+            .colorScheme
+            .onSurfaceVariant,
+      );
       expect(
         style.fontSize,
         lessThan(
@@ -1116,25 +1121,30 @@ void main() {
       );
     });
 
-    testWidgets('минус: знак и цвет расхода', (tester) async {
+    testWidgets('минус: знак, цвет нейтральный', (tester) async {
       await pumpWith(tester, Stream.value(rub(-250000)));
 
       final text = 'Баланс: ${_money(-250000)}';
       expect(_inRing(text), findsOneWidget);
       expect(
         tester.widget<Text>(_inRing(text)).style!.color,
-        AppColors.light.expense,
+        Theme.of(tester.element(find.byType(DonutChart)))
+            .colorScheme
+            .onSurfaceVariant,
       );
     });
 
-    testWidgets('ноль: без знака и без цвета', (tester) async {
+    testWidgets('ноль: без знака, цвет нейтральный', (tester) async {
       await pumpWith(tester, Stream.value(rub(0)));
 
       final text = 'Баланс: ${_money(0)}';
       expect(_inRing(text), findsOneWidget);
-      final color = tester.widget<Text>(_inRing(text)).style!.color;
-      expect(color, isNot(AppColors.light.income));
-      expect(color, isNot(AppColors.light.expense));
+      expect(
+        tester.widget<Text>(_inRing(text)).style!.color,
+        Theme.of(tester.element(find.byType(DonutChart)))
+            .colorScheme
+            .onSurfaceVariant,
+      );
     });
 
     testWidgets(

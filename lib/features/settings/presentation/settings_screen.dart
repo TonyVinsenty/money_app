@@ -399,6 +399,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
+        const Divider(),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
           child: Semantics(
