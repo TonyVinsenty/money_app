@@ -57,6 +57,7 @@ Widget _app({
           onExportShared: onExportShared ?? () {},
           onImportCsv: onImportCsv ?? () async => null,
           onClearAll: onClearAll ?? () async {},
+          version: '0.1.0+19',
         ),
       ),
     ),
@@ -83,6 +84,13 @@ void main() {
   });
 
   setUpAll(() => initializeDateFormatting('ru'));
+
+  testWidgets('внизу «Настроек» видна версия «Версия 0.1.0 (19)»', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_app());
+    expect(find.text('Версия 0.1.0 (19)'), findsOneWidget);
+  });
 
   testWidgets('три варианта темы, выбран текущий', (tester) async {
     await tester.pumpWidget(_app(mode: ThemeMode.dark));

@@ -6,6 +6,7 @@ import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_services.dart';
 import 'package:money_app/app/app_shell.dart';
 import 'package:money_app/app/app_tab_indices.dart';
+import 'package:money_app/app/app_version.dart';
 import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/app/home_balance_stream.dart';
@@ -150,6 +151,7 @@ class SettingsTab extends StatelessWidget {
         recurring: services.recurring,
         clock: services.clock,
       ).exportToTempFile(),
+      version: appVersion,
       onImportCsv: () => _importCsv(context, services),
       onClearAll: () async {
         final browse = BrowseScope.controllerOf(context);

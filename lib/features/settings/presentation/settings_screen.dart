@@ -137,6 +137,14 @@ const clearAllFailedMessage = 'Не удалось стереть данные. 
 /// Подпись индикатора для скринридера, пока идёт стирание (Н5).
 const clearAllErasingLabel = 'Стираем данные';
 
+/// Строка внизу «Настроек»: из «0.1.0+19» получается «Версия 0.1.0 (19)».
+String versionLabel(String version) {
+  final parts = version.split('+');
+  return parts.length == 2
+      ? 'Версия ${parts[0]} (${parts[1]})'
+      : 'Версия $version';
+}
+
 enum _ClearAllChoice { exportFirst, erase }
 
 String _accountNoun(int count) => pluralRu(count, 'счёт', 'счёта', 'счетов');
@@ -171,6 +179,7 @@ class SettingsScreen extends StatefulWidget {
     required this.onExportShared,
     required this.onImportCsv,
     required this.onClearAll,
+    required this.version,
     this.shareFile = shareCsvFile,
     super.key,
   });
@@ -207,6 +216,9 @@ class SettingsScreen extends StatefulWidget {
   /// или `null`, если ничего не загружено (отмена). Бросает исключение, если
   /// файл не удалось открыть.
   final Future<CsvImportResult?> Function() onImportCsv;
+
+  /// Версия приложения вида «0.1.0+19»; показывается внизу списка.
+  final String version;
 
   /// Стирает все данные пользователя. Бросает исключение, если не удалось.
   final Future<void> Function() onClearAll;
@@ -499,6 +511,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
           enabled: !_busy,
           onTap: _busy ? null : _clearAll,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Text(
+            versionLabel(widget.version),
+            style: textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
         ),
       ],
     );
