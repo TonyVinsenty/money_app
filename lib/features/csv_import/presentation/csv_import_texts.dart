@@ -211,8 +211,8 @@ String _rowErrorText(CsvRowError error) {
     CsvInvalidType() =>
       value == null
           ? 'не указан тип'
-          : 'тип $value — нужен «$csvTypeExpense», «$csvTypeIncome» '
-                'или «$csvTypeOpeningBalance»',
+          : 'тип $value — нужен «$csvTypeExpense», «$csvTypeIncome», '
+                '«$csvTypeOpeningBalance» или «$csvTypeTransfer»',
     final CsvInvalidAmount amountError =>
       value == null
           ? 'не указана сумма'
@@ -238,6 +238,14 @@ String _rowErrorText(CsvRowError error) {
       'валюта ${error.value} не совпадает с валютой счёта '
           '${_quoted(accountName)} '
           '— у него $accountCurrency',
+    CsvTransferNoAccount() => 'у перевода не указан счёт',
+    CsvTransferNoToAccount() => 'у перевода не указан счёт зачисления',
+    CsvTransferSameAccount() => 'у перевода счёт и счёт зачисления совпадают',
+    CsvTransferZeroAmount() =>
+      'сумма $value — у перевода нужна сумма больше нуля',
+    CsvTransferWithCategory() =>
+      'у перевода категория $value — ячейка должна быть пустой. '
+          'Похоже, колонки съехали',
     CsvAccountIdNotFound() =>
       'счёт с ID «${error.value}» не найден. '
           'Укажите имя счёта в колонке «$csvColumnAccount»',
@@ -308,6 +316,7 @@ String _idColumnName(CsvIdColumn column) => switch (column) {
   CsvIdColumn.category => csvColumnCategoryId,
   CsvIdColumn.subcategory => csvColumnSubcategoryId,
   CsvIdColumn.account => csvColumnAccountId,
+  CsvIdColumn.transferAccount => csvColumnTransferAccountId,
 };
 
 /// Значение в кавычках-ёлочках; длинное обрезается с «…»; пустое — `null`.

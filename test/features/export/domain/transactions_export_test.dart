@@ -4,6 +4,7 @@ import 'package:money_app/core/errors/data_corrupted_exception.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
@@ -594,6 +595,114 @@ void main() {
         accounts: const [],
       );
       expect(idsIn(rows), ['earlier-day', 'later-day']);
+    });
+  });
+
+  group('переводы (ADR 0010, п. 10)', () {
+    Transfer transfer(
+      String id, {
+      String from = 'a',
+      String to = 'b',
+      int minor = 150000,
+      String currency = 'RUB',
+      DateTime? at,
+      String? note,
+    }) {
+      final moment = at ?? DateTime.utc(2026, 10, 4, 10);
+      return Transfer(
+        id: id,
+        fromAccountId: from,
+        toAccountId: to,
+        amount: Money.fromMinor(minor, currency),
+        occurredOn: DateOnly.fromDateTime(moment),
+        occurredAt: moment,
+        note: note,
+      );
+    }
+
+    List<List<String>> rowsWith(
+      List<Transfer> transfers, {
+      List<Transaction> transactions = const [],
+      List<Account>? accounts,
+    }) => buildTransactionsCsvRows(
+      transactions: transactions,
+      categories: _categories,
+      accounts: accounts ?? [_acc('a', 'Карта'), _acc('b', 'Наличные')],
+      transfers: transfers,
+    );
+
+    List<String> lastTransfer(List<List<String>> rows) =>
+        rows.lastWhere((r) => r[1] == 'Перевод');
+
+    test('строка Перевод: сумма без знака, оба счёта, комментарий', () {
+      final rows = rowsWith([transfer('t1', note: 'Снял в банкомате')]);
+      final row = lastTransfer(rows);
+      expect(row, [
+        '04.10.2026',
+        'Перевод',
+        '1500,00',
+        'RUB',
+        '',
+        '',
+        'Снял в банкомате',
+        'Карта',
+        'Наличные',
+        't1',
+        '',
+        '',
+        '2026-10-04T10:00:00.000Z',
+        'a',
+        'b',
+        '',
+        '',
+      ]);
+    });
+
+    test('BTC: знаки валюты счёта, 8 цифр', () {
+      final rows = rowsWith(
+        [transfer('t1', minor: 150000, currency: 'BTC')],
+        accounts: [
+          _acc('a', 'Кошелёк', currency: 'BTC', digits: 8),
+          _acc('b', 'Биржа', currency: 'BTC', digits: 8),
+        ],
+      );
+      expect(lastTransfer(rows)[2], '0,00150000');
+      expect(lastTransfer(rows)[3], 'BTC');
+    });
+
+    test('своя валюта ABC с 4 знаками', () {
+      final rows = rowsWith(
+        [transfer('t1', minor: 123456, currency: 'ABC')],
+        accounts: [
+          _acc('a', 'Свой', currency: 'ABC', digits: 4),
+          _acc('b', 'Другой', currency: 'ABC', digits: 4),
+        ],
+      );
+      expect(lastTransfer(rows)[2], '12,3456');
+    });
+
+    test('порядок: день, момент, id вперемешку с операциями', () {
+      final rows = rowsWith(
+        [
+          transfer('t-late', at: DateTime.utc(2026, 10, 4, 12)),
+          transfer('t-early', at: DateTime.utc(2026, 10, 4, 8)),
+        ],
+        transactions: [_tx('mid', at: DateTime.utc(2026, 10, 4, 10))],
+      );
+      expect(
+        [
+          for (final r in rows.skip(1))
+            if (r[9].isNotEmpty) r[9],
+        ],
+        ['t-early', 'mid', 't-late'],
+      );
+    });
+
+    test('счёт перевода не найден: отказ экспорта', () {
+      expect(
+        () => rowsWith([transfer('t1', to: 'missing')]),
+        throwsA(isA<DataCorruptedException>()),
+      );
     });
   });
 

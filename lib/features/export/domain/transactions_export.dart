@@ -6,6 +6,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -62,6 +63,7 @@ const String csvColumnSubcategoryIcon = 'Значок подкатегории';
 const String csvTypeIncome = 'Доход';
 const String csvTypeExpense = 'Расход';
 const String csvTypeOpeningBalance = 'Начальный остаток';
+const String csvTypeTransfer = 'Перевод';
 
 /// Текст CSV-файла экспорта: заголовки, затем операции от старых к новым.
 ///
@@ -70,16 +72,20 @@ const String csvTypeOpeningBalance = 'Начальный остаток';
 /// [DataCorruptedException]: файл не формируется, строки не пропускаются.
 /// [accounts] — все не удалённые счета, включая архивные: по строке
 /// `Начальный остаток` на каждый; счёт операции не найден — тоже отказ.
+/// [transfers] — не удалённые переводы: строка `Перевод` на каждый; счёт
+/// перевода не найден — тоже отказ.
 String buildTransactionsCsv({
   required List<Transaction> transactions,
   required List<Category> categories,
   required List<Account> accounts,
+  List<Transfer> transfers = const [],
 }) {
   return encodeCsv(
     buildTransactionsCsvRows(
       transactions: transactions,
       categories: categories,
       accounts: accounts,
+      transfers: transfers,
     ),
   );
 }
@@ -89,6 +95,7 @@ List<List<String>> buildTransactionsCsvRows({
   required List<Transaction> transactions,
   required List<Category> categories,
   required List<Account> accounts,
+  List<Transfer> transfers = const [],
 }) {
   final byId = {for (final category in categories) category.id: category};
   final accountsById = {for (final account in accounts) account.id: account};
@@ -96,6 +103,7 @@ List<List<String>> buildTransactionsCsvRows({
     for (final account in accounts) _openingBalanceLine(account),
     for (final transaction in transactions)
       _transactionLine(transaction, byId, accountsById),
+    for (final transfer in transfers) _transferLine(transfer, accountsById),
   ]..sort(_byOccurrence);
   return [transactionsExportHeaders, for (final line in lines) line.row];
 }
@@ -209,6 +217,46 @@ _Line _transactionLine(
       subcategory?.iconKey ?? '',
     ],
   );
+}
+
+/// Строка `Перевод`: сумма без знака со знаками валюты, счёт «откуда» и
+/// «куда», `ID операции` — id перевода; категория и значки пусты.
+_Line _transferLine(Transfer transfer, Map<String, Account> accountsById) {
+  Account account(String id) {
+    final found = accountsById[id];
+    if (found == null) {
+      throw DataCorruptedException(
+        'Transfer "${transfer.id}" refers to a missing account "$id"',
+      );
+    }
+    return found;
+  }
+
+  final from = account(transfer.fromAccountId);
+  final to = account(transfer.toAccountId);
+  final currency = transfer.amount.currency;
+  return _Line(transfer.occurredOn, transfer.occurredAt, transfer.id, '', [
+    formatCsvDate(transfer.occurredOn),
+    csvTypeTransfer,
+    formatCsvAmount(
+      transfer.amount,
+      currency: from.currency == currency ? from.currencyInfo : null,
+    ),
+    currency,
+    '',
+    '',
+    transfer.note ?? '',
+    from.name,
+    to.name,
+    transfer.id,
+    '',
+    '',
+    transfer.occurredAt.toUtc().toIso8601String(),
+    from.id,
+    to.id,
+    '',
+    '',
+  ]);
 }
 
 /// Строка `Начальный остаток`: дата и время — момент создания счёта, сумма

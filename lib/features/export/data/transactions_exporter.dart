@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
@@ -39,6 +40,7 @@ class TransactionsExporter {
     required this._transactions,
     required this._categories,
     required this._accounts,
+    required this._transfers,
     required this._clock,
     this._directoryProvider = getTemporaryDirectory,
   });
@@ -46,6 +48,7 @@ class TransactionsExporter {
   final TransactionsRepository _transactions;
   final CategoriesRepository _categories;
   final AccountsRepository _accounts;
+  final TransfersRepository _transfers;
   final Clock _clock;
   final ExportDirectoryProvider _directoryProvider;
 
@@ -58,10 +61,12 @@ class TransactionsExporter {
     // watchAll отдаёт текущий список первым событием; берём его и отписываемся.
     final categories = await _categories.watchAll().first;
     final accounts = await _accounts.watchAll().first;
+    final transfers = await _transfers.findAllLive();
     final content = buildTransactionsCsv(
       transactions: transactions,
       categories: categories,
       accounts: accounts,
+      transfers: transfers,
     );
     return writeExportFile(
       fileName: exportFileName(_clock),

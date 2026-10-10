@@ -216,9 +216,9 @@ void main() {
 
     test('тип: регистр не важен, чужой — ошибка', () {
       expect(_errorsOf('04.10.2026;РАСХОД;5;Кафе'), isEmpty);
-      final error = _errorsOf('04.10.2026;Перевод;5;Кафе').single;
+      final error = _errorsOf('04.10.2026;Обмен;5;Кафе').single;
       expect(error, isA<CsvInvalidType>());
-      expect(error.value, 'Перевод');
+      expect(error.value, 'Обмен');
     });
 
     test('сумма: ошибка берётся из parseAmount', () {
@@ -400,13 +400,6 @@ void main() {
     test('сегодняшняя дата без времени — момент «сейчас»', () {
       final row = _parsed('$_header\r\n07.10.2026;Расход;5;Кафе').rows.single;
       expect(row.occurredAt, _now.toUtc());
-    });
-
-    test('перевод пока не поддержан: тип — ошибка', () {
-      expect(
-        _errorsOf('04.10.2026;Перевод;5;Кафе').single,
-        isA<CsvInvalidType>(),
-      );
     });
 
     test('несколько ошибок в одной строке собираются все', () {

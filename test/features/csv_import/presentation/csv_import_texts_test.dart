@@ -69,13 +69,13 @@ void main() {
       final long = 'я' * 31;
       expect(
         csvRowErrorMessage(CsvInvalidType(2, long)),
-        'Строка 2: тип «${'я' * 30}…» — нужен «Расход», «Доход» '
-        'или «Начальный остаток»',
+        'Строка 2: тип «${'я' * 30}…» — нужен «Расход», «Доход», '
+        '«Начальный остаток» или «Перевод»',
       );
       expect(
         csvRowErrorMessage(CsvInvalidType(2, 'я' * 30)),
-        'Строка 2: тип «${'я' * 30}» — нужен «Расход», «Доход» '
-        'или «Начальный остаток»',
+        'Строка 2: тип «${'я' * 30}» — нужен «Расход», «Доход», '
+        '«Начальный остаток» или «Перевод»',
       );
     });
 
@@ -217,6 +217,11 @@ void main() {
         const CsvAccountTooLong(2, 'x'),
         const CsvOpeningBalanceNoAccount(2, ''),
         const CsvOpeningBalanceWithCategory(2, 'Кафе'),
+        const CsvTransferNoAccount(2, ''),
+        const CsvTransferNoToAccount(2, ''),
+        const CsvTransferSameAccount(2, 'Карта'),
+        const CsvTransferZeroAmount(2, '0,00'),
+        const CsvTransferWithCategory(2, 'Кафе'),
         const CsvEmptyCategory(2, ''),
         const CsvCategoryTooLong(2, 'x'),
         const CsvSubcategoryTooLong(2, 'x'),

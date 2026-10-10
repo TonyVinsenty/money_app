@@ -63,6 +63,9 @@ class InMemoryTransfersRepository extends Fake implements TransfersRepository {
   });
 
   @override
+  Future<List<Transfer>> findAllLive() async => List.of(all);
+
+  @override
   Future<void> add(Transfer transfer) async {
     if (failWith != null) throw failWith!;
     all.add(transfer);

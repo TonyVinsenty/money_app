@@ -38,7 +38,13 @@ final class CsvDuplicateColumn extends CsvFileFailure {
 }
 
 /// Какая из колонок `ID …` испорчена.
-enum CsvIdColumn { transaction, category, subcategory, account }
+enum CsvIdColumn {
+  transaction,
+  category,
+  subcategory,
+  account,
+  transferAccount,
+}
 
 /// Ошибка одной строки. [line] — номер строки как в Excel (заголовки — 1),
 /// [value] — исходное значение поля (для дубля ID — сам ID).
@@ -59,7 +65,7 @@ final class CsvFutureDate extends CsvRowError {
   const CsvFutureDate(super.line, super.value);
 }
 
-/// Тип не `Расход` и не `Доход`.
+/// Тип не `Расход`, `Доход`, `Начальный остаток` и не `Перевод`.
 final class CsvInvalidType extends CsvRowError {
   const CsvInvalidType(super.line, super.value);
 }
@@ -194,4 +200,29 @@ final class CsvSubcategoryWrongParent extends CsvRowError {
 /// разделитель файла (`;` или `,`): от него зависит подсказка.
 final class CsvExtraCells extends CsvRowError {
   const CsvExtraCells(super.line, super.value);
+}
+
+/// У `Перевод` не указан `Счёт` (откуда): ни имени, ни ID.
+final class CsvTransferNoAccount extends CsvRowError {
+  const CsvTransferNoAccount(super.line, super.value);
+}
+
+/// У `Перевод` не указан `Счёт зачисления` (куда): ни имени, ни ID.
+final class CsvTransferNoToAccount extends CsvRowError {
+  const CsvTransferNoToAccount(super.line, super.value);
+}
+
+/// У `Перевод` счёт и счёт зачисления совпадают (по имени или по ID).
+final class CsvTransferSameAccount extends CsvRowError {
+  const CsvTransferSameAccount(super.line, super.value);
+}
+
+/// У `Перевод` сумма 0 ([value] — как в файле).
+final class CsvTransferZeroAmount extends CsvRowError {
+  const CsvTransferZeroAmount(super.line, super.value);
+}
+
+/// У `Перевод` заполнена `Категория` ([value]) — колонки съехали.
+final class CsvTransferWithCategory extends CsvRowError {
+  const CsvTransferWithCategory(super.line, super.value);
 }

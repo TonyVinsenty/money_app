@@ -89,6 +89,49 @@ final class ParsedOpeningBalance {
   final int? customDigits;
 }
 
+/// Строка `Перевод`, прошедшая все проверки (ADR 0010, п. 10). Счёт задан
+/// именем, ID или обоими; существование счетов проверяет план.
+final class ParsedTransfer {
+  const ParsedTransfer({
+    required this.line,
+    required this.day,
+    required this.occurredAt,
+    required this.fromAccountName,
+    required this.fromAccountId,
+    required this.toAccountName,
+    required this.toAccountId,
+    required this.amount,
+    required this.customDigits,
+    required this.note,
+    required this.transferId,
+  });
+
+  final int line;
+  final DateOnly day;
+
+  /// Момент в UTC, согласованный с [day].
+  final DateTime occurredAt;
+
+  /// Имя счёта «откуда»; `null`, если ячейка пуста (тогда есть ID).
+  final String? fromAccountName;
+  final String? fromAccountId;
+
+  /// Имя счёта «куда»; `null`, если ячейка пуста (тогда есть ID).
+  final String? toAccountName;
+  final String? toAccountId;
+
+  /// Сумма больше нуля, в валюте строки.
+  final Money amount;
+
+  /// Для кода валюты не из каталога — число цифр после запятой в сумме
+  /// (0–8); для валюты каталога `null`.
+  final int? customDigits;
+  final String? note;
+
+  /// `ID операции` из файла; `null`, если ячейка пуста.
+  final String? transferId;
+}
+
 /// Итог разбора файла.
 sealed class CsvImportParseResult {
   const CsvImportParseResult();
@@ -108,6 +151,7 @@ final class CsvImportParsed extends CsvImportParseResult {
     required this.rows,
     required this.errors,
     this.openingBalances = const [],
+    this.transfers = const [],
   });
 
   /// Доходы и расходы.
@@ -115,6 +159,9 @@ final class CsvImportParsed extends CsvImportParseResult {
 
   /// Строки `Начальный остаток`.
   final List<ParsedOpeningBalance> openingBalances;
+
+  /// Строки `Перевод`.
+  final List<ParsedTransfer> transfers;
   final List<CsvRowError> errors;
 }
 
@@ -173,6 +220,7 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
 
   final rows = <ParsedCsvRow>[];
   final openingBalances = <ParsedOpeningBalance>[];
+  final transfers = <ParsedTransfer>[];
   final errors = <CsvRowError>[];
   final seenIds = <String>{};
   for (var i = 1; i < table.length; i++) {
@@ -195,6 +243,11 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
       if (balance != null) openingBalances.add(balance);
       continue;
     }
+    if (typeText == csvTypeTransfer.toLowerCase()) {
+      final transfer = _parseTransfer(i + 1, field, clock, seenIds, errors);
+      if (transfer != null) transfers.add(transfer);
+      continue;
+    }
     final row = _parseRow(i + 1, field, clock, seenIds, errors);
     if (row != null) rows.add(row);
   }
@@ -202,6 +255,7 @@ CsvImportParseResult parseCsvImport(List<int> bytes, {required Clock clock}) {
     rows: rows,
     errors: errors,
     openingBalances: openingBalances,
+    transfers: transfers,
   );
 }
 
@@ -351,7 +405,7 @@ ParsedCsvRow? _parseRow(
 /// Не похоже на число — 0 (ошибку тогда даст `parseAmount`). Не больше 8:
 /// дальше разбор сам скажет «слишком много знаков».
 final RegExp _decimalsPattern = RegExp(r'^[0-9]*[.,]([0-9]*)$');
-final RegExp _spaces = RegExp(r'[\s  ]');
+final RegExp _spaces = RegExp('[\\s\u00A0\u202F]');
 
 int _digitsInAmount(String amountWithoutMinus) {
   final match = _decimalsPattern.firstMatch(
@@ -388,7 +442,8 @@ ParsedOpeningBalance? _parseOpeningBalance(
   if (!currencyOk) errors.add(CsvInvalidCurrencyCode(line, currencyText));
 
   final amountText = field(csvColumnAmount).trim();
-  final hasMinus = amountText.startsWith('-') || amountText.startsWith('−');
+  final hasMinus =
+      amountText.startsWith('-') || amountText.startsWith('\u2212');
   final unsigned = hasMinus ? amountText.substring(1) : amountText;
   Money? amount;
   int? customDigits;
@@ -440,6 +495,136 @@ ParsedOpeningBalance? _parseOpeningBalance(
     accountId: accountId,
     amount: amount,
     customDigits: customDigits,
+  );
+}
+
+/// Строка `Перевод`: оба счёта обязательны (имя или ID) и разные, сумма
+/// больше нуля, категория пуста, минус нельзя. Валюта — как у остатка.
+ParsedTransfer? _parseTransfer(
+  int line,
+  String Function(String column) field,
+  Clock clock,
+  Set<String> seenIds,
+  List<CsvRowError> errors,
+) {
+  final before = errors.length;
+
+  final dateText = field(csvColumnDate).trim();
+  final day = _parseDay(dateText);
+  if (day == null) {
+    errors.add(CsvInvalidDate(line, dateText));
+  } else if (day > clock.today()) {
+    errors.add(CsvFutureDate(line, dateText));
+  }
+
+  final currencyText = field(csvColumnCurrency).trim();
+  final currencyCode = currencyText.isEmpty
+      ? rubCurrencyCode
+      : currencyText.toUpperCase();
+  final catalogInfo = catalogCurrency(currencyCode);
+  final currencyOk = catalogInfo != null || isValidCurrencyCode(currencyCode);
+  if (!currencyOk) errors.add(CsvInvalidCurrencyCode(line, currencyText));
+
+  final amountText = field(csvColumnAmount).trim();
+  final hasMinus =
+      amountText.startsWith('-') || amountText.startsWith('\u2212');
+  final unsigned = hasMinus ? amountText.substring(1) : amountText;
+  Money? amount;
+  int? customDigits;
+  if (currencyOk) {
+    final info =
+        catalogInfo ??
+        currencyInfoFor(currencyCode, digits: _digitsInAmount(unsigned));
+    if (catalogInfo == null) customDigits = info.digits;
+    switch (parseAmount(unsigned, currency: currencyCode, currencyInfo: info)) {
+      case AmountParsed(amount: final parsed):
+        amount = parsed;
+        if (hasMinus) {
+          errors.add(CsvNegativeIncome(line, amountText));
+        } else if (parsed.isZero) {
+          errors.add(CsvTransferZeroAmount(line, amountText));
+        }
+      case AmountParseFailed(:final failure):
+        errors.add(
+          CsvInvalidAmount(
+            line,
+            amountText,
+            failure,
+            currencyCode: currencyCode,
+            currencyDigits: info.digits,
+            digitsFromFile: catalogInfo == null,
+          ),
+        );
+    }
+  }
+
+  final fromName = field(csvColumnAccount).trim();
+  final toName = field(csvColumnTransferAccount).trim();
+  if (fromName.runes.length > accountNameMaxLength) {
+    errors.add(CsvAccountTooLong(line, fromName));
+  }
+  if (toName.runes.length > accountNameMaxLength) {
+    errors.add(CsvAccountTooLong(line, toName));
+  }
+  final fromId = _parseId(
+    line,
+    field(csvColumnAccountId),
+    CsvIdColumn.account,
+    errors,
+  );
+  final toId = _parseId(
+    line,
+    field(csvColumnTransferAccountId),
+    CsvIdColumn.transferAccount,
+    errors,
+  );
+  // Пустая ячейка ID, которая не прошла проверку UUID, уже дала свою ошибку:
+  // «не указан счёт» говорим только когда пусты и имя, и сырая ячейка ID.
+  final fromGiven =
+      fromName.isNotEmpty || field(csvColumnAccountId).trim().isNotEmpty;
+  final toGiven =
+      toName.isNotEmpty || field(csvColumnTransferAccountId).trim().isNotEmpty;
+  if (!fromGiven) errors.add(CsvTransferNoAccount(line, fromName));
+  if (!toGiven) errors.add(CsvTransferNoToAccount(line, toName));
+  final sameName =
+      fromName.isNotEmpty && fromName.toLowerCase() == toName.toLowerCase();
+  final sameId = fromId != null && fromId.toLowerCase() == toId?.toLowerCase();
+  if (sameName || sameId) {
+    errors.add(CsvTransferSameAccount(line, sameName ? fromName : fromId!));
+  }
+
+  final category = field(csvColumnCategory).trim();
+  if (category.isNotEmpty) {
+    errors.add(CsvTransferWithCategory(line, category));
+  }
+
+  final note = normalizeTransactionNote(field(csvColumnNote));
+  if (note != null && note.runes.length > transactionNoteMaxLength) {
+    errors.add(CsvNoteTooLong(line, note));
+  }
+  final transferId = _parseId(
+    line,
+    field(csvColumnTransactionId),
+    CsvIdColumn.transaction,
+    errors,
+  );
+  if (transferId != null && !seenIds.add(transferId.toLowerCase())) {
+    errors.add(CsvDuplicateTransactionId(line, transferId));
+  }
+
+  if (errors.length > before || day == null || amount == null) return null;
+  return ParsedTransfer(
+    line: line,
+    day: day,
+    occurredAt: _momentOf(day, field(csvColumnOccurredAtUtc), clock),
+    fromAccountName: fromName.isEmpty ? null : fromName,
+    fromAccountId: fromId,
+    toAccountName: toName.isEmpty ? null : toName,
+    toAccountId: toId,
+    amount: amount,
+    customDigits: customDigits,
+    note: note,
+    transferId: transferId,
   );
 }
 

@@ -25,6 +25,9 @@ abstract interface class TransfersRepository {
   /// изменений.
   Future<void> restore(String id);
 
+  /// Все не удалённые переводы (для экспорта CSV), порядок не гарантируется.
+  Future<List<Transfer>> findAllLive();
+
   /// Поток не удалённых переводов, где [accountId] — «откуда» или «куда»:
   /// от новых к старым (день, момент, `id`), как в «Истории».
   Stream<List<Transfer>> watchForAccount(String accountId);

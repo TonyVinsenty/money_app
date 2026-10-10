@@ -104,6 +104,21 @@ class DriftTransfersRepository implements TransfersRepository {
   }
 
   @override
+  Future<List<Transfer>> findAllLive() async {
+    try {
+      final rows = await (_db.select(
+        _db.transfers,
+      )..where((t) => t.deletedAt.isNull())).get();
+      return rows.map(transferFromRow).toList();
+    } on FormatException catch (error) {
+      throw DataCorruptedException(
+        'Stored transfers are corrupted: ${error.message}',
+        cause: error,
+      );
+    }
+  }
+
+  @override
   Stream<List<Transfer>> watchForAccount(String accountId) {
     final query = _db.select(_db.transfers)
       ..where(

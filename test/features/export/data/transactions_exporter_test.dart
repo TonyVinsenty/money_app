@@ -8,6 +8,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -16,6 +17,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
+import '../../../support/fakes.dart';
 import '../../../support/fixed_clock.dart';
 
 /// Фейк операций: отдаёт заранее заданный список или бросает ошибку.
@@ -85,11 +87,13 @@ void main() {
     required TransactionsRepository transactions,
     List<Category> categories = const [],
     List<Account> accounts = const [],
+    List<Transfer> transfers = const [],
   }) {
     return TransactionsExporter(
       transactions: transactions,
       categories: _Categories(categories),
       accounts: _Accounts(accounts),
+      transfers: InMemoryTransfersRepository(transfers),
       clock: FixedClock(DateTime(2026, 10, 4, 18)),
       directoryProvider: () async => dir,
     );
@@ -166,6 +170,39 @@ void main() {
       expect(rows[2][13], 'acc-1');
     },
   );
+
+  test('переводы читаются из репозитория: строка «Перевод» в файле', () async {
+    Account account(String id, String name) => Account(
+      id: id,
+      name: name,
+      iconKey: 'wallet',
+      openingBalance: Money.zero('RUB'),
+      sortOrder: 0,
+      currencyDigits: 2,
+      createdAt: DateTime.utc(2026, 10, 1, 12),
+    );
+    final path = await exporter(
+      transactions: _Transactions(),
+      accounts: [account('a', 'Карта'), account('b', 'Наличные')],
+      transfers: [
+        Transfer(
+          id: 't1',
+          fromAccountId: 'a',
+          toAccountId: 'b',
+          amount: Money.fromMinor(150000, 'RUB'),
+          occurredOn: DateOnly(2026, 10, 4),
+          occurredAt: DateTime.utc(2026, 10, 4, 10),
+        ),
+      ],
+    ).exportToTempFile();
+
+    final rows = decodeCsv(utf8.decode(File(path).readAsBytesSync()));
+    final row = rows.firstWhere((r) => r[1] == 'Перевод');
+    expect(row[2], '1500,00');
+    expect(row[7], 'Карта');
+    expect(row[8], 'Наличные');
+    expect(row[9], 't1');
+  });
 
   test('счёт операции не найден: ошибка и файл не создан', () async {
     final exp = exporter(
