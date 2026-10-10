@@ -19,6 +19,7 @@ class RecurringSection extends StatelessWidget {
     required this.items,
     required this.today,
     required this.onAdd,
+    this.onOpen,
     super.key,
   });
 
@@ -29,6 +30,9 @@ class RecurringSection extends StatelessWidget {
 
   /// Нажатие «Добавить платёж».
   final VoidCallback onAdd;
+
+  /// Тап по строке платежа (открыть правку); без него строки не нажимаются.
+  final ValueChanged<RecurringPayment>? onOpen;
 
   static const addButtonKey = ValueKey('recurring-add');
   static const emptyKey = ValueKey('recurring-empty');
@@ -99,7 +103,7 @@ class RecurringSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final (payment, next) in arranged(all, today))
-                _Row(payment, next),
+                _Row(payment, next, onOpen),
             ],
           ),
         ),
@@ -119,10 +123,11 @@ class RecurringSection extends StatelessWidget {
 }
 
 class _Row extends StatelessWidget {
-  const _Row(this.payment, this.next);
+  const _Row(this.payment, this.next, this.onOpen);
 
   final RecurringPayment payment;
   final DateOnly? next;
+  final ValueChanged<RecurringPayment>? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -132,54 +137,59 @@ class _Row extends StatelessWidget {
     return Semantics(
       container: true,
       label: recurringRowSemantics(payment, next),
+      button: onOpen != null,
+      onTap: onOpen == null ? null : () => onOpen!(payment),
       excludeSemantics: true,
       child: ConstrainedBox(
         key: RecurringSection.rowKey(payment.id),
         constraints: const BoxConstraints(minHeight: 48),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      payment.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                    Text(
-                      recurringSubtitleText(payment, next),
-                      key: RecurringSection.nextKey(payment.id),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+        child: InkWell(
+          onTap: onOpen == null ? null : () => onOpen!(payment),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        payment.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyLarge,
                       ),
-                    ),
-                  ],
+                      Text(
+                        recurringSubtitleText(payment, next),
+                        key: RecurringSection.nextKey(payment.id),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              // Сумма не переносится; совсем длинная сжимается до 45 % ширины.
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    recurringAmountText(payment),
-                    softWrap: false,
-                    textAlign: TextAlign.end,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: isIncome ? colors.income : colors.expense,
+                const SizedBox(width: 12),
+                // Сумма не переносится; совсем длинная сжимается до 45 % ширины.
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.sizeOf(context).width * 0.45,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      recurringAmountText(payment),
+                      softWrap: false,
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: isIncome ? colors.income : colors.expense,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

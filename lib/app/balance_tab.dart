@@ -7,6 +7,7 @@ import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -14,6 +15,7 @@ import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/presentation/recurring_section.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -196,25 +198,33 @@ class _BalanceTabState extends State<BalanceTab> {
         RecurringSection(
           items: _recurring,
           today: today,
-          onAdd: () {
-            final services = AppScope.of(context);
-            unawaited(
-              Navigator.of(context).pushNamed<void>(
-                AppRoutes.recurringForm,
-                arguments: RecurringFormRouteArguments(
-                  currency: currencyInfoFor(services.settings.mainCurrencyCode),
-                  today: today,
-                  recurring: services.recurring,
-                  categories: services.categories,
-                  accounts: services.accounts,
-                  idGenerator: services.idGenerator,
-                  defaultAccountId: services.settings.defaultAccountId,
-                ),
-              ),
-            );
-          },
+          onAdd: () => _openRecurringForm(today),
+          onOpen: (payment) => _openRecurringForm(today, editing: payment),
         ),
       ],
+    );
+  }
+
+  /// Форма платежа: новый (в основной валюте) или правка [editing] (в валюте
+  /// самого платежа).
+  void _openRecurringForm(DateOnly today, {RecurringPayment? editing}) {
+    final services = AppScope.of(context);
+    unawaited(
+      Navigator.of(context).pushNamed<void>(
+        AppRoutes.recurringForm,
+        arguments: RecurringFormRouteArguments(
+          currency: currencyInfoFor(
+            editing?.amount.currency ?? services.settings.mainCurrencyCode,
+          ),
+          today: today,
+          recurring: services.recurring,
+          categories: services.categories,
+          accounts: services.accounts,
+          idGenerator: services.idGenerator,
+          defaultAccountId: services.settings.defaultAccountId,
+          editing: editing,
+        ),
+      ),
     );
   }
 }

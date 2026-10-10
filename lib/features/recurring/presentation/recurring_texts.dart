@@ -136,3 +136,18 @@ String recurringRowSemantics(RecurringPayment payment, DateOnly? nextDue) {
       .replaceFirst(', ', ' ');
   return '$head, $repeat, следующий ${formatDayMonth(nextDue)}';
 }
+
+// Правка и удаление платежа (ROADMAP, Р3 и Р7; утверждены 2026-10-10).
+
+const String recurringFormTitleEdit = 'Платёж';
+const String recurringFormDelete = 'Удалить платёж';
+const String recurringDeleteNote =
+    'Уже внесённые операции останутся в «Истории»';
+const String recurringUndo = 'Отменить';
+
+/// Сообщение после удаления: «Платёж «Интернет» удалён».
+String recurringDeletedMessage(String title) => 'Платёж «$title» удалён';
+
+// Не из утверждённых: служебные сбои удаления и возврата.
+const String recurringDeleteFailed = 'Не удалось удалить. Попробуйте ещё раз';
+const String recurringUndoFailed = 'Не удалось отменить. Попробуйте ещё раз';

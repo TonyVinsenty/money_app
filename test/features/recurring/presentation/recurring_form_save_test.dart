@@ -9,6 +9,7 @@ import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_rules.dart';
 import 'package:money_app/features/recurring/presentation/recurring_form_screen.dart';
 import 'package:money_app/features/recurring/presentation/recurring_section.dart';
@@ -78,7 +79,36 @@ void main() {
     nextChoice = null;
   });
 
-  Future<void> pumpApp(WidgetTester tester, {String? defaultAccountId}) async {
+  Future<void> openForm(
+    BuildContext context,
+    String? defaultAccountId, {
+    RecurringPayment? editing,
+  }) => Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => RecurringFormScreen(
+        currency: currencyInfoFor('RUB'),
+        today: today,
+        repository: repo,
+        idGenerator: FakeIdGenerator(),
+        categories: Stream.value([...repo.categories]),
+        accounts: Stream.value(accountList),
+        defaultAccountId: defaultAccountId,
+        editing: editing,
+        onPickCategory: (context, type) async => nextChoice,
+        onPickAccount: (context, accounts, selectedId) async {
+          offeredAccountIds = [for (final a in accounts) a.id];
+          return (id: 'card');
+        },
+      ),
+    ),
+  );
+
+  /// Открывает раздел и нажимает «Добавить платёж» (или строку [openRow]).
+  Future<void> pumpApp(
+    WidgetTester tester, {
+    String? defaultAccountId,
+    String? openRow,
+  }) async {
     tester.view.physicalSize = const Size(400, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -90,31 +120,21 @@ void main() {
             body: RecurringSection(
               items: repo.watchAll(),
               today: today,
-              onAdd: () => Navigator.of(context).push<void>(
-                MaterialPageRoute(
-                  builder: (_) => RecurringFormScreen(
-                    currency: currencyInfoFor('RUB'),
-                    today: today,
-                    repository: repo,
-                    idGenerator: FakeIdGenerator(),
-                    categories: Stream.value([_food, _bread, _salary]),
-                    accounts: Stream.value(accountList),
-                    defaultAccountId: defaultAccountId,
-                    onPickCategory: (context, type) async => nextChoice,
-                    onPickAccount: (context, accounts, selectedId) async {
-                      offeredAccountIds = [for (final a in accounts) a.id];
-                      return (id: 'card');
-                    },
-                  ),
-                ),
-              ),
+              onAdd: () => openForm(context, defaultAccountId),
+              onOpen: (p) => openForm(context, defaultAccountId, editing: p),
             ),
           ),
         ),
       ),
     );
     await tester.pump();
-    await tester.tap(find.byKey(RecurringSection.addButtonKey));
+    await tester.tap(
+      find.byKey(
+        openRow == null
+            ? RecurringSection.addButtonKey
+            : RecurringSection.rowKey(openRow),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -209,5 +229,81 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(RecurringFormScreen), findsOneWidget);
+  });
+
+  Future<void> seed({String id = 'p1'}) => repo.create(
+    RecurringPayment(
+      id: id,
+      title: 'Интернет',
+      type: TransactionType.expense,
+      amount: Money.fromMinor(65000, 'RUB'),
+      categoryId: 'food',
+      unit: RepeatUnit.month,
+      every: 1,
+      startsOn: today,
+    ),
+  );
+
+  testWidgets('edit: form is prefilled, new amount is saved', (tester) async {
+    await seed();
+    await pumpApp(tester, openRow: 'p1');
+    expect(find.text(recurringFormTitleEdit), findsOneWidget);
+    expect(find.text('Интернет'), findsOneWidget);
+    expect(find.text('Еда'), findsOneWidget);
+    await tester.enterText(find.byType(EditableText).last, '700');
+    await save(tester);
+    expect(find.byType(RecurringFormScreen), findsNothing);
+    final items = await tester.runAsync(() => repo.watchAll().first);
+    expect(items!.single.payment.amount, Money.fromMinor(70000, 'RUB'));
+    expect(items.single.payment.id, 'p1');
+    expect(find.textContaining('700'), findsOneWidget);
+  });
+
+  testWidgets('delete: note, snackbar and "Undo" bring it back', (
+    tester,
+  ) async {
+    await seed();
+    await pumpApp(tester, openRow: 'p1');
+    expect(find.text(recurringDeleteNote), findsOneWidget);
+    await tester.tap(find.byKey(RecurringFormScreen.deleteKey));
+    await tester.pumpAndSettle();
+    expect(find.byType(RecurringFormScreen), findsNothing);
+    expect(find.byKey(RecurringSection.emptyKey), findsOneWidget);
+    expect(find.text('Платёж «Интернет» удалён'), findsOneWidget);
+    await tester.tap(find.text(recurringUndo));
+    await tester.pumpAndSettle();
+    expect(find.byKey(RecurringSection.rowKey('p1')), findsOneWidget);
+  });
+
+  testWidgets('archived category: note is shown until a new one is picked', (
+    tester,
+  ) async {
+    await seed();
+    repo.categories[0] = _food.archived(DateTime.utc(2026, 10, 1));
+    await pumpApp(tester, openRow: 'p1');
+    expect(find.byKey(RecurringFormScreen.archivedNoteKey), findsOneWidget);
+    expect(
+      find.text(
+        recurringRuleMessage(
+          RecurringRule.categoryArchived,
+          type: TransactionType.expense,
+        ),
+      ),
+      findsOneWidget,
+    );
+    nextChoice = (
+      category: Category.topLevel(
+        id: 'home',
+        kind: CategoryKind.expense,
+        name: 'Дом',
+        iconKey: 'tag',
+        sortOrder: 1,
+      ),
+      subcategory: null,
+    );
+    await tester.tap(find.byKey(RecurringFormScreen.categoryKey));
+    await tester.pumpAndSettle();
+    expect(find.byKey(RecurringFormScreen.archivedNoteKey), findsNothing);
+    expect(find.text('Дом'), findsOneWidget);
   });
 }

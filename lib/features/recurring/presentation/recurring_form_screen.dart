@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/day_label.dart';
+import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/recurring_rule_text.dart';
 import 'package:money_app/core/ui/runes_length_formatter.dart';
+import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -49,6 +52,7 @@ class RecurringFormScreen extends StatefulWidget {
     required this.onPickCategory,
     required this.onPickAccount,
     this.defaultAccountId,
+    this.editing,
     super.key,
   });
 
@@ -65,6 +69,9 @@ class RecurringFormScreen extends StatefulWidget {
 
   /// Основной счёт из настроек: у нового платежа выбран он.
   final String? defaultAccountId;
+
+  /// Платёж, который правит форма; `null` - создаёт новый.
+  final RecurringPayment? editing;
 
   /// Основная валюта (платёж создаётся в ней).
   final CurrencyInfo currency;
@@ -84,6 +91,8 @@ class RecurringFormScreen extends StatefulWidget {
   static const categoryKey = ValueKey('recurring-form-category');
   static const accountKey = ValueKey('recurring-form-account');
   static const saveErrorKey = ValueKey('recurring-form-save-error');
+  static const deleteKey = ValueKey('recurring-form-delete');
+  static const archivedNoteKey = ValueKey('recurring-form-archived');
 
   @override
   State<RecurringFormScreen> createState() => _RecurringFormScreenState();
@@ -116,6 +125,22 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
   @override
   void initState() {
     super.initState();
+    final p = widget.editing;
+    if (p != null) {
+      _name.text = p.title;
+      _amount.text.text = formatMoney(p.amount, withCurrencySymbol: false);
+      _income = p.type == TransactionType.income;
+      final i = recurringRepeatOptions.indexWhere(
+        (o) => o.unit == p.unit && o.every == p.every,
+      );
+      _repeat = i < 0 ? 0 : i;
+      _first = p.startsOn;
+      _end = p.endsOn;
+      _categoryId = p.categoryId;
+      _subcategoryId = p.subcategoryId;
+      _accountId = p.accountId;
+      _accountTouched = true;
+    }
     _subs.add(
       widget.categories.listen((all) {
         if (mounted) setState(() => _allCategories = all);
@@ -159,7 +184,9 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
   }
 
   Future<void> _pickFirst() async {
-    final picked = await _pickDate(_first, widget.today);
+    final start = widget.editing?.startsOn;
+    final floor = start != null && start < widget.today ? start : widget.today;
+    final picked = await _pickDate(_first, floor);
     if (picked == null || !mounted) return;
     setState(() {
       _first = picked;
@@ -168,7 +195,11 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
   }
 
   Future<void> _pickEnd() async {
-    final picked = await _pickDate(_end ?? _first, _first);
+    final current = _end;
+    final picked = await _pickDate(
+      current != null && current >= _first ? current : _first,
+      _first,
+    );
     if (picked == null || !mounted) return;
     setState(() {
       _end = picked;
@@ -197,6 +228,66 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
     for (final a in _allAccounts)
       if (!a.isArchived && a.currency == widget.currency.code) a,
   ];
+
+  /// Пояснение, если категория или подкатегория платежа ушла в архив: она
+  /// остаётся, но лучше выбрать новую.
+  bool get _categoryArchived =>
+      (_categoryById(_categoryId)?.isArchived ?? false) ||
+      (_categoryById(_subcategoryId)?.isArchived ?? false);
+
+  Future<void> _delete() async {
+    final old = widget.editing;
+    if (_saving || old == null) return;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final repository = widget.repository;
+    try {
+      await repository.softDelete(old.id);
+    } on Object {
+      _failSave(recurringDeleteFailed);
+      return;
+    }
+    if (mounted) navigator.pop();
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: TapToDismissSnackContent(
+            child: Text(recurringDeletedMessage(old.title)),
+          ),
+          duration: const Duration(seconds: 6),
+          persist: false,
+          actionOverflowThreshold: fontScaleFrom(scaler) > 1.3 ? 0 : 1,
+          action: SnackBarAction(
+            label: recurringUndo,
+            onPressed: () => unawaited(_undo(messenger, repository, old.id)),
+          ),
+        ),
+      );
+  }
+
+  static Future<void> _undo(
+    ScaffoldMessengerState messenger,
+    RecurringRepository repository,
+    String id,
+  ) async {
+    try {
+      await repository.restore(id);
+    } on Object {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: TapToDismissSnackContent(child: Text(recurringUndoFailed)),
+          ),
+        );
+    }
+  }
 
   String get _accountTitle {
     for (final a in _allAccounts) {
@@ -271,21 +362,29 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
     setState(() => _saving = true);
     try {
       final option = recurringRepeatOptions[_repeat];
-      await widget.repository.create(
-        RecurringPayment(
-          id: widget.idGenerator.newId(),
-          title: title,
-          type: _type,
-          amount: amount,
-          categoryId: categoryId,
-          subcategoryId: _subcategoryId,
-          accountId: _accountId,
-          unit: option.unit,
-          every: option.every,
-          startsOn: _first,
-          endsOn: end,
-        ),
+      final old = widget.editing;
+      final payment = RecurringPayment(
+        id: old?.id ?? widget.idGenerator.newId(),
+        title: title,
+        type: _type,
+        amount: amount,
+        categoryId: categoryId,
+        subcategoryId: _subcategoryId,
+        accountId: _accountId,
+        unit: option.unit,
+        every: option.every,
+        startsOn: _first,
+        endsOn: end,
+        remind: old?.remind ?? true,
+        trackedThrough: old?.trackedThrough,
+        createdAt: old?.createdAt,
+        updatedAt: old?.updatedAt,
       );
+      if (old == null) {
+        await widget.repository.create(payment);
+      } else {
+        await widget.repository.update(payment);
+      }
       if (mounted) Navigator.of(context).pop();
     } on RecurringRuleException catch (error) {
       _failSave(recurringRuleMessage(error.rule, type: _type));
@@ -309,7 +408,11 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
     final showHint = option.unit == RepeatUnit.month && _first.day >= 29;
     final end = _end;
     return Scaffold(
-      appBar: AppBar(title: const Text(recurringFormTitle)),
+      appBar: AppBar(
+        title: Text(
+          widget.editing == null ? recurringFormTitle : recurringFormTitleEdit,
+        ),
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -385,13 +488,27 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                       key: RecurringFormScreen.categoryKey,
                       contentPadding: EdgeInsets.zero,
                       title: const Text(recurringFormCategoryLabel),
-                      subtitle: Text(
-                        _categoryError
-                            ? recurringErrorCategory
-                            : (_categoryTitle ?? recurringFormCategoryHint),
-                        style: _categoryError
-                            ? TextStyle(color: theme.colorScheme.error)
-                            : null,
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _categoryError
+                                ? recurringErrorCategory
+                                : (_categoryTitle ?? recurringFormCategoryHint),
+                            style: _categoryError
+                                ? TextStyle(color: theme.colorScheme.error)
+                                : null,
+                          ),
+                          if (_categoryArchived)
+                            Text(
+                              recurringRuleMessage(
+                                RecurringRule.categoryArchived,
+                                type: _type,
+                              ),
+                              key: RecurringFormScreen.archivedNoteKey,
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
+                        ],
                       ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _pickCategory,
@@ -490,6 +607,27 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                     onPressed: _save,
                     child: const Text(recurringFormSave),
                   ),
+                  if (widget.editing != null) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      key: RecurringFormScreen.deleteKey,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: theme.colorScheme.error,
+                      ),
+                      onPressed: _delete,
+                      child: const Text(recurringFormDelete),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        recurringDeleteNote,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

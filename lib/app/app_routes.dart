@@ -27,6 +27,7 @@ import 'package:money_app/features/categories/presentation/subcategories_screen.
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/presentation/csv_import_screen.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/presentation/recurring_form_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -104,6 +105,7 @@ final class RecurringFormRouteArguments {
     required this.accounts,
     required this.idGenerator,
     this.defaultAccountId,
+    this.editing,
   });
 
   final CurrencyInfo currency;
@@ -113,6 +115,9 @@ final class RecurringFormRouteArguments {
   final AccountsRepository accounts;
   final IdGenerator idGenerator;
   final String? defaultAccountId;
+
+  /// Платёж для правки; `null` - новый.
+  final RecurringPayment? editing;
 }
 
 /// Выбор категории (и подкатегории) для формы платежа: те же сетки, что в
@@ -602,6 +607,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           categories: arguments.categories.watchAll(),
           accounts: arguments.accounts.watchAll(),
           defaultAccountId: arguments.defaultAccountId,
+          editing: arguments.editing,
           onPickCategory: (context, type) =>
               pickRecurringCategory(context, type, arguments.categories),
           onPickAccount: (context, accounts, selectedId) => showAccountSheet(
