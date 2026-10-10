@@ -64,6 +64,11 @@ class ReminderSyncer {
     }
   }
 
+  /// Забывает последний принятый план, чтобы следующий пересчёт отправил его
+  /// заново. Нужно при возврате в приложение: система могла отбросить план
+  /// (например, уведомления были выключены), а канал об этом не сообщил.
+  void resend() => _last = null;
+
   Future<void> _syncOnce() async {
     final payments = this.payments;
     final dues = this.dues;
@@ -122,7 +127,7 @@ class _ReminderSyncHostState extends State<ReminderSyncHost> {
   @override
   void initState() {
     super.initState();
-    _lifecycle = AppLifecycleListener(onResume: _sync);
+    _lifecycle = AppLifecycleListener(onResume: _resync);
   }
 
   @override
@@ -164,6 +169,11 @@ class _ReminderSyncHostState extends State<ReminderSyncHost> {
   }
 
   void _sync() => unawaited(_syncer?.sync());
+
+  void _resync() {
+    _syncer?.resend();
+    _sync();
+  }
 
   void _unsubscribe() {
     _services?.settings.removeListener(_sync);
