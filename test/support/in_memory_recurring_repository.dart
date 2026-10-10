@@ -178,8 +178,15 @@ class InMemoryRecurringRepository implements RecurringRepository {
       accountArchived: payment.accountId != old.accountId,
     );
     final i = _index(payment.id);
+    var tracked = old.trackedThrough;
+    if (payment.startsOn != old.startsOn) {
+      final today = _clock.today();
+      final floor = (payment.startsOn > today ? payment.startsOn : today)
+          .addDays(-1);
+      if (tracked == null || floor < tracked) tracked = floor;
+    }
     _payments[i] = _stamped(
-      payment.withTrackedThrough(old.trackedThrough),
+      payment.withTrackedThrough(tracked),
       createdAt: old.createdAt!,
       updatedAt: _clock.now().toUtc(),
     );

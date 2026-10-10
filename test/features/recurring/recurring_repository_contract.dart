@@ -581,6 +581,45 @@ void runRecurringRepositoryContract(
         },
       );
 
+      group('editing startsOn moves the mark back', () {
+        test('future -> earlier: the date appears', () async {
+          await repo.create(payment('a', startsOn: DateOnly(2026, 10, 15)));
+          await repo.materializeDue(today);
+          await repo.update(payment('a', startsOn: DateOnly(2026, 10, 12)));
+          expect(await repo.materializeDue(DateOnly(2026, 10, 12)), 1);
+          expect(await due(), [('a', DateOnly(2026, 10, 12))]);
+        });
+
+        test('moved to today after materializing: today appears', () async {
+          await repo.create(payment('a', startsOn: DateOnly(2026, 10, 12)));
+          await repo.materializeDue(today);
+          await repo.materializeDue(DateOnly(2026, 10, 12));
+          await repo.update(payment('a', startsOn: today));
+          expect(await repo.materializeDue(today), 1);
+          expect(await due(), [('a', today), ('a', DateOnly(2026, 10, 12))]);
+        });
+
+        test('only unit/every changed: no past dues are created', () async {
+          await repo.create(payment('a', startsOn: DateOnly(2026, 8, 5)));
+          await repo.materializeDue(today);
+          final before = (await due()).length;
+          await repo.update(
+            payment('a', startsOn: DateOnly(2026, 8, 5), every: 2),
+          );
+          expect((await repo.findById('a'))!.trackedThrough, today);
+          await repo.materializeDue(today);
+          expect((await due()).length, before);
+        });
+
+        test('moved later: no extra dues', () async {
+          await repo.create(payment('a', startsOn: DateOnly(2026, 10, 5)));
+          await repo.materializeDue(today);
+          await repo.update(payment('a', startsOn: DateOnly(2026, 11, 5)));
+          expect(await repo.materializeDue(today), 0);
+          expect(await due(), [('a', DateOnly(2026, 10, 5))]);
+        });
+      });
+
       test('watchDue sends a new list after materializing', () async {
         await repo.create(payment('a', startsOn: today));
         final seen = <int>[];

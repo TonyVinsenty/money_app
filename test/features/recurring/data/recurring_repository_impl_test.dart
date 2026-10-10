@@ -120,6 +120,41 @@ void main() {
       );
     });
 
+    test('materializeDue skips a corrupted payment, others go on', () async {
+      await h.repo.create(payment('a', startsOn: DateOnly(2026, 10, 5)));
+      await h.repo.create(payment('b', startsOn: DateOnly(2026, 10, 6)));
+      await h.db.customStatement(
+        "UPDATE recurring_payments SET currency = 'XXX' WHERE id = 'a'",
+      );
+      expect(await h.repo.materializeDue(DateOnly(2026, 10, 10)), 1);
+      final dues = await h.db.select(h.db.recurringDues).get();
+      expect(dues.single.paymentId, 'b');
+    });
+
+    test('materializeDue is atomic: a failure leaves nothing', () async {
+      await h.repo.create(payment('a', startsOn: DateOnly(2026, 10, 5)));
+      await h.repo.create(payment('b', startsOn: DateOnly(2026, 10, 6)));
+      // Триггер роняет вставку записи платежа b - после записей платежа a.
+      await h.db.customStatement(
+        'CREATE TRIGGER fail_b BEFORE INSERT ON recurring_dues '
+        "WHEN NEW.payment_id = 'b' "
+        "BEGIN SELECT RAISE(ABORT, 'boom'); END",
+      );
+      await expectLater(
+        h.repo.materializeDue(DateOnly(2026, 10, 10)),
+        throwsA(anything),
+      );
+      expect(await h.db.select(h.db.recurringDues).get(), isEmpty);
+      expect(
+        (await h.repo.findById('a'))!.trackedThrough,
+        DateOnly(2026, 10, 4),
+      );
+      expect(
+        (await h.repo.findById('b'))!.trackedThrough,
+        DateOnly(2026, 10, 5),
+      );
+    });
+
     test('soft delete keeps the row and sets deleted_at', () async {
       await h.repo.create(payment('a'));
       await h.repo.softDelete('a');

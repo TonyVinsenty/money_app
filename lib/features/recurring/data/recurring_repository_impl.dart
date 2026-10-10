@@ -113,7 +113,15 @@ class DriftRecurringRepository implements RecurringRepository {
         checkSubcategoryArchived: payment.subcategoryId != old.subcategoryId,
         checkAccountArchived: payment.accountId != old.accountId,
       );
-      // trackedThrough и createdAt служебные: правка их не трогает.
+      // createdAt служебный: правка его не трогает. trackedThrough сдвигается
+      // назад только при переносе startsOn, чтобы новые даты не потерялись.
+      var tracked = old.trackedThrough;
+      if (payment.startsOn != old.startsOn) {
+        final today = _clock.today();
+        final floor = (payment.startsOn > today ? payment.startsOn : today)
+            .addDays(-1);
+        if (tracked == null || floor < tracked) tracked = floor;
+      }
       await _write(
         payment.id,
         RecurringPaymentsCompanion(
@@ -129,6 +137,7 @@ class DriftRecurringRepository implements RecurringRepository {
           startsOn: Value(payment.startsOn),
           endsOn: Value(payment.endsOn),
           remind: Value(payment.remind),
+          trackedThrough: Value(tracked),
           updatedAt: Value(_nowMs()),
         ),
       );
@@ -159,7 +168,12 @@ class DriftRecurringRepository implements RecurringRepository {
       final nowMs = _nowMs();
       var created = 0;
       for (final row in rows) {
-        final payment = recurringPaymentFromRow(row);
+        final RecurringPayment payment;
+        try {
+          payment = recurringPaymentFromRow(row);
+        } on DataCorruptedException {
+          continue; // Испорченный платёж пропускаем, остальные обрабатываем.
+        }
         // Платёж из будущего: записей нет, trackedThrough не трогаем.
         if (payment.startsOn > today) continue;
         final tracked = payment.trackedThrough;
