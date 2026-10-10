@@ -315,7 +315,11 @@ void main() {
   }
 
   group('buttons', () {
-    Future<void> pumpTab(WidgetTester tester, List<Account> list) async {
+    Future<void> pumpTab(
+      WidgetTester tester,
+      List<Account> list, {
+      double textScale = 1,
+    }) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -325,6 +329,11 @@ void main() {
         MaterialApp(
           theme: AppTheme.light(),
           onGenerateRoute: onGenerateAppRoute,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           home: AppScope(
             services: fakeAppServices(
               settings: settings,
@@ -340,25 +349,71 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('hidden with one account', (tester) async {
+    bool transferEnabled(WidgetTester tester) => tester
+        .widget<OutlinedButton>(find.byKey(AccountsSection.transferKey))
+        .enabled;
+
+    testWidgets('one account: no Transfer, Add fills the width', (
+      tester,
+    ) async {
       await pumpTab(tester, [acc('a1', 'Карта')]);
       expect(find.byKey(AccountsSection.transferKey), findsNothing);
+      expect(find.byKey(AccountsSection.transferHintKey), findsNothing);
+      expect(
+        tester.getSize(find.byKey(AccountsSection.addButtonKey)).width,
+        328,
+      );
     });
 
-    testWidgets('hidden without a same-currency pair', (tester) async {
+    testWidgets('no same-currency pair: disabled with a hint', (tester) async {
       await pumpTab(tester, [
         acc('a1', 'Карта'),
         acc('a5', 'Доллары', currency: 'USD'),
       ]);
-      expect(find.byKey(AccountsSection.transferKey), findsNothing);
+      expect(transferEnabled(tester), isFalse);
+      expect(find.text(transferNeedPairHint), findsOneWidget);
     });
 
-    testWidgets('hidden when the pair is archived', (tester) async {
+    testWidgets('archived pair does not count', (tester) async {
       await pumpTab(tester, [
         acc('a1', 'Карта'),
         acc('a2', 'Старая', archived: true),
+        acc('a3', 'Ещё'),
+        acc('a5', 'Доллары', currency: 'USD'),
       ]);
-      expect(find.byKey(AccountsSection.transferKey), findsNothing);
+      expect(transferEnabled(tester), isTrue);
+      await pumpTab(tester, [
+        acc('a1', 'Карта'),
+        acc('a2', 'Старая', archived: true),
+        acc('a5', 'Доллары', currency: 'USD'),
+      ]);
+      expect(transferEnabled(tester), isFalse);
+    });
+
+    testWidgets('with a pair: enabled, Transfer left of Add, 50/50', (
+      tester,
+    ) async {
+      await pumpTab(tester, [acc('a1', 'Карта'), acc('a2', 'Наличные')]);
+      expect(transferEnabled(tester), isTrue);
+      expect(find.byKey(AccountsSection.transferHintKey), findsNothing);
+      final t = find.byKey(AccountsSection.transferKey);
+      final a = find.byKey(AccountsSection.addButtonKey);
+      expect(tester.getCenter(t).dy, tester.getCenter(a).dy);
+      expect(tester.getTopLeft(t).dx, lessThan(tester.getTopLeft(a).dx));
+      expect(tester.getSize(t).width, tester.getSize(a).width);
+      expect(tester.getSize(t).height, greaterThanOrEqualTo(48));
+    });
+
+    testWidgets('text scale 200 percent: column, no overflow', (tester) async {
+      await pumpTab(tester, [
+        acc('a1', 'Карта'),
+        acc('a2', 'Наличные'),
+      ], textScale: 2);
+      final t = find.byKey(AccountsSection.transferKey);
+      final a = find.byKey(AccountsSection.addButtonKey);
+      expect(tester.getTopLeft(t).dy, lessThan(tester.getTopLeft(a).dy));
+      expect(tester.getSize(t).width, tester.getSize(a).width);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('tab button opens the form', (tester) async {
@@ -383,6 +438,14 @@ void main() {
 
       await tester.tap(find.text('Наличные'));
       await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.byKey(AccountScreen.transferKey)).dy,
+        greaterThan(tester.getTopLeft(find.byKey(AccountScreen.editKey)).dy),
+      );
+      expect(
+        tester.getTopLeft(find.byKey(AccountScreen.transferKey)).dy,
+        lessThan(tester.getTopLeft(find.byKey(AccountScreen.adjustKey)).dy),
+      );
       await tester.tap(find.byKey(AccountScreen.transferKey));
       await tester.pumpAndSettle();
       expect(find.text(transferFormCreateTitle), findsOneWidget);

@@ -372,6 +372,17 @@ class _AccountScreenState extends State<AccountScreen> {
           child: const Text(accountEditButton),
         ),
         const SizedBox(height: 8),
+        if (widget.onTransfer != null &&
+            hasTransferPair(_latestAccounts, account)) ...[
+          OutlinedButton(
+            key: AccountScreen.transferKey,
+            style: buttonStyle,
+            onPressed: () =>
+                unawaited(_guarded(() => widget.onTransfer!(account))),
+            child: const Text(transferButtonLabel),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (widget.onShowTransactions != null &&
             account.currency == widget.mainCurrency) ...[
           OutlinedButton(
@@ -385,17 +396,6 @@ class _AccountScreenState extends State<AccountScreen> {
               widget.onShowTransactions!(account);
             },
             child: const Text(accountOperationsButton),
-          ),
-          const SizedBox(height: 8),
-        ],
-        if (widget.onTransfer != null &&
-            hasTransferPair(_latestAccounts, account)) ...[
-          OutlinedButton(
-            key: AccountScreen.transferKey,
-            style: buttonStyle,
-            onPressed: () =>
-                unawaited(_guarded(() => widget.onTransfer!(account))),
-            child: const Text(transferButtonLabel),
           ),
           const SizedBox(height: 8),
         ],

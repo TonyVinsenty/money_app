@@ -4,6 +4,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_balances.dart';
@@ -36,6 +37,7 @@ class AccountsSection extends StatelessWidget {
   final VoidCallback? onTransfer;
 
   static const transferKey = ValueKey('accounts-transfer');
+  static const transferHintKey = ValueKey('accounts-transfer-hint');
 
   /// Открывает экран «Порядок счетов»; пункт виден при двух и более активных
   /// счетах.
@@ -92,12 +94,6 @@ class AccountsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final addButton = FilledButton.tonalIcon(
-      key: addButtonKey,
-      onPressed: onAddAccount,
-      icon: const Icon(Icons.add),
-      label: const Text(accountsAddButton),
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -108,16 +104,16 @@ class AccountsSection extends StatelessWidget {
         const SizedBox(height: 8),
         AsyncView<List<Account>>(
           stream: accounts,
-          loadingBuilder: (_) => const AsyncLoading(),
-          errorBuilder: _error,
+          loadingBuilder: (_) => _withAdd(const AsyncLoading()),
+          errorBuilder: (context, error) => _withAdd(_error(context, error)),
           // Пусто - когда нет вообще никаких счетов: если все в архиве, раздел
           // «Архив» всё равно нужен.
           isEmpty: (all) => all.isEmpty,
-          emptyBuilder: _emptyText,
+          emptyBuilder: (context) => _withAdd(_emptyText(context)),
           dataBuilder: (context, all) => AsyncView<Map<String, Money>>(
             stream: balances,
-            loadingBuilder: (_) => const AsyncLoading(),
-            errorBuilder: _error,
+            loadingBuilder: (_) => _withAdd(const AsyncLoading()),
+            errorBuilder: (context, error) => _withAdd(_error(context, error)),
             dataBuilder: (context, byId) {
               final shown = _visible(all);
               final archived = [
@@ -126,7 +122,7 @@ class AccountsSection extends StatelessWidget {
               ];
               // Счёт уже появился, а его остаток ещё считается: ждём.
               if (shown.any((a) => !byId.containsKey(a.id))) {
-                return const AsyncLoading();
+                return _withAdd(const AsyncLoading());
               }
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -159,16 +155,7 @@ class AccountsSection extends StatelessWidget {
                             a.id,
                       ),
                   ],
-                  if (onTransfer != null && canTransferAny(shown))
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: TextButton.icon(
-                        key: transferKey,
-                        onPressed: onTransfer,
-                        icon: const Icon(Icons.swap_horiz),
-                        label: const Text(transferButtonLabel),
-                      ),
-                    ),
+                  _buttons(context, shown),
                   if (shown.length >= 2 && onOpenOrder != null)
                     Align(
                       alignment: AlignmentDirectional.centerStart,
@@ -186,9 +173,78 @@ class AccountsSection extends StatelessWidget {
             },
           ),
         ),
-        const SizedBox(height: 8),
-        addButton,
       ],
+    );
+  }
+
+  Widget _addButton() => FilledButton.tonalIcon(
+    key: addButtonKey,
+    style: _buttonStyle,
+    onPressed: onAddAccount,
+    icon: const Icon(Icons.add),
+    label: const Text(accountsAddButton),
+  );
+
+  static final _buttonStyle = ButtonStyle(
+    minimumSize: WidgetStateProperty.all(const Size(0, 48)),
+  );
+
+  /// Состояния без ряда кнопок (загрузка, ошибка, нет счетов): «Добавить
+  /// счёт» под ними на всю ширину.
+  Widget _withAdd(Widget body) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [body, const SizedBox(height: 8), _addButton()],
+  );
+
+  /// Ряд «Перевод» | «Добавить счёт» 50/50; на узком экране или при крупном
+  /// шрифте - столбик («Перевод» сверху). Меньше двух счетов - «Перевод» нет;
+  /// есть два, но нет пары одной валюты - «Перевод» неактивна с подсказкой.
+  Widget _buttons(BuildContext context, List<Account> shown) {
+    final add = _addButton();
+    if (onTransfer == null || shown.length < 2) {
+      return Padding(padding: const EdgeInsets.only(top: 8), child: add);
+    }
+    final canTransfer = canTransferAny(shown);
+    final transfer = OutlinedButton.icon(
+      key: transferKey,
+      style: _buttonStyle,
+      onPressed: canTransfer ? onTransfer : null,
+      icon: const Icon(Icons.swap_horiz),
+      label: const Text(transferButtonLabel),
+    );
+    final stacked =
+        MediaQuery.sizeOf(context).width < 340 || fontScaleOf(context) >= 1.3;
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (stacked) ...[
+            transfer,
+            const SizedBox(height: 8),
+            add,
+          ] else
+            Row(
+              children: [
+                Expanded(child: transfer),
+                const SizedBox(width: 8),
+                Expanded(child: add),
+              ],
+            ),
+          if (!canTransfer)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                transferNeedPairHint,
+                key: transferHintKey,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

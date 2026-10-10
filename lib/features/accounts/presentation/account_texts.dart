@@ -227,3 +227,6 @@ String transferRowSpoken(
 ) => outgoing
     ? 'Перевод на счёт $partner, ${spokenMoney(-amount, currency: currency)}, $day'
     : 'Перевод со счёта $partner, плюс ${spokenMoney(amount, currency: currency)}, $day';
+
+// Подсказка у неактивной кнопки «Перевод» (утверждено 2026-10-10).
+const String transferNeedPairHint = 'Нужны два счёта в одной валюте';
