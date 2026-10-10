@@ -147,6 +147,7 @@ class SettingsTab extends StatelessWidget {
         categories: services.categories,
         accounts: services.accounts,
         transfers: services.transfers,
+        recurring: services.recurring,
         clock: services.clock,
       ).exportToTempFile(),
       onImportCsv: () => _importCsv(context, services),

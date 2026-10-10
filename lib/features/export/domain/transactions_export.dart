@@ -8,6 +8,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -36,6 +37,10 @@ const List<String> transactionsExportHeaders = [
   csvColumnTransferAccountId,
   csvColumnCategoryIcon,
   csvColumnSubcategoryIcon,
+  csvColumnRepeat,
+  csvColumnEvery,
+  csvColumnUntil,
+  csvColumnRemind,
 ];
 
 // Имена колонок: общие для экспорта и импорта (ADR 0006, п. 2).
@@ -59,11 +64,26 @@ const String csvColumnTransferAccountId = 'ID счёта зачисления';
 const String csvColumnCategoryIcon = 'Значок категории';
 const String csvColumnSubcategoryIcon = 'Значок подкатегории';
 
+// Колонки v3 для регулярных платежей (ADR 0011, п. 10); у прочих строк пусты.
+const String csvColumnRepeat = 'Повтор';
+const String csvColumnEvery = 'Каждые';
+const String csvColumnUntil = 'До';
+const String csvColumnRemind = 'Напоминать';
+
+// Тексты колонки «Повтор» и «Напоминать».
+const String csvRepeatWeek = 'неделя';
+const String csvRepeatMonth = 'месяц';
+const String csvRepeatYear = 'год';
+const String csvRemindYes = 'да';
+const String csvRemindNo = 'нет';
+
 // Тексты колонки «Тип».
 const String csvTypeIncome = 'Доход';
 const String csvTypeExpense = 'Расход';
 const String csvTypeOpeningBalance = 'Начальный остаток';
 const String csvTypeTransfer = 'Перевод';
+const String csvTypeRecurringExpense = 'Регулярный расход';
+const String csvTypeRecurringIncome = 'Регулярный доход';
 
 /// Текст CSV-файла экспорта: заголовки, затем операции от старых к новым.
 ///
@@ -74,11 +94,15 @@ const String csvTypeTransfer = 'Перевод';
 /// `Начальный остаток` на каждый; счёт операции не найден — тоже отказ.
 /// [transfers] — не удалённые переводы: строка `Перевод` на каждый; счёт
 /// перевода не найден — тоже отказ.
+/// [recurring] — живые регулярные платежи: строка `Регулярный расход` или
+/// `Регулярный доход` на каждый, после всех остальных строк (по дате первого
+/// платежа, затем по id); категория или счёт не найдены — тоже отказ.
 String buildTransactionsCsv({
   required List<Transaction> transactions,
   required List<Category> categories,
   required List<Account> accounts,
   List<Transfer> transfers = const [],
+  List<RecurringPayment> recurring = const [],
 }) {
   return encodeCsv(
     buildTransactionsCsvRows(
@@ -86,6 +110,7 @@ String buildTransactionsCsv({
       categories: categories,
       accounts: accounts,
       transfers: transfers,
+      recurring: recurring,
     ),
   );
 }
@@ -96,6 +121,7 @@ List<List<String>> buildTransactionsCsvRows({
   required List<Category> categories,
   required List<Account> accounts,
   List<Transfer> transfers = const [],
+  List<RecurringPayment> recurring = const [],
 }) {
   final byId = {for (final category in categories) category.id: category};
   final accountsById = {for (final account in accounts) account.id: account};
@@ -105,7 +131,110 @@ List<List<String>> buildTransactionsCsvRows({
       _transactionLine(transaction, byId, accountsById),
     for (final transfer in transfers) _transferLine(transfer, accountsById),
   ]..sort(_byOccurrence);
-  return [transactionsExportHeaders, for (final line in lines) line.row];
+  final recurringLines = <_Line>[
+    for (final payment in recurring)
+      if (!payment.isDeleted) _recurringLine(payment, byId, accountsById),
+  ]..sort(_byOccurrence);
+  return [
+    transactionsExportHeaders,
+    for (final line in lines) _withRecurringTail(line.row),
+    for (final line in recurringLines) line.row,
+  ];
+}
+
+/// Операции, переводы и остатки: колонки 18-21 пусты.
+List<String> _withRecurringTail(List<String> row) => [...row, '', '', '', ''];
+
+/// Строка `Регулярный расход`/`Регулярный доход`. `Дата` — первый платёж
+/// (может быть в будущем), `ID операции` — id платежа, `Комментарий` —
+/// название; `Время операции (UTC)` пусто. `Каждые` пишется всегда, `До` —
+/// только если задано, `Напоминать` — `да`/`нет`.
+_Line _recurringLine(
+  RecurringPayment payment,
+  Map<String, Category> byId,
+  Map<String, Account> accountsById,
+) {
+  final category = byId[payment.categoryId];
+  if (category == null) {
+    throw DataCorruptedException(
+      'Recurring payment "${payment.id}" refers to a missing category '
+      '"${payment.categoryId}"',
+    );
+  }
+  final subcategoryId = payment.subcategoryId;
+  Category? subcategory;
+  if (subcategoryId != null) {
+    subcategory = byId[subcategoryId];
+    if (subcategory == null) {
+      throw DataCorruptedException(
+        'Recurring payment "${payment.id}" refers to a missing subcategory '
+        '"$subcategoryId"',
+      );
+    }
+  }
+  final accountId = payment.accountId;
+  Account? account;
+  if (accountId != null) {
+    account = accountsById[accountId];
+    if (account == null) {
+      throw DataCorruptedException(
+        'Recurring payment "${payment.id}" refers to a missing account '
+        '"$accountId"',
+      );
+    }
+  }
+  final isExpense = payment.type == TransactionType.expense;
+  final amountText = formatCsvAmount(
+    payment.amount,
+    currency: account != null && account.currency == payment.amount.currency
+        ? account.currencyInfo
+        : null,
+  );
+  final until = payment.endsOn;
+  return _Line(
+    payment.startsOn,
+    DateTime.utc(
+      payment.startsOn.year,
+      payment.startsOn.month,
+      payment.startsOn.day,
+    ),
+    payment.id,
+    '',
+    [
+      formatCsvDate(payment.startsOn),
+      isExpense ? csvTypeRecurringExpense : csvTypeRecurringIncome,
+      isExpense ? '-$amountText' : amountText,
+      payment.amount.currency,
+      category.name,
+      subcategory?.name ?? '',
+      payment.title,
+      account?.name ?? '',
+      '',
+      payment.id,
+      payment.categoryId,
+      subcategoryId ?? '',
+      '',
+      accountId ?? '',
+      '',
+      category.iconKey,
+      subcategory?.iconKey ?? '',
+      _repeatText(payment.unit),
+      '${payment.every}',
+      until == null ? '' : formatCsvDate(until),
+      payment.remind ? csvRemindYes : csvRemindNo,
+    ],
+  );
+}
+
+String _repeatText(RepeatUnit unit) {
+  switch (unit) {
+    case RepeatUnit.week:
+      return csvRepeatWeek;
+    case RepeatUnit.month:
+      return csvRepeatMonth;
+    case RepeatUnit.year:
+      return csvRepeatYear;
+  }
 }
 
 /// Имя файла: `zuno-export-ГГГГ-ММ-ДД.csv`, дата — локальный день из [clock].

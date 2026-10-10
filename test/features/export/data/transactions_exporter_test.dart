@@ -13,6 +13,8 @@ import 'package:money_app/features/categories/domain/categories_repository.dart'
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/export/data/transactions_exporter.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
@@ -88,12 +90,18 @@ void main() {
     List<Category> categories = const [],
     List<Account> accounts = const [],
     List<Transfer> transfers = const [],
+    List<RecurringPayment> recurring = const [],
   }) {
     return TransactionsExporter(
       transactions: transactions,
       categories: _Categories(categories),
       accounts: _Accounts(accounts),
       transfers: InMemoryTransfersRepository(transfers),
+      recurring: FakeRecurringRepository()
+        ..items = [
+          for (final p in recurring)
+            RecurringListItem(payment: p, nextDue: p.startsOn),
+        ],
       clock: FixedClock(DateTime(2026, 10, 4, 18)),
       directoryProvider: () async => dir,
     );
@@ -202,6 +210,31 @@ void main() {
     expect(row[7], 'Карта');
     expect(row[8], 'Наличные');
     expect(row[9], 't1');
+  });
+
+  test('регулярные платежи читаются из репозитория: строка в файле', () async {
+    final path = await exporter(
+      transactions: _Transactions(items: [_oneTx]),
+      categories: [_cafe],
+      recurring: [
+        RecurringPayment(
+          id: 'rp-1',
+          title: 'Интернет',
+          type: TransactionType.expense,
+          amount: Money.fromMinor(65000, 'RUB'),
+          categoryId: 'cat',
+          unit: RepeatUnit.month,
+          every: 1,
+          startsOn: DateOnly(2026, 11, 5),
+        ),
+      ],
+    ).exportToTempFile();
+
+    final rows = decodeCsv(utf8.decode(File(path).readAsBytesSync()));
+    expect(rows, hasLength(3));
+    expect(rows[2][1], 'Регулярный расход');
+    expect(rows[2][9], 'rp-1');
+    expect(rows[2].sublist(17), ['месяц', '1', '', 'да']);
   });
 
   test('счёт операции не найден: ошибка и файл не создан', () async {

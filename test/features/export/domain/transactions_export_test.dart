@@ -8,6 +8,7 @@ import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -134,7 +135,7 @@ void main() {
   });
 
   group('строка экспорта', () {
-    test('заголовки в принятом порядке, 17 колонок', () {
+    test('заголовки в принятом порядке, 21 колонка', () {
       final rows = buildTransactionsCsvRows(
         transactions: const [],
         categories: _categories,
@@ -159,6 +160,10 @@ void main() {
         'ID счёта зачисления',
         'Значок категории',
         'Значок подкатегории',
+        'Повтор',
+        'Каждые',
+        'До',
+        'Напоминать',
       ]);
     });
 
@@ -193,6 +198,10 @@ void main() {
         '',
         'icon',
         'sub-icon',
+        '',
+        '',
+        '',
+        '',
       ]);
     });
 
@@ -261,6 +270,10 @@ void main() {
         '',
         '',
         'inc-icon',
+        '',
+        '',
+        '',
+        '',
         '',
       ]);
     });
@@ -368,6 +381,10 @@ void main() {
         '',
         '',
         '',
+        '',
+        '',
+        '',
+        '',
       ]);
     });
 
@@ -434,7 +451,7 @@ void main() {
       );
       final rows = decodeCsv(text);
       expect(rows, hasLength(3));
-      expect(rows.every((r) => r.length == 17), isTrue);
+      expect(rows.every((r) => r.length == 21), isTrue);
       expect(rows[1][2], '-350,00');
       expect(rows[1][7], 'Карта; "основная"');
       expect(rows[2][2], '-0,05');
@@ -655,6 +672,10 @@ void main() {
         'b',
         '',
         '',
+        '',
+        '',
+        '',
+        '',
       ]);
     });
 
@@ -701,6 +722,141 @@ void main() {
     test('счёт перевода не найден: отказ экспорта', () {
       expect(
         () => rowsWith([transfer('t1', to: 'missing')]),
+        throwsA(isA<DataCorruptedException>()),
+      );
+    });
+  });
+
+  group('регулярные платежи (ADR 0011, п. 10)', () {
+    RecurringPayment payment(
+      String id, {
+      TransactionType type = TransactionType.expense,
+      String categoryId = 'cat',
+      String? subcategoryId,
+      String? accountId,
+      RepeatUnit unit = RepeatUnit.month,
+      int every = 1,
+      DateOnly? startsOn,
+      DateOnly? endsOn,
+      bool remind = true,
+      DateTime? deletedAt,
+    }) {
+      return RecurringPayment(
+        id: id,
+        title: 'Интернет',
+        type: type,
+        amount: Money.fromMinor(65000, 'RUB'),
+        categoryId: categoryId,
+        subcategoryId: subcategoryId,
+        accountId: accountId,
+        unit: unit,
+        every: every,
+        startsOn: startsOn ?? DateOnly(2026, 11, 5),
+        endsOn: endsOn,
+        remind: remind,
+        deletedAt: deletedAt,
+      );
+    }
+
+    List<List<String>> rowsWith(
+      List<RecurringPayment> recurring, {
+      List<Account> accounts = const [],
+    }) => buildTransactionsCsvRows(
+      transactions: [_tx('t1')],
+      categories: _categories,
+      accounts: accounts,
+      recurring: recurring,
+    );
+
+    test('живой платёж: одна строка со всеми полями, дата в будущем', () {
+      final rows = rowsWith(
+        [
+          payment(
+            'rp1',
+            subcategoryId: 'sub',
+            accountId: 'a1',
+            unit: RepeatUnit.week,
+            every: 2,
+            endsOn: DateOnly(2027, 1, 31),
+            remind: false,
+          ),
+        ],
+        accounts: [_acc('a1', 'Карта')],
+      );
+      final row = rows.last;
+      expect(rows, hasLength(4));
+      expect(row, [
+        '05.11.2026',
+        'Регулярный расход',
+        '-650,00',
+        'RUB',
+        'Кафе',
+        'Кофе',
+        'Интернет',
+        'Карта',
+        '',
+        'rp1',
+        'cat',
+        'sub',
+        '',
+        'a1',
+        '',
+        'icon',
+        'sub-icon',
+        'неделя',
+        '2',
+        '31.01.2027',
+        'нет',
+      ]);
+    });
+
+    test('доход: без минуса, тип «Регулярный доход», год', () {
+      final row = rowsWith([
+        payment(
+          'rp2',
+          type: TransactionType.income,
+          categoryId: 'inc',
+        ).withRepeat(RepeatUnit.year, 1),
+      ]).last;
+      expect(row[1], 'Регулярный доход');
+      expect(row[2], '650,00');
+      expect(row.sublist(17), ['год', '1', '', 'да']);
+    });
+
+    test('удалённый платёж не пишется', () {
+      final rows = rowsWith([
+        payment('gone', deletedAt: DateTime.utc(2026, 10, 1)),
+      ]);
+      expect(rows, hasLength(2));
+    });
+
+    test('колонки 18-21 у операций, остатков и переводов пусты', () {
+      final rows = rowsWith([payment('rp1')], accounts: [_acc('a1', 'Карта')]);
+      expect(rows.first, hasLength(21));
+      for (final row in rows.skip(1)) {
+        expect(row, hasLength(21));
+      }
+      for (final row in rows.skip(1).take(2)) {
+        expect(row.sublist(17), ['', '', '', '']);
+      }
+    });
+
+    test('платежи идут после остальных строк: по дате, затем по id', () {
+      final rows = rowsWith([
+        payment('b', startsOn: DateOnly(2026, 9, 1)),
+        payment('a', startsOn: DateOnly(2026, 9, 1)),
+        payment('c', startsOn: DateOnly(2026, 8, 1)),
+      ]);
+      expect([for (final r in rows.skip(2)) r[9]], ['c', 'a', 'b']);
+    });
+
+    test('категория или счёт не найдены: отказ экспорта', () {
+      expect(
+        () => rowsWith([payment('x', categoryId: 'missing')]),
+        throwsA(isA<DataCorruptedException>()),
+      );
+      expect(
+        () => rowsWith([payment('x', accountId: 'missing')]),
         throwsA(isA<DataCorruptedException>()),
       );
     });

@@ -6,6 +6,7 @@ import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/export/domain/transactions_export.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -41,6 +42,7 @@ class TransactionsExporter {
     required this._categories,
     required this._accounts,
     required this._transfers,
+    required this._recurring,
     required this._clock,
     this._directoryProvider = getTemporaryDirectory,
   });
@@ -49,6 +51,7 @@ class TransactionsExporter {
   final CategoriesRepository _categories;
   final AccountsRepository _accounts;
   final TransfersRepository _transfers;
+  final RecurringRepository _recurring;
   final Clock _clock;
   final ExportDirectoryProvider _directoryProvider;
 
@@ -62,11 +65,15 @@ class TransactionsExporter {
     final categories = await _categories.watchAll().first;
     final accounts = await _accounts.watchAll().first;
     final transfers = await _transfers.findAllLive();
+    final recurring = [
+      for (final item in await _recurring.watchAll().first) item.payment,
+    ];
     final content = buildTransactionsCsv(
       transactions: transactions,
       categories: categories,
       accounts: accounts,
       transfers: transfers,
+      recurring: recurring,
     );
     return writeExportFile(
       fileName: exportFileName(_clock),
