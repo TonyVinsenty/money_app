@@ -7,6 +7,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -25,6 +26,44 @@ import 'fixed_clock.dart';
 /// умолчанию пусто), остальные вызовы бросают ошибку.
 /// Пустой фейк переводов: любой вызов падает, если тест его не ждал.
 class FakeTransfersRepository extends Fake implements TransfersRepository {}
+
+/// Фейк переводов «в памяти»: `add`, `update`, `softDelete`, `restore`
+/// работают над списком [all] (живые переводы). Если задан [failWith], `add`
+/// и `update` бросают его.
+class InMemoryTransfersRepository extends Fake implements TransfersRepository {
+  InMemoryTransfersRepository([List<Transfer> initial = const []])
+    : all = List.of(initial);
+
+  final List<Transfer> all;
+  final List<Transfer> _deleted = [];
+  Exception? failWith;
+
+  @override
+  Future<void> add(Transfer transfer) async {
+    if (failWith != null) throw failWith!;
+    all.add(transfer);
+  }
+
+  @override
+  Future<void> update(Transfer transfer) async {
+    if (failWith != null) throw failWith!;
+    final i = all.indexWhere((t) => t.id == transfer.id);
+    if (i < 0) throw ArgumentError.value(transfer.id, 'id');
+    all[i] = transfer;
+  }
+
+  @override
+  Future<void> softDelete(String id) async {
+    final i = all.indexWhere((t) => t.id == id);
+    if (i >= 0) _deleted.add(all.removeAt(i));
+  }
+
+  @override
+  Future<void> restore(String id) async {
+    final i = _deleted.indexWhere((t) => t.id == id);
+    if (i >= 0) all.add(_deleted.removeAt(i));
+  }
+}
 
 class FakeAccountsRepository extends Fake implements AccountsRepository {
   FakeAccountsRepository({

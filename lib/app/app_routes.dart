@@ -9,9 +9,12 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
+import 'package:money_app/features/accounts/domain/transfer.dart';
+import 'package:money_app/features/accounts/domain/transfers_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_form_screen.dart';
 import 'package:money_app/features/accounts/presentation/account_screen.dart';
 import 'package:money_app/features/accounts/presentation/accounts_order_screen.dart';
+import 'package:money_app/features/accounts/presentation/transfer_form_screen.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -70,6 +73,30 @@ abstract final class AppRoutes {
   /// Экран «Порядок счетов». Аргумент маршрута —
   /// [AccountsOrderRouteArguments].
   static const accountsOrder = '/accounts-order';
+
+  /// Форма перевода между счетами (новый или правка). Аргумент маршрута —
+  /// [TransferFormRouteArguments].
+  static const transferForm = '/transfer-form';
+}
+
+/// Аргументы маршрута [AppRoutes.transferForm]. [fromAccountId] подставляется
+/// в «Откуда»; если задан [editing], форма правит этот перевод.
+final class TransferFormRouteArguments {
+  const TransferFormRouteArguments({
+    required this.accounts,
+    required this.transfers,
+    required this.idGenerator,
+    required this.clock,
+    this.fromAccountId,
+    this.editing,
+  });
+
+  final AccountsRepository accounts;
+  final TransfersRepository transfers;
+  final IdGenerator idGenerator;
+  final Clock clock;
+  final String? fromAccountId;
+  final Transfer? editing;
 }
 
 /// Аргументы маршрута [AppRoutes.accountsOrder].
@@ -89,7 +116,13 @@ final class AccountRouteArguments {
     required this.accountId,
     required this.settings,
     this.onShowTransactions,
+    this.transfers,
+    this.clock,
   });
+
+  /// Для кнопки «Перевод» на экране счёта; без них кнопки нет.
+  final TransfersRepository? transfers;
+  final Clock? clock;
 
   /// «Операции»: открыть «Историю» с фильтром по счёту с этим id.
   final ValueChanged<String>? onShowTransactions;
@@ -477,6 +510,27 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           onCreated: arguments.onCreated,
         ),
       );
+    case AppRoutes.transferForm:
+      final arguments = settings.arguments;
+      if (arguments is! TransferFormRouteArguments) {
+        throw ArgumentError.value(
+          arguments,
+          'arguments',
+          'Маршрут ${AppRoutes.transferForm} ожидает аргумент '
+              'TransferFormRouteArguments (репозитории, генератор id, часы)',
+        );
+      }
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => TransferFormScreen(
+          accounts: arguments.accounts.watchAll(),
+          transfers: arguments.transfers,
+          idGenerator: arguments.idGenerator,
+          clock: arguments.clock,
+          fromAccountId: arguments.fromAccountId,
+          editing: arguments.editing,
+        ),
+      );
     case AppRoutes.accountsOrder:
       final arguments = settings.arguments;
       if (arguments is! AccountsOrderRouteArguments) {
@@ -538,6 +592,19 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
                       },
                 onMakeDefault: (account) =>
                     appSettings.setDefaultAccountId(account.id),
+                onTransfer:
+                    arguments.transfers == null || arguments.clock == null
+                    ? null
+                    : (account) => Navigator.of(context).pushNamed<void>(
+                        AppRoutes.transferForm,
+                        arguments: TransferFormRouteArguments(
+                          accounts: arguments.accounts,
+                          transfers: arguments.transfers!,
+                          idGenerator: arguments.idGenerator,
+                          clock: arguments.clock!,
+                          fromAccountId: account.id,
+                        ),
+                      ),
                 onEdit: (account) => Navigator.of(context).pushNamed<void>(
                   AppRoutes.accountForm,
                   arguments: AccountFormRouteArguments(

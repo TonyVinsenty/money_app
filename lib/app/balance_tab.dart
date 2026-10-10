@@ -102,6 +102,20 @@ class _BalanceTabState extends State<BalanceTab> {
               ),
             ),
           ),
+          onTransfer: () {
+            final services = AppScope.of(context);
+            unawaited(
+              Navigator.of(context).pushNamed<void>(
+                AppRoutes.transferForm,
+                arguments: TransferFormRouteArguments(
+                  accounts: services.accounts,
+                  transfers: services.transfers,
+                  idGenerator: services.idGenerator,
+                  clock: services.clock,
+                ),
+              ),
+            );
+          },
           onOpenAccount: (account) {
             final services = AppScope.of(context);
             unawaited(
@@ -112,6 +126,8 @@ class _BalanceTabState extends State<BalanceTab> {
                   idGenerator: services.idGenerator,
                   accountId: account.id,
                   settings: services.settings,
+                  transfers: services.transfers,
+                  clock: services.clock,
                   onShowTransactions: (id) {
                     BrowseScope.of(context).showAccountTransactions(id);
                     BrowseScope.selectedTabOf(context).value = historyTabIndex;

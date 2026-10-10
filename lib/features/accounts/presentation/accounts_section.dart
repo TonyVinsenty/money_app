@@ -8,6 +8,7 @@ import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_balances.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
+import 'package:money_app/features/accounts/domain/transfer_options.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 
 /// Секция «Счета» вкладки «Баланс»: «Всего на счетах», список счетов с
@@ -26,8 +27,15 @@ class AccountsSection extends StatelessWidget {
     this.defaultAccountId,
     this.onRestoreAccount,
     this.onOpenOrder,
+    this.onTransfer,
     super.key,
   });
+
+  /// «Перевод»: открыть форму перевода. Кнопка видна, если есть два не
+  /// архивных счёта одной валюты.
+  final VoidCallback? onTransfer;
+
+  static const transferKey = ValueKey('accounts-transfer');
 
   /// Открывает экран «Порядок счетов»; пункт виден при двух и более активных
   /// счетах.
@@ -151,6 +159,16 @@ class AccountsSection extends StatelessWidget {
                             a.id,
                       ),
                   ],
+                  if (onTransfer != null && canTransferAny(shown))
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        key: transferKey,
+                        onPressed: onTransfer,
+                        icon: const Icon(Icons.swap_horiz),
+                        label: const Text(transferButtonLabel),
+                      ),
+                    ),
                   if (shown.length >= 2 && onOpenOrder != null)
                     Align(
                       alignment: AlignmentDirectional.centerStart,

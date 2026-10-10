@@ -12,6 +12,7 @@ import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
+import 'package:money_app/features/accounts/domain/transfer_options.dart';
 import 'package:money_app/features/accounts/presentation/account_adjust_dialog.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 
@@ -33,8 +34,15 @@ class AccountScreen extends StatefulWidget {
     this.onMakeDefault,
     this.onShowTransactions,
     this.onArchivedDefault,
+    this.onTransfer,
     super.key,
   });
+
+  /// «Перевод»: открыть форму с этим счётом в «Откуда». Кнопка видна, если
+  /// есть ещё не архивный счёт той же валюты.
+  final Future<void> Function(Account account)? onTransfer;
+
+  static const transferKey = ValueKey('account-transfer');
 
   /// Вызывается после архивации счёта со списком счетов до неё. Если архивный
   /// счёт был основным, выбирает нового и возвращает его имя и действие
@@ -361,6 +369,17 @@ class _AccountScreenState extends State<AccountScreen> {
               widget.onShowTransactions!(account);
             },
             child: const Text(accountOperationsButton),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (widget.onTransfer != null &&
+            hasTransferPair(_latestAccounts, account)) ...[
+          OutlinedButton(
+            key: AccountScreen.transferKey,
+            style: buttonStyle,
+            onPressed: () =>
+                unawaited(_guarded(() => widget.onTransfer!(account))),
+            child: const Text(transferButtonLabel),
           ),
           const SizedBox(height: 8),
         ],

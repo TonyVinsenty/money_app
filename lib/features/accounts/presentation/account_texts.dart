@@ -158,3 +158,42 @@ String customCurrencyLikeAccount(String name) => 'Как у счёта «$name»
 /// Подсказка под заблокированным полем знаков, если код есть в каталоге.
 String customCurrencyInCatalog(String name, int digits) =>
     'Есть в списке: $name. Знаков после запятой: $digits';
+
+// Форма перевода (тексты 5.22 утверждены пользователем 2026-10-10).
+const String transferButtonLabel = 'Перевод';
+const String transferFormCreateTitle = 'Новый перевод';
+const String transferFormEditTitle = 'Правка перевода';
+const String transferFromLabel = 'Откуда';
+const String transferToLabel = 'Куда';
+const String transferAmountLabel = 'Сумма перевода';
+const String transferNoteLabel = 'Комментарий (необязательно)';
+const String transferSaveLabel = 'Сохранить';
+const String transferToMissingText = 'Выберите, куда перевести';
+const String transferEditSavedText = 'Изменения сохранены';
+const String transferUndoLabel = 'Отменить';
+const String transferSaveFailedText =
+    'Не удалось сохранить. Попробуйте ещё раз';
+const String transferUndoFailedText = 'Не удалось отменить. Попробуйте ещё раз';
+
+/// Не утверждён отдельно: текста для нуля в быстром вводе нет (там ноль можно).
+const String transferZeroAmountText = 'Сумма перевода должна быть больше нуля';
+
+/// Старый счёт перевода, ушедший в архив: «Карта (в архиве)».
+String transferArchivedAccountName(String name) => '$name (в архиве)';
+
+/// SnackBar после сохранения: «Перевод 5 000,00 ₽: Карта → Наличные».
+String transferSavedText(
+  Money amount,
+  CurrencyInfo currency,
+  String from,
+  String to,
+) => 'Перевод ${formatMoney(amount, currency: currency)}: $from → $to';
+
+/// То же для скринридера: «Перевод 5000 рублей со счёта Карта на счёт Наличные».
+String transferSavedSpoken(
+  Money amount,
+  CurrencyInfo currency,
+  String from,
+  String to,
+) =>
+    'Перевод ${spokenMoney(amount, currency: currency)} со счёта $from на счёт $to';
