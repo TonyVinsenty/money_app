@@ -1,3 +1,4 @@
+import 'package:money_app/app/drift_data_eraser.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/time/clock.dart';
@@ -10,6 +11,7 @@ import 'package:money_app/features/categories/data/categories_repository_impl.da
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/csv_import/data/csv_import_writer.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
+import 'package:money_app/features/settings/domain/data_eraser.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
@@ -34,6 +36,7 @@ final class AppServices {
     required this.clock,
     required this.idGenerator,
     required this.csvImport,
+    required this.dataEraser,
   });
 
   /// Собирает боевой набор поверх открытой базы [database].
@@ -69,6 +72,7 @@ final class AppServices {
         ids: ids,
         isKnownIconKey: isKnownCategoryIconKey,
       ),
+      dataEraser: DriftDataEraser(database, idGenerator: ids, clock: clock),
     );
   }
 
@@ -82,4 +86,7 @@ final class AppServices {
 
   /// Подготовка и запись импорта CSV.
   final CsvImportStore csvImport;
+
+  /// Стирание всех данных пользователя («Очистить всё»).
+  final DataEraser dataEraser;
 }

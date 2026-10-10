@@ -122,6 +122,7 @@ Future<void> _pump(WidgetTester tester, _Repo repo) async {
           clock: FixedClock(DateTime(2026, 10, 4, 12)),
           idGenerator: FakeIdGenerator(),
           csvImport: FakeCsvImportStore(),
+          dataEraser: FakeDataEraser(),
         ),
         child: BrowseHost(child: AppShell(tabs: defaultAppTabs)),
       ),

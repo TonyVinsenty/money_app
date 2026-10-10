@@ -16,6 +16,7 @@ import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
+import 'package:money_app/features/settings/domain/data_eraser.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
 
@@ -539,6 +540,7 @@ AppServices fakeAppServices({
   TransfersRepository? transfers,
   FixedClock? clock,
   CsvImportStore? csvImport,
+  DataEraser? dataEraser,
 }) {
   return AppServices(
     categories: categories ?? FakeCategoriesRepository(),
@@ -549,7 +551,21 @@ AppServices fakeAppServices({
     clock: clock ?? FixedClock(DateTime.utc(2026, 9, 20, 12)),
     idGenerator: FakeIdGenerator(),
     csvImport: csvImport ?? FakeCsvImportStore(),
+    dataEraser: dataEraser ?? FakeDataEraser(),
   );
+}
+
+/// Фейк стирания данных: считает вызовы; [error] — что бросить.
+class FakeDataEraser implements DataEraser {
+  int calls = 0;
+  Exception? error;
+
+  @override
+  Future<void> eraseAll() async {
+    calls++;
+    final failure = error;
+    if (failure != null) throw failure;
+  }
 }
 
 /// Пустой фейк импорта CSV: любой вызов падает, если тест его не ждал.
