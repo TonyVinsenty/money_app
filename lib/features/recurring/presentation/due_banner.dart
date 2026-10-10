@@ -50,15 +50,7 @@ class DueBanner extends StatelessWidget {
                           color: scheme.onSecondaryContainer,
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            dueBannerText(list),
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(color: scheme.onSecondaryContainer),
-                          ),
-                        ),
+                        Expanded(child: _text(context, list, scheme)),
                         Icon(
                           Icons.chevron_right,
                           color: scheme.onSecondaryContainer,
@@ -72,6 +64,48 @@ class DueBanner extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  /// Один платёж: сокращается название, сумма в хвосте видна всегда. Несколько
+  /// платежей: короткий текст «К оплате: 3 платежа».
+  Widget _text(
+    BuildContext context,
+    List<RecurringDue> list,
+    ColorScheme scheme,
+  ) {
+    final style = Theme.of(context).textTheme.bodyLarge
+        ?.copyWith(color: scheme.onSecondaryContainer);
+    if (list.length != 1) {
+      return Text(
+        dueBannerText(list),
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+    final payment = list.single.payment;
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
+        children: [
+          Flexible(
+            child: Text(
+              dueBannerHead(payment),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          ),
+          // Сумма не обрезается: в самом тесном случае она лишь уменьшается.
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(dueBannerTail(payment), style: style),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

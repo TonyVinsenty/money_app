@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -18,7 +20,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 /// только приложение (`lib/app`), которое передаёт [onOpenCategory] и потоки.
 /// Так фича `home` не зависит от маршрутов, репозиториев и других экранов
 /// (ADR 0002).
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({
     required this.monthExpenses,
     required this.monthIncome,
@@ -76,7 +78,22 @@ class HomeScreen extends StatelessWidget {
   final DateOnly month;
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  /// Измеренная высота плашки (0, когда её нет или она пустая).
+  double _bannerHeight = 0;
+
+  void _onBannerHeight(double height) {
+    if (!mounted || height == _bannerHeight) return;
+    setState(() => _bannerHeight = height);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final w = widget;
+    final banner = w.banner;
     return Padding(
       // Снизу отступа нет: он есть у панели кнопок под экраном.
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -90,19 +107,28 @@ class HomeScreen extends StatelessWidget {
             viewportWidth: constraints.maxWidth,
             viewportHeight: constraints.maxHeight,
             textScale: fontScaleOf(context),
+            bannerHeight: banner == null ? 0 : _bannerHeight,
           );
           return CustomScrollView(
             slivers: [
-              if (banner != null) SliverToBoxAdapter(child: banner),
+              // Плашка сообщает свою высоту (при крупном шрифте она в 2-3
+              // строки): кольцо уступает ей место.
+              if (banner != null)
+                SliverToBoxAdapter(
+                  child: _HeightReporter(
+                    onHeight: _onBannerHeight,
+                    child: banner,
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: MonthSummaryCard(
-                    expenses: monthExpenses,
-                    income: monthIncome,
-                    month: month,
-                    onPreviousMonth: onPreviousMonth,
-                    onNextMonth: onNextMonth,
+                    expenses: w.monthExpenses,
+                    income: w.monthIncome,
+                    month: w.month,
+                    onPreviousMonth: w.onPreviousMonth,
+                    onNextMonth: w.onNextMonth,
                   ),
                 ),
               ),
@@ -111,14 +137,14 @@ class HomeScreen extends StatelessWidget {
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: MonthChartCard(
-                  transactions: monthTransactions,
-                  categories: categories,
-                  month: month,
-                  isCurrentMonth: isCurrentMonth,
-                  currency: currency,
-                  balanceLine: balanceLine,
+                  transactions: w.monthTransactions,
+                  categories: w.categories,
+                  month: w.month,
+                  isCurrentMonth: w.isCurrentMonth,
+                  currency: w.currency,
+                  balanceLine: w.balanceLine,
                   ringSize: ring,
-                  onOpenCategory: onOpenCategory,
+                  onOpenCategory: w.onOpenCategory,
                 ),
               ),
             ],
@@ -126,5 +152,41 @@ class HomeScreen extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Обёртка, которая после раскладки сообщает высоту [child] (после кадра,
+/// чтобы не менять состояние во время раскладки).
+class _HeightReporter extends SingleChildRenderObjectWidget {
+  const _HeightReporter({required this.onHeight, required super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHeightReporter(onHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHeightReporter renderObject,
+  ) {
+    renderObject.onHeight = onHeight;
+  }
+}
+
+class _RenderHeightReporter extends RenderProxyBox {
+  _RenderHeightReporter(this.onHeight);
+
+  ValueChanged<double> onHeight;
+  double? _last;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    final height = size.height;
+    if (height == _last) return;
+    _last = height;
+    SchedulerBinding.instance.addPostFrameCallback((_) => onHeight(height));
   }
 }

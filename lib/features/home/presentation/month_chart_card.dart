@@ -36,11 +36,14 @@ const double _legendGap = 8;
 /// Размер кольца: как можно крупнее по ширине карточки ([viewportWidth] минус
 /// её отступы), но так, чтобы вместе с карточкой итогов, заголовком и легендой
 /// оно помещалось в [viewportHeight]. Границы 160 и 360 dp. Высоты итогов,
-/// заголовка и легенды прикидываем по масштабу шрифта [textScale].
+/// заголовка и легенды прикидываем по масштабу шрифта [textScale]. Высота
+/// плашки над итогами ([bannerHeight], вместе с её отступом) известна из
+/// измерения и просто вычитается; без плашки она 0.
 double chartRingSize({
   required double viewportWidth,
   required double viewportHeight,
   required double textScale,
+  double bannerHeight = 0,
 }) {
   // Отступы карточки сверху и снизу, заголовок, зазоры и строки легенды
   // (до двух по 28 dp; при крупном шрифте элементы встают по одному).
@@ -51,6 +54,7 @@ double chartRingSize({
   );
   // Итоги и зазор 16 между карточками.
   final reserved =
+      bannerHeight +
       summary +
       16 +
       2 * _cardPadding +

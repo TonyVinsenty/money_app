@@ -11,7 +11,11 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
+import 'package:money_app/features/home/presentation/month_chart_card.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
+import 'package:money_app/features/recurring/domain/recurring_payment.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
+import 'package:money_app/features/recurring/presentation/due_banner.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -52,8 +56,9 @@ Transaction _expense(String categoryId, int minor) => Transaction(
 Future<void> _pumpShell(
   WidgetTester tester,
   Size size,
-  TextScaler scaler,
-) async {
+  TextScaler scaler, {
+  Widget? banner,
+}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
@@ -87,6 +92,7 @@ Future<void> _pumpShell(
                 _category('c', 'Кафе'),
               ]),
               month: month,
+              banner: banner,
               onOpenCategory: (_) {},
             ),
             actionsBuilder: (_) => HomeActionBar(onAddTransaction: (_) {}),
@@ -102,9 +108,27 @@ Future<void> _pumpShell(
       ),
     ),
   );
+  // Плашка сообщает высоту после кадра, кольцо перестраивается следующим.
+  await tester.pump();
   await tester.pump();
   await tester.pump();
 }
+
+RecurringDue _due() => RecurringDue(
+  id: 'd1',
+  payment: RecurringPayment(
+    id: 'p1',
+    title: 'Очень длинное название платежа за связь',
+    type: TransactionType.expense,
+    amount: Money.fromMinor(65000, 'RUB'),
+    categoryId: 'a',
+    unit: RepeatUnit.month,
+    every: 1,
+    startsOn: DateOnly(2026, 9, 5),
+  ),
+  dueOn: DateOnly(2026, 9, 5),
+  status: RecurringDueStatus.pending,
+);
 
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
@@ -130,6 +154,48 @@ void main() {
       tester.getRect(find.byType(Wrap)).bottom,
       lessThanOrEqualTo(tester.getRect(find.byType(HomeActionBar)).top),
     );
+  });
+
+  group('плашка «К оплате» не загоняет карточку кольца под кнопки', () {
+    for (final size in const [Size(360, 800), Size(393, 852)]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets('${size.width.toInt()}x${size.height.toInt()}, '
+            'шрифт ${(scale * 100).toInt()} %', (tester) async {
+          final dues = ValueNotifier([_due()]);
+          addTearDown(dues.dispose);
+          await _pumpShell(
+            tester,
+            size,
+            TextScaler.linear(scale),
+            banner: DueBanner(dues: dues, onTap: () {}),
+          );
+          expect(tester.takeException(), isNull);
+          expect(find.byKey(DueBanner.bannerKey), findsOneWidget);
+
+          final scrollable = tester.state<ScrollableState>(
+            find.descendant(
+              of: find.byType(HomeScreen),
+              matching: find.byType(Scrollable),
+            ),
+          );
+          final barTop = tester.getRect(find.byType(HomeActionBar)).top;
+          if (scrollable.position.maxScrollExtent > 0) {
+            // Не помещается даже с кольцом минимального размера (160 dp):
+            // тогда низ карточки достижим прокруткой.
+            scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+            await tester.pump();
+            expect(tester.getSize(find.byType(DonutChart)).width, 160);
+          }
+          final card = tester.getRect(find.byType(MonthChartCard));
+          expect(card.bottom, lessThanOrEqualTo(barTop + 0.01));
+        });
+      }
+    }
+
+    testWidgets('без плашки раскладка прежняя: кольцо 328 dp', (tester) async {
+      await _pumpShell(tester, const Size(393, 852), TextScaler.noScaling);
+      expect(tester.getSize(find.byType(DonutChart)).width, 328);
+    });
   });
 
   testWidgets('нелинейный масштаб «200 %»: итоги столбиком, оценка высоты '

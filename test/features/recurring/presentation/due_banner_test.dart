@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
@@ -56,7 +57,8 @@ void main() {
     var taps = 0;
     await tester.pumpWidget(_host(dues, () => taps++));
     final money = formatMoney(Money.fromMinor(65000, 'RUB'));
-    expect(find.text('К оплате: Интернет $dash $money'), findsOneWidget);
+    expect(find.text('К оплате: Интернет'), findsOneWidget);
+    expect(find.text(' $dash $money'), findsOneWidget);
     await tester.tap(find.byKey(DueBanner.bannerKey));
     expect(taps, 1);
   });
@@ -114,6 +116,30 @@ void main() {
     );
     expect(find.byKey(DueBanner.bannerKey), findsOneWidget);
     expect(tester.takeException(), isNull);
+    // Сумма видна целиком, в правой части плашки; название сокращено.
+    final tail = find.text(
+      ' $dash ${formatMoney(Money.fromMinor(65000, 'RUB'))}',
+    );
+    expect(tail, findsOneWidget);
+    final banner = tester.getRect(find.byKey(DueBanner.bannerKey));
+    expect(tester.getRect(tail).right, lessThanOrEqualTo(banner.right));
+    final head = tester.renderObject<RenderParagraph>(
+      find.text('К оплате: Очень длинное название платежа за связь'),
+    );
+    expect(head.didExceedMaxLines, isTrue);
+  });
+
+  testWidgets('озвучка одного платежа: «К оплате: Интернет, 650 рублей. '
+      'Открыть»', (tester) async {
+    final handle = tester.ensureSemantics();
+    final dues = ValueNotifier([_due('1', 'Интернет')]);
+    addTearDown(dues.dispose);
+    await tester.pumpWidget(_host(dues, () {}));
+    expect(
+      find.bySemanticsLabel('К оплате: Интернет, 650 рублей. Открыть'),
+      findsOneWidget,
+    );
+    handle.dispose();
   });
 
   group('склонение «платёж»', () {

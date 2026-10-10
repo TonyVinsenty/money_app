@@ -204,21 +204,29 @@ String dueSkippedMessage(String title, DateOnly day) =>
 String dueBannerText(List<RecurringDue> dues) {
   if (dues.length == 1) {
     final p = dues.single.payment;
-    return '$dueSectionTitleBase: ${p.title} $_emDash '
-        '${formatMoney(p.amount)}';
+    return dueBannerHead(p) + dueBannerTail(p);
   }
   return '$dueSectionTitleBase: ${_dueCountText(dues.length)}';
 }
 
+/// Начало плашки с одним платежом: «К оплате: Интернет». Плашка сокращает
+/// только его, хвост с суммой показывает всегда.
+String dueBannerHead(RecurringPayment p) => '$dueSectionTitleBase: ${p.title}';
+
+/// Хвост плашки с одним платежом: « — 650,00 ₽».
+String dueBannerTail(RecurringPayment p) =>
+    ' $_emDash ${formatMoney(p.amount)}';
+
 String _dueCountText(int n) =>
     '$n ${pluralRu(n, 'платёж', 'платежа', 'платежей')}';
 
-/// Озвучка плашки. Для нескольких - по Р10: «К оплате 3 платежа. Открыть».
-// Для одного платежа Р10 текста не даёт: по образцу, с названием и суммой.
+/// Озвучка плашки. Для нескольких - по Р10: «К оплате 3 платежа. Открыть»;
+/// для одного - по Р10б: «К оплате: Интернет, 650 рублей. Открыть».
 String dueBannerSemantics(List<RecurringDue> dues) {
   if (dues.length == 1) {
     final p = dues.single.payment;
-    return '$dueSectionTitleBase ${p.title}, ${spokenMoney(p.amount)}. Открыть';
+    return '$dueSectionTitleBase: ${p.title}, ${spokenMoney(p.amount)}. '
+        'Открыть';
   }
   return '$dueSectionTitleBase ${_dueCountText(dues.length)}. Открыть';
 }

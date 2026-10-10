@@ -125,7 +125,8 @@ void main() {
     await settleDatabase(tester);
     final money = formatMoney(Money.fromMinor(65000, 'RUB'));
     final dash = String.fromCharCode(0x2014);
-    expect(find.text('К оплате: Интернет $dash $money'), findsOneWidget);
+    expect(find.text('К оплате: Интернет'), findsOneWidget);
+    expect(find.text(' $dash $money'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(DueTabBadge.badgeKey),
