@@ -11,6 +11,8 @@ import 'package:money_app/features/categories/data/categories_repository_impl.da
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/csv_import/data/csv_import_writer.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
+import 'package:money_app/features/recurring/data/recurring_repository_impl.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/settings/domain/data_eraser.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
@@ -32,6 +34,7 @@ final class AppServices {
     required this.transactions,
     required this.accounts,
     required this.transfers,
+    required this.recurring,
     required this.settings,
     required this.clock,
     required this.idGenerator,
@@ -54,12 +57,14 @@ final class AppServices {
     final transactions = DriftTransactionsRepository(database, clock: clock);
     final accounts = DriftAccountsRepository(database, clock: clock);
     final transfers = DriftTransfersRepository(database, clock: clock);
+    final recurring = DriftRecurringRepository(database, clock: clock);
     final ids = idGenerator ?? UuidV7Generator(clock: clock);
     return AppServices(
       categories: categories,
       transactions: transactions,
       accounts: accounts,
       transfers: transfers,
+      recurring: recurring,
       settings: settings,
       clock: clock,
       idGenerator: ids,
@@ -80,6 +85,7 @@ final class AppServices {
   final TransactionsRepository transactions;
   final AccountsRepository accounts;
   final TransfersRepository transfers;
+  final RecurringRepository recurring;
   final AppSettingsController settings;
   final Clock clock;
   final IdGenerator idGenerator;

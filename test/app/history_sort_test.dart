@@ -98,6 +98,7 @@ Future<void> _pump(WidgetTester tester, {double textScale = 1}) async {
           clock: FixedClock(DateTime(2026, 10, 4, 12)),
           idGenerator: FakeIdGenerator(),
           csvImport: FakeCsvImportStore(),
+          recurring: FakeRecurringRepository(),
           dataEraser: FakeDataEraser(),
         ),
         child: BrowseHost(child: AppShell(tabs: defaultAppTabs)),

@@ -32,6 +32,25 @@ enum RecurringRule {
 
   /// Идентификатор платежа, категории, подкатегории или счёта пустой.
   emptyId,
+
+  /// В качестве категории выбрана подкатегория. Проверяет репозиторий.
+  categoryMustBeTopLevel,
+
+  /// Вид категории (доход/расход) не совпадает с типом платежа. Проверяет
+  /// репозиторий.
+  typeKindMismatch,
+
+  /// Подкатегория не принадлежит категории платежа. Проверяет репозиторий.
+  subcategoryNotOfCategory,
+
+  /// Категория или подкатегория в архиве. Проверяет репозиторий.
+  categoryArchived,
+
+  /// Счёт в архиве. Проверяет репозиторий.
+  accountArchived,
+
+  /// Валюта счёта не совпадает с валютой платежа. Проверяет репозиторий.
+  accountCurrencyMismatch,
 }
 
 /// Ошибка нарушения правила регулярного платежа.
@@ -63,6 +82,18 @@ final class RecurringRuleException implements Exception {
         return 'Recurring payment currency must be a regular (fiat) currency';
       case RecurringRule.emptyId:
         return 'Recurring payment ids must not be empty';
+      case RecurringRule.categoryMustBeTopLevel:
+        return 'Recurring payment category must be a top-level category';
+      case RecurringRule.typeKindMismatch:
+        return 'Category kind does not match the recurring payment type';
+      case RecurringRule.subcategoryNotOfCategory:
+        return 'Subcategory does not belong to the payment category';
+      case RecurringRule.categoryArchived:
+        return 'Category or subcategory of the recurring payment is archived';
+      case RecurringRule.accountArchived:
+        return 'Account of the recurring payment is archived';
+      case RecurringRule.accountCurrencyMismatch:
+        return 'Account currency differs from the recurring payment currency';
     }
   }
 

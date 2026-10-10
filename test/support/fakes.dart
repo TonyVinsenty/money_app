@@ -16,6 +16,7 @@ import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_store.dart';
 import 'package:money_app/features/csv_import/domain/parse_csv_import.dart';
 import 'package:money_app/features/csv_import/domain/plan_csv_import.dart';
+import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/settings/domain/data_eraser.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/transactions_repository.dart';
@@ -550,6 +551,7 @@ AppServices fakeAppServices({
   TransactionsRepository? transactions,
   AccountsRepository? accounts,
   TransfersRepository? transfers,
+  RecurringRepository? recurring,
   FixedClock? clock,
   CsvImportStore? csvImport,
   DataEraser? dataEraser,
@@ -559,6 +561,7 @@ AppServices fakeAppServices({
     transactions: transactions ?? FakeTransactionsRepository(),
     accounts: accounts ?? FakeAccountsRepository(),
     transfers: transfers ?? FakeTransfersRepository(),
+    recurring: recurring ?? FakeRecurringRepository(),
     settings: settings,
     clock: clock ?? FixedClock(DateTime.utc(2026, 9, 20, 12)),
     idGenerator: FakeIdGenerator(),
@@ -610,3 +613,7 @@ class PlannedCsvImportStore implements CsvImportStore {
     written.add(plan);
   }
 }
+
+/// Пустой фейк репозитория регулярных платежей: любой вызов падает, если тест
+/// его не ждал.
+class FakeRecurringRepository extends Fake implements RecurringRepository {}
