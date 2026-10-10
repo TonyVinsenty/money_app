@@ -142,6 +142,7 @@ class SettingsTab extends StatelessWidget {
         clock: services.clock,
       ).exportToTempFile(),
       onImportCsv: () => _importCsv(context, services),
+      onClearAll: services.dataEraser.eraseAll,
       // Репозиторий берём здесь, под AppScope: открытый маршрут его не видит.
       onOpenCategories: () => Navigator.of(context).pushNamed(
         AppRoutes.categories,

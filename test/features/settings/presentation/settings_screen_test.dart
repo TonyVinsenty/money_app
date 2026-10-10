@@ -19,6 +19,7 @@ Widget _app({
   DateOnly? lastExportDay,
   VoidCallback? onExportShared,
   Future<CsvImportResult?> Function()? onImportCsv,
+  Future<void> Function()? onClearAll,
   ValueChanged<CurrencyInfo>? onMainCurrency,
   double textScale = 1,
   bool screenReader = false,
@@ -49,6 +50,7 @@ Widget _app({
           today: DateOnly(2026, 10, 7),
           onExportShared: onExportShared ?? () {},
           onImportCsv: onImportCsv ?? () async => null,
+          onClearAll: onClearAll ?? () async {},
         ),
       ),
     ),
@@ -95,6 +97,251 @@ void main() {
     await tester.tap(find.text('Категории'));
 
     expect(opened, 1);
+  });
+
+  group('очистить всё', () {
+    void tall(WidgetTester tester, {double width = 800}) {
+      tester.view.physicalSize = Size(width, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    Future<void> openDialog(WidgetTester tester) async {
+      await tester.tap(find.text('Очистить всё'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('пункт внизу с подписью, цвет ошибки у заголовка', (
+      tester,
+    ) async {
+      tall(tester);
+      await tester.pumpWidget(_app());
+
+      expect(find.text('Стереть операции, категории и счета'), findsOneWidget);
+      final title = tester.widget<Text>(find.text('Очистить всё'));
+      final context = tester.element(find.text('Очистить всё'));
+      expect(title.style?.color, Theme.of(context).colorScheme.error);
+    });
+
+    testWidgets('диалог: тексты дословно, кнопки по порядку', (tester) async {
+      tall(tester);
+      await tester.pumpWidget(_app());
+      await openDialog(tester);
+
+      expect(
+        find.text('Стереть все операции, категории и счета?'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Это действие нельзя отменить. '
+          'Восстановить данные можно только из файла экспорта CSV.',
+        ),
+        findsOneWidget,
+      );
+      final x = [
+        for (final t in ['Сначала экспорт', 'Отмена', 'Стереть всё'])
+          tester.getTopLeft(find.widgetWithText(TextButton, t)).dx,
+      ];
+      expect(x[0] < x[1] && x[1] < x[2], isTrue);
+      final accept = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, 'Стереть всё'),
+      );
+      final context = tester.element(find.byType(AlertDialog));
+      expect(
+        accept.style?.foregroundColor?.resolve({}),
+        Theme.of(context).colorScheme.error,
+      );
+    });
+
+    testWidgets('«Отмена», «Назад» и тап мимо не стирают', (tester) async {
+      tall(tester);
+      var erased = 0;
+      await tester.pumpWidget(_app(onClearAll: () async => erased++));
+
+      await openDialog(tester);
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      await openDialog(tester);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      await openDialog(tester);
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      expect(erased, 0);
+    });
+
+    testWidgets('«Сначала экспорт» запускает экспорт и не стирает', (
+      tester,
+    ) async {
+      tall(tester);
+      var exported = 0;
+      var erased = 0;
+      final shared = <String>[];
+      await tester.pumpWidget(
+        _app(
+          onExport: () async {
+            exported++;
+            return '/tmp/a.csv';
+          },
+          shareFile: (path) async {
+            shared.add(path);
+            return true;
+          },
+          onClearAll: () async => erased++,
+        ),
+      );
+
+      await openDialog(tester);
+      await tester.tap(find.text('Сначала экспорт'));
+      await tester.pumpAndSettle();
+
+      expect(exported, 1);
+      expect(shared, ['/tmp/a.csv']);
+      expect(erased, 0);
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('«Стереть всё»: один вызов, сообщение Н3', (tester) async {
+      tall(tester);
+      var erased = 0;
+      await tester.pumpWidget(_app(onClearAll: () async => erased++));
+
+      await openDialog(tester);
+      await tester.tap(find.text('Стереть всё'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(erased, 1);
+      expect(
+        find.text('Данные стёрты. Категории — как при первом запуске'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('во время стирания индикатор и повторное нажатие не работает', (
+      tester,
+    ) async {
+      tall(tester);
+      var erased = 0;
+      final gate = Completer<void>();
+      await tester.pumpWidget(
+        _app(
+          onClearAll: () {
+            erased++;
+            return gate.future;
+          },
+        ),
+      );
+
+      await openDialog(tester);
+      await tester.tap(find.text('Стереть всё'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('Очистить всё'), warnIfMissed: false);
+      await tester.pump();
+
+      expect(erased, 1);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        tester
+            .widget<CircularProgressIndicator>(
+              find.byType(CircularProgressIndicator),
+            )
+            .semanticsLabel,
+        'Стираем данные',
+      );
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(erased, 1);
+    });
+
+    testWidgets('висевший SnackBar убирается, пока стирание ещё идёт', (
+      tester,
+    ) async {
+      tall(tester);
+      final gate = Completer<void>();
+      await tester.pumpWidget(_app(onClearAll: () => gate.future));
+      final ctx = tester.element(find.byType(SettingsScreen));
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        const SnackBar(content: Text('Старое'), duration: Duration(minutes: 5)),
+      );
+      await tester.pump();
+      expect(find.text('Старое'), findsOneWidget);
+
+      await openDialog(tester);
+      await tester.tap(find.text('Стереть всё'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text('Старое'), findsNothing);
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('ошибка стирания: сообщение Н4, экран жив', (tester) async {
+      tall(tester);
+      await tester.pumpWidget(
+        _app(onClearAll: () async => throw Exception('boom')),
+      );
+
+      await openDialog(tester);
+      await tester.tap(find.text('Стереть всё'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.text('Не удалось стереть данные. Ничего не изменилось'),
+        findsOneWidget,
+      );
+      expect(find.text('Очистить всё'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+
+    testWidgets('во время экспорта пункт недоступен', (tester) async {
+      tall(tester);
+      final gate = Completer<String>();
+      await tester.pumpWidget(_app(onExport: () => gate.future));
+
+      await tester.tap(find.text('Экспорт в CSV'));
+      await tester.pump();
+      await tester.tap(find.text('Очистить всё'));
+      await tester.pump();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      gate.complete('/tmp/x.csv');
+      await tester.pumpAndSettle();
+    });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('360 dp, шрифт ${scale * 100} %: без переполнения', (
+        tester,
+      ) async {
+        tall(tester, width: 360);
+        await tester.pumpWidget(_app(textScale: scale));
+        expect(
+          find.text('Стереть операции, категории и счета'),
+          findsOneWidget,
+        );
+
+        await openDialog(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(find.text('Стереть всё'), findsOneWidget);
+        if (scale == 2.0) {
+          // Кнопки встают столбиком.
+          final a = tester.getTopLeft(find.text('Сначала экспорт'));
+          final b = tester.getTopLeft(find.text('Стереть всё'));
+          expect(a.dy != b.dy, isTrue);
+        }
+      });
+    }
   });
 
   group('основная валюта', () {

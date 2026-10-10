@@ -96,6 +96,28 @@ String importResultMessage(CsvImportResult result) {
       '${_accountNoun(accounts)}';
 }
 
+/// Пункт «Очистить всё» и подпись под ним (Н1).
+const clearAllItemLabel = 'Очистить всё';
+const clearAllItemSubtitle = 'Стереть операции, категории и счета';
+
+/// Подтверждение стирания (Н2): заголовок, текст и кнопки.
+const clearAllConfirmTitle = 'Стереть все операции, категории и счета?';
+const clearAllConfirmText =
+    'Это действие нельзя отменить. '
+    'Восстановить данные можно только из файла экспорта CSV.';
+const clearAllExportFirst = 'Сначала экспорт';
+const clearAllCancel = 'Отмена';
+const clearAllAccept = 'Стереть всё';
+
+/// Сообщения после стирания (Н3) и при сбое (Н4).
+const clearAllDoneMessage = 'Данные стёрты. Категории — как при первом запуске';
+const clearAllFailedMessage = 'Не удалось стереть данные. Ничего не изменилось';
+
+/// Подпись индикатора для скринридера, пока идёт стирание (Н5).
+const clearAllErasingLabel = 'Стираем данные';
+
+enum _ClearAllChoice { exportFirst, erase }
+
 String _accountNoun(int count) => pluralRu(count, 'счёт', 'счёта', 'счетов');
 
 final NumberFormat _countFormat = NumberFormat.decimalPattern('ru');
@@ -125,6 +147,7 @@ class SettingsScreen extends StatefulWidget {
     required this.today,
     required this.onExportShared,
     required this.onImportCsv,
+    required this.onClearAll,
     this.shareFile = shareCsvFile,
     super.key,
   });
@@ -157,6 +180,9 @@ class SettingsScreen extends StatefulWidget {
   /// или `null`, если ничего не загружено (отмена). Бросает исключение, если
   /// файл не удалось открыть.
   final Future<CsvImportResult?> Function() onImportCsv;
+
+  /// Стирает все данные пользователя. Бросает исключение, если не удалось.
+  final Future<void> Function() onClearAll;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -222,6 +248,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (added != null) _showMessage(importResultMessage(added));
     } finally {
       if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  /// Идёт стирание.
+  bool _erasing = false;
+
+  bool get _busy => _exporting || _importing || _erasing;
+
+  Future<void> _clearAll() async {
+    if (_busy) return;
+    final choice = await showDialog<_ClearAllChoice>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(clearAllConfirmTitle),
+        content: const Text(clearAllConfirmText),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.of(context).pop(_ClearAllChoice.exportFirst),
+            child: const Text(clearAllExportFirst),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(clearAllCancel),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(context).pop(_ClearAllChoice.erase),
+            child: const Text(clearAllAccept),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null || _busy) return;
+    if (choice == _ClearAllChoice.exportFirst) {
+      await _exportCsv();
+      return;
+    }
+    setState(() => _erasing = true);
+    try {
+      // Старое «Отменить» ссылалось бы на стёртые строки.
+      ScaffoldMessenger.of(context).clearSnackBars();
+      try {
+        await widget.onClearAll();
+      } on Exception {
+        _showMessage(clearAllFailedMessage);
+        return;
+      }
+      _showMessage(clearAllDoneMessage);
+    } finally {
+      if (mounted) setState(() => _erasing = false);
     }
   }
 
@@ -332,15 +411,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 )
               : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-          enabled: !_exporting,
-          onTap: _exporting ? null : _exportCsv,
+          enabled: !_busy,
+          onTap: _busy ? null : _exportCsv,
         ),
         ListTile(
           title: const Text(importCsvItemLabel),
           subtitle: const Text(importCsvItemSubtitle),
           trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
           // Второе нажатие, пока открыто окно выбора, ничего не делает.
-          onTap: _importing ? null : _importCsv,
+          enabled: !_busy,
+          onTap: _busy ? null : _importCsv,
+        ),
+        const Divider(),
+        ListTile(
+          title: Text(
+            clearAllItemLabel,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          subtitle: const Text(clearAllItemSubtitle),
+          trailing: _erasing
+              ? const SizedBox.square(
+                  dimension: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    semanticsLabel: clearAllErasingLabel,
+                  ),
+                )
+              : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+          enabled: !_busy,
+          onTap: _busy ? null : _clearAll,
         ),
       ],
     );
