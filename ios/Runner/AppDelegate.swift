@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UniformTypeIdentifiers
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -11,6 +12,10 @@ import UniformTypeIdentifiers
   // Канал выбора файла для импорта CSV (ADR 0009, п. 5). Имя, метод и коды ошибок —
   // как в lib/features/csv_import/presentation/pick_csv_file.dart и в MainActivity.kt.
   private let filesChannelName = "com.tonyvinsenty.zuno/files"
+
+  // Канал напоминаний (ADR 0011, п. 11). Имя, методы и ключи элементов — как в
+  // lib/features/recurring/data/reminders_channel.dart и lib/features/recurring/domain/reminder_plan.dart.
+  private let remindersChannelName = "com.tonyvinsenty.zuno/reminders"
 
   // Ожидающий ответ Dart, пока открыто окно выбора (второй вызов получит "busy").
   // Делегат окна — сам AppDelegate: он живёт всё время работы приложения.
@@ -42,6 +47,90 @@ import UniformTypeIdentifiers
     )
     files.setMethodCallHandler { call, result in
       self.handlePick(call, result: result)
+    }
+
+    let reminders = FlutterMethodChannel(
+      name: remindersChannelName,
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    reminders.setMethodCallHandler { call, result in
+      self.handleReminders(call, result: result)
+    }
+    // Чтобы уведомление показывалось и при открытом приложении (willPresent ниже).
+    UNUserNotificationCenter.current().delegate = self
+  }
+
+  // Показ уведомления, когда приложение открыто.
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .list, .sound])
+  }
+
+  private func handleReminders(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    let center = UNUserNotificationCenter.current()
+    switch call.method {
+    case "requestPermission":
+      center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+        DispatchQueue.main.async { result(granted) }
+      }
+    case "permissionStatus":
+      center.getNotificationSettings { settings in
+        let status: String
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+          status = "granted"
+        case .denied:
+          status = "denied"
+        default:
+          status = "notDetermined"
+        }
+        DispatchQueue.main.async { result(status) }
+      }
+    case "replaceAll":
+      guard let items = call.arguments as? [[String: Any]] else {
+        result(FlutterError(code: "bad_args", message: "Не передан список напоминаний", details: nil))
+        return
+      }
+      var requests: [UNNotificationRequest] = []
+      for item in items {
+        guard let id = item["id"] as? Int,
+          let year = item["year"] as? Int,
+          let month = item["month"] as? Int,
+          let day = item["day"] as? Int,
+          let hour = item["hour"] as? Int,
+          let minute = item["minute"] as? Int,
+          let title = item["title"] as? String,
+          let body = item["body"] as? String
+        else {
+          result(FlutterError(code: "bad_args", message: "Неверный элемент напоминания", details: nil))
+          return
+        }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        // Местное «настенное» время: календарь и пояс устройства.
+        var date = DateComponents()
+        date.year = year
+        date.month = month
+        date.day = day
+        date.hour = hour
+        date.minute = minute
+        let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: false)
+        requests.append(UNNotificationRequest(identifier: String(id), content: content, trigger: trigger))
+      }
+      center.removeAllPendingNotificationRequests()
+      let group = DispatchGroup()
+      for request in requests {
+        group.enter()
+        center.add(request) { _ in group.leave() }
+      }
+      group.notify(queue: .main) { result(nil) }
+    default:
+      result(FlutterMethodNotImplemented)
     }
   }
 
