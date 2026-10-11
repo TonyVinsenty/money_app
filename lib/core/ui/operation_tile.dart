@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 
 /// Строка операции: аватар категории, [title] («Категория · Подкатегория»),
 /// необязательная вторая строка [subtitle] и сумма справа со знаком и цветом
-/// дохода/расхода. Скринридер читает строку одним узлом с подписью
-/// [semanticLabel]; без [onTap] строка не кнопка.
+/// дохода/расхода; при крупном шрифте (от 130 %) сумма встаёт под название.
+/// Скринридер читает строку одним узлом с подписью [semanticLabel]; без
+/// [onTap] строка не кнопка.
 class OperationTile extends StatelessWidget {
   const OperationTile({
     required this.title,
@@ -37,6 +39,9 @@ class OperationTile extends StatelessWidget {
   final Color? avatarColor;
   final VoidCallback? onTap;
 
+  /// Ключ текста суммы (для тестов раскладки).
+  static const amountKey = ValueKey('operation-tile-amount');
+
   /// Боковой отступ: в карточке меньше, чем в списке во всю ширину.
   final double horizontalPadding;
 
@@ -48,6 +53,45 @@ class OperationTile extends StatelessWidget {
         : context.appColors.expense;
     final sign = isIncome ? '+' : String.fromCharCode(0x2212);
     final subtitle = this.subtitle;
+    final twoLine = useTwoLineRows(context);
+
+    final amountText = MaskedAmount(
+      '$sign${formatMoney(amount)}',
+      textKey: amountKey,
+      style: theme.textTheme.titleMedium?.copyWith(
+        color: accent,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final texts = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodyLarge,
+        ),
+        // Крупный шрифт: сумма под названием в полный размер. Уменьшается
+        // только сумма шире всей строки (иначе число разорвалось бы).
+        if (twoLine)
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: amountText,
+          ),
+        if (subtitle != null)
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+      ],
+    );
 
     final content = ConstrainedBox(
       // Зона нажатия не ниже 48 dp; при крупном шрифте строка растёт сама.
@@ -61,47 +105,21 @@ class OperationTile extends StatelessWidget {
           children: [
             CategoryAvatar(iconKey, name: categoryName, color: avatarColor),
             const SizedBox(width: AppSpacing.m),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.m),
-            // Сумма не шире 45% экрана: длинная при крупном шрифте уменьшается.
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-              ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: MaskedAmount(
-                  '$sign${formatMoney(amount)}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: accent,
-                    fontWeight: FontWeight.w600,
-                  ),
+            Expanded(child: texts),
+            if (!twoLine) ...[
+              const SizedBox(width: AppSpacing.m),
+              // Сумма не шире 45% экрана: длинная уменьшается.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.45,
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: amountText,
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

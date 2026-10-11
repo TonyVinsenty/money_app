@@ -18,3 +18,11 @@ TextScaler chartLabelScalerOf(BuildContext context) =>
 
 /// То же для готового [TextScaler] (когда контекст недоступен).
 double fontScaleFrom(TextScaler scaler) => scaler.scale(14) / 14;
+
+/// С какого масштаба строки списков становятся двухэтажными: название, под
+/// ним сумма (design-style.md, 8.6; ADR 0013, Д1).
+const double twoLineRowScale = 1.3;
+
+/// Нужна ли двухэтажная строка при текущем масштабе шрифта.
+bool useTwoLineRows(BuildContext context) =>
+    fontScaleOf(context) >= twoLineRowScale;
