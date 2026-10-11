@@ -493,7 +493,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         if (widget.onHideAmountsChanged case final onChanged?)
-          SwitchListTile(
+          SwitchListTile.adaptive(
             secondary: const _ItemIcon(Icons.visibility_off_outlined),
             title: const Text(hideAmountsLabel),
             subtitle: const Text(hideAmountsSubtitle),

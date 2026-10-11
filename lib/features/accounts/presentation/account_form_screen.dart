@@ -325,7 +325,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                         onSubmitted: (_) => unawaited(_save()),
                       ),
                       const SizedBox(height: 8),
-                      SwitchListTile(
+                      SwitchListTile.adaptive(
                         key: AccountFormScreen.minusSwitchKey,
                         contentPadding: EdgeInsets.zero,
                         title: const Text(accountFormMinusTitle),

@@ -10,6 +10,7 @@ import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/recurring/presentation/recurring_form_screen.dart';
 import 'package:money_app/features/recurring/presentation/recurring_texts.dart';
 
+import '../../../support/adaptive_switch.dart';
 import '../../../support/fake_id_generator.dart';
 import '../../../support/fixed_clock.dart';
 import '../../../support/in_memory_recurring_repository.dart';
@@ -44,13 +45,13 @@ void main() {
     requests = 0;
   });
 
-  Future<void> pumpForm(WidgetTester tester) async {
+  Future<void> pumpForm(WidgetTester tester, {TargetPlatform? platform}) async {
     tester.view.physicalSize = const Size(400, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light(),
+        theme: AppTheme.light(platform: platform),
         home: RecurringFormScreen(
           currency: currencyInfoFor('RUB'),
           today: DateOnly(2026, 10, 10),
@@ -159,4 +160,20 @@ void main() {
     expect(items!.single.payment.remind, isFalse);
     expect(requests, 0);
   });
+
+  for (final (platform, ios) in [
+    (TargetPlatform.iOS, true),
+    (TargetPlatform.android, false),
+  ]) {
+    testWidgets('«Напомнить» на $platform: по-айфонному — $ios', (
+      tester,
+    ) async {
+      await pumpForm(tester, platform: platform);
+      final inside = find.descendant(
+        of: find.byKey(RecurringFormScreen.remindKey),
+        matching: find.byType(Switch),
+      );
+      expect(inside, ios ? paintsIosSwitchTrack : paintsMaterialSwitchTrack);
+    });
+  }
 }

@@ -171,4 +171,23 @@ void main() {
       });
     }
   });
+
+  group('по-айфонному (ADR 0013, п. 6)', () {
+    for (final make in [AppTheme.light, AppTheme.dark]) {
+      test('iOS: без «волны» нажатия', () {
+        final theme = make(platform: TargetPlatform.iOS);
+        expect(theme.platform, TargetPlatform.iOS);
+        expect(theme.splashFactory, same(NoSplash.splashFactory));
+      });
+
+      test('Android: «волна» Material на месте', () {
+        final theme = make(platform: TargetPlatform.android);
+        expect(theme.splashFactory, isNot(same(NoSplash.splashFactory)));
+        expect(
+          theme.splashFactory,
+          ThemeData(platform: TargetPlatform.android).splashFactory,
+        );
+      });
+    }
+  });
 }

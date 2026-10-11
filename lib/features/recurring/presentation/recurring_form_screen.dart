@@ -688,7 +688,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                         key: RecurringFormScreen.endErrorKey,
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       key: RecurringFormScreen.remindKey,
                       contentPadding: EdgeInsets.zero,
                       title: const Text(recurringFormRemindLabel),

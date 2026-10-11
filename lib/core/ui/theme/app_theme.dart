@@ -39,13 +39,29 @@ abstract final class AppTheme {
     borderRadius: AppRadius.borderL,
   );
 
-  static ThemeData light() => _build(Brightness.light, AppColors.light);
+  /// [platform] — для тестов; по умолчанию платформа устройства.
+  static ThemeData light({TargetPlatform? platform}) =>
+      _build(Brightness.light, AppColors.light, platform);
 
-  static ThemeData dark() => _build(Brightness.dark, AppColors.dark);
+  static ThemeData dark({TargetPlatform? platform}) =>
+      _build(Brightness.dark, AppColors.dark, platform);
 
-  static ThemeData _build(Brightness brightness, AppColors colors) {
-    final base = ThemeData(useMaterial3: true, colorScheme: scheme(brightness));
+  static ThemeData _build(
+    Brightness brightness,
+    AppColors colors,
+    TargetPlatform? platform,
+  ) {
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: scheme(brightness),
+      platform: platform,
+    );
     return base.copyWith(
+      // iOS: без «волны» от пальца (ADR 0013, п. 6); подсветка нажатия
+      // остаётся. Android — как в Material.
+      splashFactory: base.platform == TargetPlatform.iOS
+          ? NoSplash.splashFactory
+          : base.splashFactory,
       textTheme: _textTheme(base.textTheme),
       // Карточки отделяются от фона тоном, а не тенью (тень в тёмной теме
       // почти не видна).

@@ -103,7 +103,7 @@ class _AccountAdjustDialogState extends State<AccountAdjustDialog> {
             onChanged: (_) => setState(() => _error = null),
             onSubmitted: (_) => _save(),
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             key: AccountAdjustDialog.minusKey,
             contentPadding: EdgeInsets.zero,
             title: const Text(accountFormMinusTitle),
