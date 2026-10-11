@@ -670,7 +670,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(AccountScreen.transferKey)).dy,
-        lessThan(tester.getTopLeft(find.byKey(AccountScreen.adjustKey)).dy),
+        greaterThan(tester.getTopLeft(find.byKey(AccountScreen.adjustKey)).dy),
       );
       await tester.tap(find.byKey(AccountScreen.transferKey));
       await tester.pumpAndSettle();

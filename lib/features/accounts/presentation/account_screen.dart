@@ -9,6 +9,7 @@ import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
@@ -309,11 +310,23 @@ class _AccountScreenState extends State<AccountScreen> {
     ),
   );
 
+  Widget _actionTile({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool chevron = false,
+  }) => ListTile(
+    key: key,
+    minTileHeight: 48,
+    leading: Icon(icon),
+    title: Text(label),
+    trailing: chevron ? const Icon(Icons.chevron_right) : null,
+    onTap: onTap,
+  );
+
   Widget _content(BuildContext context, Account account, Money balance) {
     final theme = Theme.of(context);
-    final buttonStyle = ButtonStyle(
-      minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
-    );
     final isDefault =
         resolveDefaultAccount(
           [account],
@@ -363,61 +376,73 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ],
         const SizedBox(height: 24),
-        // Все три кнопки не ниже 48 dp (зона нажатия), вид у них разный
-        // намеренно: главное действие, второстепенное, редкое.
-        FilledButton.tonal(
-          key: AccountScreen.editKey,
-          style: buttonStyle,
-          onPressed: () => unawaited(_guarded(() => widget.onEdit(account))),
-          child: const Text(accountEditButton),
+        // Действия списком в одной карточке: значок, текст, шеврон там, где
+        // действие ведёт на другой экран. Строки не ниже 48 dp.
+        Card.outlined(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: AppRadius.borderL,
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: Column(
+            children: [
+              _actionTile(
+                key: AccountScreen.editKey,
+                icon: Icons.edit_outlined,
+                label: accountEditButton,
+                chevron: true,
+                onTap: () => unawaited(_guarded(() => widget.onEdit(account))),
+              ),
+              _actionTile(
+                key: AccountScreen.adjustKey,
+                icon: Icons.tune,
+                label: accountAdjustButton,
+                onTap: () =>
+                    unawaited(_guarded(() => _adjust(account, balance))),
+              ),
+              if (widget.onTransfer != null &&
+                  hasTransferPair(_latestAccounts, account))
+                _actionTile(
+                  key: AccountScreen.transferKey,
+                  icon: Icons.swap_horiz,
+                  label: transferButtonLabel,
+                  chevron: true,
+                  onTap: () =>
+                      unawaited(_guarded(() => widget.onTransfer!(account))),
+                ),
+              if (widget.onShowTransactions != null &&
+                  account.currency == widget.mainCurrency)
+                _actionTile(
+                  key: AccountScreen.operationsKey,
+                  icon: Icons.receipt_long_outlined,
+                  label: accountOperationsButton,
+                  chevron: true,
+                  onTap: () {
+                    // Переход закрывает этот экран: второй тап не должен
+                    // закрыть ещё и экран под ним.
+                    if (_operationsOpened) return;
+                    _operationsOpened = true;
+                    widget.onShowTransactions!(account);
+                  },
+                ),
+              if (canMakeDefault)
+                _actionTile(
+                  key: AccountScreen.makeDefaultKey,
+                  icon: Icons.star_outline,
+                  label: accountMakeDefaultButton,
+                  onTap: () => unawaited(_guarded(() => _makeDefault(account))),
+                ),
+            ],
+          ),
         ),
-        const SizedBox(height: 8),
-        if (widget.onTransfer != null &&
-            hasTransferPair(_latestAccounts, account)) ...[
-          OutlinedButton(
-            key: AccountScreen.transferKey,
-            style: buttonStyle,
-            onPressed: () =>
-                unawaited(_guarded(() => widget.onTransfer!(account))),
-            child: const Text(transferButtonLabel),
-          ),
-          const SizedBox(height: 8),
-        ],
-        if (widget.onShowTransactions != null &&
-            account.currency == widget.mainCurrency) ...[
-          OutlinedButton(
-            key: AccountScreen.operationsKey,
-            style: buttonStyle,
-            onPressed: () {
-              // Переход закрывает этот экран: второй тап не должен закрыть
-              // ещё и экран под ним.
-              if (_operationsOpened) return;
-              _operationsOpened = true;
-              widget.onShowTransactions!(account);
-            },
-            child: const Text(accountOperationsButton),
-          ),
-          const SizedBox(height: 8),
-        ],
-        OutlinedButton(
-          key: AccountScreen.adjustKey,
-          style: buttonStyle,
-          onPressed: () => unawaited(_guarded(() => _adjust(account, balance))),
-          child: const Text(accountAdjustButton),
-        ),
-        if (canMakeDefault) ...[
-          const SizedBox(height: 8),
-          OutlinedButton(
-            key: AccountScreen.makeDefaultKey,
-            style: buttonStyle,
-            onPressed: () => unawaited(_guarded(() => _makeDefault(account))),
-            child: const Text(accountMakeDefaultButton),
-          ),
-        ],
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.m),
         TextButton(
           key: AccountScreen.archiveKey,
-          style: buttonStyle,
+          style: ButtonStyle(
+            minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
+            foregroundColor: WidgetStateProperty.all(theme.colorScheme.error),
+          ),
           onPressed: () =>
               unawaited(_guarded(() => _archive(account, balance))),
           child: const Text(accountArchiveButton),
