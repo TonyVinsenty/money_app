@@ -4,6 +4,7 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/bottom_inset.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
@@ -192,7 +193,7 @@ class AnalyticsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final (previousTooltip, nextTooltip) = _arrowTooltips(period.kind);
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: withBottomInset(context, const EdgeInsets.all(AppSpacing.l)),
       children: [
         _SectionBar(section: section, onSelected: onSectionSelected),
         const SizedBox(height: AppSpacing.s),

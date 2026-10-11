@@ -1,4 +1,7 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 
 /// Описание одной вкладки нижней панели: подпись, две иконки и содержимое.
 @immutable
@@ -161,6 +164,10 @@ class _AppShellState extends State<AppShell> {
 
   Widget _buildScaffold() {
     return Scaffold(
+      // Содержимое прокручивается под капсулой (её фон размывает его). Нижний
+      // отступ под капсулу Scaffold передаёт вкладкам через
+      // MediaQuery.padding.bottom: ListView учитывает его сам.
+      extendBody: true,
       // Верхней панели (AppBar) нет, поэтому без SafeArea содержимое уехало бы
       // под системную строку состояния. Низ не защищаем: этим занимается сама
       // NavigationBar.
@@ -185,7 +192,7 @@ class _AppShellState extends State<AppShell> {
         children: [
           if (widget.tabs[_selectedIndex].actionsBuilder != null)
             widget.tabs[_selectedIndex].actionsBuilder!(context),
-          _buildNavigationBar(),
+          NavCapsule(child: _buildNavigationBar()),
         ],
       ),
     );
@@ -238,6 +245,11 @@ class _AppShellState extends State<AppShell> {
               ),
             ),
             child: NavigationBar(
+              // Фон, тень и отступ от системной полоски даёт капсула.
+              height: navCapsuleHeight,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
               selectedIndex: _selectedIndex,
               onDestinationSelected: (index) {
                 setState(() => _selectedIndex = index);
@@ -264,3 +276,85 @@ class _AppShellState extends State<AppShell> {
 
 /// Наибольший масштаб шрифта подписей вкладок.
 const double _maxLabelScale = 1.15;
+
+/// Высота капсулы нижней панели, dp (значок с подложкой и подпись).
+const double navCapsuleHeight = 64;
+
+/// Зазор между капсулой и нижним краем (или системной полоской), dp.
+const double navCapsuleGap = AppSpacing.s;
+
+/// Размытие того, что прокручивается под капсулой.
+const double _capsuleBlur = 16;
+
+/// Непрозрачность заливки капсулы: подписи читаются и над пёстрым фоном.
+const double _capsuleFillAlpha = 0.82;
+
+/// Нижняя панель «стеклянная капсула» (решение пользователя 2026-10-11):
+/// скругление на всю высоту, полупрозрачная заливка `surfaceContainer`,
+/// размытие содержимого под ней и тонкая светлая обводка. Настоящее Liquid
+/// Glass iOS 26 Flutter-у недоступно — это сознательная имитация.
+class NavCapsule extends StatelessWidget {
+  const NavCapsule({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final media = MediaQuery.of(context);
+    const radius = BorderRadius.all(Radius.circular(navCapsuleHeight / 2));
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.l,
+        0,
+        AppSpacing.l,
+        media.viewPadding.bottom + navCapsuleGap,
+      ),
+      child: DecoratedBox(
+        // Мягкая тень отделяет капсулу от светлого фона.
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: dark ? 0.32 : 0.10),
+              blurRadius: AppSpacing.l,
+              offset: const Offset(0, AppSpacing.xs),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: _capsuleBlur,
+              sigmaY: _capsuleBlur,
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainer.withValues(
+                  alpha: _capsuleFillAlpha,
+                ),
+                borderRadius: radius,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: dark ? 0.14 : 0.7),
+                ),
+              ),
+              // Отступ от системной полоски уже снаружи капсулы. По бокам —
+              // отступ, чтобы крайние подписи не срезало скругление.
+              child: MediaQuery.removePadding(
+                context: context,
+                removeBottom: true,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s),
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

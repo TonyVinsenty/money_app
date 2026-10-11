@@ -114,8 +114,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final w = widget;
     final banner = w.banner;
     return Padding(
-      // Снизу отступа нет: он есть у панели кнопок под экраном.
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      // Снизу — место под кнопками и нижней панелью: каркас кладёт их поверх
+      // экрана (Scaffold.extendBody) и сообщает их высоту через MediaQuery.
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.l,
+        AppSpacing.l,
+        AppSpacing.l,
+        MediaQuery.paddingOf(context).bottom,
+      ),
       // Середина прокручивается: при крупном шрифте на маленьком экране она
       // уступает место панели кнопок, а не вызывает переполнение.
       child: LayoutBuilder(

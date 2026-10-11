@@ -146,9 +146,9 @@ void main() {
     );
     expect(scrollable.position.maxScrollExtent, 0);
     final ring = tester.getRect(find.byType(DonutChart));
-    // Переключатель месяца (48 dp) сделал карточку итогов выше; кольцо при этом
-    // упёрлось в высоту и стало на 1 dp меньше ширины (329): 328 dp.
-    expect(ring.width, 328);
+    // Капсула нижней панели (7.30b) ниже прежней панели: кольцо снова
+    // по ширине карточки — 329 dp (раньше упиралось в высоту, 328).
+    expect(ring.width, 329);
     // Легенда кончается выше панели кнопок.
     expect(
       tester.getRect(find.byType(Wrap)).bottom,
@@ -192,9 +192,9 @@ void main() {
       }
     }
 
-    testWidgets('без плашки раскладка прежняя: кольцо 328 dp', (tester) async {
+    testWidgets('без плашки раскладка прежняя: кольцо 329 dp', (tester) async {
       await _pumpShell(tester, const Size(393, 852), TextScaler.noScaling);
-      expect(tester.getSize(find.byType(DonutChart)).width, 328);
+      expect(tester.getSize(find.byType(DonutChart)).width, 329);
     });
   });
 
