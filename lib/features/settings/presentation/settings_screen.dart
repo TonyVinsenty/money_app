@@ -15,6 +15,7 @@ import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
 /// Подзаголовки групп (тексты В10 утверждены 2026-10-11).
 const appearanceGroupTitle = 'Внешний вид';
+const ringGroupTitle = 'Кольцо на «Главной»';
 const bookkeepingGroupTitle = 'Учёт';
 const dataGroupTitle = 'Данные';
 const resetGroupTitle = 'Сброс';
@@ -463,44 +464,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListView(
       children: [
         const _GroupHeader(appearanceGroupTitle),
-        _ThemeRow(
+        _SegmentedChoice<ThemeMode>(
+          title: themeSectionTitle,
+          options: const [
+            (ThemeMode.system, themeSystemLabel, null),
+            (ThemeMode.light, themeLightLabel, null),
+            (ThemeMode.dark, themeDarkLabel, null),
+          ],
           value: widget.themeMode,
           onChanged: widget.onThemeModeChanged,
-        ),
-        const _SectionTitle(Icons.donut_large, homeBalanceSectionTitle),
-        RadioGroup<HomeBalanceLine>(
-          groupValue: widget.homeBalanceLine,
-          onChanged: (value) {
-            if (value != null) widget.onHomeBalanceLineChanged(value);
-          },
-          // Кружок (20 в зоне 40) — по центру колонки значков (24 от края 16),
-          // текст — на линии названий остальных пунктов (16 + 24 + 16 = 56):
-          // начало 8, промежуток 8.
-          child: ListTileTheme.merge(
-            contentPadding: const EdgeInsetsDirectional.only(
-              start: AppSpacing.s,
-              end: AppSpacing.xl,
-            ),
-            horizontalTitleGap: AppSpacing.s,
-            child: const Column(
-              children: [
-                RadioListTile<HomeBalanceLine>(
-                  value: HomeBalanceLine.allTime,
-                  title: Text(homeBalanceAllTimeLabel),
-                  subtitle: Text(homeBalanceAllTimeSubtitle),
-                ),
-                RadioListTile<HomeBalanceLine>(
-                  value: HomeBalanceLine.accounts,
-                  title: Text(homeBalanceAccountsLabel),
-                  subtitle: Text(homeBalanceAccountsSubtitle),
-                ),
-                RadioListTile<HomeBalanceLine>(
-                  value: HomeBalanceLine.none,
-                  title: Text(homeBalanceNoneLabel),
-                ),
-              ],
-            ),
-          ),
         ),
         if (widget.onHideAmountsChanged case final onChanged?)
           SwitchListTile.adaptive(
@@ -510,6 +482,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: widget.hideAmounts,
             onChanged: onChanged,
           ),
+        const _GroupHeader(ringGroupTitle),
+        _SegmentedChoice<HomeBalanceLine>(
+          title: homeBalanceSectionTitle,
+          options: const [
+            (
+              HomeBalanceLine.allTime,
+              homeBalanceAllTimeLabel,
+              homeBalanceAllTimeSubtitle,
+            ),
+            (
+              HomeBalanceLine.accounts,
+              homeBalanceAccountsLabel,
+              homeBalanceAccountsSubtitle,
+            ),
+            (HomeBalanceLine.none, homeBalanceNoneLabel, null),
+          ],
+          value: widget.homeBalanceLine,
+          onChanged: widget.onHomeBalanceLineChanged,
+        ),
         const _GroupHeader(bookkeepingGroupTitle),
         ListTile(
           leading: const _ItemIcon(Icons.category_outlined),
@@ -666,86 +657,45 @@ class _GroupHeader extends StatelessWidget {
   }
 }
 
-/// Заголовок пункта с вариантами внутри группы («Тема»): значок и название.
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.icon, this.title);
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.l,
-        AppSpacing.s,
-        AppSpacing.l,
-        AppSpacing.xs,
-      ),
-      child: Row(
-        children: [
-          // Цвет как у значков ListTile в соседних пунктах.
-          IconTheme.merge(
-            data: IconThemeData(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            child: _ItemIcon(icon),
-          ),
-          const SizedBox(width: AppSpacing.l),
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(title, style: Theme.of(context).textTheme.bodyLarge),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Как встаёт выбор темы относительно заголовка «Тема».
-enum ThemeRowLayout {
-  /// Сегменты справа от заголовка, в той же строке.
-  beside,
-
-  /// Сегменты под заголовком во всю ширину, по-прежнему в одну строку.
+/// Как встают сегменты выбора под заголовком.
+enum ChoiceLayout {
+  /// Во всю ширину, в одну строку, сегменты равные.
   below,
 
-  /// Сегменты под заголовком столбиком: в строку не помещаются даже одни.
+  /// Столбиком: в строку не помещаются даже равные сегменты.
   stacked,
 }
 
-/// Тема — три сегмента «Системная · Светлая · Тёмная» (В10).
+/// Вариант выбора: значение, подпись сегмента и пояснение под сегментами
+/// (`null` — пояснения нет, место строки всё равно занято).
+typedef ChoiceOption<T> = (T value, String label, String? description);
+
+/// Выбор одного из вариантов (7.30e): подпись-заголовок без значка, под ней
+/// сегменты во всю ширину, под ними — пояснение выбранного варианта.
 ///
-/// Ширину сегментов оцениваем заранее по ширине подписей (с запасом), чтобы
-/// выбрать раскладку до построения: `beside`, если всё помещается в строку
-/// с «Тема», иначе `below`, а при крупном шрифте на узком экране — `stacked`.
-class _ThemeRow extends StatelessWidget {
-  const _ThemeRow({required this.value, required this.onChanged});
+/// Ширину сегментов оцениваем заранее по ширине подписей, чтобы выбрать
+/// раскладку до построения: в строку, если самая широкая подпись помещается
+/// в равную долю ширины, иначе столбиком.
+class _SegmentedChoice<T> extends StatelessWidget {
+  const _SegmentedChoice({
+    required this.title,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
 
-  final ThemeMode value;
-  final ValueChanged<ThemeMode> onChanged;
-
-  static const _options = [
-    (ThemeMode.system, themeSystemLabel),
-    (ThemeMode.light, themeLightLabel),
-    (ThemeMode.dark, themeDarkLabel),
-  ];
+  final String title;
+  final List<ChoiceOption<T>> options;
+  final T value;
+  final ValueChanged<T> onChanged;
 
   /// Отступ подписи сегмента слева и справа (задаём сами, чтобы оценка
   /// ширины не зависела от умолчаний Material).
-  static const _segmentPadding = AppSpacing.m;
+  static const _segmentPadding = AppSpacing.xs;
 
-  /// Рамки и запас на округление у каждого сегмента. Значка «выбрано» нет:
-  /// выбранный сегмент залит цветом, а скринридер говорит «выбрано».
-  static const _segmentAllowance = 8.0;
-
-  /// Запас строки «Тема + сегменты».
-  static const _besideReserve = AppSpacing.xl;
-
-  /// Значок пункта (24) и промежуток до названия, как у `ListTile`.
-  static const _leadingWidth = 24.0 + AppSpacing.l;
+  /// Рамки сегмента и запас на округление. Значка «выбрано» нет: выбранный
+  /// сегмент залит цветом, а скринридер говорит «выбрано».
+  static const _segmentAllowance = 4.0;
 
   double _textWidth(BuildContext context, String text, TextStyle? style) {
     final painter = TextPainter(
@@ -759,120 +709,113 @@ class _ThemeRow extends StatelessWidget {
     return width;
   }
 
-  ThemeRowLayout _layout(BuildContext context, double width) {
-    final textTheme = Theme.of(context).textTheme;
-    var buttonWidth = 0.0;
-    var widestSegment = 0.0;
-    for (final (_, label) in _options) {
+  ChoiceLayout _layout(BuildContext context, double width) {
+    final style = Theme.of(context).textTheme.labelLarge;
+    var widest = 0.0;
+    for (final (_, label, _) in options) {
       final segment =
-          _textWidth(context, label, textTheme.labelLarge) +
+          _textWidth(context, label, style) +
           2 * _segmentPadding +
           _segmentAllowance;
-      buttonWidth += segment;
-      if (segment > widestSegment) widestSegment = segment;
+      if (segment > widest) widest = segment;
     }
-    final titleWidth =
-        _leadingWidth +
-        _textWidth(context, themeSectionTitle, textTheme.bodyLarge);
-    // Запас: оценка по тексту не учитывает всего, что рисует Material, а
-    // ошибка здесь рвёт «Тема» посреди слова.
-    if (titleWidth + AppSpacing.l + buttonWidth + _besideReserve <= width) {
-      return ThemeRowLayout.beside;
-    }
-    // Во всю ширину сегменты равные: решает самый широкий.
-    return widestSegment * _options.length <= width
-        ? ThemeRowLayout.below
-        : ThemeRowLayout.stacked;
+    return widest * options.length <= width
+        ? ChoiceLayout.below
+        : ChoiceLayout.stacked;
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconTheme.merge(
-          data: IconThemeData(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          child: const _ItemIcon(Icons.palette_outlined),
-        ),
-        const SizedBox(width: AppSpacing.l),
-        Flexible(
-          child: Semantics(
-            header: true,
-            child: Text(
-              themeSectionTitle,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ),
-        ),
-      ],
-    );
+    final theme = Theme.of(context);
+    final hasDescriptions = options.any((option) => option.$3 != null);
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.l,
-        vertical: AppSpacing.s,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.l,
+        AppSpacing.m,
+        AppSpacing.l,
+        AppSpacing.s,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final layout = _layout(context, constraints.maxWidth);
-          final button = SegmentedButton<ThemeMode>(
-            key: ValueKey(layout),
-            segments: [
-              for (final (mode, label) in _options)
-                ButtonSegment(
-                  value: mode,
-                  label: Text(
-                    label,
-                    // «Тема: тёмная, выбрано»: состояние добавляет сама кнопка.
-                    semanticsLabel:
-                        '$themeSectionTitle: ${label.toLowerCase()}',
-                  ),
-                ),
-            ],
-            selected: {value},
-            showSelectedIcon: false,
-            onSelectionChanged: (selected) => onChanged(selected.single),
-            direction: layout == ThemeRowLayout.stacked
-                ? Axis.vertical
-                : Axis.horizontal,
-            // Во всю ширину — только в строку: столбик в прокручиваемом
-            // списке растянулся бы и в бесконечную высоту.
-            expandedInsets: layout == ThemeRowLayout.below
-                ? EdgeInsets.zero
-                : null,
-            style: ButtonStyle(
-              padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: _segmentPadding),
-              ),
-              // Столбиком «таблетка» раздувается в овал: скругление поля.
-              shape: layout == ThemeRowLayout.stacked
-                  ? const WidgetStatePropertyAll(
-                      RoundedRectangleBorder(borderRadius: AppRadius.borderM),
-                    )
-                  : null,
-            ),
-          );
-          if (layout == ThemeRowLayout.beside) {
-            return Row(
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: title,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.l),
-                button,
-              ],
-            );
-          }
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(alignment: AlignmentDirectional.centerStart, child: title),
+              // Заголовок, а не кнопка: значка нет, нажать нечего. Свой узел,
+              // чтобы пояснение под сегментами не склеилось с заголовком.
+              Semantics(
+                container: true,
+                header: true,
+                child: Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
               const SizedBox(height: AppSpacing.s),
-              button,
+              SegmentedButton<T>(
+                key: ValueKey((title, layout)),
+                segments: [
+                  for (final (option, label, _) in options)
+                    ButtonSegment(
+                      value: option,
+                      label: Text(
+                        label,
+                        maxLines: 1,
+                        softWrap: false,
+                        // «Тема: тёмная, выбрано»: состояние добавляет кнопка.
+                        semanticsLabel: '$title: ${label.toLowerCase()}',
+                      ),
+                    ),
+                ],
+                selected: {value},
+                showSelectedIcon: false,
+                onSelectionChanged: (selected) => onChanged(selected.single),
+                direction: layout == ChoiceLayout.stacked
+                    ? Axis.vertical
+                    : Axis.horizontal,
+                // Во всю ширину — только в строку: столбик в прокручиваемом
+                // списке растянулся бы и в бесконечную высоту.
+                expandedInsets: layout == ChoiceLayout.below
+                    ? EdgeInsets.zero
+                    : null,
+                style: ButtonStyle(
+                  padding: const WidgetStatePropertyAll(
+                    EdgeInsets.symmetric(horizontal: _segmentPadding),
+                  ),
+                  // Столбиком «таблетка» раздувается в овал: скругление поля.
+                  shape: layout == ChoiceLayout.stacked
+                      ? const WidgetStatePropertyAll(
+                          RoundedRectangleBorder(
+                            borderRadius: AppRadius.borderM,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+              if (hasDescriptions) ...[
+                const SizedBox(height: AppSpacing.s),
+                // Все пояснения лежат друг на друге, видно только выбранное:
+                // высота — по самому длинному, экран не прыгает при выборе.
+                Stack(
+                  children: [
+                    for (final (option, _, description) in options)
+                      Visibility(
+                        visible: option == value,
+                        maintainSize: true,
+                        maintainAnimation: true,
+                        maintainState: true,
+                        child: Text(
+                          description ?? '',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ],
           );
         },

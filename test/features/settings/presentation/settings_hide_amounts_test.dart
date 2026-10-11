@@ -41,7 +41,7 @@ void main() {
     expect(find.text(hideAmountsLabel), findsNothing);
   });
 
-  testWidgets('в группе «Внешний вид», последним перед «Учёт», со значком', (
+  testWidgets('в группе «Внешний вид» после «Тема», со значком', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(400, 2400);
@@ -50,8 +50,8 @@ void main() {
     await tester.pumpWidget(screen(onChanged: (_) {}));
     double top(String text) => tester.getTopLeft(find.text(text)).dy;
 
-    expect(top(hideAmountsLabel), greaterThan(top('Не показывать')));
-    expect(top(hideAmountsLabel), lessThan(top('Учёт')));
+    expect(top(hideAmountsLabel), greaterThan(top('Тёмная')));
+    expect(top(hideAmountsLabel), lessThan(top('Кольцо на «Главной»')));
     expect(
       find.descendant(
         of: find.widgetWithText(SwitchListTile, hideAmountsLabel),

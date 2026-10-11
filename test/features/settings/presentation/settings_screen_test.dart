@@ -12,6 +12,8 @@ import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
+import '../../../support/roboto_font.dart';
+
 Widget _app({
   ThemeMode mode = ThemeMode.system,
   ValueChanged<ThemeMode>? onChanged,
@@ -66,9 +68,9 @@ Widget _app({
   );
 }
 
-/// Какая тема сейчас выбрана в сегментах.
-ThemeMode _groupValue(WidgetTester tester) => tester
-    .widget<SegmentedButton<ThemeMode>>(find.byType(SegmentedButton<ThemeMode>))
+/// Какой вариант сейчас выбран в сегментах типа [T].
+T _selected<T>(WidgetTester tester) => tester
+    .widget<SegmentedButton<T>>(find.byType(SegmentedButton<T>))
     .selected
     .single;
 
@@ -106,6 +108,7 @@ void main() {
       const order = [
         'Внешний вид',
         'Тема',
+        'Кольцо на «Главной»',
         'Вторая строка в кольце',
         'Учёт',
         'Категории',
@@ -131,7 +134,13 @@ void main() {
     ) async {
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(_app());
-      for (final title in ['Внешний вид', 'Учёт', 'Данные', 'Сброс']) {
+      for (final title in [
+        'Внешний вид',
+        'Кольцо на «Главной»',
+        'Учёт',
+        'Данные',
+        'Сброс',
+      ]) {
         expect(
           tester.getSemantics(find.text(title)).flagsCollection.isHeader,
           isTrue,
@@ -148,8 +157,6 @@ void main() {
     testWidgets('у пунктов значки, скрытые от скринридера', (tester) async {
       await tester.pumpWidget(_app());
       for (final icon in [
-        Icons.palette_outlined,
-        Icons.donut_large,
         Icons.category_outlined,
         Icons.payments_outlined,
         Icons.file_upload_outlined,
@@ -166,28 +173,42 @@ void main() {
       }
     });
 
-    testWidgets('варианты «Вторая строка в кольце» на общих линиях', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_app());
-      final titleLine = tester.getTopLeft(find.text('Категории')).dx;
-      for (final label in ['За всё время', 'На счетах', 'Не показывать']) {
-        expect(
-          tester.getTopLeft(find.text(label)).dx,
-          moreOrLessEquals(titleLine, epsilon: 0.5),
-          reason: label,
-        );
-      }
-      final iconCenter = tester
-          .getCenter(find.byIcon(Icons.category_outlined))
-          .dx;
-      for (final radio in find.byType(Radio<HomeBalanceLine>).evaluate()) {
-        expect(
-          tester.getCenter(find.byElementPredicate((e) => e == radio)).dx,
-          moreOrLessEquals(iconCenter, epsilon: 0.5),
-        );
-      }
-    });
+    testWidgets(
+      '«Тема» и «Вторая строка в кольце» выглядят одинаково (7.30e)',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        await tester.pumpWidget(_app());
+        // Значков у заголовков выбора нет: значок — только у пунктов-переходов.
+        expect(find.byIcon(Icons.palette_outlined), findsNothing);
+        expect(find.byIcon(Icons.donut_large), findsNothing);
+        expect(find.byType(Radio<HomeBalanceLine>), findsNothing);
+        final themeButton = find.byType(SegmentedButton<ThemeMode>);
+        final ringButton = find.byType(SegmentedButton<HomeBalanceLine>);
+        for (final (title, button) in [
+          ('Тема', themeButton),
+          ('Вторая строка в кольце', ringButton),
+        ]) {
+          final text = tester.widget<Text>(find.text(title));
+          final context = tester.element(find.text(title));
+          final theme = Theme.of(context);
+          expect(text.style?.fontSize, theme.textTheme.labelLarge?.fontSize);
+          expect(text.style?.color, theme.colorScheme.onSurfaceVariant);
+          expect(tester.getTopLeft(find.text(title)).dx, 16, reason: title);
+          // Заголовок, а не кнопка.
+          final flags = tester.getSemantics(find.text(title)).flagsCollection;
+          expect(flags.isHeader, isTrue, reason: title);
+          expect(flags.isButton, isFalse, reason: title);
+          // Сегменты под заголовком во всю ширину (800 - 2 × 16).
+          expect(
+            tester.getTopLeft(button).dy,
+            greaterThan(tester.getBottomLeft(find.text(title)).dy),
+          );
+          expect(tester.getTopLeft(button).dx, 16, reason: title);
+          expect(tester.getSize(button).width, 768, reason: title);
+        }
+        semantics.dispose();
+      },
+    );
 
     testWidgets('«Очистить всё»: значок цвета ошибки', (tester) async {
       await tester.pumpWidget(_app());
@@ -251,7 +272,7 @@ void main() {
     await tester.pumpWidget(_app(mode: ThemeMode.dark));
 
     expect(find.text('Тема'), findsOneWidget);
-    expect(_groupValue(tester), ThemeMode.dark);
+    expect(_selected<ThemeMode>(tester), ThemeMode.dark);
   });
 
   for (final (label, mode) in [
@@ -272,23 +293,77 @@ void main() {
     });
   }
 
-  group('тема в одну строку (В10)', () {
-    Finder layoutKey(ThemeRowLayout layout) => find.byKey(ValueKey(layout));
+  group('сегменты в строку или столбиком (7.30e)', () {
+    Finder layoutKey(String title, ChoiceLayout layout) =>
+        find.byKey(ValueKey((title, layout)));
 
-    testWidgets('широкий экран: сегменты рядом с «Тема», в одну строку', (
+    const themeLabels = ['Системная', 'Светлая', 'Тёмная'];
+    const ringLabels = ['За всё время', 'На счетах', 'Не показывать'];
+
+    /// Абзац [label] занимает одну строку: высота как у того же текста
+    /// без ограничения ширины.
+    void expectOneLine(WidgetTester tester, String label) {
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: find.text(label), matching: find.byType(RichText)),
+      );
+      final oneLine = TextPainter(
+        text: paragraph.text,
+        textDirection: TextDirection.ltr,
+        textScaler: paragraph.textScaler,
+      )..layout();
+      expect(
+        paragraph.size.height,
+        moreOrLessEquals(oneLine.height, epsilon: 0.5),
+        reason: '$label в одну строку',
+      );
+      expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+      oneLine.dispose();
+    }
+
+    testWidgets('широкий экран: обе строки сегментов во всю ширину', (
       tester,
     ) async {
       await tester.pumpWidget(_app());
-      expect(layoutKey(ThemeRowLayout.beside), findsOneWidget);
-      final title = tester.getCenter(find.text('Тема')).dy;
-      for (final label in ['Системная', 'Светлая', 'Тёмная']) {
-        expect(
-          tester.getCenter(find.text(label)).dy,
-          moreOrLessEquals(title, epsilon: 1),
-          reason: label,
-        );
+      expect(layoutKey('Тема', ChoiceLayout.below), findsOneWidget);
+      expect(
+        layoutKey('Вторая строка в кольце', ChoiceLayout.below),
+        findsOneWidget,
+      );
+      for (final labels in [themeLabels, ringLabels]) {
+        final line = tester.getCenter(find.text(labels.first)).dy;
+        for (final label in labels) {
+          expect(
+            tester.getCenter(find.text(label)).dy,
+            moreOrLessEquals(line, epsilon: 1),
+            reason: label,
+          );
+        }
       }
     });
+
+    testWidgets(
+      '393 dp, Roboto, 100 %: «Не показывать» в строку, не столбиком',
+      (tester) async {
+        if (!await loadRoboto()) {
+          markTestSkipped('нет шрифтов Material в Flutter SDK');
+          return;
+        }
+        tester.view.physicalSize = const Size(393, 2400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(_app());
+
+        expect(tester.takeException(), isNull);
+        expect(layoutKey('Тема', ChoiceLayout.below), findsOneWidget);
+        expect(
+          layoutKey('Вторая строка в кольце', ChoiceLayout.below),
+          findsOneWidget,
+        );
+        for (final label in [...themeLabels, ...ringLabels]) {
+          expectOneLine(tester, label);
+        }
+      },
+    );
 
     for (final width in [320.0, 360.0, 412.0]) {
       for (final scale in [1.0, 1.3, 2.0]) {
@@ -301,43 +376,42 @@ void main() {
           await tester.pumpWidget(_app(textScale: scale));
 
           expect(tester.takeException(), isNull);
-          final button = find.byType(SegmentedButton<ThemeMode>);
-          expect(tester.getTopRight(button).dx, lessThanOrEqualTo(width - 16));
-          expect(tester.getTopLeft(button).dx, greaterThanOrEqualTo(16));
-          // Подписи целиком, без переноса посреди слова: высота абзаца
-          // равна высоте того же текста в одну строку.
-          for (final label in ['Тема', 'Системная', 'Светлая', 'Тёмная']) {
-            final paragraph = tester.renderObject<RenderParagraph>(
-              find.descendant(
-                of: find.text(label),
-                matching: find.byType(RichText),
-              ),
-            );
-            final oneLine = TextPainter(
-              text: paragraph.text,
-              textDirection: TextDirection.ltr,
-              textScaler: paragraph.textScaler,
-            )..layout();
+          for (final button in [
+            find.byType(SegmentedButton<ThemeMode>),
+            find.byType(SegmentedButton<HomeBalanceLine>),
+          ]) {
             expect(
-              paragraph.size.height,
-              moreOrLessEquals(oneLine.height, epsilon: 0.5),
-              reason: '$label в одну строку',
+              tester.getTopRight(button).dx,
+              lessThanOrEqualTo(width - 16),
             );
-            oneLine.dispose();
+            expect(tester.getTopLeft(button).dx, greaterThanOrEqualTo(16));
+          }
+          // Подписи сегментов целиком, без переноса посреди слова.
+          for (final label in [...themeLabels, ...ringLabels]) {
+            expectOneLine(tester, label);
           }
         });
       }
     }
 
-    testWidgets('крупный шрифт на узком экране: под заголовком', (
-      tester,
-    ) async {
+    testWidgets('360 dp, 200 %: столбиком, без переполнения', (tester) async {
       tester.view.physicalSize = const Size(360, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(_app(textScale: 2));
 
-      expect(layoutKey(ThemeRowLayout.beside), findsNothing);
+      expect(tester.takeException(), isNull);
+      expect(
+        layoutKey('Вторая строка в кольце', ChoiceLayout.stacked),
+        findsOneWidget,
+      );
+      // Столбиком: каждый следующий вариант ниже предыдущего.
+      for (var i = 1; i < ringLabels.length; i++) {
+        expect(
+          tester.getTopLeft(find.text(ringLabels[i])).dy,
+          greaterThan(tester.getBottomLeft(find.text(ringLabels[i - 1])).dy),
+        );
+      }
       expect(
         tester.getTopLeft(find.text('Системная')).dy,
         greaterThan(tester.getBottomLeft(find.text('Тема')).dy),
@@ -350,11 +424,17 @@ void main() {
       tester.view.physicalSize = const Size(320, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
-      final calls = <ThemeMode>[];
-      await tester.pumpWidget(_app(textScale: 2, onChanged: calls.add));
+      final themes = <ThemeMode>[];
+      final lines = <HomeBalanceLine>[];
+      await tester.pumpWidget(
+        _app(textScale: 2, onChanged: themes.add, onBalanceLine: lines.add),
+      );
 
       await tester.tap(find.text('Тёмная'));
-      expect(calls, [ThemeMode.dark]);
+      await tester.ensureVisible(find.text('Не показывать'));
+      await tester.tap(find.text('Не показывать'));
+      expect(themes, [ThemeMode.dark]);
+      expect(lines, [HomeBalanceLine.none]);
     });
   });
 
@@ -366,18 +446,83 @@ void main() {
 
       expect(find.text('Вторая строка в кольце'), findsOneWidget);
       expect(find.text('За всё время'), findsOneWidget);
-      expect(find.text('Все доходы минус все расходы'), findsOneWidget);
       expect(find.text('На счетах'), findsOneWidget);
-      expect(find.text('Счета в основной валюте'), findsOneWidget);
       expect(find.text('Не показывать'), findsOneWidget);
-      expect(
-        tester
-            .widget<RadioGroup<HomeBalanceLine>>(
-              find.byType(RadioGroup<HomeBalanceLine>),
-            )
-            .groupValue,
-        HomeBalanceLine.accounts,
+      expect(_selected<HomeBalanceLine>(tester), HomeBalanceLine.accounts);
+    });
+
+    /// Видимое пояснение под сегментами.
+    String? visibleDescription(WidgetTester tester) {
+      final visible = tester
+          .widgetList<Visibility>(find.byType(Visibility))
+          .where((v) => v.visible && v.child is Text)
+          .map((v) => (v.child as Text).data)
+          .toList();
+      expect(visible, hasLength(1));
+      return visible.single;
+    }
+
+    for (final (line, description) in [
+      (HomeBalanceLine.allTime, 'Все доходы минус все расходы'),
+      (HomeBalanceLine.accounts, 'Счета в основной валюте'),
+      (HomeBalanceLine.none, ''),
+    ]) {
+      testWidgets('$line: пояснение «$description»', (tester) async {
+        await tester.pumpWidget(_app(balanceLine: line));
+        expect(visibleDescription(tester), description);
+      });
+    }
+
+    testWidgets('пояснение меняется на месте: экран не прыгает', (
+      tester,
+    ) async {
+      var line = HomeBalanceLine.allTime;
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return _app(balanceLine: line);
+          },
+        ),
       );
+      final below = tester.getTopLeft(find.text('Учёт')).dy;
+      for (final next in [HomeBalanceLine.accounts, HomeBalanceLine.none]) {
+        rebuild(() => line = next);
+        await tester.pump();
+        expect(
+          visibleDescription(tester),
+          isNot('Все доходы минус все расходы'),
+        );
+        expect(tester.getTopLeft(find.text('Учёт')).dy, below, reason: '$next');
+      }
+    });
+
+    testWidgets('скринридер: «Вторая строка в кольце: на счетах», выбрано', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_app(balanceLine: HomeBalanceLine.accounts));
+      final accounts = tester.getSemantics(
+        find.bySemanticsLabel('Вторая строка в кольце: на счетах'),
+      );
+      final flags = accounts.getSemanticsData().flagsCollection;
+      expect(flags.isSelected.name, 'isTrue');
+      expect(flags.isButton, isTrue);
+      final none = tester.getSemantics(
+        find.bySemanticsLabel('Вторая строка в кольце: не показывать'),
+      );
+      expect(
+        none.getSemanticsData().flagsCollection.isSelected.name,
+        'isFalse',
+      );
+      // Скрытые пояснения скринридер не читает.
+      expect(
+        find.bySemanticsLabel('Все доходы минус все расходы'),
+        findsNothing,
+      );
+      expect(find.bySemanticsLabel('Счета в основной валюте'), findsOneWidget);
+      semantics.dispose();
     });
 
     for (final (label, line) in [
@@ -822,8 +967,11 @@ void main() {
     expect(tester.takeException(), isNull);
     final tiles = {
       'Тема': find.byType(SegmentedButton<ThemeMode>),
-      for (final label in ['За всё время', 'На счетах', 'Не показывать'])
-        label: find.widgetWithText(RadioListTile<HomeBalanceLine>, label),
+      'Вторая строка в кольце': find.byType(SegmentedButton<HomeBalanceLine>),
+      for (final label in ['Системная', 'За всё время', 'Не показывать'])
+        label: find
+            .ancestor(of: find.text(label), matching: find.byType(TextButton))
+            .first,
       'Категории': find.widgetWithText(ListTile, 'Категории'),
     };
     for (final MapEntry(key: label, value: tile) in tiles.entries) {
