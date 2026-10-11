@@ -234,7 +234,7 @@ void main() {
         categories: [_food, cafe],
       );
 
-      expect(find.text('Частота и средний чек'), findsOneWidget);
+      expect(find.text('Частота и средний чек расходов'), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(OperationsSection.mostFrequentKey)).data,
         'Чаще всего — Продукты (2 операции)',
@@ -267,6 +267,42 @@ void main() {
       ], type: TransactionType.income);
       expect(find.byKey(OperationsSection.frequencyKey), findsOneWidget);
       expect(find.textContaining('(1 операция)'), findsOneWidget);
+    });
+
+    testWidgets('заголовок называет тип, он же читается как заголовок', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, [
+        _tx('i', 1000, type: TransactionType.income),
+      ], type: TransactionType.income);
+      expect(find.text('Частота и средний чек доходов'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.text('Частота и средний чек доходов')).label,
+        startsWith('Частота и средний чек доходов'),
+      );
+      handle.dispose();
+    });
+
+    testWidgets('все суммы нулевые: второй карточки нет', (tester) async {
+      await _pump(tester, [_tx('a', 0), _tx('b', 0)]);
+      expect(find.byKey(OperationsSection.listKey), findsNothing);
+      expect(find.byKey(OperationsSection.frequencyKey), findsNothing);
+    });
+
+    testWidgets('«Без категории» не бывает «Чаще всего» при известной', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _tx('a', 1000, category: 'gone'),
+        _tx('b', 1000, category: 'gone'),
+        _tx('c', 500),
+      ]);
+      expect(
+        tester.widget<Text>(find.byKey(OperationsSection.mostFrequentKey)).data,
+        'Чаще всего — Продукты (1 операция)',
+      );
+      expect(find.byKey(OperationsSection.statKey('gone')), findsOneWidget);
     });
 
     testWidgets('озвучка строки одним узлом', (tester) async {

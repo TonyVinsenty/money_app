@@ -68,7 +68,13 @@ class OperationsSection extends StatelessWidget {
     final onTypeSelected = this.onTypeSelected;
     final onOpen = onOpenTransaction;
     final stats = categoryStats(transactions, range, type, currency: currency);
-    final best = mostFrequentCategory(stats);
+    // Категория, которой нет в справочнике («Без категории»), не становится
+    // «Чаще всего», если есть хоть одна известная.
+    final known = [
+      for (final s in stats)
+        if (byId.containsKey(s.categoryId)) s,
+    ];
+    final best = mostFrequentCategory(known.isEmpty ? stats : known);
     final onOpenCategory = this.onOpenCategory;
 
     final topCard = Card.outlined(
@@ -142,7 +148,8 @@ class OperationsSection extends StatelessWidget {
         ),
       ),
     );
-    if (best == null) return topCard;
+    // Нет «крупных» (все суммы нулевые) - второй карточки нет.
+    if (best == null || top.isEmpty) return topCard;
 
     VoidCallback? openOf(String id) =>
         onOpenCategory == null || byId[id] == null
@@ -169,7 +176,7 @@ class OperationsSection extends StatelessWidget {
                 Semantics(
                   header: true,
                   child: Text(
-                    operationsFrequencyTitle,
+                    operationsFrequencyTitle(type),
                     style: theme.textTheme.titleLarge,
                   ),
                 ),

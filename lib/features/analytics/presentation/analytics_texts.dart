@@ -195,8 +195,10 @@ String comparisonNothingText(TransactionType type) =>
 String operationsTopTitle(TransactionType type) =>
     type == TransactionType.expense ? 'Крупные расходы' : 'Крупные доходы';
 
-/// Т5. Заголовок второй карточки «Операций».
-const String operationsFrequencyTitle = 'Частота и средний чек';
+/// Т5. Заголовок второй карточки «Операций»: «Частота и средний чек расходов».
+String operationsFrequencyTitle(TransactionType type) =>
+    'Частота и средний чек '
+    '${type == TransactionType.expense ? 'расходов' : 'доходов'}';
 
 final String _emDash = String.fromCharCode(0x2014);
 

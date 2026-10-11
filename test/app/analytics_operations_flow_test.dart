@@ -12,6 +12,7 @@ import 'package:money_app/app/open_and_seed_database.dart';
 import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/presentation/operations_section.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -132,6 +133,43 @@ void main() {
     expect(find.byType(EditTransactionScreen), findsNothing);
     expect(find.byKey(OperationsSection.rowKey('big')), findsNothing);
     expect(find.byKey(OperationsSection.rowKey('small')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('правка суммы меняет порядок в «Крупных»', (tester) async {
+    await _pumpApp(tester);
+
+    await tester.tap(find.byKey(OperationsSection.rowKey('small')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AmountField),
+        matching: find.byType(TextField),
+      ),
+      '50000',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Сохранить'));
+    await tester.pumpAndSettle();
+
+    final big = find.byKey(OperationsSection.rowKey('big'));
+    final small = find.byKey(OperationsSection.rowKey('small'));
+    expect(small, findsOneWidget);
+    expect(tester.getTopLeft(small).dy, lessThan(tester.getTopLeft(big).dy));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('«Отменить» после удаления возвращает строку', (tester) async {
+    await _pumpApp(tester);
+
+    await tester.tap(find.byKey(OperationsSection.rowKey('big')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.delete_outline));
+    await tester.pumpAndSettle();
+    expect(find.byKey(OperationsSection.rowKey('big')), findsNothing);
+
+    await tester.tap(find.text('Отменить'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(OperationsSection.rowKey('big')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }

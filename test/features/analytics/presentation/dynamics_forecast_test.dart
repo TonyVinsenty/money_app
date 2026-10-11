@@ -94,12 +94,26 @@ void main() {
     expect(find.byKey(DynamicsSection.forecastKey), findsNothing);
   });
 
-  testWidgets('7-е число: прогноз 14 000 * 31 / 7 = 62 000', (tester) async {
+  testWidgets('7-е число: прогноз 14 000 + 2 800 * 24 = 81 200', (
+    tester,
+  ) async {
     await _pump(tester, today: DateOnly(2026, 10, 7));
     expect(
       _forecast(tester),
-      'Если тратить так же, к 31 октября будет ≈ 62${_nbsp}000,00$_nbsp₽',
+      'Если тратить так же, к 31 октября будет ≈ 81${_nbsp}200,00$_nbsp₽',
     );
+  });
+
+  testWidgets('среднее и прогноз согласованы (оба с первой операции)', (
+    tester,
+  ) async {
+    await _pump(tester, today: DateOnly(2026, 10, 7));
+    // 14 000 за 5 дней (с 3-го по 7-е) -> 2 800 в день на экране.
+    expect(
+      tester.widget<Text>(find.byKey(DynamicsSection.infoKey)).data,
+      'В среднем 2${_nbsp}800,00$_nbsp₽ в день',
+    );
+    expect(_forecast(tester), contains('81${_nbsp}200,00'));
   });
 
   testWidgets('прошлый месяц: строки нет', (tester) async {
@@ -137,7 +151,7 @@ void main() {
     await _pump(tester, today: DateOnly(2026, 10, 7), categoryId: 'cafe');
     expect(
       _forecast(tester),
-      'Если тратить так же, к 31 октября будет ≈ 31${_nbsp}000,00$_nbsp₽',
+      'Если тратить так же, к 31 октября будет ≈ 40${_nbsp}600,00$_nbsp₽',
     );
   });
 
@@ -167,7 +181,7 @@ void main() {
     await _pump(tester, today: DateOnly(2026, 10, 7));
     expect(
       find.bySemanticsLabel(
-        'Если тратить так же, к 31 октября будет примерно 62000 рублей',
+        'Если тратить так же, к 31 октября будет примерно 81200 рублей',
       ),
       findsOneWidget,
     );
