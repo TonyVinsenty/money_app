@@ -924,7 +924,8 @@ class _FilteredTotal extends StatelessWidget {
     return DateRange(first, last);
   }
 
-  static String _spoken(Money money) => spokenMoney(money);
+  static String _spoken(Money money, {bool hidden = false}) =>
+      hidden ? hiddenAmountLabel : spokenMoney(money);
 
   @override
   Widget build(BuildContext context) {
@@ -943,8 +944,11 @@ class _FilteredTotal extends StatelessWidget {
     final mixed = summary.expenseCount > 0 && summary.incomeCount > 0;
     final onlyIncome = summary.expenseCount == 0;
 
-    final expense = '$_minusSign${formatMoney(summary.expense)}';
-    final income = '+${formatMoney(summary.income)}';
+    final hidden = AmountsVisibility.hiddenOf(context);
+    final expense = hidden
+        ? maskedMoneyText
+        : '$_minusSign${formatMoney(summary.expense)}';
+    final income = hidden ? maskedMoneyText : '+${formatMoney(summary.income)}';
     final spans = <InlineSpan>[TextSpan(text: '$count $word')];
     final spoken = StringBuffer('$count $word');
     void add(String prefix, String text, Color color) {
@@ -962,14 +966,22 @@ class _FilteredTotal extends StatelessWidget {
       add('расходы ', expense, colors.expense);
       add('доходы ', income, colors.income);
       spoken
-        ..write(', расходы минус ${_spoken(summary.expense)}')
-        ..write(', доходы плюс ${_spoken(summary.income)}');
+        ..write(
+          ', расходы ${hidden ? '' : 'минус '}${_spoken(summary.expense, hidden: hidden)}',
+        )
+        ..write(
+          ', доходы ${hidden ? '' : 'плюс '}${_spoken(summary.income, hidden: hidden)}',
+        );
     } else if (onlyIncome) {
       add('', income, colors.income);
-      spoken.write(', плюс ${_spoken(summary.income)}');
+      spoken.write(
+        ', ${hidden ? '' : 'плюс '}${_spoken(summary.income, hidden: hidden)}',
+      );
     } else {
       add('', expense, colors.expense);
-      spoken.write(', минус ${_spoken(summary.expense)}');
+      spoken.write(
+        ', ${hidden ? '' : 'минус '}${_spoken(summary.expense, hidden: hidden)}',
+      );
     }
 
     return Semantics(

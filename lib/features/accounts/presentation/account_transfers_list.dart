@@ -3,6 +3,7 @@ import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
@@ -53,6 +54,7 @@ class AccountTransfersList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hidden = AmountsVisibility.hiddenOf(context);
     return StreamBuilder<List<Transfer>>(
       stream: transfers,
       builder: (context, snapshot) {
@@ -91,6 +93,7 @@ class AccountTransfersList extends StatelessWidget {
                 currency,
                 _spokenDay(t.occurredOn),
                 note: t.note,
+                hidden: hidden,
               ),
               button: true,
               excludeSemantics: true,
@@ -110,7 +113,7 @@ class AccountTransfersList extends StatelessWidget {
                   ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
+                    child: MaskedAmount(
                       transferRowAmount(outgoing, t.amount, currency),
                       style: theme.textTheme.bodyLarge?.copyWith(
                         fontFeatures: const [FontFeature.tabularFigures()],

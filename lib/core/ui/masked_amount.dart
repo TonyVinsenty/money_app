@@ -50,8 +50,12 @@ class MaskedAmount extends StatelessWidget {
     this.maxLines,
     this.softWrap,
     this.overflow,
+    this.textKey,
     super.key,
   });
+
+  /// Ключ внутреннего [Text], когда сумма видна (на него опираются тесты).
+  final Key? textKey;
 
   /// Передаются в [Text], когда сумма видна.
   final int? maxLines;
@@ -73,6 +77,7 @@ class MaskedAmount extends StatelessWidget {
     if (!AmountsVisibility.hiddenOf(context)) {
       return Text(
         text,
+        key: textKey,
         style: style,
         textAlign: textAlign,
         semanticsLabel: semanticsLabel,

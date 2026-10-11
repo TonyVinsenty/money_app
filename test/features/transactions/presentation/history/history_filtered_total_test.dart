@@ -5,6 +5,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
@@ -57,6 +58,7 @@ Future<void> _pump(
   WidgetTester tester,
   HistoryFilter filter, {
   double textScale = 1,
+  bool hidden = false,
 }) async {
   tester.view.physicalSize = const Size(360, 800);
   tester.view.devicePixelRatio = 1;
@@ -64,10 +66,13 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.light(),
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context)
-            .copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
+      builder: (context, child) => AmountsVisibility(
+        hidden: hidden,
+        child: MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
       ),
       home: Scaffold(
         body: HistoryScreen(
@@ -164,6 +169,24 @@ void main() {
         '3 операции, расходы минус 18420 рублей 50 копеек, '
         'доходы плюс 5000 рублей',
       ),
+      findsOneWidget,
+    );
+    handle.dispose();
+  });
+
+  testWidgets('суммы скрыты: итог показывает точки, озвучка без суммы', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _pump(
+      tester,
+      HistoryFilter.expenseCategories({'food'}),
+      hidden: true,
+    );
+    final dot = String.fromCharCode(0xb7);
+    expect(_rich('2 операции $dot $maskedMoneyText'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('2 операции, $hiddenAmountLabel'),
       findsOneWidget,
     );
     handle.dispose();

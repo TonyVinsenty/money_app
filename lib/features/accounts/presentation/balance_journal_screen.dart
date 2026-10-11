@@ -6,6 +6,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/balance_journal.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
@@ -200,6 +201,7 @@ class _JournalList extends StatelessWidget {
           _currency(transfer),
           day,
           note: transfer.note,
+          hidden: AmountsVisibility.hiddenOf(context),
         ),
         onOpenTransfer == null ? null : () => onOpenTransfer!(transfer),
       ),
@@ -231,7 +233,7 @@ class _JournalList extends StatelessWidget {
                 ),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
+                  child: MaskedAmount(
                     formatMoney(transfer.amount, currency: _currency(transfer)),
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontFeatures: const [FontFeature.tabularFigures()],

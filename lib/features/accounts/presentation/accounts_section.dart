@@ -4,6 +4,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/section_card.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -451,11 +452,11 @@ class _Totals extends StatelessWidget {
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text(
+          child: MaskedAmount(
             text,
             // Первая строка (основная валюта) - прежний ключ, остальные - по
             // коду.
-            key: index == 0
+            textKey: index == 0
                 ? AccountsSection.totalKey
                 : ValueKey('accounts-total-${total.currency}'),
             style: theme.textTheme.titleLarge?.copyWith(color: color),
@@ -465,7 +466,10 @@ class _Totals extends StatelessWidget {
     }
     return Semantics(
       container: true,
-      label: accountsTotalSemantics(totals),
+      label: accountsTotalSemantics(
+        totals,
+        hidden: AmountsVisibility.hiddenOf(context),
+      ),
       excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -507,6 +511,7 @@ class _AccountRow extends StatelessWidget {
         balance,
         account.currencyInfo,
         isDefault: isDefault,
+        hidden: AmountsVisibility.hiddenOf(context),
       ),
       button: true,
       onTap: onTap,
@@ -550,7 +555,7 @@ class _AccountRow extends StatelessWidget {
                   ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
+                    child: MaskedAmount(
                       formatMoney(balance, currency: account.currencyInfo),
                       softWrap: false,
                       textAlign: TextAlign.end,

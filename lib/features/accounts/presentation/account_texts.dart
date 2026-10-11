@@ -4,6 +4,7 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 
 // Тексты раздела «Счета» (утверждены).
@@ -86,9 +87,13 @@ const String accountDefaultHint =
 
 String accountArchiveDialogTitle(String name) => 'Отправить «$name» в архив?';
 
-String accountArchiveDialogText(Money balance, CurrencyInfo currency) =>
-    'На счёте ${formatMoney(balance, currency: currency)}. Счёт в архиве не входит во «Всего на '
-    'счетах». Операции счёта сохранятся';
+String accountArchiveDialogText(
+  Money balance,
+  CurrencyInfo currency, {
+  bool hidden = false,
+}) =>
+    'На счёте ${hidden ? maskedMoneyText : formatMoney(balance, currency: currency)}. '
+    'Счёт в архиве не входит во «Всего на счетах». Операции счёта сохранятся';
 
 String accountArchivedMessage(String name) => 'Счёт «$name» в архиве';
 
@@ -123,22 +128,31 @@ String accountRowSemantics(
   Money balance,
   CurrencyInfo currency, {
   bool isDefault = false,
+  bool hidden = false,
 }) =>
     '$name, ${isDefault ? 'основной, ' : ''}'
-    'остаток ${spokenMoney(balance, currency: currency)}';
+    'остаток ${hidden ? hiddenAmountLabel : spokenMoney(balance, currency: currency)}';
 
 /// Одна сумма «Всего» для скринридера; для плюса приставку ставим тут, как в
 /// центре кольца «Главной».
-String accountsTotalSpoken(Money total, CurrencyInfo currency) {
+String accountsTotalSpoken(
+  Money total,
+  CurrencyInfo currency, {
+  bool hidden = false,
+}) {
+  if (hidden) return hiddenAmountLabel;
   final spoken = spokenMoney(total, currency: currency);
   return total.isNegative || total.isZero ? spoken : 'плюс $spoken';
 }
 
 /// «Всего на счетах» для скринридера, по валютам через запятую:
 /// «Всего на счетах: плюс 12000 рублей, плюс 150 долларов».
-String accountsTotalSemantics(List<(Money, CurrencyInfo)> totals) =>
+String accountsTotalSemantics(
+  List<(Money, CurrencyInfo)> totals, {
+  bool hidden = false,
+}) =>
     '$accountsTotalLabel: '
-    '${totals.map((t) => accountsTotalSpoken(t.$1, t.$2)).join(', ')}';
+    '${totals.map((t) => accountsTotalSpoken(t.$1, t.$2, hidden: hidden)).join(', ')}';
 
 // Диалог «Своя валюта» (тексты утверждены).
 const String customCurrencyTitle = 'Своя валюта';
@@ -215,8 +229,14 @@ String transferRowTitle(bool outgoing, String partner) =>
     '${outgoing ? '→' : '←'} ${partner.isEmpty ? transferUnknownPartner : partner}';
 
 /// Сумма справа: со знаком минус для исходящего и плюс для входящего.
-String transferRowAmount(bool outgoing, Money amount, CurrencyInfo currency) =>
-    outgoing
+String transferRowAmount(
+  bool outgoing,
+  Money amount,
+  CurrencyInfo currency, {
+  bool hidden = false,
+}) => hidden
+    ? maskedMoneyText
+    : outgoing
     ? formatMoney(-amount, currency: currency)
     : '+${formatMoney(amount, currency: currency)}';
 
@@ -230,9 +250,13 @@ String transferRowSpoken(
   CurrencyInfo currency,
   String day, {
   String? note,
+  bool hidden = false,
 }) {
   final name = partner.isEmpty ? transferUnknownPartner : partner;
-  final head = outgoing
+  final head = hidden
+      ? '${outgoing ? 'Перевод на счёт' : 'Перевод со счёта'} $name, '
+            '$hiddenAmountLabel'
+      : outgoing
       ? 'Перевод на счёт $name, ${spokenMoney(-amount, currency: currency)}'
       : 'Перевод со счёта $name, плюс ${spokenMoney(amount, currency: currency)}';
   return '$head, $day${note == null ? '' : ', комментарий: $note'}';
@@ -276,7 +300,8 @@ String journalTransferSpoken(
   CurrencyInfo currency,
   String day, {
   String? note,
+  bool hidden = false,
 }) =>
     'Перевод со счёта $from на счёт $to, '
-    '${spokenMoney(amount, currency: currency)}, $day'
+    '${hidden ? hiddenAmountLabel : spokenMoney(amount, currency: currency)}, $day'
     '${note == null ? '' : ', комментарий: $note'}';

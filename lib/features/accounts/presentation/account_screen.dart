@@ -7,6 +7,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -213,7 +214,11 @@ class _AccountScreenState extends State<AccountScreen> {
         builder: (context) => AlertDialog(
           title: Text(accountArchiveDialogTitle(account.name)),
           content: Text(
-            accountArchiveDialogText(balance, account.currencyInfo),
+            accountArchiveDialogText(
+              balance,
+              account.currencyInfo,
+              hidden: AmountsVisibility.hiddenOf(context),
+            ),
           ),
           scrollable: true,
           actions: [
@@ -355,11 +360,12 @@ class _AccountScreenState extends State<AccountScreen> {
             balance,
             account.currencyInfo,
             isDefault: isDefault,
+            hidden: AmountsVisibility.hiddenOf(context),
           ),
           excludeSemantics: true,
-          child: Text(
+          child: MaskedAmount(
             formatMoney(balance, currency: account.currencyInfo),
-            key: AccountScreen.balanceKey,
+            textKey: AccountScreen.balanceKey,
             style: theme.textTheme.headlineMedium?.copyWith(
               color: balance.isNegative ? context.appColors.expense : null,
             ),
