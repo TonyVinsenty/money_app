@@ -121,7 +121,7 @@ void main() {
     expect(find.text('Тренажёрка'), findsOneWidget);
 
     // Переименование.
-    await tester.tap(find.byTooltip(categoriesRenameLabel('Тренажёрка')));
+    await tester.tap(find.text('Тренажёрка'));
     await tester.pumpAndSettle();
     expect(find.text(categoryFormEditTitle), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Бассейн');
@@ -153,8 +153,11 @@ void main() {
       final gesture = await tester.startGesture(tester.getCenter(handle));
       await gesture.moveBy(const Offset(0, 20));
       await tester.pump();
-      await gesture.moveBy(const Offset(0, 40));
-      await tester.pump();
+      // Остаток пути мелкими шагами, как палец: список пересчитывает вставку.
+      for (var i = 0; i < 5; i++) {
+        await gesture.moveBy(const Offset(0, 11));
+        await tester.pump();
+      }
       await gesture.up();
       await tester.pumpAndSettle();
       await _waitForDatabase(tester);
@@ -213,16 +216,10 @@ void main() {
       await tester.tap(find.text(categoriesScreenTitle));
       await tester.pumpAndSettle();
       expect(find.text('Кафе'), findsOneWidget);
-      await tester.tap(
-        find
-            .descendant(
-              of: find.byKey(ValueKey<String>(cafe)),
-              matching: find.byType(TextButton),
-            )
-            // Первая текстовая кнопка строки — «В архив»; вторая —
-            // «Подкатегории».
-            .first,
-      );
+      // «В архив» лежит в меню «⋮» строки.
+      await tester.tap(find.byTooltip(categoriesMoreLabel('Кафе')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(categoriesArchiveAction));
       await tester.pumpAndSettle();
       expect(find.text('Кафе'), findsNothing);
       // Раздел архива внизу длинного списка: до него нужно прокрутить.

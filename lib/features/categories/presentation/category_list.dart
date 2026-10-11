@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 
@@ -19,11 +19,8 @@ const categoriesUndoAction = 'Вернуть';
 /// скопировано: фича не импортирует чужой `presentation` (ADR 0002).
 const categoriesArchivedDuration = Duration(seconds: 6);
 
-/// Подпись кнопки-карандаша у строки: имя нужно скринридеру и подсказке.
-String categoriesRenameLabel(String name) => 'Изменить: $name';
-
-/// Подпись кнопки перехода к подкатегориям (и подсказка к ней).
-String categoriesSubcategoriesLabel(String name) => 'Подкатегории: $name';
+/// Подпись меню «⋮» у строки: имя нужно скринридеру и подсказке.
+String categoriesMoreLabel(String name) => 'Действия: $name';
 
 /// Строка под названием категории, у которой есть подкатегории.
 String categoriesSubcategoryCount(int count) => 'Подкатегорий: $count';
@@ -37,7 +34,6 @@ String categoriesMovedAnnouncement(String name, int position, int total) =>
 
 /// Подпись кнопки для скринридера: к слову-действию добавляется имя, иначе
 /// все кнопки в списке звучат одинаково.
-String categoriesArchiveLabel(String name) => '$categoriesArchiveAction: $name';
 String categoriesRestoreLabel(String name) => '$categoriesRestoreAction: $name';
 
 /// Список живых категорий (их можно переставлять) и свёрнутый раздел архива
@@ -231,9 +227,6 @@ class _CategoryListState extends State<CategoryList> {
                   _CategoryRow(
                     key: ValueKey<String>(c.id),
                     category: c,
-                    actionText: categoriesRestoreAction,
-                    actionIcon: Icons.unarchive_outlined,
-                    actionLabel: categoriesRestoreLabel(c.name),
                     onPressed: () => widget.onRestore(c),
                     onRename: () => widget.onRename(c),
                   ),
@@ -244,9 +237,6 @@ class _CategoryListState extends State<CategoryList> {
           _CategoryRow(
             key: ValueKey<String>(live[i].id),
             category: live[i],
-            actionText: categoriesArchiveAction,
-            actionIcon: Icons.archive_outlined,
-            actionLabel: categoriesArchiveLabel(live[i].name),
             onPressed: () => widget.onArchive(live[i]),
             onRename: () => widget.onRename(live[i]),
             dragIndex: i,
@@ -260,17 +250,17 @@ class _CategoryListState extends State<CategoryList> {
   }
 }
 
-/// Строка категории: иконка, имя и под ним кнопка. Кнопка стоит под именем, а
-/// не сбоку: при крупном шрифте длинное имя и длинная подпись не теснят друг
-/// друга.
+/// Пункты меню «⋮» у живой строки.
+enum _RowMenu { archive, subcategories }
+
+/// Строка категории: одна строка (значок, название с подписью, «⋮», ручка);
+/// касание строки открывает правку. У архивной строки вместо «⋮» под названием
+/// стоит кнопка «Вернуть из архива».
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.category,
-    required this.actionText,
-    required this.actionIcon,
-    required this.actionLabel,
     required this.onPressed,
-    this.onRename,
+    required this.onRename,
     this.dragIndex,
     this.subcategoryCount,
     this.onOpenSubcategories,
@@ -278,64 +268,101 @@ class _CategoryRow extends StatelessWidget {
   });
 
   final Category category;
-  final String actionText;
 
-  /// Иконка перед текстом действия («В архив», «Вернуть из архива»).
-  final IconData actionIcon;
-  final String actionLabel;
+  /// «В архив» (у живой строки) или «Вернуть из архива» (у архивной).
   final VoidCallback onPressed;
 
-  /// Переименование (карандаш справа).
-  final VoidCallback? onRename;
+  /// Правка: касание строки.
+  final VoidCallback onRename;
 
-  /// Место строки в переставляемом списке; ручка перетаскивания есть только у
+  /// Место строки в переставляемом списке; ручка и меню «⋮» есть только у
   /// живых строк (у архивных `null`).
   final int? dragIndex;
 
   /// Сколько подкатегорий у категории; `null` — счётчик не показываем.
   final int? subcategoryCount;
 
-  /// Переход к подкатегориям; `null` — кнопки нет.
+  /// Переход к подкатегориям; `null` — пункта в меню нет.
   final VoidCallback? onOpenSubcategories;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final count = subcategoryCount;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Первая строка: иконка, имя и справа карандаш с ручкой. Имя не делит
-          // ширину с кнопками, поэтому длинное название читается целиком.
-          Row(
+    final live = dragIndex != null;
+    final subcategories = onOpenSubcategories;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
             children: [
-              CategoryIconView(category.iconKey, name: category.name),
-              const SizedBox(width: 16),
+              // Касание названия и значка открывает правку. Меню и ручка стоят
+              // рядом, а не внутри: у них свои касания.
               Expanded(
-                child: Text(
-                  category.name,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w500,
+                child: InkWell(
+                  onTap: onRename,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    child: Row(
+                      children: [
+                        CategoryAvatar(category.iconKey, name: category.name),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                category.name,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              if (count != null && count > 0)
+                                Text(
+                                  categoriesSubcategoryCount(count),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              if (!live) _restoreButton(context),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-              // Карандаш справа: узкая кнопка не отнимает у имени места и при
-              // крупном шрифте (её размер не растёт вместе с текстом).
-              if (onRename != null)
-                IconButton(
-                  constraints: const BoxConstraints(
-                    minWidth: 48,
-                    minHeight: 48,
-                  ),
-                  icon: const Icon(Icons.edit_outlined),
-                  tooltip: categoriesRenameLabel(category.name),
-                  onPressed: onRename,
+              // Меню «⋮»: «В архив» и «Подкатегории». Временное место до шага
+              // 7.25, который перенесёт их внутрь правки.
+              if (live)
+                PopupMenuButton<_RowMenu>(
+                  tooltip: categoriesMoreLabel(category.name),
+                  onSelected: (item) {
+                    switch (item) {
+                      case _RowMenu.archive:
+                        onPressed();
+                      case _RowMenu.subcategories:
+                        subcategories?.call();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (subcategories != null)
+                      const PopupMenuItem(
+                        value: _RowMenu.subcategories,
+                        child: Text(categoriesSubcategoriesAction),
+                      ),
+                    const PopupMenuItem(
+                      value: _RowMenu.archive,
+                      child: Text(categoriesArchiveAction),
+                    ),
+                  ],
                 ),
               // Ручка: тянуть можно только за неё, чтобы не мешать прокрутке.
               // Скринридеру ручка не нужна: у строки есть действия «Переместить».
-              if (dragIndex != null)
+              if (live)
                 ExcludeSemantics(
                   child: ReorderableDragStartListener(
                     index: dragIndex!,
@@ -348,74 +375,20 @@ class _CategoryRow extends StatelessWidget {
                 ),
             ],
           ),
-          // Вторая часть: подпись и кнопки стоят под названием (отступ 40 dp =
-          // ширина иконки и промежутка, чтобы выровняться по имени).
-          Padding(
-            padding: const EdgeInsets.only(left: AppSpacing.belowAvatar),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (count != null && count > 0)
-                  Text(
-                    categoriesSubcategoryCount(count),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                // Wrap, а не Row: при крупном шрифте или длинном имени вторая
-                // кнопка переносится на следующую строку, а не вылезает
-                // за край экрана.
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 0,
-                  children: [
-                    _action(
-                      context,
-                      icon: actionIcon,
-                      onPressed: onPressed,
-                      // Скринридер читает действие вместе с именем категории.
-                      label: Semantics(
-                        label: actionLabel,
-                        excludeSemantics: true,
-                        child: Text(actionText),
-                      ),
-                    ),
-                    if (onOpenSubcategories != null)
-                      _action(
-                        context,
-                        icon: Icons.account_tree_outlined,
-                        onPressed: onOpenSubcategories!,
-                        label: Semantics(
-                          label: categoriesSubcategoriesLabel(category.name),
-                          excludeSemantics: true,
-                          child: const Text(categoriesSubcategoriesAction),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          // Разделитель между строками: отступ слева 40 dp плюс 16 dp полей
-          // строки даёт линию от начала имени.
-          Divider(
-            height: 1,
-            indent: 40,
-            color: theme.colorScheme.outlineVariant,
-          ),
-        ],
-      ),
+        ),
+        // Разделитель: отступ 40 dp плюс 16 dp полей даёт линию от начала имени.
+        Divider(
+          height: 1,
+          indent: 56,
+          endIndent: 16,
+          color: theme.colorScheme.outlineVariant,
+        ),
+      ],
     );
   }
 
-  /// Кнопка действия в строке: иконка и текст цветом темы (`primary`), чтобы
-  /// было видно, что на них можно нажать. Высота нажатия — не меньше 48 dp.
-  Widget _action(
-    BuildContext context, {
-    required IconData icon,
-    required VoidCallback onPressed,
-    required Widget label,
-  }) {
+  /// «Вернуть из архива» под названием архивной строки.
+  Widget _restoreButton(BuildContext context) {
     return TextButton(
       style: TextButton.styleFrom(
         foregroundColor: Theme.of(context).colorScheme.primary,
@@ -424,17 +397,22 @@ class _CategoryRow extends StatelessWidget {
         alignment: Alignment.centerLeft,
       ),
       onPressed: onPressed,
-      // Обычный TextButton с Row внутри, а не TextButton.icon: тот создаёт
-      // подкласс, и поиск `find.byType(TextButton)` в тестах перестаёт его видеть.
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Иконка декоративная: её смысл уже есть в тексте кнопки.
-          ExcludeSemantics(child: Icon(icon, size: 18)),
+          const ExcludeSemantics(
+            child: Icon(Icons.unarchive_outlined, size: 18),
+          ),
           const SizedBox(width: 8),
-          // Flexible: при крупном шрифте длинная подпись переносится внутри
-          // кнопки, а не вылезает за её край.
-          Flexible(child: label),
+          // Flexible: при крупном шрифте подпись переносится внутри кнопки.
+          Flexible(
+            child: Semantics(
+              label: categoriesRestoreLabel(category.name),
+              excludeSemantics: true,
+              child: const Text(categoriesRestoreAction),
+            ),
+          ),
         ],
       ),
     );

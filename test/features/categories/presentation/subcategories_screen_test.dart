@@ -119,11 +119,25 @@ Future<void> _pumpWith(
   await tester.pumpAndSettle();
 }
 
-/// Кнопка действия («В архив»/«Вернуть из архива») в строке с id [id].
+/// Кнопка «Вернуть из архива» в архивной строке с id [id].
 Finder _button(String id) => find.descendant(
   of: find.byKey(ValueKey<String>(id)),
   matching: find.byType(TextButton),
 );
+
+/// Меню «⋮» живой строки с id [id].
+Finder _menuOf(String id) => find.descendant(
+  of: find.byKey(ValueKey<String>(id)),
+  matching: find.byIcon(Icons.more_vert),
+);
+
+/// «В архив» через меню «⋮» строки.
+Future<void> _archive(WidgetTester tester, String id) async {
+  await tester.tap(_menuOf(id));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(categoriesArchiveAction));
+  await tester.pumpAndSettle();
+}
 
 Finder _handleOf(String id) => find.descendant(
   of: find.byKey(ValueKey<String>(id)),
@@ -139,7 +153,15 @@ Future<void> _drag(WidgetTester tester, Finder handle, double dy) async {
   final gesture = await tester.startGesture(tester.getCenter(handle));
   await gesture.moveBy(Offset(0, dy.sign * 20));
   await tester.pump();
-  await gesture.moveBy(Offset(0, dy - dy.sign * 20));
+  // Остаток пути — мелкими шагами, как настоящий палец: так список успевает
+  // пересчитать место вставки после каждого шага.
+  var left = dy - dy.sign * 20;
+  while (left.abs() > 0.01) {
+    final step = left.abs() < 10 ? left : dy.sign * 10;
+    await gesture.moveBy(Offset(0, step));
+    await tester.pump();
+    left -= step;
+  }
   await tester.pump();
   await gesture.up();
   await tester.pumpAndSettle();
@@ -188,10 +210,13 @@ void main() {
     expect(find.text('Старое'), findsNothing);
     expect(find.text(categoriesArchiveTitle(1)), findsOneWidget);
     expect(find.byType(Tab), findsNothing);
-    expect(
-      find.widgetWithText(TextButton, categoriesSubcategoriesAction),
-      findsNothing,
-    );
+    await tester.tap(_menuOf('milk'));
+    await tester.pumpAndSettle();
+    expect(find.text(categoriesArchiveAction), findsOneWidget);
+    // Единственное «Подкатегории» на экране — подпись над списком.
+    expect(find.text(categoriesSubcategoriesAction), findsOneWidget);
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
     expect(find.textContaining('Подкатегорий:'), findsNothing);
     expect(find.text(subcategoriesAddAction), findsOneWidget);
   });
@@ -242,17 +267,16 @@ void main() {
     },
   );
 
-  testWidgets('карандаш «Изменить: X» есть у живых и архивных', (tester) async {
+  testWidgets('касание строки открывает правку у живых и архивных', (
+    tester,
+  ) async {
     await _pump(tester, _fixture());
 
     Finder pencil(String id, String name) => find.descendant(
       of: find.byKey(ValueKey<String>(id)),
-      matching: find.byTooltip(categoriesRenameLabel(name)),
+      matching: find.text(name),
     );
-    expect(
-      tester.getSize(pencil('bread', 'Хлеб')).width,
-      greaterThanOrEqualTo(48),
-    );
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
     await tester.tap(pencil('bread', 'Хлеб'));
     await tester.pumpAndSettle();
     expect(renamed.map((c) => c.id), ['bread']);
@@ -274,7 +298,7 @@ void main() {
       'возвращает', (tester) async {
     final repository = await _pump(tester, _fixture());
 
-    await tester.tap(_button('bread'));
+    await _archive(tester, 'bread');
     await tester.pumpAndSettle();
 
     expect(find.text('Подкатегория «Хлеб» в архиве'), findsOneWidget);
@@ -295,7 +319,7 @@ void main() {
   ) async {
     final repository = await _pump(tester, _fixture());
 
-    await tester.tap(_button('bread'));
+    await _archive(tester, 'bread');
     await tester.pumpAndSettle();
     await tester.tap(find.text('Подкатегория «Хлеб» в архиве'));
     await tester.pumpAndSettle();
@@ -307,7 +331,7 @@ void main() {
   testWidgets('сообщение об архиве исчезает через 6 секунд', (tester) async {
     await _pump(tester, _fixture());
 
-    await tester.tap(_button('bread'));
+    await _archive(tester, 'bread');
     await tester.pumpAndSettle();
     expect(find.byType(SnackBar), findsOneWidget);
 
@@ -388,7 +412,7 @@ void main() {
       );
       await tester.tap(find.text('открыть'));
       await tester.pumpAndSettle();
-      await tester.tap(_button('bread'));
+      await _archive(tester, 'bread');
       await tester.pumpAndSettle();
       // Уходим с экрана; сообщение с «Вернуть» остаётся на корневом messenger.
       tester.state<NavigatorState>(find.byType(Navigator)).pop();
@@ -424,7 +448,7 @@ void main() {
     final repository = await _pump(tester, _fixture());
     repository.failWith = Exception('disk');
 
-    await tester.tap(_button('bread'));
+    await _archive(tester, 'bread');
     await tester.pumpAndSettle();
 
     expect(find.text(categorySaveFailedText), findsOneWidget);
@@ -438,7 +462,7 @@ void main() {
     ) async {
       final repository = await _pump(tester, _fixture());
 
-      await _drag(tester, _handleOf('milk'), 60);
+      await _drag(tester, _handleOf('milk'), 75);
 
       expect(repository.reorderCalls, [
         ['bread', 'milk', 'meat'],
@@ -496,7 +520,7 @@ void main() {
       final repository = await _pump(tester, _fixture());
       repository.failWith = Exception('disk');
 
-      await _drag(tester, _handleOf('milk'), 60);
+      await _drag(tester, _handleOf('milk'), 75);
 
       expect(find.text(categorySaveFailedText), findsOneWidget);
       expect(_shownOrder(tester, ['Молоко', 'Хлеб', 'Мясо']), [
@@ -527,8 +551,11 @@ void main() {
 
     await _openArchive(tester);
     expect(find.text(categoriesRestoreAction), findsOneWidget);
-    expect(find.text(categoriesArchiveAction), findsOneWidget);
     expect(find.text(subcategoriesAddAction), findsOneWidget);
+    // «В архив» лежит в меню «⋮» и достижимо.
+    await tester.tap(_menuOf('long'));
+    await tester.pumpAndSettle();
+    expect(find.text(categoriesArchiveAction), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

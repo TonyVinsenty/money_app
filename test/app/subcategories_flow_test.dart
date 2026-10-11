@@ -66,9 +66,10 @@ Future<InMemoryCategoriesRepository> _pumpCategories(
 }
 
 Future<void> _openSubcategories(WidgetTester tester, String name) async {
-  // Кнопка «Подкатегории» теперь текстовая (не иконка с tooltip): ищем её по
-  // подписи для скринридера, она включает имя категории.
-  await tester.tap(find.bySemanticsLabel(categoriesSubcategoriesLabel(name)));
+  // «Подкатегории» лежат в меню «⋮» строки категории.
+  await tester.tap(find.byTooltip(categoriesMoreLabel(name)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(categoriesSubcategoriesAction));
   await tester.pumpAndSettle();
 }
 
@@ -112,7 +113,7 @@ void main() {
     expect(created.every((c) => c.iconKey == 'restaurant'), isTrue);
 
     // Переименование.
-    await tester.tap(find.byTooltip(categoriesRenameLabel('Хлеб')));
+    await tester.tap(find.text('Хлеб'));
     await tester.pumpAndSettle();
     expect(find.text(subcategoryFormRenameTitle), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Батон');

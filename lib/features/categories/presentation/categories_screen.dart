@@ -12,15 +12,13 @@ import 'package:money_app/features/categories/presentation/category_list.dart';
 export 'package:money_app/features/categories/presentation/category_list.dart'
     show
         categoriesArchiveAction,
-        categoriesArchiveLabel,
         categoriesArchiveTitle,
         categoriesArchivedDuration,
+        categoriesMoreLabel,
         categoriesMovedAnnouncement,
-        categoriesRenameLabel,
         categoriesRestoreAction,
         categoriesRestoreLabel,
         categoriesSubcategoriesAction,
-        categoriesSubcategoriesLabel,
         categoriesSubcategoryCount,
         categoriesUndoAction;
 

@@ -110,14 +110,31 @@ Future<void>? formGate;
 
 String _nameOf(String id) => _fixture().firstWhere((c) => c.id == id).name;
 
-/// Кнопка «В архив»/«Вернуть» в строке категории с id [id]: первая из
-/// текстовых кнопок строки, вторая (если есть) — «Подкатегории».
+/// Кнопка «Вернуть из архива» в архивной строке категории с id [id].
 Finder _button(String id) => find
     .descendant(
       of: find.byKey(ValueKey<String>(id)),
       matching: find.byType(TextButton),
     )
     .first;
+
+/// Меню «⋮» живой строки категории с id [id].
+Finder _menuOf(String id) => find.descendant(
+  of: find.byKey(ValueKey<String>(id)),
+  matching: find.byIcon(Icons.more_vert),
+);
+
+/// Сама кнопка меню (иконка внутри неё меньше 48 dp).
+Finder _menuBox(String id) =>
+    find.ancestor(of: _menuOf(id), matching: find.byType(IconButton)).first;
+
+/// «В архив» через меню «⋮» строки.
+Future<void> _archive(WidgetTester tester, String id) async {
+  await tester.tap(_menuOf(id));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(categoriesArchiveAction));
+  await tester.pumpAndSettle();
+}
 
 Future<void> _openArchive(WidgetTester tester) async {
   await tester.tap(find.textContaining('Архив ('));
@@ -130,7 +147,15 @@ Future<void> dragHandle(WidgetTester tester, Finder handle, double dy) async {
   final gesture = await tester.startGesture(tester.getCenter(handle));
   await gesture.moveBy(Offset(0, dy.sign * 20));
   await tester.pump();
-  await gesture.moveBy(Offset(0, dy - dy.sign * 20));
+  // Остаток пути — мелкими шагами, как настоящий палец: так список успевает
+  // пересчитать место вставки после каждого шага.
+  var left = dy - dy.sign * 20;
+  while (left.abs() > 0.01) {
+    final step = left.abs() < 10 ? left : dy.sign * 10;
+    await gesture.moveBy(Offset(0, step));
+    await tester.pump();
+    left -= step;
+  }
   await tester.pump();
   await gesture.up();
   await tester.pumpAndSettle();
@@ -149,8 +174,8 @@ void main() {
     formGate = null;
   });
 
-  testWidgets('кнопки строки: иконка и текст цветом primary, высота от 48 dp; '
-      'у архивной «Вернуть из архива» та же форма', (tester) async {
+  testWidgets('меню «⋮» живой строки: «Подкатегории» и «В архив»; у архивной '
+      '«Вернуть из архива» — кнопка цветом primary от 48 dp', (tester) async {
     await _pump(tester, _fixture());
     final primary = Theme.of(tester.element(find.byType(CategoriesScreen)))
         .colorScheme
@@ -186,12 +211,15 @@ void main() {
       );
     }
 
-    expectActionStyle('cafe', categoriesArchiveAction, Icons.archive_outlined);
-    expectActionStyle(
-      'cafe',
-      categoriesSubcategoriesAction,
-      Icons.account_tree_outlined,
-    );
+    // У живой строки текстовых кнопок нет, действия лежат в меню «⋮».
+    expect(rowButton('cafe', categoriesArchiveAction), findsNothing);
+    expect(tester.getSize(_menuBox('cafe')).height, greaterThanOrEqualTo(48));
+    await tester.tap(_menuOf('cafe'));
+    await tester.pumpAndSettle();
+    expect(find.text(categoriesArchiveAction), findsOneWidget);
+    expect(find.text(categoriesSubcategoriesAction), findsOneWidget);
+    await tester.tapAt(Offset.zero);
+    await tester.pumpAndSettle();
 
     await _openArchive(tester);
     expectActionStyle(
@@ -214,11 +242,17 @@ void main() {
     addTearDown(tester.view.reset);
     await _pump(tester, _fixture());
 
+    // Одна строка: значок, название, «⋮» и ручка на одной высоте.
     final nameY = tester.getCenter(inCafe(find.text('Кафе'))).dy;
-    final archiveY = tester
-        .getCenter(inCafe(find.text(categoriesArchiveAction)))
-        .dy;
-    expect(archiveY, greaterThan(nameY));
+    expect(tester.getCenter(_menuOf('cafe')).dy, closeTo(nameY, 1));
+    expect(
+      tester.getCenter(inCafe(find.byIcon(Icons.drag_handle))).dy,
+      closeTo(nameY, 1),
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey<String>('cafe'))).height,
+      lessThanOrEqualTo(64),
+    );
     expect(tester.takeException(), isNull);
 
     // При крупном шрифте строка переносится, но исключений нет.
@@ -236,27 +270,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('строка: «В архив» и «Подкатегории» в одном ряду, если ширины '
-      'хватает', (tester) async {
-    // На 360 dp тестовый шрифт (Ahem: каждый символ шириной с кегль) не даёт
-    // уместить две кнопки в 288 dp, поэтому ряд проверяем на 600 dp. Проверка
-    // на 360 dp нужна с настоящим шрифтом: это решение пользователя (шрифт в
-    // docs/design-style.md), пока её нет.
-    tester.view.physicalSize = const Size(600, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
+  testWidgets('касание строки открывает правку, карандаша нет', (tester) async {
     await _pump(tester, _fixture());
 
-    final archiveY = tester
-        .getCenter(inCafe(find.text(categoriesArchiveAction)))
-        .dy;
-    final subY = tester
-        .getCenter(inCafe(find.text(categoriesSubcategoriesAction)))
-        .dy;
-    expect(archiveY, closeTo(subY, 1));
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    await tester.tap(inCafe(find.text('Кафе')));
+    await tester.pumpAndSettle();
+    expect(renamed.map((c) => c.id), ['cafe']);
   });
 
-  testWidgets('между строками категорий виден разделитель, отступ 40 dp и цвет '
+  testWidgets('между строками категорий виден разделитель, отступ 56 dp и цвет '
       'outlineVariant', (tester) async {
     await _pump(tester, _fixture());
 
@@ -266,24 +289,15 @@ void main() {
     );
     expect(divider, findsOneWidget);
     final widget = tester.widget<Divider>(divider);
-    expect(widget.indent, 40);
+    expect(widget.indent, 56);
     final outline = Theme.of(tester.element(find.byType(CategoriesScreen)))
         .colorScheme
         .outlineVariant;
     expect(widget.color, outline);
-    // Разделитель стоит под кнопками «Кафе» и над следующей строкой.
+    // Разделитель стоит под названием «Кафе» и над следующей строкой.
     expect(
       tester.getCenter(divider).dy,
-      greaterThan(
-        tester
-            .getCenter(
-              find.descendant(
-                of: find.byKey(const ValueKey<String>('cafe')),
-                matching: find.text(categoriesArchiveAction),
-              ),
-            )
-            .dy,
-      ),
+      greaterThan(tester.getCenter(inCafe(find.text('Кафе'))).dy),
     );
     expect(
       tester.getCenter(divider).dy,
@@ -292,61 +306,33 @@ void main() {
   });
 
   group('подкатегории в строке', () {
-    /// Текстовая кнопка «Подкатегории» в строке категории [id].
-    Finder subButton(String id) => find.descendant(
-      of: find.byKey(ValueKey<String>(id)),
-      matching: find.widgetWithText(TextButton, categoriesSubcategoriesAction),
-    );
+    /// «Подкатегории» через меню «⋮» строки [id].
+    Future<void> openSubs(WidgetTester tester, String id) async {
+      await tester.tap(_menuOf(id));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(categoriesSubcategoriesAction));
+      await tester.pump();
+    }
 
-    testWidgets('у живой категории есть кнопка «Подкатегории» от 48 dp, идёт '
-        'после «В архив»; тап открывает подкатегории этой категории', (
-      tester,
-    ) async {
+    testWidgets('у живой категории в меню «⋮» есть «Подкатегории»; пункт '
+        'открывает подкатегории этой категории', (tester) async {
       await _pump(tester, _fixture());
 
-      expect(subButton('cafe'), findsOneWidget);
-      final size = tester.getSize(subButton('cafe'));
-      expect(size.width, greaterThanOrEqualTo(48));
-      expect(size.height, greaterThanOrEqualTo(48));
-      final archiveY = tester
-          .getCenter(
-            find.descendant(
-              of: find.byKey(const ValueKey<String>('cafe')),
-              matching: find.text(categoriesArchiveAction),
-            ),
-          )
-          .dy;
-      final handleX = tester
-          .getCenter(
-            find.descendant(
-              of: find.byKey(const ValueKey<String>('cafe')),
-              matching: find.byIcon(Icons.drag_handle),
-            ),
-          )
-          .dx;
-      // Обе текстовые кнопки идут одна за другой под именем, левее ручки.
-      expect(tester.getCenter(subButton('cafe')).dy, closeTo(archiveY, 1));
-      expect(tester.getCenter(subButton('cafe')).dx, lessThan(handleX));
-
-      await tester.tap(subButton('cafe'));
+      await openSubs(tester, 'cafe');
       await tester.pumpAndSettle();
       expect(openedSubcategories.map((c) => c.id), ['cafe']);
     });
 
-    testWidgets('подпись «Подкатегории: имя» доступна скринридеру', (
+    testWidgets('меню «⋮» подписано именем для скринридера, зона от 48 dp', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, _fixture());
 
-      expect(
-        tester.getSemantics(subButton('cafe')),
-        isSemantics(
-          label: categoriesSubcategoriesLabel('Кафе'),
-          isButton: true,
-          hasTapAction: true,
-        ),
-      );
+      expect(find.byTooltip(categoriesMoreLabel('Кафе')), findsOneWidget);
+      final size = tester.getSize(_menuBox('cafe'));
+      expect(size.width, greaterThanOrEqualTo(48));
+      expect(size.height, greaterThanOrEqualTo(48));
       handle.dispose();
     });
 
@@ -396,8 +382,8 @@ void main() {
       await _openArchive(tester);
 
       expect(find.text('Одежда'), findsOneWidget);
-      expect(subButton('clothes'), findsNothing);
-      expect(subButton('food'), findsOneWidget);
+      expect(_menuOf('clothes'), findsNothing);
+      expect(_menuOf('food'), findsOneWidget);
     });
 
     testWidgets('двойной тап по кнопке открывает один экран подкатегорий', (
@@ -407,10 +393,8 @@ void main() {
       formGate = gate.future;
       await _pump(tester, _fixture());
 
-      await tester.tap(subButton('cafe'));
-      await tester.pump();
-      await tester.tap(subButton('cafe'));
-      await tester.pump();
+      await openSubs(tester, 'cafe');
+      await openSubs(tester, 'cafe');
       expect(openedSubcategories.map((c) => c.id), ['cafe']);
 
       gate.complete();
@@ -454,18 +438,16 @@ void main() {
     expect(created, [CategoryKind.expense, CategoryKind.income]);
   });
 
-  testWidgets('«Изменить» есть и у живых категорий, и у архивных', (
+  testWidgets('касание строки открывает правку у живых и у архивных', (
     tester,
   ) async {
     await _pump(tester, _fixture());
 
     Finder rename(String id) => find.descendant(
       of: find.byKey(ValueKey<String>(id)),
-      matching: find.byTooltip(categoriesRenameLabel(_nameOf(id))),
+      matching: find.text(_nameOf(id)),
     );
     expect(rename('cafe'), findsOneWidget);
-    expect(tester.getSize(rename('cafe')).width, greaterThanOrEqualTo(48));
-    expect(tester.getSize(rename('cafe')).height, greaterThanOrEqualTo(48));
 
     await tester.tap(rename('cafe'));
     await tester.pumpAndSettle();
@@ -507,12 +489,12 @@ void main() {
     expect(created, hasLength(2));
   });
 
-  testWidgets('двойной тап по карандашу открывает одну форму, и «Добавить» '
+  testWidgets('двойной тап по строке открывает одну форму, и «Добавить» '
       'не открывает вторую поверх', (tester) async {
     final gate = Completer<void>();
     formGate = gate.future;
     await _pump(tester, _fixture());
-    final pencil = find.byTooltip(categoriesRenameLabel('Кафе'));
+    final pencil = find.text('Кафе');
 
     await tester.tap(pencil);
     await tester.pump();
@@ -532,7 +514,7 @@ void main() {
   ) async {
     await _pump(tester, _fixture());
 
-    await tester.tap(_button('cafe'));
+    await _archive(tester, 'cafe');
     await tester.pumpAndSettle();
 
     expect(find.text('Категория «Кафе» в архиве'), findsOneWidget);
@@ -574,7 +556,7 @@ void main() {
     await tester.tap(find.text('Открыть'));
     await tester.pumpAndSettle();
 
-    await tester.tap(_button('cafe'));
+    await _archive(tester, 'cafe');
     await tester.pumpAndSettle();
     expect(find.text('Категория «Кафе» в архиве'), findsOneWidget);
     expect(repository.all.firstWhere((c) => c.id == 'cafe').isArchived, isTrue);
@@ -600,7 +582,7 @@ void main() {
   ) async {
     await _pump(tester, _fixture());
 
-    await tester.tap(_button('cafe'));
+    await _archive(tester, 'cafe');
     await tester.pumpAndSettle();
     expect(find.byType(SnackBar), findsOneWidget);
 
@@ -612,9 +594,9 @@ void main() {
   testWidgets('второе «В архив» заменяет прежнее сообщение', (tester) async {
     await _pump(tester, _fixture());
 
-    await tester.tap(_button('cafe'));
+    await _archive(tester, 'cafe');
     await tester.pumpAndSettle();
-    await tester.tap(_button('food'));
+    await _archive(tester, 'food');
     await tester.pumpAndSettle();
 
     expect(find.byType(SnackBar), findsOneWidget);
@@ -627,7 +609,7 @@ void main() {
   ) async {
     final repository = await _pump(tester, _fixture());
 
-    await tester.tap(_button('cafe'));
+    await _archive(tester, 'cafe');
     await tester.pumpAndSettle();
     // Пока лежала в архиве, имя заняли.
     await repository.create(_c('cafe2', 'Кафе', 9));
@@ -673,7 +655,7 @@ void main() {
     await tester.tap(find.text('открыть'));
     await tester.pumpAndSettle();
 
-    await tester.tap(_button('cafe'));
+    await _archive(tester, 'cafe');
     await tester.pumpAndSettle();
     // Уходим с экрана; сообщение с «Вернуть» остаётся на корневом messenger.
     tester.state<NavigatorState>(find.byType(Navigator)).pop();
@@ -762,7 +744,7 @@ void main() {
   ) async {
     await _pump(tester, _fixture());
 
-    await tester.tap(_button('cafe'));
+    await _archive(tester, 'cafe');
     await tester.pumpAndSettle();
 
     // Диалога нет, из списка ушла, остальные на месте.
@@ -790,14 +772,8 @@ void main() {
     expect(find.byType(SnackBar), findsNothing);
     // Архив опустел: раздела нет.
     expect(find.textContaining('Архив'), findsNothing);
-    // Вернулась в конец своего вида, кнопка у неё снова «В архив».
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('clothes')),
-        matching: find.text(categoriesArchiveAction),
-      ),
-      findsOneWidget,
-    );
+    // Вернулась в конец своего вида: у неё снова меню «⋮» с «В архив».
+    expect(_menuOf('clothes'), findsOneWidget);
   });
 
   testWidgets('дубль имени при возврате: сообщение, категория остаётся в '
@@ -833,7 +809,7 @@ void main() {
     final repository = await _pump(tester, _fixture());
     repository.failWith = Exception('disk');
 
-    await tester.tap(_button('food'));
+    await _archive(tester, 'food');
     await tester.pumpAndSettle();
 
     expect(find.text(categorySaveFailedText), findsOneWidget);
@@ -842,7 +818,7 @@ void main() {
 
     // Кнопка снова работает: запись не «залипла».
     repository.failWith = null;
-    await tester.tap(_button('food'));
+    await _archive(tester, 'food');
     await tester.pumpAndSettle();
     expect(find.text('Продукты'), findsNothing);
   });
@@ -884,45 +860,39 @@ void main() {
     await tester.pumpAndSettle();
     await _openArchive(tester);
     expect(find.text(categoriesRestoreAction), findsOneWidget);
+    // «В архив» лежит в меню «⋮» и достижимо.
+    await tester.tap(_menuOf('long'));
+    await tester.pumpAndSettle();
     expect(find.text(categoriesArchiveAction), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('кнопки: подпись с именем для скринридера, зона от 48 dp', (
-    tester,
-  ) async {
-    final handle = tester.ensureSemantics();
-    await _pump(tester, _fixture());
+  testWidgets(
+    'кнопка возврата: подпись с именем для скринридера, зона от 48 dp',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _fixture());
 
-    expect(
-      find.bySemanticsLabel(categoriesArchiveLabel('Кафе')),
-      findsOneWidget,
-    );
-    for (final id in ['food', 'cafe', 'transport']) {
-      final size = tester.getSize(_button(id));
-      expect(size.height, greaterThanOrEqualTo(48), reason: id);
-      expect(size.width, greaterThanOrEqualTo(48), reason: id);
-    }
-
-    await _openArchive(tester);
-    expect(
-      find.bySemanticsLabel(categoriesRestoreLabel('Одежда')),
-      findsOneWidget,
-    );
-    final size = tester.getSize(_button('clothes'));
-    expect(size.height, greaterThanOrEqualTo(48));
-    expect(size.width, greaterThanOrEqualTo(48));
-    // Действие нажатия доступно скринридеру.
-    expect(
-      tester.getSemantics(_button('clothes')),
-      isSemantics(
-        label: categoriesRestoreLabel('Одежда'),
-        isButton: true,
-        hasTapAction: true,
-      ),
-    );
-    handle.dispose();
-  });
+      await _openArchive(tester);
+      expect(
+        find.bySemanticsLabel(categoriesRestoreLabel('Одежда')),
+        findsOneWidget,
+      );
+      final size = tester.getSize(_button('clothes'));
+      expect(size.height, greaterThanOrEqualTo(48));
+      expect(size.width, greaterThanOrEqualTo(48));
+      // Действие нажатия доступно скринридеру.
+      expect(
+        tester.getSemantics(_button('clothes')),
+        isSemantics(
+          label: categoriesRestoreLabel('Одежда'),
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      handle.dispose();
+    },
+  );
 
   group('порядок перетаскиванием', () {
     /// Ручка перетаскивания в строке категории [id].
@@ -950,7 +920,7 @@ void main() {
     ) async {
       final repository = await _pump(tester, _fixture());
 
-      await dragHandle(tester, handleOf('food'), 60);
+      await dragHandle(tester, handleOf('food'), 75);
       await tester.pumpAndSettle();
 
       expect(repository.reorderCalls, [
@@ -998,7 +968,7 @@ void main() {
 
       await tester.tap(find.text(categoriesIncomeTab));
       await tester.pumpAndSettle();
-      await dragHandle(tester, handleOf('salary'), 60);
+      await dragHandle(tester, handleOf('salary'), 75);
       await tester.pumpAndSettle();
 
       expect(repository.reorderCalls, [
@@ -1021,7 +991,7 @@ void main() {
         final gate = Completer<void>();
         repository.reorderGate = gate.future;
 
-        await dragHandle(tester, handleOf('food'), 60);
+        await dragHandle(tester, handleOf('food'), 75);
         await tester.pumpAndSettle();
         // База ещё не ответила, а на экране уже новый порядок.
         expect(shownOrder(tester, expenseNames), [
@@ -1031,7 +1001,7 @@ void main() {
         ]);
 
         // Вторую перестановку, пока идёт запись, не принимаем.
-        await dragHandle(tester, handleOf('transport'), -60);
+        await dragHandle(tester, handleOf('transport'), -75);
         await tester.pumpAndSettle();
         expect(repository.reorderCalls.length, 1);
         expect(shownOrder(tester, expenseNames), [
@@ -1057,7 +1027,7 @@ void main() {
       final repository = await _pump(tester, _fixture());
       repository.failWith = Exception('disk');
 
-      await dragHandle(tester, handleOf('food'), 60);
+      await dragHandle(tester, handleOf('food'), 75);
       await tester.pumpAndSettle();
 
       expect(find.text(categorySaveFailedText), findsOneWidget);
@@ -1066,7 +1036,7 @@ void main() {
 
       // После сбоя перестановка снова работает.
       repository.failWith = null;
-      await dragHandle(tester, handleOf('food'), 60);
+      await dragHandle(tester, handleOf('food'), 75);
       await tester.pumpAndSettle();
       expect(shownOrder(tester, expenseNames), [
         'Кафе',
