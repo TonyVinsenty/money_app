@@ -11,6 +11,7 @@ import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
+import 'package:money_app/features/settings/presentation/reminder_time_wheel.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
 /// Подзаголовки групп (тексты В10 утверждены 2026-10-11).
@@ -427,6 +428,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _pickReminderTime() async {
     final current = widget.reminderTime ?? ReminderTime.defaultTime();
+    // На iPhone время выбирают колесом, как в будильнике; на Android —
+    // привычный циферблат.
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      final wheel = await showReminderTimeWheel(
+        context,
+        initial: current,
+        title: reminderTimeItemLabel,
+      );
+      if (wheel != null) widget.onReminderTimeChanged?.call(wheel);
+      return;
+    }
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: current.hour, minute: current.minute),
