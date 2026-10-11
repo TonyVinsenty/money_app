@@ -4,6 +4,7 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/bar_chart.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
@@ -367,11 +368,7 @@ class _DynamicsSectionState extends State<DynamicsSection> {
             ],
             if (step != BucketStep.none) ...[
               const SizedBox(height: 12),
-              Text(
-                dynamicsTitle(type, step),
-                style: theme.textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
+              CardHeader(dynamicsTitle(type, step)),
             ] else
               const SizedBox(height: 8),
             body,

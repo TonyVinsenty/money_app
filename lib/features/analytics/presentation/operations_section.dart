@@ -6,6 +6,7 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
@@ -110,14 +111,7 @@ class OperationsSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Semantics(
-              header: true,
-              child: Text(
-                operationsTopTitle(type),
-                style: theme.textTheme.titleLarge,
-              ),
-            ),
-            const SizedBox(height: 8),
+            CardHeader(operationsTopTitle(type)),
             if (top.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -174,14 +168,7 @@ class OperationsSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Semantics(
-                  header: true,
-                  child: Text(
-                    operationsFrequencyTitle(type),
-                    style: theme.textTheme.titleLarge,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                CardHeader(operationsFrequencyTitle(type)),
                 Text(
                   operationsMostFrequentText(
                     byId[best.categoryId]?.name ?? noCategoryLabel,

@@ -8,6 +8,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
@@ -185,12 +186,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Расходы по категориям',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 12),
+            const CardHeader('Расходы по категориям'),
             // Кольцо по центру оставшейся высоты, легенда прижата к низу.
             Expanded(child: body),
           ],

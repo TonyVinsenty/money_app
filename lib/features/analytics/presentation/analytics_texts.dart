@@ -77,7 +77,11 @@ String comparisonPhrase(DateRange range, DateOnly today) {
   return '${formatDayMonth(start)} $_dash ${formatDayMonth(end)}$yearSuffix';
 }
 
-/// Т2. Заголовок итога: «Расходы: 48 200,00 ₽».
+/// Т2. Заголовок карточки итога: «Расходы» / «Доходы» (сумма - строкой ниже).
+String comparisonTotalHeading(TransactionType type) =>
+    type == TransactionType.expense ? 'Расходы' : 'Доходы';
+
+/// Т2. Заголовок итога для скринридера: «Расходы: 48 200,00 ₽».
 String comparisonTotalTitle(
   TransactionType type,
   Money total, {

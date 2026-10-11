@@ -126,7 +126,8 @@ void main() {
 
     expect(
       _textOf(tester, ComparisonSection.totalKey),
-      'Расходы: 8${_nbsp}000,00$_nbsp₽\n'
+      'Расходы\n'
+      '8${_nbsp}000,00$_nbsp₽\n'
       'на 2${_nbsp}300,00$_nbsp₽ больше (+40$_nbsp%), чем 1\u201311 сентября',
     );
     expect(find.text('Кафе · 8${_nbsp}000,00$_nbsp₽'), findsOneWidget);
@@ -221,7 +222,8 @@ void main() {
 
     expect(
       _textOf(tester, ComparisonSection.totalKey),
-      'Доходы: 50${_nbsp}000,00$_nbsp₽\n'
+      'Доходы\n'
+      '50${_nbsp}000,00$_nbsp₽\n'
       '1\u201311 сентября доходов не было',
     );
     expect(find.text('Зарплата · 50${_nbsp}000,00$_nbsp₽'), findsOneWidget);

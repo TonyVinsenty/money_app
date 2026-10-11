@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -72,7 +74,7 @@ class ComparisonSection extends StatelessWidget {
     final byId = {for (final c in categories) c.id: c};
     final phrase = comparisonPhrase(previousRange, today);
     final onTypeSelected = this.onTypeSelected;
-    final title = comparisonTotalTitle(type, total.current);
+    final title = formatMoney(total.current);
     final summary = comparisonSummaryText(total, type, phrase);
 
     return Card.outlined(
@@ -117,6 +119,7 @@ class ComparisonSection extends StatelessWidget {
                 key: totalKey,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  CardHeader(comparisonTotalHeading(type)),
                   Text(title, style: theme.textTheme.titleLarge),
                   const SizedBox(height: 4),
                   Text(

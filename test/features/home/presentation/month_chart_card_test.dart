@@ -9,6 +9,7 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -150,10 +151,14 @@ void main() {
     await initializeDateFormatting('ru');
   });
 
-  testWidgets('заголовок карточки по центру', (tester) async {
+  testWidgets('заголовок карточки - CardHeader: слева, titleMedium, 600', (
+    tester,
+  ) async {
     await _pump(tester);
+    expect(find.byType(CardHeader), findsOneWidget);
     final title = tester.widget<Text>(find.text('Расходы по категориям'));
-    expect(title.textAlign, TextAlign.center);
+    expect(title.textAlign, TextAlign.start);
+    expect(title.style?.fontWeight, FontWeight.w600);
   });
 
   test('chartRingSize: резерв под легенду по 28 dp', () {
