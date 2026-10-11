@@ -553,7 +553,10 @@ void main() {
     final screen = find.byType(CategoryBreakdownScreen);
     expect(screen, findsOneWidget);
     expect(
-      find.descendant(of: screen, matching: find.text('Продукты')),
+      find.descendant(
+        of: find.descendant(of: screen, matching: find.byType(AppBar)),
+        matching: find.text('Продукты'),
+      ),
       findsOneWidget,
     );
     expect(

@@ -10,6 +10,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
+import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
@@ -87,6 +88,7 @@ Future<void> _pump(
   Stream<List<Category>>? categories,
   double textScale = 1,
   double height = 1600,
+  ValueChanged<Transaction>? onOpenTransaction,
 }) async {
   tester.view.physicalSize = Size(360, height);
   tester.view.devicePixelRatio = 1;
@@ -105,6 +107,7 @@ Future<void> _pump(
         today: DateOnly(2026, 10, 4),
         transactions: transactions ?? Stream.value(const []),
         categories: categories ?? Stream.value(const []),
+        onOpenTransaction: onOpenTransaction,
       ),
     ),
   );
@@ -195,7 +198,8 @@ void main() {
       null: 'Без подкатегории',
     };
     for (var i = 0; i < totals.length; i++) {
-      expect(find.text(names[totals[i].subcategoryId]!), findsOneWidget);
+      // Имя стоит и в строке подкатегории, и в строках операций.
+      expect(find.text(names[totals[i].subcategoryId]!), findsWidgets);
       expect(
         find.text(
           '$_minus${formatMoney(totals[i].amount)} · ${_pct(shares[i])}',
@@ -220,7 +224,10 @@ void main() {
       transactions: Stream.value([_tx('cat-food', null, 12345)]),
     );
     final colors = tester.element(find.byType(Scaffold)).appColors;
-    final expense = tester.widget<Text>(find.text('$_minus${_money(12345)}'));
+    // Итог в шапке стоит выше строки операции с той же суммой.
+    final expense = tester.widget<Text>(
+      find.text('$_minus${_money(12345)}').first,
+    );
     expect(expense.style?.color, colors.expense);
 
     final salary = _top('salary', 'Зарплата', kind: CategoryKind.income);
@@ -231,7 +238,7 @@ void main() {
         _tx('salary', null, 5000000, type: TransactionType.income),
       ]),
     );
-    final income = tester.widget<Text>(find.text('+${_money(5000000)}'));
+    final income = tester.widget<Text>(find.text('+${_money(5000000)}').first);
     expect(income.style?.color, colors.income);
   });
 
@@ -365,8 +372,8 @@ void main() {
       ]),
     );
 
-    expect(find.text('Рынок'), findsOneWidget);
-    expect(find.text('Магазин'), findsOneWidget);
+    expect(find.text('Рынок'), findsWidgets);
+    expect(find.text('Магазин'), findsWidgets);
   });
 
   testWidgets('ошибка потока: понятный текст', (tester) async {
@@ -408,7 +415,8 @@ void main() {
       await tester.drag(find.byType(ListView), const Offset(0, -2000));
       await tester.pump();
       expect(tester.takeException(), isNull);
-      expect(find.text('Без подкатегории'), findsOneWidget);
+      // Низ списка достигнут: на экране строки операций.
+      expect(find.byType(OperationTile), findsWidgets);
     },
   );
 
@@ -433,6 +441,7 @@ void main() {
     final dots = tester
         .widgetList<CategoryAvatar>(find.byType(CategoryAvatar))
         .map((d) => d.color)
+        .take(10) // сначала 10 строк подкатегорий, дальше аватары операций
         .toList();
     expect(dots.length, 10);
     expect(dots.sublist(0, 8), colors.chartPalette);
@@ -503,7 +512,8 @@ void main() {
       );
       // Аватар не даёт отдельных узлов: в семантику ушли бы лишние
       // пустые элементы.
-      expect(find.byType(CategoryAvatar), findsNWidgets(2));
+      // Две строки подкатегорий и две строки операций.
+      expect(find.byType(CategoryAvatar), findsNWidgets(4));
       semantics.dispose();
     });
 
@@ -536,6 +546,98 @@ void main() {
         findsOneWidget,
       );
       semantics.dispose();
+    });
+  });
+
+  group('операции категории', () {
+    Finder tile(Transaction t) =>
+        find.byKey(ValueKey('category-operation-${t.id}'));
+
+    testWidgets('только этой категории и периода, новые сверху', (
+      tester,
+    ) async {
+      final older = _tx('cat-food', null, 10100, day: 3);
+      final sub = _tx('cat-food', 'sub-food-5', 20200, day: 8);
+      final newest = _tx('cat-food', null, 30300, day: 20);
+      final other = _tx('cat-other', null, 40400, day: 9);
+      final outside = Transaction(
+        id: 'outside',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(50500, 'RUB'),
+        occurredOn: DateOnly(2026, 8, 30),
+        occurredAt: DateTime.utc(2026, 8, 30, 9),
+        categoryId: 'cat-food',
+      );
+      await _pump(
+        tester,
+        transactions: Stream.value([older, other, sub, outside, newest]),
+        categories: Stream.value(_fixtureCategories()),
+      );
+
+      expect(find.text('Операции'), findsOneWidget);
+      expect(tile(other), findsNothing);
+      expect(tile(outside), findsNothing);
+      final ys = [
+        for (final t in [newest, sub, older]) tester.getTopLeft(tile(t)).dy,
+      ];
+      expect(ys[0], lessThan(ys[1]));
+      expect(ys[1], lessThan(ys[2]));
+      // У операции с подкатегорией первая строка - её имя.
+      expect(
+        find.descendant(of: tile(sub), matching: find.text('Пятёрочка')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: tile(newest), matching: find.text('Продукты')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('касание строки зовёт колбэк с операцией', (tester) async {
+      final t = _tx('cat-food', null, 10100);
+      Transaction? opened;
+      await _pump(
+        tester,
+        transactions: Stream.value([t]),
+        categories: Stream.value(_fixtureCategories()),
+        onOpenTransaction: (value) => opened = value,
+      );
+
+      await tester.tap(tile(t));
+      expect(opened, t);
+    });
+
+    testWidgets('после удаления операции строка исчезает', (tester) async {
+      final a = _tx('cat-food', null, 10100, day: 3);
+      final b = _tx('cat-food', null, 20200, day: 4);
+      final controller = StreamController<List<Transaction>>();
+      addTearDown(controller.close);
+      await _pump(
+        tester,
+        transactions: controller.stream,
+        categories: Stream.value(_fixtureCategories()),
+      );
+      controller.add([a, b]);
+      for (var i = 0; i < 3; i++) {
+        await tester.pump();
+      }
+      expect(tile(a), findsOneWidget);
+      expect(tile(b), findsOneWidget);
+
+      controller.add([b]);
+      await tester.pump();
+      expect(tile(a), findsNothing);
+      expect(tile(b), findsOneWidget);
+    });
+
+    testWidgets('пустой период: заголовка «Операции» нет', (tester) async {
+      await _pump(
+        tester,
+        transactions: Stream.value(const []),
+        categories: Stream.value(_fixtureCategories()),
+      );
+
+      expect(find.text('Операции'), findsNothing);
     });
   });
 }

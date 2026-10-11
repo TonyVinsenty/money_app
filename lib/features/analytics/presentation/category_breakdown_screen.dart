@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/format/date_format.dart';
+import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/format/percent_format.dart';
@@ -7,8 +9,10 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
+import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
@@ -17,9 +21,18 @@ import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
+import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 const String _noSubcategoryLabel = 'Без подкатегории';
 const String _unknownSubcategoryLabel = 'Неизвестная подкатегория';
+
+/// День в строке: «Сегодня», «Вчера», «30 сентября» (с годом, если не текущий).
+String _operationDay(DateOnly day, DateOnly today) {
+  if (day == today || day == today.addDays(-1)) {
+    return dayLabel(day, today: today);
+  }
+  return day.year == today.year ? formatDayMonth(day) : formatDate(day);
+}
 
 /// Верхняя граница стороны кольца, dp.
 const double _maxRing = 220;
@@ -38,8 +51,12 @@ class CategoryBreakdownScreen extends StatefulWidget {
     required this.transactions,
     required this.categories,
     this.currency = rubCurrencyCode,
+    this.onOpenTransaction,
     super.key,
   });
+
+  /// Касание строки операции: правку открывает `lib/app/`.
+  final ValueChanged<Transaction>? onOpenTransaction;
 
   /// Код валюты, в которой считаются суммы (основная валюта).
   final String currency;
@@ -155,6 +172,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
       );
     }
 
+    final operations = _categoryOperations(transactions);
     final names = {for (final c in categories) c.id: c.name};
     final icons = {for (final c in categories) c.id: c.iconKey};
     final shares = percentShares([for (final t in totals) t.amount]);
@@ -244,7 +262,71 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
           if (i > 0) const SizedBox(height: 12),
           _RowTile(row: rows[i]),
         ],
+        if (operations.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const CardHeader('Операции'),
+          for (final t in operations)
+            _operationTile(
+              t,
+              names: names,
+              icons: icons,
+              onOpen: widget.onOpenTransaction,
+            ),
+        ],
       ],
+    );
+  }
+
+  /// Операции этой категории (с подкатегориями) за период, новые сверху.
+  List<Transaction> _categoryOperations(List<Transaction> transactions) {
+    final result = [
+      for (final t in transactions)
+        if (t.categoryId == widget.category.id &&
+            t.amount.currency == widget.currency &&
+            widget.period.range.contains(t.occurredOn))
+          t,
+    ];
+    result.sort((a, b) {
+      final byDay = b.occurredOn.compareTo(a.occurredOn);
+      if (byDay != 0) return byDay;
+      final byTime = b.occurredAt.compareTo(a.occurredAt);
+      return byTime != 0 ? byTime : b.id.compareTo(a.id);
+    });
+    return result;
+  }
+
+  Widget _operationTile(
+    Transaction t, {
+    required Map<String, String> names,
+    required Map<String, String?> icons,
+    required ValueChanged<Transaction>? onOpen,
+  }) {
+    final isIncome = t.type == TransactionType.income;
+    final subId = t.subcategoryId;
+    final title = subId == null
+        ? widget.category.name
+        : names[subId] ?? _unknownSubcategoryLabel;
+    final day = _operationDay(t.occurredOn, widget.today);
+    final note = t.note;
+    final spoken = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
+      ..write(spokenMoney(t.amount))
+      ..write(', $title, $day');
+    if (note != null) spoken.write(', комментарий: $note');
+    return OperationTile(
+      key: ValueKey('category-operation-${t.id}'),
+      title: title,
+      subtitle: note == null ? day : '$day · $note',
+      amount: t.amount,
+      isIncome: isIncome,
+      iconKey: subId == null
+          ? widget.category.iconKey
+          : icons[subId] ?? widget.category.iconKey,
+      categoryName: subId == null
+          ? widget.category.name
+          : names[subId] ?? widget.category.name,
+      semanticLabel: spoken.toString(),
+      onTap: onOpen == null ? null : () => onOpen(t),
+      horizontalPadding: AppSpacing.xs,
     );
   }
 

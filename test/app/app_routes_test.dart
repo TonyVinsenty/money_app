@@ -6,6 +6,7 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -268,6 +269,50 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('маршрут категории за период: касание операции зовёт колбэк', (
+      tester,
+    ) async {
+      await initializeDateFormatting('ru');
+      final tx = Transaction(
+        id: 'tx1',
+        type: TransactionType.expense,
+        amount: Money.fromMinor(10000, 'RUB'),
+        occurredOn: DateOnly(2026, 9, 5),
+        occurredAt: DateTime.utc(2026, 9, 5, 9),
+        categoryId: 'food',
+      );
+      Transaction? opened;
+      final route = onGenerateAppRoute(
+        RouteSettings(
+          name: AppRoutes.analyticsCategory,
+          arguments: CategoryBreakdownRouteArguments(
+            category: Category.topLevel(
+              id: 'food',
+              kind: CategoryKind.expense,
+              name: 'Продукты',
+              iconKey: 'shopping_cart',
+              sortOrder: 0,
+            ),
+            period: AnalyticsPeriod(
+              PeriodKind.month,
+              monthRange(DateOnly(2026, 9, 1)),
+            ),
+            today: DateOnly(2026, 10, 4),
+            transactions: Stream.value([tx]),
+            categories: Stream.value(const <Category>[]),
+            onOpenTransaction: (t) => opened = t,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(theme: AppTheme.light(), onGenerateRoute: (_) => route),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('category-operation-tx1')));
+      expect(opened, tx);
     });
 
     test('без аргумента или с чужим аргументом — понятная ArgumentError', () {

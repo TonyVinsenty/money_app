@@ -302,10 +302,14 @@ final class CategoryBreakdownRouteArguments {
     required this.transactions,
     required this.categories,
     this.currency = rubCurrencyCode,
+    this.onOpenTransaction,
   });
 
   /// Код основной валюты, в которой считаются суммы.
   final String currency;
+
+  /// Касание операции в списке: открыть правку (её собирает вызывающий).
+  final ValueChanged<Transaction>? onOpenTransaction;
 
   final Category category;
   final AnalyticsPeriod period;
@@ -607,6 +611,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           transactions: arguments.transactions,
           categories: arguments.categories,
           currency: arguments.currency,
+          onOpenTransaction: arguments.onOpenTransaction,
         ),
       );
     case AppRoutes.recurringForm:

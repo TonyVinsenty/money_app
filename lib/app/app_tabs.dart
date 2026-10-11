@@ -584,19 +584,8 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         onPrevious: controller.canGoBack ? controller.previous : null,
         onNext: controller.canGoForward ? controller.next : null,
         onOpenCategory: (category) => _openCategory(context, category),
-        onOpenTransaction: (transaction) {
-          final services = AppScope.of(context);
-          Navigator.of(context).pushNamed(
-            AppRoutes.editTransaction,
-            arguments: EditTransactionRouteArguments(
-              transaction: transaction,
-              clock: services.clock,
-              categories: services.categories,
-              transactions: services.transactions,
-              accounts: services.accounts.watchAll(),
-            ),
-          );
-        },
+        onOpenTransaction: (transaction) =>
+            _openTransaction(context, transaction),
         firstDay: controller.firstDay,
         firstDayKnown: controller.firstDayKnown,
         type: controller.type,
@@ -630,6 +619,22 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         ),
         categories: services.categories.watchAll(),
         currency: services.settings.mainCurrencyCode,
+        onOpenTransaction: (transaction) =>
+            _openTransaction(context, transaction),
+      ),
+    );
+  }
+
+  void _openTransaction(BuildContext context, Transaction transaction) {
+    final services = AppScope.of(context);
+    Navigator.of(context).pushNamed(
+      AppRoutes.editTransaction,
+      arguments: EditTransactionRouteArguments(
+        transaction: transaction,
+        clock: services.clock,
+        categories: services.categories,
+        transactions: services.transactions,
+        accounts: services.accounts.watchAll(),
       ),
     );
   }
