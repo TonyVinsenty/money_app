@@ -498,3 +498,27 @@ String dynamicsCategoryChipSpoken(String name) => 'Категория: $name, и
 String dynamicsCategoryNothingText(String name, TransactionType type) =>
     'В категории «$name» за этот период '
     '${type == TransactionType.expense ? 'расходов' : 'доходов'} нет';
+
+/// Название вида периода на кнопке шапки и в её меню.
+String periodKindTitle(PeriodKind kind) => switch (kind) {
+  PeriodKind.day => 'День',
+  PeriodKind.week => 'Неделя',
+  PeriodKind.month => 'Месяц',
+  PeriodKind.year => 'Год',
+  PeriodKind.custom => 'Свой период',
+};
+
+/// Пункт меню для выбора своих дат.
+const String periodCustomMenuItem = 'Свой период\u2026';
+
+/// Озвучка кнопки вида периода: «Период: месяц, изменить».
+String periodKindSpoken(PeriodKind kind) {
+  final name = switch (kind) {
+    PeriodKind.day => 'день',
+    PeriodKind.week => 'неделя',
+    PeriodKind.month => 'месяц',
+    PeriodKind.year => 'год',
+    PeriodKind.custom => 'свой',
+  };
+  return 'Период: $name, изменить';
+}
