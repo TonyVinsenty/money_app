@@ -1,6 +1,7 @@
 import 'package:money_app/core/format/currency_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
@@ -73,8 +74,46 @@ const String accountOperationsButton = 'Операции';
 /// Озвучка после «Сделать основным».
 String accountMadeDefaultAnnouncement(String name) => '$name — основной счёт';
 
-/// Кнопка «Вернуть из архива» для скринридера: «Вернуть из архива: Карта».
-String accountRestoreLabel(String name) => '$accountRestoreAction: $name';
+/// Кнопка «Вернуть из архива» для скринридера: «Вернуть «Карта» из архива».
+String accountRestoreLabel(String name) => 'Вернуть «$name» из архива';
+
+// Удаление счёта из архива (тексты ADR 0010, п. 19).
+const String accountDeleteAction = 'Удалить';
+const String accountDeleteCancel = 'Отмена';
+
+/// Кнопка «Удалить» для скринридера: «Удалить «Тест»».
+String accountDeleteLabel(String name) => 'Удалить «$name»';
+
+String accountDeleteDialogTitle(String name) => 'Удалить счёт «$name»?';
+
+/// Текст подтверждения. Без операций и переводов — «Счёт удалится
+/// насовсем.»; иначе предложение про операции («К счёту привязано
+/// 12 операций…», с падежами) и, если есть, про переводы.
+String accountDeleteDialogText({
+  required int transactions,
+  required int transfers,
+}) {
+  if (transactions == 0 && transfers == 0) return 'Счёт удалится насовсем.';
+  final parts = <String>[
+    if (transactions > 0)
+      'К счёту ${pluralRu(transactions, 'привязана', 'привязаны', 'привязано')} '
+          '$transactions '
+          '${pluralRu(transactions, 'операция', 'операции', 'операций')}. '
+          'После удаления '
+          '${transactions == 1 ? 'она останется' : 'они останутся'} '
+          'без привязки к счёту.',
+    if (transfers > 0)
+      transfers == 1
+          ? 'Перевод с этим счётом (1) будет удалён.'
+          : 'Переводы с этим счётом ($transfers) будут удалены.',
+  ];
+  return parts.join(' ');
+}
+
+String accountDeletedMessage(String name) => 'Счёт «$name» удалён';
+
+const String accountDeleteFailedMessage =
+    'Не удалось удалить счёт. Ничего не изменилось';
 
 String accountDefaultChangedMessage(String name) =>
     'Основной счёт теперь «$name»';

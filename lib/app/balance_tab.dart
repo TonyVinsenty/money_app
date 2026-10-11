@@ -17,6 +17,7 @@ import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
+import 'package:money_app/features/accounts/presentation/account_delete_dialog.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -108,6 +109,32 @@ class _BalanceTabState extends State<BalanceTab> {
     }
   }
 
+  /// «Удалить» в «Архиве»: число привязок → подтверждение → удаление
+  /// (ADR 0010, п. 19). «Отменить» нет: подтверждения достаточно.
+  Future<void> _delete(Account account) async {
+    final repository = _repository!;
+    final messenger = ScaffoldMessenger.of(context);
+    void say(String text) => messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: TapToDismissSnackContent(child: Text(text))),
+      );
+    try {
+      final links = await repository.linkedCounts(account.id);
+      if (!mounted) return;
+      final confirmed = await confirmAccountDelete(
+        context,
+        name: account.name,
+        links: links,
+      );
+      if (!confirmed) return;
+      await repository.deleteArchived(account.id);
+      say(accountDeletedMessage(account.name));
+    } on Object {
+      say(accountDeleteFailedMessage);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Без BrowseScope (в части тестов) день берём из часов; в приложении он
@@ -127,6 +154,7 @@ class _BalanceTabState extends State<BalanceTab> {
           mainCurrency: AppScope.of(context).settings.mainCurrencyCode,
           defaultAccountId: AppScope.of(context).settings.defaultAccountId,
           onRestoreAccount: (account) => unawaited(_restore(account)),
+          onDeleteAccount: (account) => unawaited(_delete(account)),
           onOpenOrder: () => unawaited(
             Navigator.of(context).pushNamed<void>(
               AppRoutes.accountsOrder,

@@ -29,6 +29,7 @@ class AccountsSection extends StatelessWidget {
     required this.onOpenAccount,
     this.defaultAccountId,
     this.onRestoreAccount,
+    this.onDeleteAccount,
     this.onOpenOrder,
     this.onTransfer,
     this.onOpenJournal,
@@ -59,9 +60,14 @@ class AccountsSection extends StatelessWidget {
   /// «Вернуть из архива» у счёта из раздела «Архив»; без него раздела нет.
   final ValueChanged<Account>? onRestoreAccount;
 
+  /// «Удалить» у счёта из раздела «Архив»; без него кнопки нет.
+  final ValueChanged<Account>? onDeleteAccount;
+
   static const archiveKey = ValueKey('accounts-archive');
   static ValueKey<String> restoreKey(String id) =>
       ValueKey('accounts-restore-$id');
+  static ValueKey<String> deleteKey(String id) =>
+      ValueKey('accounts-delete-$id');
 
   /// Id основного счёта из настроек; годен ли он, section решает сама
   /// (не в архиве, основная валюта).
@@ -181,7 +187,11 @@ class AccountsSection extends StatelessWidget {
                   ],
                   _buttons(context, shown),
                   if (archived.isNotEmpty && onRestoreAccount != null)
-                    _ArchiveTile(archived, onRestoreAccount!),
+                    _ArchiveTile(
+                      archived,
+                      onRestore: onRestoreAccount!,
+                      onDelete: onDeleteAccount,
+                    ),
                 ],
               );
             },
@@ -368,13 +378,15 @@ class _AccountAvatar extends StatelessWidget {
   }
 }
 
-/// Свёрнутый раздел «Архив (N)» внизу списка, как у категорий: у каждого
-/// счёта под названием кнопка «Вернуть из архива».
+/// Свёрнутый раздел «Архив (N)» внизу списка, как у категорий: каждый счёт —
+/// одна строка (аватар, название, кнопки-значки «Вернуть из архива» и
+/// «Удалить»).
 class _ArchiveTile extends StatelessWidget {
-  const _ArchiveTile(this.accounts, this.onRestore);
+  const _ArchiveTile(this.accounts, {required this.onRestore, this.onDelete});
 
   final List<Account> accounts;
   final ValueChanged<Account> onRestore;
+  final ValueChanged<Account>? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -385,43 +397,73 @@ class _ArchiveTile extends StatelessWidget {
       children: [
         for (final a in accounts)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            // Справа кнопки сами дают поле (значок 24 в зоне 48).
+            padding: const EdgeInsetsDirectional.only(
+              start: AppSpacing.l,
+              end: AppSpacing.xs,
+            ),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    _AccountAvatar(a),
-                    const SizedBox(width: AppSpacing.m),
-                    Expanded(
-                      child: Text(a.name, style: theme.textTheme.bodyLarge),
-                    ),
-                  ],
+                _AccountAvatar(a),
+                const SizedBox(width: AppSpacing.m),
+                // Длинное название переносится, кнопки остаются на месте.
+                Expanded(child: Text(a.name, style: theme.textTheme.bodyLarge)),
+                _ArchiveAction(
+                  key: AccountsSection.restoreKey(a.id),
+                  icon: Icons.unarchive_outlined,
+                  tooltip: accountRestoreAction,
+                  label: accountRestoreLabel(a.name),
+                  onPressed: () => onRestore(a),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: AppSpacing.avatarWidth + AppSpacing.m,
+                if (onDelete case final delete?)
+                  _ArchiveAction(
+                    key: AccountsSection.deleteKey(a.id),
+                    icon: Icons.delete_outline,
+                    tooltip: accountDeleteAction,
+                    label: accountDeleteLabel(a.name),
+                    color: theme.colorScheme.error,
+                    onPressed: () => delete(a),
                   ),
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: Semantics(
-                      label: accountRestoreLabel(a.name),
-                      button: true,
-                      excludeSemantics: true,
-                      onTap: () => onRestore(a),
-                      child: TextButton.icon(
-                        key: AccountsSection.restoreKey(a.id),
-                        onPressed: () => onRestore(a),
-                        icon: const Icon(Icons.unarchive_outlined),
-                        label: const Text(accountRestoreAction),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Кнопка-значок строки архива 48 × 48: подсказка короткая, а скринридер
+/// читает с названием счёта («Удалить «Тест»»).
+class _ArchiveAction extends StatelessWidget {
+  const _ArchiveAction({
+    required this.icon,
+    required this.tooltip,
+    required this.label,
+    required this.onPressed,
+    this.color,
+    super.key,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final String label;
+  final VoidCallback onPressed;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      button: true,
+      excludeSemantics: true,
+      onTap: onPressed,
+      child: IconButton(
+        icon: Icon(icon),
+        color: color,
+        tooltip: tooltip,
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
+        onPressed: onPressed,
+      ),
     );
   }
 }

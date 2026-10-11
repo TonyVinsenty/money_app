@@ -7,6 +7,7 @@ import 'package:money_app/app/balance_tab.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
+import 'package:money_app/features/accounts/domain/accounts_repository.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
@@ -88,7 +89,8 @@ void main() {
     expect(find.text(accountRestoredMessage('Старая')), findsOneWidget);
     expect(find.text('Архив (1)'), findsOneWidget);
 
-    await _expandArchive(tester);
+    // Раздел после возврата остаётся раскрытым.
+    expect(find.text('Копилка'), findsOneWidget);
     await _restore(tester, 'c');
     expect(find.byKey(AccountsSection.archiveKey), findsNothing);
   });
@@ -131,9 +133,7 @@ void main() {
     expect(find.text(accountDefaultLabel), findsOneWidget);
   });
 
-  testWidgets('кнопка возврата читается «Вернуть из архива: Старая»', (
-    tester,
-  ) async {
+  testWidgets('кнопки читаются с названием счёта', (tester) async {
     final handle = tester.ensureSemantics();
     await _pump(
       tester,
@@ -143,7 +143,129 @@ void main() {
       ]),
     );
     await _expandArchive(tester);
-    expect(find.bySemanticsLabel('Вернуть из архива: Старая'), findsOneWidget);
+    expect(find.bySemanticsLabel('Вернуть «Старая» из архива'), findsOneWidget);
+    expect(find.bySemanticsLabel('Удалить «Старая»'), findsOneWidget);
     handle.dispose();
+  });
+
+  group('удаление из архива (7.30h)', () {
+    Future<InMemoryAccountsRepository> openArchive(
+      WidgetTester tester, {
+      AccountLinks? links,
+    }) async {
+      final repo = InMemoryAccountsRepository([
+        _acc('a', 'Карта'),
+        _acc('b', 'Тест', archived: true),
+      ]);
+      if (links != null) repo.links['b'] = links;
+      await _pump(tester, repo);
+      await _expandArchive(tester);
+      return repo;
+    }
+
+    Future<void> tapDelete(WidgetTester tester) async {
+      final key = AccountsSection.deleteKey('b');
+      await tester.ensureVisible(find.byKey(key));
+      await tester.tap(find.byKey(key));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('одна строка: название и обе кнопки на одной линии', (
+      tester,
+    ) async {
+      await openArchive(tester);
+      final name = tester.getCenter(find.text('Тест')).dy;
+      for (final key in [
+        AccountsSection.restoreKey('b'),
+        AccountsSection.deleteKey('b'),
+      ]) {
+        expect(tester.getCenter(find.byKey(key)).dy, closeTo(name, 1));
+        expect(tester.getSize(find.byKey(key)), const Size(48, 48));
+      }
+      // Подписи «Вернуть из архива» строкой под названием больше нет.
+      expect(find.text(accountRestoreAction), findsNothing);
+      final context = tester.element(find.byIcon(Icons.delete_outline));
+      expect(IconTheme.of(context).color, Theme.of(context).colorScheme.error);
+    });
+
+    testWidgets('без привязок: короткий текст, «Удалить» удаляет', (
+      tester,
+    ) async {
+      final repo = await openArchive(tester);
+      await tapDelete(tester);
+
+      expect(find.text('Удалить счёт «Тест»?'), findsOneWidget);
+      expect(find.text('Счёт удалится насовсем.'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, 'Удалить'));
+      await tester.pumpAndSettle();
+
+      expect(repo.deleted, ['b']);
+      expect(find.text('Счёт «Тест» удалён'), findsOneWidget);
+      expect(find.byKey(AccountsSection.archiveKey), findsNothing);
+    });
+
+    testWidgets('с операциями и переводами: оба предложения с числами', (
+      tester,
+    ) async {
+      await openArchive(tester, links: (transactions: 12, transfers: 3));
+      await tapDelete(tester);
+      expect(
+        find.text(
+          'К счёту привязано 12 операций. '
+          'После удаления они останутся без привязки к счёту. '
+          'Переводы с этим счётом (3) будут удалены.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('«Отмена» ничего не делает', (tester) async {
+      final repo = await openArchive(tester);
+      await tapDelete(tester);
+      await tester.tap(find.text('Отмена'));
+      await tester.pumpAndSettle();
+
+      expect(repo.deleted, isEmpty);
+      expect(find.text('Архив (1)'), findsOneWidget);
+      expect(find.textContaining('удалён'), findsNothing);
+    });
+
+    testWidgets('сбой удаления: сообщение, счёт на месте', (tester) async {
+      final repo = await openArchive(tester);
+      await tapDelete(tester);
+      repo.failWith = Exception('disk');
+      await tester.tap(find.widgetWithText(TextButton, 'Удалить'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(accountDeleteFailedMessage), findsOneWidget);
+      expect(find.text('Архив (1)'), findsOneWidget);
+    });
+
+    testWidgets('360 dp, 200 %: название переносится, кнопки на экране', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final repo = InMemoryAccountsRepository([
+        _acc('a', 'Карта'),
+        _acc('b', 'Старая зарплатная карта банка', archived: true),
+      ]);
+      await _pump(tester, repo);
+      await _expandArchive(tester);
+
+      expect(tester.takeException(), isNull);
+      final name = find.text('Старая зарплатная карта банка');
+      expect(tester.getSize(name).height, greaterThan(40));
+      for (final key in [
+        AccountsSection.restoreKey('b'),
+        AccountsSection.deleteKey('b'),
+      ]) {
+        expect(tester.getTopRight(find.byKey(key)).dx, lessThanOrEqualTo(360));
+        expect(
+          tester.getTopLeft(find.byKey(key)).dx,
+          greaterThanOrEqualTo(tester.getTopRight(name).dx),
+        );
+      }
+    });
   });
 }

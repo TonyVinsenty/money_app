@@ -139,8 +139,8 @@ class FakeAccountsRepository extends Fake implements AccountsRepository {
 
 /// Фейк счетов «в памяти»: работают `watchAll`, `watchBalances` (только
 /// стартовые остатки плюс [net]), `nextSortOrder`, `create` (с проверкой
-/// дубля), `update`, `adjustCurrentBalance`, `archive` и `restore`. Остальное
-/// бросает ошибку.
+/// дубля), `update`, `adjustCurrentBalance`, `archive`, `restore`,
+/// `linkedCounts` (из [links]) и `deleteArchived`. Остальное бросает ошибку.
 class InMemoryAccountsRepository extends Fake implements AccountsRepository {
   InMemoryAccountsRepository([List<Account> initial = const []])
     : _all = List.of(initial);
@@ -219,6 +219,33 @@ class InMemoryAccountsRepository extends Fake implements AccountsRepository {
     if (!account.isArchived) return;
     Account.checkUniqueName(name: account.name, existing: _all, selfId: id);
     _replace(id, (a) => a.restored());
+  }
+
+  /// Что вернёт `linkedCounts` по id счёта; нет записи — нули.
+  final Map<String, AccountLinks> links = {};
+
+  /// Id счетов, удалённых через `deleteArchived`, по порядку.
+  final List<String> deleted = [];
+
+  @override
+  Future<AccountLinks> linkedCounts(String id) async {
+    _require(id);
+    return links[id] ?? (transactions: 0, transfers: 0);
+  }
+
+  @override
+  Future<void> deleteArchived(String id) async {
+    final error = failWith;
+    if (error != null) throw error;
+    if (!_require(id).isArchived) {
+      throw StateError('account $id is not archived');
+    }
+    _all = [
+      for (final a in _all)
+        if (a.id != id) a,
+    ];
+    deleted.add(id);
+    _changes.add(null);
   }
 
   @override
