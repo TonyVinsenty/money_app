@@ -55,8 +55,11 @@ Account _account(String id, String currency, int opening) => Account(
 
 String _line(int minor, [String code = 'RUB']) {
   final money = Money.fromMinor(minor, code);
-  return 'Баланс: ${minor > 0 ? '+' : ''}${formatMoney(money)}';
+  return 'За всё время: ${minor > 0 ? '+' : ''}${formatMoney(money)}';
 }
+
+String _accountsLine(int minor) =>
+    'На счетах: ${formatMoney(Money.fromMinor(minor, 'RUB'))}';
 
 Future<AppSettingsController> _pump(
   WidgetTester tester, {
@@ -124,12 +127,13 @@ void main() {
 
     settings.setHomeBalanceLine(HomeBalanceLine.accounts);
     await _settle(tester);
-    expect(find.text(_line(300000)), findsOneWidget);
+    expect(find.text(_accountsLine(300000)), findsOneWidget);
     expect(find.text(_line(750000)), findsNothing);
 
     settings.setHomeBalanceLine(HomeBalanceLine.none);
     await _settle(tester);
-    expect(find.textContaining('Баланс'), findsNothing);
+    expect(find.textContaining('За всё время'), findsNothing);
+    expect(find.textContaining('На счетах'), findsNothing);
     expect(_inRing, findsWidgets);
 
     settings.setHomeBalanceLine(HomeBalanceLine.allTime);
@@ -147,7 +151,7 @@ void main() {
     settings.setHomeBalanceLine(HomeBalanceLine.accounts);
     await _settle(tester);
 
-    expect(find.textContaining('Баланс'), findsNothing);
+    expect(find.textContaining('На счетах'), findsNothing);
   });
 
   testWidgets('смена основной валюты перестраивает строку', (tester) async {

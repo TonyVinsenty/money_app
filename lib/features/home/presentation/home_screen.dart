@@ -8,6 +8,7 @@ import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/home/presentation/month_chart_card.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 
 /// Главный экран: итоги расходов и доходов за месяц и диаграмма по категориям.
@@ -33,9 +34,13 @@ class HomeScreen extends StatefulWidget {
     this.onNextMonth,
     this.currency = rubCurrencyCode,
     this.balanceLine,
+    this.balanceLineKind = HomeBalanceLine.allTime,
     this.banner,
     super.key,
   });
+
+  /// Какая это вторая строка в кольце («За всё время» или «На счетах»).
+  final HomeBalanceLine balanceLineKind;
 
   /// Плашка над итогами (например, «К оплате»), которую собирает приложение.
   /// Сама должна быть нулевой высоты, когда показывать нечего; `null` - слота
@@ -143,6 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   isCurrentMonth: w.isCurrentMonth,
                   currency: w.currency,
                   balanceLine: w.balanceLine,
+                  balanceLineKind: w.balanceLineKind,
                   ringSize: ring,
                   onOpenCategory: w.onOpenCategory,
                 ),

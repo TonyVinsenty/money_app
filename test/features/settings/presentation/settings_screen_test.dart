@@ -174,10 +174,10 @@ void main() {
     ) async {
       await tester.pumpWidget(_app(balanceLine: HomeBalanceLine.accounts));
 
-      expect(find.text('Строка «Баланс» на Главной'), findsOneWidget);
-      expect(find.text('Все доходы минус все расходы'), findsOneWidget);
+      expect(find.text('Вторая строка в кольце'), findsOneWidget);
       expect(find.text('За всё время'), findsOneWidget);
-      expect(find.text('Сумма на счетах'), findsOneWidget);
+      expect(find.text('Все доходы минус все расходы'), findsOneWidget);
+      expect(find.text('На счетах'), findsOneWidget);
       expect(find.text('Счета в основной валюте'), findsOneWidget);
       expect(find.text('Не показывать'), findsOneWidget);
       expect(
@@ -191,8 +191,8 @@ void main() {
     });
 
     for (final (label, line) in [
-      ('Все доходы минус все расходы', HomeBalanceLine.allTime),
-      ('Сумма на счетах', HomeBalanceLine.accounts),
+      ('За всё время', HomeBalanceLine.allTime),
+      ('На счетах', HomeBalanceLine.accounts),
       ('Не показывать', HomeBalanceLine.none),
     ]) {
       testWidgets('тап «$label» сообщает $line', (tester) async {
@@ -632,11 +632,7 @@ void main() {
     final tiles = {
       for (final label in ['Как в системе', 'Светлая', 'Тёмная'])
         label: find.widgetWithText(RadioListTile<ThemeMode>, label),
-      for (final label in [
-        'Все доходы минус все расходы',
-        'Сумма на счетах',
-        'Не показывать',
-      ])
+      for (final label in ['За всё время', 'На счетах', 'Не показывать'])
         label: find.widgetWithText(RadioListTile<HomeBalanceLine>, label),
       'Категории': find.widgetWithText(ListTile, 'Категории'),
     };

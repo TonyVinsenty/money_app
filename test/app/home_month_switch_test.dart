@@ -285,7 +285,7 @@ void main() {
   testWidgets('пустой текущий месяц: прежний текст', (tester) async {
     await _pump(tester, _Repo(const []));
     expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
-    expect(find.textContaining('За '), findsNothing);
+    expect(find.textContaining('расходов нет'), findsNothing);
     // Операций нет вообще: стрелки скрыты, подпись на месте.
     expect(_prev, findsNothing);
     expect(find.text('Октябрь 2026'), findsOneWidget);

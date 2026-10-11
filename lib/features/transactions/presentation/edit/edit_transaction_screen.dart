@@ -866,6 +866,7 @@ class _SubcategoryRow extends StatelessWidget {
           child: ListTile(
             leading: CategoryIconView(
               sub?.iconKey,
+              name: sub?.name,
               color: theme.colorScheme.primary,
             ),
             title: Text(sub?.name ?? EditTransactionScreen.subcategoryNoneText),

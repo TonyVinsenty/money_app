@@ -19,6 +19,7 @@ import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -88,12 +89,16 @@ class MonthChartCard extends StatefulWidget {
     this.isCurrentMonth = true,
     this.currency = rubCurrencyCode,
     this.balanceLine,
+    this.balanceLineKind = HomeBalanceLine.allTime,
     super.key,
   });
 
-  /// Сумма для строки «Баланс» под «Всего» в центре кольца. Нет потока,
-  /// `null` в нём, ожидание или ошибка - строки нет. Поток создаёт вызывающий.
+  /// Сумма для второй строки в центре кольца. Нет потока, `null` в нём,
+  /// ожидание или ошибка - строки нет. Поток создаёт вызывающий.
   final Stream<Money?>? balanceLine;
+
+  /// Что считает [balanceLine]: «За всё время» или «На счетах».
+  final HomeBalanceLine balanceLineKind;
 
   /// Код валюты кольца (основная валюта); операции других валют в поток не
   /// приходят.
@@ -274,8 +279,8 @@ class _MonthChartCardState extends State<MonthChartCard> {
     Widget ringWith(Money? line) {
       final label =
           'Диаграмма расходов за ${formatMonthName(month)}. '
-          'Всего: ${_spokenSigned(balance)}'
-          '${line == null ? '' : '. Баланс: ${_spokenSigned(line)}'}';
+          '${_topLabel(month)}: ${_spokenSigned(balance)}'
+          '${line == null ? '' : '. ${_lineLabel()}: ${_spokenLine(line)}'}';
       return SizedBox.square(
         dimension: side,
         child: DonutChart(
@@ -299,7 +304,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
           center: SizedBox(
             width: side * 0.66,
             child: highlighted == null
-                ? _totalCenter(theme, colors, balance, line)
+                ? _totalCenter(theme, colors, month, balance, line)
                 : _sliceCenter(
                     theme,
                     slices[highlighted],
@@ -351,15 +356,36 @@ class _MonthChartCardState extends State<MonthChartCard> {
     );
   }
 
-  /// Центр без подсветки: «Всего» и баланс месяца (доходы минус расходы). Цвет и
-  /// знак только у суммы: плюс цветом дохода, минус цветом расхода, ноль
+  /// Подпись над числом: «За октябрь» (месяц в винительном падеже совпадает с
+  /// именительным).
+  String _topLabel(DateOnly month) => 'За ${formatMonthName(month)}';
+
+  /// Подпись второй строки: «За всё время» или «На счетах».
+  String _lineLabel() => widget.balanceLineKind == HomeBalanceLine.accounts
+      ? 'На счетах'
+      : 'За всё время';
+
+  /// «На счетах» - остаток без знака, «За всё время» - со знаком.
+  String _lineText(Money line) =>
+      widget.balanceLineKind == HomeBalanceLine.accounts
+      ? formatMoney(line)
+      : _signedText(line);
+
+  String _spokenLine(Money line) =>
+      widget.balanceLineKind == HomeBalanceLine.accounts
+      ? spokenMoney(line)
+      : _spokenSigned(line);
+
+  /// Центр без подсветки: «За октябрь» и баланс месяца (доходы минус расходы).
+  /// Цвет и знак только у суммы: плюс цветом дохода, минус цветом расхода, ноль
   /// нейтрально.
   ///
-  /// Под ними - мельче - строка «Баланс: …» ([line]), если она есть; знак и
-  /// цвет те же, что у «Всего».
+  /// Под ними - мельче - строка «За всё время: …» или «На счетах: …» ([line]),
+  /// если она есть.
   Widget _totalCenter(
     ThemeData theme,
     AppColors colors,
+    DateOnly month,
     Money balance,
     Money? line,
   ) {
@@ -374,7 +400,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
       children: [
         _fit(
           Text(
-            'Всего',
+            _topLabel(month),
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -390,7 +416,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
         if (line != null)
           _fit(
             Text(
-              'Баланс: ${_signedText(line)}',
+              '${_lineLabel()}: ${_lineText(line)}',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,

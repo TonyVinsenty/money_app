@@ -21,6 +21,7 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/home/presentation/home_action_bar.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/home/presentation/month_chart_card.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -74,6 +75,8 @@ Future<void> _pump(
   ThemeMode mode = ThemeMode.light,
   ValueChanged<Set<String>>? onOpen,
   Stream<Money?>? balanceLine,
+  HomeBalanceLine balanceLineKind = HomeBalanceLine.allTime,
+  DateOnly? month,
 }) async {
   tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1;
@@ -98,10 +101,11 @@ Future<void> _pump(
               child: MonthChartCard(
                 transactions: transactions ?? Stream.value(const []),
                 categories: categories ?? Stream.value(const []),
-                month: _month,
+                month: month ?? _month,
                 ringSize: ringSize,
                 onOpenCategory: onOpen,
                 balanceLine: balanceLine,
+                balanceLineKind: balanceLineKind,
               ),
             ),
           ),
@@ -179,7 +183,7 @@ void main() {
 
     expect(find.text('Расходы по категориям'), findsOneWidget);
     expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
-    expect(_inRing('Всего'), findsOneWidget);
+    expect(_inRing('За сентябрь'), findsOneWidget);
     final colors = tester.element(find.byType(MonthChartCard)).appColors;
     // Сумма нейтральная: ни цвет расхода, ни цвет дохода.
     final total = tester.widget<Text>(_inRing(_money(0)));
@@ -259,7 +263,7 @@ void main() {
         categories: Stream.value([_category('food', 'Еда')]),
       );
       await tester.pump();
-      expect(_inRing('Всего'), findsOneWidget);
+      expect(_inRing('За сентябрь'), findsOneWidget);
       return tester.widget<Text>(
         find.descendant(
           of: find.byType(DonutChart),
@@ -349,7 +353,7 @@ void main() {
     expect(tester.takeException(), isNull);
     final ring = tester.getRect(find.byType(DonutChart));
     final amount = tester.getRect(_inRing(_money(-7340600)));
-    final label = tester.getRect(_inRing('Всего'));
+    final label = tester.getRect(_inRing('За сентябрь'));
     // Дырка кольца: толщина кольца 16 % стороны, запас 2 dp на край.
     final hole = ring.width * (1 - 2 * 0.16) - 4;
     final centerPoint = ring.center;
@@ -452,7 +456,7 @@ void main() {
       categories: Stream.value(data.categories),
     );
     await tester.pump();
-    expect(_inRing('Всего'), findsOneWidget);
+    expect(_inRing('За сентябрь'), findsOneWidget);
 
     // Точка на кольце сразу правее «12 часов»: там начинается первый сектор.
     final rect = tester.getRect(find.byType(DonutChart));
@@ -465,11 +469,11 @@ void main() {
     expect(_inRing('Кат ${first.categoryIds.single}'), findsOneWidget);
     expect(_inRing(formatMoney(first.amount)), findsOneWidget);
     expect(_inRing(_pct(first.share)), findsOneWidget);
-    expect(_inRing('Всего'), findsNothing);
+    expect(_inRing('За сентябрь'), findsNothing);
 
     await gesture.up();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(_inRing('Всего'), findsOneWidget);
+    expect(_inRing('За сентябрь'), findsOneWidget);
   });
 
   testWidgets('архивная категория показывается своим именем, неизвестная — '
@@ -543,7 +547,9 @@ void main() {
           ? spokenMoney(balance)
           : 'плюс ${spokenMoney(balance)}';
       expect(
-        find.bySemanticsLabel('Диаграмма расходов за сентябрь. Всего: $spoken'),
+        find.bySemanticsLabel(
+          'Диаграмма расходов за сентябрь. За сентябрь: $spoken',
+        ),
         findsOneWidget,
       );
 
@@ -554,7 +560,7 @@ void main() {
       await tester.pump();
       expect(
         find.bySemanticsLabel(
-          'Диаграмма расходов за сентябрь. Всего: '
+          'Диаграмма расходов за сентябрь. За сентябрь: '
           'плюс ${spokenMoney(Money.fromMinor(1234467, 'RUB'))}',
         ),
         findsOneWidget,
@@ -564,7 +570,7 @@ void main() {
       await tester.pump();
       expect(
         find.bySemanticsLabel(
-          'Диаграмма расходов за сентябрь. Всего: '
+          'Диаграмма расходов за сентябрь. За сентябрь: '
           '${spokenMoney(Money.fromMinor(-5000, 'RUB'))}',
         ),
         findsOneWidget,
@@ -574,7 +580,7 @@ void main() {
       await tester.pump();
       expect(
         find.bySemanticsLabel(
-          'Диаграмма расходов за сентябрь. Всего: 0 рублей',
+          'Диаграмма расходов за сентябрь. За сентябрь: 0 рублей',
         ),
         findsOneWidget,
       );
@@ -1091,11 +1097,15 @@ void main() {
       double textScale = 1,
       double width = 360,
       double ringSize = 280,
+      HomeBalanceLine kind = HomeBalanceLine.allTime,
+      DateOnly? month,
     }) async {
       await _pump(
         tester,
         transactions: Stream.value(base),
         balanceLine: balance,
+        balanceLineKind: kind,
+        month: month,
         textScale: textScale,
         width: width,
         ringSize: ringSize,
@@ -1103,14 +1113,14 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('плюс: под «Всего» строка со знаком, цвет нейтральный', (
+    testWidgets('плюс: под «За сентябрь» строка со знаком, цвет нейтральный', (
       tester,
     ) async {
       await pumpWith(tester, Stream.value(rub(4530000)));
 
-      final text = 'Баланс: +${_money(4530000)}';
+      final text = 'За всё время: +${_money(4530000)}';
       expect(_inRing(text), findsOneWidget);
-      final total = tester.getRect(_inRing('Всего'));
+      final total = tester.getRect(_inRing('За сентябрь'));
       final line = tester.getRect(_inRing(text));
       expect(line.top, greaterThan(total.bottom - 1));
       final style = tester.widget<Text>(_inRing(text)).style!;
@@ -1131,7 +1141,7 @@ void main() {
     testWidgets('минус: знак, цвет нейтральный', (tester) async {
       await pumpWith(tester, Stream.value(rub(-250000)));
 
-      final text = 'Баланс: ${_money(-250000)}';
+      final text = 'За всё время: ${_money(-250000)}';
       expect(_inRing(text), findsOneWidget);
       expect(
         tester.widget<Text>(_inRing(text)).style!.color,
@@ -1144,7 +1154,7 @@ void main() {
     testWidgets('ноль: без знака, цвет нейтральный', (tester) async {
       await pumpWith(tester, Stream.value(rub(0)));
 
-      final text = 'Баланс: ${_money(0)}';
+      final text = 'За всё время: ${_money(0)}';
       expect(_inRing(text), findsOneWidget);
       expect(
         tester.widget<Text>(_inRing(text)).style!.color,
@@ -1167,21 +1177,22 @@ void main() {
         ];
         for (final stream in cases) {
           await pumpWith(tester, stream);
-          expect(find.textContaining('Баланс'), findsNothing);
-          expect(_inRing('Всего'), findsOneWidget);
+          expect(find.textContaining('За всё время'), findsNothing);
+          expect(find.textContaining('На счетах'), findsNothing);
+          expect(_inRing('За сентябрь'), findsOneWidget);
           expect(find.byType(DonutChart), findsOneWidget);
         }
       },
     );
 
-    testWidgets('озвучка кольца: с «Баланс» и без него', (tester) async {
+    testWidgets('озвучка кольца: со второй строкой и без неё', (tester) async {
       final semantics = tester.ensureSemantics();
       await pumpWith(tester, Stream.value(rub(4530000)));
       expect(
         find.bySemanticsLabel(
           'Диаграмма расходов за сентябрь. '
-          'Всего: плюс ${spokenMoney(rub(1199900))}. '
-          'Баланс: плюс ${spokenMoney(rub(4530000))}',
+          'За сентябрь: плюс ${spokenMoney(rub(1199900))}. '
+          'За всё время: плюс ${spokenMoney(rub(4530000))}',
         ),
         findsOneWidget,
       );
@@ -1190,8 +1201,22 @@ void main() {
       expect(
         find.bySemanticsLabel(
           'Диаграмма расходов за сентябрь. '
-          'Всего: плюс ${spokenMoney(rub(1199900))}. '
-          'Баланс: ${spokenMoney(rub(-100))}',
+          'За сентябрь: плюс ${spokenMoney(rub(1199900))}. '
+          'За всё время: ${spokenMoney(rub(-100))}',
+        ),
+        findsOneWidget,
+      );
+
+      await pumpWith(
+        tester,
+        Stream.value(rub(7887300)),
+        kind: HomeBalanceLine.accounts,
+      );
+      expect(
+        find.bySemanticsLabel(
+          'Диаграмма расходов за сентябрь. '
+          'За сентябрь: плюс ${spokenMoney(rub(1199900))}. '
+          'На счетах: ${spokenMoney(rub(7887300))}',
         ),
         findsOneWidget,
       );
@@ -1200,11 +1225,33 @@ void main() {
       expect(
         find.bySemanticsLabel(
           'Диаграмма расходов за сентябрь. '
-          'Всего: плюс ${spokenMoney(rub(1199900))}',
+          'За сентябрь: плюс ${spokenMoney(rub(1199900))}',
         ),
         findsOneWidget,
       );
       semantics.dispose();
+    });
+
+    testWidgets('«На счетах»: подпись и сумма без знака', (tester) async {
+      await pumpWith(
+        tester,
+        Stream.value(rub(7887300)),
+        kind: HomeBalanceLine.accounts,
+      );
+
+      expect(_inRing('На счетах: ${_money(7887300)}'), findsOneWidget);
+      expect(find.textContaining('За всё время'), findsNothing);
+    });
+
+    testWidgets('другой месяц: «За октябрь»', (tester) async {
+      await pumpWith(
+        tester,
+        Stream.value(rub(100)),
+        month: DateOnly(2026, 10, 3),
+      );
+
+      expect(_inRing('За октябрь'), findsOneWidget);
+      expect(_inRing('За сентябрь'), findsNothing);
     });
 
     for (final (width, scale, ring) in [
@@ -1223,7 +1270,7 @@ void main() {
         );
 
         expect(tester.takeException(), isNull);
-        final line = find.textContaining('Баланс: +');
+        final line = find.textContaining('За всё время: +');
         expect(line, findsOneWidget);
         final box = tester.getRect(find.byType(DonutChart));
         final rect = tester.getRect(line);

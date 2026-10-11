@@ -21,11 +21,11 @@ const themeDarkLabel = 'Тёмная';
 /// Заголовок раздела с выбором темы.
 const themeSectionTitle = 'Тема';
 
-/// Раздел «Строка «Баланс» на Главной» (тексты утверждены 2026-10-10).
-const homeBalanceSectionTitle = 'Строка «Баланс» на Главной';
-const homeBalanceAllTimeLabel = 'Все доходы минус все расходы';
-const homeBalanceAllTimeSubtitle = 'За всё время';
-const homeBalanceAccountsLabel = 'Сумма на счетах';
+/// Раздел «Вторая строка в кольце» (тексты Т1 утверждены 2026-10-11).
+const homeBalanceSectionTitle = 'Вторая строка в кольце';
+const homeBalanceAllTimeLabel = 'За всё время';
+const homeBalanceAllTimeSubtitle = 'Все доходы минус все расходы';
+const homeBalanceAccountsLabel = 'На счетах';
 const homeBalanceAccountsSubtitle = 'Счета в основной валюте';
 const homeBalanceNoneLabel = 'Не показывать';
 

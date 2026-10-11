@@ -260,6 +260,28 @@ void main() {
       expect(find.text('Без подкатегории'), findsNothing);
     });
 
+    testWidgets('подкатегория без значка: первая буква, а не «…»', (
+      tester,
+    ) async {
+      final categories = _Categories([
+        _food,
+        Category(
+          id: 'meat',
+          kind: _food.kind,
+          name: 'Мясо',
+          iconKey: 'more_horiz',
+          parentId: _food.id,
+          sortOrder: 0,
+        ),
+      ]);
+      await _open(tester, _tx(subcategoryId: 'meat'), categories: categories);
+      final leading = find.descendant(
+        of: find.byType(ListTile),
+        matching: find.text('М'),
+      );
+      expect(leading, findsOneWidget);
+    });
+
     testWidgets('нет у категории без подкатегорий', (tester) async {
       await _open(tester, _tx(categoryId: 'cafe'));
       expect(_subRow, findsNothing);

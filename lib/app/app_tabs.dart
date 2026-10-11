@@ -300,6 +300,7 @@ class _HomeTabState extends State<HomeTab> {
     final month = _month!;
     return HomeScreen(
       balanceLine: _balance,
+      balanceLineKind: _balanceLine ?? HomeBalanceLine.allTime,
       monthExpenses: _monthExpenses,
       monthIncome: _monthIncome,
       monthTransactions: _monthTransactions,
