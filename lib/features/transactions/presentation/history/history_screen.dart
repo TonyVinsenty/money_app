@@ -840,7 +840,6 @@ class _SearchField extends StatelessWidget {
                       onChanged('');
                     },
                   ),
-            border: const OutlineInputBorder(),
             isDense: true,
           ),
         ),

@@ -134,6 +134,35 @@ void main() {
     }
   });
 
+  group('поля ввода', () {
+    for (final entry in themes.entries) {
+      final input = entry.value.inputDecorationTheme;
+      final scheme = entry.value.colorScheme;
+
+      test('${entry.key} тема: рамка OutlineInputBorder, радиус 12', () {
+        for (final border in [
+          input.border,
+          input.enabledBorder,
+          input.focusedBorder,
+          input.errorBorder,
+          input.focusedErrorBorder,
+        ]) {
+          expect(border, isA<OutlineInputBorder>());
+          expect(
+            (border! as OutlineInputBorder).borderRadius,
+            BorderRadius.circular(12),
+          );
+        }
+      });
+
+      test('${entry.key} тема: фокус — акцент, ошибка — error', () {
+        expect(input.focusedBorder!.borderSide.color, scheme.primary);
+        expect(input.errorBorder!.borderSide.color, scheme.error);
+        expect(input.focusedErrorBorder!.borderSide.color, scheme.error);
+      });
+    }
+  });
+
   group('скругления', () {
     for (final entry in themes.entries) {
       test('${entry.key} тема: карточка скруглена на 16', () {

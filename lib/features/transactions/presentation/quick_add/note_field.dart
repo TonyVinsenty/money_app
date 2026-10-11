@@ -54,7 +54,6 @@ class NoteField extends StatelessWidget {
             decoration: InputDecoration(
               labelText: label,
               floatingLabelBehavior: FloatingLabelBehavior.always,
-              border: const OutlineInputBorder(),
               counter: Text(
                 counterText(length),
                 semanticsLabel: counterSemantics(length),

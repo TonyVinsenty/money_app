@@ -216,7 +216,6 @@ class _CurrencyPickerSheetState extends State<_CurrencyPickerSheet> {
                               setState(() => _query = '');
                             },
                           ),
-                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                 ),

@@ -50,7 +50,25 @@ abstract final class AppTheme {
       // Карточки отделяются от фона тоном, а не тенью (тень в тёмной теме
       // почти не видна).
       cardTheme: const CardThemeData(elevation: 0, shape: _cardShape),
+      inputDecorationTheme: _inputTheme(base.colorScheme),
       extensions: <ThemeExtension<dynamic>>[colors],
+    );
+  }
+
+  /// Все поля ввода и выпадающие списки — в рамке с радиусом 12;
+  /// фокус — акцентный цвет, ошибка — цвет ошибки.
+  static InputDecorationTheme _inputTheme(ColorScheme scheme) {
+    OutlineInputBorder border(Color color, double width) => OutlineInputBorder(
+      borderRadius: AppRadius.borderM,
+      borderSide: BorderSide(color: color, width: width),
+    );
+    return InputDecorationTheme(
+      border: border(scheme.outline, 1),
+      enabledBorder: border(scheme.outline, 1),
+      disabledBorder: border(scheme.outlineVariant, 1),
+      focusedBorder: border(scheme.primary, 2),
+      errorBorder: border(scheme.error, 1),
+      focusedErrorBorder: border(scheme.error, 2),
     );
   }
 
