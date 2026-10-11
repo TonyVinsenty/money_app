@@ -16,6 +16,7 @@ import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
 import 'package:money_app/features/categories/presentation/category_form_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -106,6 +107,16 @@ void main() {
     );
 
     await _openTab(tester, 'Настройки');
+    await tester.scrollUntilVisible(
+      find.text(categoriesScreenTitle),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(SettingsScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.tap(find.text(categoriesScreenTitle));
     await tester.pumpAndSettle();
 
@@ -142,6 +153,16 @@ void main() {
       final food = await _expenseCategoryId('Продукты');
 
       await _openTab(tester, 'Настройки');
+      await tester.scrollUntilVisible(
+        find.text(categoriesScreenTitle),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(SettingsScreen),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.tap(find.text(categoriesScreenTitle));
       await tester.pumpAndSettle();
 
@@ -213,6 +234,16 @@ void main() {
 
       // «Настройки» -> «Категории» -> «В архив» у «Кафе».
       await _openTab(tester, 'Настройки');
+      await tester.scrollUntilVisible(
+        find.text(categoriesScreenTitle),
+        200,
+        scrollable: find
+            .descendant(
+              of: find.byType(SettingsScreen),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.tap(find.text(categoriesScreenTitle));
       await tester.pumpAndSettle();
       expect(find.text('Кафе'), findsOneWidget);
