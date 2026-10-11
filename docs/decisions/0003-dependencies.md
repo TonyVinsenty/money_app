@@ -234,7 +234,7 @@ iOS — обнаружится на первой же iOS-сборке посл�
 | `freezed`, `json_serializable` | обмен у нас CSV, а не JSON; лишняя кодогенерация поверх drift |
 | `go_router` | навигация — 5 вкладок и пара экранов поверх; хватает `Navigator` и `IndexedStack` |
 | `mockito`, `mocktail` | тестируем на настоящей in-memory базе и самописных fake-объектах |
-| `flutter_slidable`, иконочные паки, анимационные пакеты | Material 3 в SDK закрывает потребности; вернёмся к вопросу на этапе 7 (полировка) |
+| `flutter_slidable`, иконочные паки, анимационные пакеты | Material 3 в SDK закрывает потребности; вернёмся к вопросу на этапе 7 (полировка). **Закрыто 2026-10-11 (решение пользователя, пункт Н4 этапа 7):** не нужны — анимации встроенными `AnimatedSwitcher`/`TweenAnimationBuilder`, свайпов в плане нет; так же не берём `flutter_launcher_icons`, `flutter_native_splash`, `app_settings` — [ADR 0013](0013-polish-design-system.md), «Отвергнутые варианты» |
 | `permission_handler` | нужные разрешения запрашивают сами плагины (уведомления — `flutter_local_notifications`) |
 | `sqflite`, `sqlite3_flutter_libs`, `drift_flutter` | см. [0001](0001-local-storage-drift.md) |
 
