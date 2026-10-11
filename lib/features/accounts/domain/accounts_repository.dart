@@ -69,4 +69,18 @@ abstract interface class AccountsRepository {
   /// Возвращает счёт [id] из архива. Если его имя занято другим не архивным
   /// счётом, бросает `AccountRuleException` с правилом `duplicateName`.
   Future<void> restore(String id);
+
+  /// Сколько к счёту [id] привязано живых операций и живых переводов (с ним
+  /// с любой стороны) — для текста подтверждения удаления.
+  Future<AccountLinks> linkedCounts(String id);
+
+  /// Удаляет **архивный** счёт [id] (ADR 0010, п. 19) одной транзакцией:
+  /// операции и регулярные платежи счёта остаются, но без счёта
+  /// (`accountId` → `null`), переводы с ним удаляются мягко, сам счёт —
+  /// мягко. Счёт не в архиве — `StateError`; нет или уже удалён —
+  /// `ArgumentError`.
+  Future<void> deleteArchived(String id);
 }
+
+/// Что привязано к счёту: живые операции и переводы.
+typedef AccountLinks = ({int transactions, int transfers});

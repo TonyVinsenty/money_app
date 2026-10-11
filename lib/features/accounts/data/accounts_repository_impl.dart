@@ -293,6 +293,78 @@ class DriftAccountsRepository implements AccountsRepository {
     });
   }
 
+  @override
+  Future<AccountLinks> linkedCounts(String id) {
+    return _db.transaction(() async {
+      await _requireRow(id);
+      Future<int> count(String sql, int repeat) async {
+        final row = await _db
+            .customSelect(
+              sql,
+              variables: [
+                for (var i = 0; i < repeat; i++) Variable<String>(id),
+              ],
+            )
+            .getSingle();
+        return row.read<int>('n');
+      }
+
+      return (
+        transactions: await count(
+          'SELECT COUNT(*) AS n FROM transactions '
+          'WHERE deleted_at IS NULL AND account_id = ?',
+          1,
+        ),
+        transfers: await count(
+          'SELECT COUNT(*) AS n FROM transfers WHERE deleted_at IS NULL '
+          'AND (from_account_id = ? OR to_account_id = ?)',
+          2,
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<void> deleteArchived(String id) {
+    return _db.transaction(() async {
+      final row = await _requireRow(id);
+      if (row.archivedAt == null) {
+        throw StateError('account $id is not archived');
+      }
+      final now = _nowMs();
+      // Отвязываем и удалённые операции и платежи: «Отменить» удаления
+      // не должно вернуть ссылку на удалённый счёт.
+      await (_db.update(
+        _db.transactions,
+      )..where((t) => t.accountId.equals(id))).write(
+        TransactionsCompanion(
+          accountId: const Value(null),
+          updatedAt: Value(now),
+        ),
+      );
+      await (_db.update(
+        _db.recurringPayments,
+      )..where((p) => p.accountId.equals(id))).write(
+        RecurringPaymentsCompanion(
+          accountId: const Value(null),
+          updatedAt: Value(now),
+        ),
+      );
+      await (_db.update(_db.transfers)..where(
+            (t) =>
+                t.deletedAt.isNull() &
+                (t.fromAccountId.equals(id) | t.toAccountId.equals(id)),
+          ))
+          .write(
+            TransfersCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+          );
+      await _updateRow(
+        id,
+        AccountsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+    });
+  }
+
   static final List<OrderingTerm Function($AccountsTable)> _stableOrder = [
     (a) => OrderingTerm.asc(a.sortOrder),
     (a) => OrderingTerm.asc(a.createdAt),
