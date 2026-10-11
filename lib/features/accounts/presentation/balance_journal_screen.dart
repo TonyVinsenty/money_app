@@ -166,7 +166,7 @@ class _JournalList extends StatelessWidget {
   Widget _row(BuildContext context, BalanceJournalEntry e) {
     final day = _spokenDay(e.day);
     final (
-      IconData icon,
+      Widget leading,
       String title,
       String spoken,
       VoidCallback? onTap,
@@ -174,7 +174,7 @@ class _JournalList extends StatelessWidget {
       // Экран счёта показывает только не архивные счета, поэтому строки
       // архивного счёта не нажимаются.
       AccountCreatedEntry(:final account) => (
-        accountIconFor(account.iconKey).icon,
+        AccountIconView(account.iconKey, name: account.name),
         journalCreatedTitle(account.name),
         journalCreatedSpoken(account.name, day),
         onOpenAccount == null || account.isArchived
@@ -182,13 +182,13 @@ class _JournalList extends StatelessWidget {
             : () => onOpenAccount!(account),
       ),
       AccountArchivedEntry(:final account) => (
-        Icons.archive_outlined,
+        const Icon(Icons.archive_outlined),
         journalArchivedTitle(account.name),
         journalArchivedSpoken(account.name, day),
         null,
       ),
       TransferEntry(:final transfer) => (
-        Icons.swap_horiz,
+        const Icon(Icons.swap_horiz),
         journalTransferTitle(
           _name(transfer.fromAccountId),
           _name(transfer.toAccountId),
@@ -214,7 +214,7 @@ class _JournalList extends StatelessWidget {
         key: BalanceJournalScreen.rowKey(e),
         contentPadding: EdgeInsets.zero,
         minTileHeight: 48,
-        leading: Icon(icon),
+        leading: leading,
         title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
         subtitle: transfer?.note == null
             ? null

@@ -103,6 +103,38 @@ void main() {
     expect(view.iconKey, 'local_cafe');
   });
 
+  testWidgets('подкатегория «Кофе» со значком «Другое» - буква «К»', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _app(
+        CategoryGrid(
+          categories: [
+            Category(
+              id: 'coffee',
+              kind: CategoryKind.expense,
+              name: 'Кофе',
+              iconKey: 'more_horiz',
+              parentId: 'food',
+              sortOrder: 0,
+            ),
+          ],
+          onSelected: (_) {},
+          onSkip: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('К'), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz), findsNothing);
+    // Плитка «Без подкатегории» без изменений: у неё свой значок.
+    expect(find.text('Без подкатегории'), findsOneWidget);
+    expect(find.bySemanticsLabel('К'), findsNothing);
+    expect(find.bySemanticsLabel('Кофе'), findsOneWidget);
+    handle.dispose();
+  });
+
   testWidgets('подпись плитки пропуска по умолчанию — «Без подкатегории»', (
     tester,
   ) async {

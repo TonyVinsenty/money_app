@@ -474,12 +474,16 @@ class _PaySheetState extends State<_PaySheet> {
                 constraints: const BoxConstraints(minHeight: 48),
                 child: ActionChip(
                   key: DueSection.sheetAccountKey,
-                  avatar: Icon(
-                    account == null
-                        ? Icons.account_balance_wallet_outlined
-                        : accountIconFor(account.iconKey).icon,
-                    size: 18,
-                  ),
+                  avatar: account == null
+                      ? const Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 18,
+                        )
+                      : AccountIconView(
+                          account.iconKey,
+                          name: account.name,
+                          size: 18,
+                        ),
                   label: Text(account?.name ?? recurringFormAccountHint),
                   onPressed: () => unawaited(_pickAccount()),
                   materialTapTargetSize: MaterialTapTargetSize.padded,

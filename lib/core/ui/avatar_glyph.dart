@@ -13,8 +13,15 @@ const String _restName = 'прочее';
 /// Буква только у ключа «Другое» (`more_horiz`) и только если название не
 /// пустое и не «Прочее» (без учёта регистра). Первый символ берётся целиком
 /// (эмодзи и цифра остаются как есть), буква - заглавная.
-String? avatarGlyph(String? iconKey, String? name) {
-  if (iconKey != _otherIconKey) return null;
+///
+/// [otherKey] - какой ключ значит «Другое»: у категорий `more_horiz`, у
+/// счетов `other`.
+String? avatarGlyph(
+  String? iconKey,
+  String? name, {
+  String otherKey = _otherIconKey,
+}) {
+  if (iconKey != otherKey) return null;
   final trimmed = name?.trim() ?? '';
   if (trimmed.isEmpty) return null;
   if (trimmed.toLowerCase() == _restName) return null;

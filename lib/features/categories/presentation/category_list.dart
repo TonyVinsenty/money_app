@@ -311,7 +311,7 @@ class _CategoryRow extends StatelessWidget {
           // ширину с кнопками, поэтому длинное название читается целиком.
           Row(
             children: [
-              CategoryIconView(category.iconKey),
+              CategoryIconView(category.iconKey, name: category.name),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(

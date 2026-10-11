@@ -136,8 +136,9 @@ class _AccountsOrderScreenState extends State<AccountsOrderScreen> {
                             padding: const EdgeInsets.only(left: 16),
                             child: Row(
                               children: [
-                                Icon(
-                                  accountIconFor(live[i].iconKey).icon,
+                                AccountIconView(
+                                  live[i].iconKey,
+                                  name: live[i].name,
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 16),

@@ -21,11 +21,11 @@ Future<({String? id})?> showAccountSheet(
   required List<Account> accounts,
   required String? selectedId,
 }) {
-  Widget option(BuildContext context, String? id, String name, IconData icon) {
+  Widget option(BuildContext context, String? id, String name, Widget icon) {
     final selected = id == selectedId;
     return ListTile(
       key: accountOptionKey(id),
-      leading: Icon(icon),
+      leading: icon,
       title: Text(name),
       trailing: selected ? const Icon(Icons.check) : null,
       selected: selected,
@@ -51,8 +51,13 @@ Future<({String? id})?> showAccountSheet(
               ),
             ),
             for (final a in accounts)
-              option(context, a.id, a.name, accountIconFor(a.iconKey).icon),
-            option(context, null, accountChipNone, Icons.block),
+              option(
+                context,
+                a.id,
+                a.name,
+                AccountIconView(a.iconKey, name: a.name),
+              ),
+            option(context, null, accountChipNone, const Icon(Icons.block)),
           ],
         ),
       ),
@@ -107,12 +112,9 @@ class AccountChip extends StatelessWidget {
         constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
         child: ActionChip(
           key: chipKey,
-          avatar: Icon(
-            name == null
-                ? Icons.account_balance_wallet_outlined
-                : accountIconFor(_selected!.iconKey).icon,
-            size: 18,
-          ),
+          avatar: name == null
+              ? const Icon(Icons.account_balance_wallet_outlined, size: 18)
+              : AccountIconView(_selected!.iconKey, name: name, size: 18),
           label: Text(name ?? accountChipNone),
           onPressed: () => _pick(context),
           materialTapTargetSize: MaterialTapTargetSize.padded,

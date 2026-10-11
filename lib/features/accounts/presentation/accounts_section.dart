@@ -341,8 +341,9 @@ class _ArchiveTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      accountIconFor(a.iconKey).icon,
+                    AccountIconView(
+                      a.iconKey,
+                      name: a.name,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 16),
@@ -471,8 +472,9 @@ class _AccountRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
-                Icon(
-                  accountIconFor(account.iconKey).icon,
+                AccountIconView(
+                  account.iconKey,
+                  name: account.name,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 12),
