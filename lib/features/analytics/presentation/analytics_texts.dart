@@ -9,6 +9,8 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/buckets.dart';
+import 'package:money_app/features/analytics/domain/comparison.dart';
+import 'package:money_app/features/analytics/domain/hints.dart';
 import 'package:money_app/features/analytics/domain/period_comparison.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -218,6 +220,92 @@ String operationsStatSubtitle(int count, Money average) =>
 String operationsStatSpoken(String name, int count, Money average) =>
     '$name, ${operationsCountText(count)}, '
     'средний чек ${spokenMoney(average)}';
+
+/// Т6. Заголовок карточки подсказок: виден только скринридеру.
+const String analyticsHintsTitle = 'Подсказки';
+
+/// Т6. Дни недели в дательном падеже («по субботам»), индекс 0 — понедельник.
+const List<String> _weekdaysDative = [
+  'понедельникам',
+  'вторникам',
+  'средам',
+  'четвергам',
+  'пятницам',
+  'субботам',
+  'воскресеньям',
+];
+
+/// Т6. Хвост правила 1 — «за весь» прошлый период: «за весь сентябрь»,
+/// «за всю прошлую неделю», «за весь 2025 год», «вчера за весь день»,
+/// «за предыдущие 10 дней» (свой интервал). Год у месяца — если он не тот же,
+/// что у [today].
+String _wholePreviousTail(AnalyticsPeriod period, DateOnly today) {
+  final previous = previousPeriod(period);
+  if (previous == null) {
+    final days = period.range.lengthInDays;
+    return 'за предыдущие $days ${pluralRu(days, 'день', 'дня', 'дней')}';
+  }
+  final start = previous.range.start;
+  return switch (period.kind) {
+    PeriodKind.day => 'вчера за весь день',
+    PeriodKind.week => 'за всю прошлую неделю',
+    PeriodKind.month =>
+      'за весь ${formatMonthName(start)}'
+          '${start.year == today.year ? '' : ' ${start.year}'}',
+    PeriodKind.year => 'за весь ${start.year} год',
+    PeriodKind.custom => throw StateError('custom has no previous period'),
+  };
+}
+
+/// Т6. Строка подсказки.
+///
+/// 1. «Кафе: уже 8 000,00 ₽ — больше, чем за весь сентябрь (6 500,00 ₽)»;
+/// 2. «Продукты: средний чек на 18 % больше, чем 1–11 сентября»
+///    («меньше», если снизился);
+/// 3. «Больше всего тратите по субботам — 28 % расходов».
+///
+/// [nameOf] даёт название категории (его не склоняем, поэтому «Категория: …»).
+/// Для скринридера ([spoken]) суммы и проценты словами, без тире и скобок.
+/// Подсказку правила 1 показывают только для периода с сегодняшним днём.
+String analyticsHintText(
+  AnalyticsHint hint, {
+  required String Function(String categoryId) nameOf,
+  required AnalyticsPeriod period,
+  required DateOnly today,
+  bool spoken = false,
+}) {
+  switch (hint) {
+    case CategoryAbovePreviousHint():
+      final now = spoken
+          ? spokenMoney(hint.current)
+          : formatMoney(hint.current);
+      final before = spoken
+          ? spokenMoney(hint.previousTotal)
+          : formatMoney(hint.previousTotal);
+      final tail = _wholePreviousTail(period, today);
+      final name = nameOf(hint.categoryId);
+      return spoken
+          ? '$name: уже $now, больше, чем $tail, $before'
+          : '$name: уже $now $_emDash больше, чем $tail ($before)';
+    case AverageCheckChangeHint():
+      final value = hint.percent.abs();
+      final percent = spoken
+          ? '$value ${pluralRu(value, 'процент', 'процента', 'процентов')}'
+          : '${_percentFormat.format(value)}$_nbsp%';
+      final phrase = comparisonPhrase(comparisonRange(period, today), today);
+      return '${nameOf(hint.categoryId)}: средний чек на $percent '
+          '${hint.percent > 0 ? 'больше' : 'меньше'}, чем $phrase';
+    case BusiestWeekdayHint():
+      final day = _weekdaysDative[hint.weekday - 1];
+      final share = hint.sharePercent;
+      final percent = spoken
+          ? '$share ${pluralRu(share, 'процент', 'процента', 'процентов')}'
+          : '${_percentFormat.format(share)}$_nbsp%';
+      return spoken
+          ? 'Больше всего тратите по $day, $percent расходов'
+          : 'Больше всего тратите по $day $_emDash $percent расходов';
+  }
+}
 
 /// Т3. Заголовок «Динамики»: «Расходы по дням», «Доходы по месяцам».
 String dynamicsTitle(TransactionType type, BucketStep step) =>

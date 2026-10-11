@@ -9,6 +9,7 @@ import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
+import 'package:money_app/features/analytics/presentation/analytics_hints_card.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/analytics/presentation/comparison_section.dart';
@@ -320,14 +321,26 @@ class AnalyticsScreen extends StatelessWidget {
                     AsyncView<List<Category>>(
                       stream: categories,
                       errorBuilder: (context, error) => const _SummaryError(),
-                      dataBuilder: (context, all) => CategoryBreakdownCard(
-                        currency: currency,
-                        transactions: data.transactions,
-                        range: data.range,
-                        categories: all,
-                        type: type,
-                        onTypeSelected: onTypeSelected,
-                        onOpenCategory: onOpenCategory,
+                      dataBuilder: (context, all) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          AnalyticsHintsCard(
+                            transactions: data.transactions,
+                            period: AnalyticsPeriod(period.kind, data.range),
+                            today: today,
+                            categories: all,
+                            currency: currency,
+                          ),
+                          CategoryBreakdownCard(
+                            currency: currency,
+                            transactions: data.transactions,
+                            range: data.range,
+                            categories: all,
+                            type: type,
+                            onTypeSelected: onTypeSelected,
+                            onOpenCategory: onOpenCategory,
+                          ),
+                        ],
                       ),
                     ),
                   ],
