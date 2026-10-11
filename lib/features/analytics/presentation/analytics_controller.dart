@@ -31,6 +31,7 @@ class AnalyticsController extends ChangeNotifier {
   TransactionType _type = TransactionType.expense;
 
   AnalyticsSection _section = AnalyticsSection.categories;
+  String? _categoryId;
 
   AnalyticsPeriod get period => _period;
 
@@ -101,10 +102,25 @@ class AnalyticsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Категория, выбранная фильтром в «Динамике»; `null` — все категории.
+  /// Только в памяти; сбрасывается при смене типа и вместе с контроллером при
+  /// «Очистить всё».
+  String? get categoryId => _categoryId;
+
+  /// Выбирает категорию фильтра «Динамики». То же значение — ничего не делает.
+  void selectCategory(String? categoryId) {
+    if (categoryId == _categoryId) return;
+    _categoryId = categoryId;
+    notifyListeners();
+  }
+
   /// Выбирает тип операций для кольца и списка. Тот же тип — ничего не делает.
+  /// Новый тип сбрасывает фильтр категории: у доходов и расходов категории
+  /// разные.
   void selectType(TransactionType type) {
     if (type == _type) return;
     _type = type;
+    _categoryId = null;
     notifyListeners();
   }
 

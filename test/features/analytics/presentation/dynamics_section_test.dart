@@ -7,7 +7,10 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/bar_chart.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
+import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/analytics/presentation/dynamics_section.dart';
+import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -222,5 +225,226 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('12 октября'), findsOneWidget);
+  });
+
+  group('фильтр категории', () {
+    Category cat(
+      String id,
+      String name, {
+      bool archived = false,
+      bool income = false,
+    }) {
+      final c = Category.topLevel(
+        id: id,
+        kind: income ? CategoryKind.income : CategoryKind.expense,
+        name: name,
+        iconKey: 'icon',
+        sortOrder: 0,
+      );
+      return archived ? c.archived(DateTime.utc(2026, 9, 1)) : c;
+    }
+
+    Transaction tx(
+      String id,
+      int minor,
+      DateOnly day,
+      String category, {
+      TransactionType type = TransactionType.expense,
+    }) => Transaction(
+      id: id,
+      type: type,
+      amount: Money.fromMinor(minor, 'RUB'),
+      occurredOn: day,
+      occurredAt: DateTime.utc(day.year, day.month, day.day, 9),
+      categoryId: category,
+    );
+
+    final data = [
+      tx('a', 100000, DateOnly(2026, 10, 3), 'cafe'),
+      tx('b', 300000, DateOnly(2026, 10, 12), 'taxi'),
+      tx('c', 50000, DateOnly(2026, 10, 5), 'old'),
+      tx(
+        'd',
+        70000,
+        DateOnly(2026, 10, 6),
+        'pay',
+        type: TransactionType.income,
+      ),
+    ];
+    final cats = [
+      cat('cafe', 'Кафе'),
+      cat('taxi', 'Такси'),
+      cat('old', 'Старое', archived: true),
+      cat('dead', 'Мёртвое', archived: true),
+      cat('pay', 'Зарплата', income: true),
+    ];
+
+    Future<AnalyticsController> pumpFilter(
+      WidgetTester tester, {
+      double textScale = 1,
+    }) async {
+      final controller = AnalyticsController(today: _today);
+      tester.view.physicalSize = const Size(360, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: controller,
+              builder: (context, _) => ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  DynamicsSection(
+                    transactions: data,
+                    period: currentPeriod(PeriodKind.month, _today),
+                    today: _today,
+                    type: controller.type,
+                    onTypeSelected: controller.selectType,
+                    categories: cats,
+                    categoryId: controller.categoryId,
+                    onCategorySelected: controller.selectCategory,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      return controller;
+    }
+
+    Future<void> openSheet(WidgetTester tester) async {
+      await tester.tap(find.byKey(DynamicsSection.categoryChipKey));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('выбор категории меняет столбики и среднее', (tester) async {
+      final controller = await pumpFilter(tester);
+      final before = tester.widget<BarChart>(find.byType(BarChart)).weights;
+      final infoBefore = _info(tester);
+
+      await openSheet(tester);
+      await tester.tap(find.byKey(DynamicsSection.categoryOptionKey('cafe')));
+      await tester.pumpAndSettle();
+
+      expect(controller.categoryId, 'cafe');
+      expect(find.text('Кафе'), findsOneWidget);
+      // 1000 рублей за 20 дней - 50 рублей в день.
+      expect(_info(tester), 'В среднем 50,00$_nbsp₽ в день');
+      expect(_info(tester), isNot(infoBefore));
+      final after = tester.widget<BarChart>(find.byType(BarChart)).weights;
+      expect(after, isNot(before));
+      expect(after.where((w) => w > 0), [100000]);
+    });
+
+    testWidgets(
+      'лист: заголовок, «Все категории» первой, отметка у выбранной',
+      (tester) async {
+        await pumpFilter(tester);
+        await openSheet(tester);
+
+        expect(find.text('Категория'), findsOneWidget);
+        final all = tester.getTopLeft(
+          find.byKey(DynamicsSection.categoryOptionKey(null)),
+        );
+        final cafe = tester.getTopLeft(
+          find.byKey(DynamicsSection.categoryOptionKey('cafe')),
+        );
+        expect(all.dy, lessThan(cafe.dy));
+        expect(
+          find.descendant(
+            of: find.byKey(DynamicsSection.categoryOptionKey(null)),
+            matching: find.byIcon(Icons.check),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('архивная с операциями видна, без операций и доходная — нет', (
+      tester,
+    ) async {
+      await pumpFilter(tester);
+      await openSheet(tester);
+
+      expect(
+        find.byKey(DynamicsSection.categoryOptionKey('old')),
+        findsOneWidget,
+      );
+      expect(find.text('В архиве'), findsOneWidget);
+      expect(
+        find.byKey(DynamicsSection.categoryOptionKey('dead')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(DynamicsSection.categoryOptionKey('pay')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('смена типа сбрасывает фильтр', (tester) async {
+      final controller = await pumpFilter(tester);
+      controller.selectCategory('cafe');
+      await tester.pump();
+      expect(find.text('Кафе'), findsOneWidget);
+
+      await tester.tap(find.text('Доходы'));
+      await tester.pump();
+
+      expect(controller.categoryId, isNull);
+      expect(find.text('Все категории'), findsOneWidget);
+    });
+
+    testWidgets('выбранной нет среди доступных: фильтр не применяется', (
+      tester,
+    ) async {
+      final controller = await pumpFilter(tester);
+      final all = _info(tester);
+      controller.selectCategory('dead');
+      await tester.pump();
+
+      expect(find.text('Все категории'), findsOneWidget);
+      expect(_info(tester), all);
+    });
+
+    testWidgets('озвучка чипа', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = await pumpFilter(tester);
+      expect(
+        find.bySemanticsLabel('Фильтр: Все категории, изменить'),
+        findsOneWidget,
+      );
+
+      controller.selectCategory('cafe');
+      await tester.pump();
+      expect(find.bySemanticsLabel('Фильтр: Кафе, изменить'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('без колбэка чипа нет', (tester) async {
+      await _pump(tester, transactions: _october);
+      expect(find.byKey(DynamicsSection.categoryChipKey), findsNothing);
+    });
+
+    testWidgets('360 dp и шрифт 200 %: чип и лист без переполнения', (
+      tester,
+    ) async {
+      await pumpFilter(tester, textScale: 2);
+      await openSheet(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(DynamicsSection.categoryOptionKey('taxi')),
+        findsOneWidget,
+      );
+    });
   });
 }

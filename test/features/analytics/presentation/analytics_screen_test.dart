@@ -121,6 +121,7 @@ void main() {
         section: AnalyticsSection.dynamics,
       );
       await tester.pump();
+      await tester.pump();
 
       expect(find.byKey(analyticsDynamicsKey), findsOneWidget);
       expect(find.byType(PeriodSummaryCard), findsNothing);

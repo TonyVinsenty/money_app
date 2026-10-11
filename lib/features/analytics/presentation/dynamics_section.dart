@@ -4,10 +4,13 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/bar_chart.dart';
+import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/buckets.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
+import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -25,8 +28,28 @@ class DynamicsSection extends StatefulWidget {
     this.type = TransactionType.expense,
     this.onTypeSelected,
     this.currency = rubCurrencyCode,
+    this.categories = const [],
+    this.categoryId,
+    this.onCategorySelected,
     super.key,
   });
+
+  /// Все категории, включая архивные (для чипа фильтра и листа выбора).
+  final List<Category> categories;
+
+  /// Выбранная категория фильтра; `null` — все. Если её нет среди доступных
+  /// (архивная без операций этого типа в окне данных), фильтр не применяется
+  /// и чип показывает «Все категории»: так график не врёт нулями. Сам выбор
+  /// у владельца не стирается и вернётся, когда категория снова появится.
+  final String? categoryId;
+
+  /// Выбор в листе (`null` — «Все категории»). Без колбэка чипа нет.
+  final ValueChanged<String?>? onCategorySelected;
+
+  static const categoryChipKey = ValueKey('dynamics-category-chip');
+
+  static ValueKey<String> categoryOptionKey(String? id) =>
+      ValueKey('dynamics-category-${id ?? 'all'}');
 
   /// Операции периода (лишние за его пределами игнорируются).
   final List<Transaction> transactions;
@@ -58,6 +81,77 @@ class _DynamicsSectionState extends State<DynamicsSection> {
     }
   }
 
+  /// Категории верхнего уровня текущего типа: живые и архивные, у которых
+  /// есть операции этого типа в переданных данных. По порядку категорий.
+  List<Category> _categoryOptions() {
+    final kind = widget.type == TransactionType.expense
+        ? CategoryKind.expense
+        : CategoryKind.income;
+    final used = {
+      for (final t in widget.transactions)
+        if (t.type == widget.type) t.categoryId,
+    };
+    return [
+      for (final c in widget.categories)
+        if (c.isTopLevel &&
+            c.kind == kind &&
+            (!c.isArchived || used.contains(c.id)))
+          c,
+    ];
+  }
+
+  Future<void> _pickCategory(List<Category> options, Category? selected) async {
+    final picked = await showModalBottomSheet<({String? id})>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Text(
+                  dynamicsCategorySheetTitle,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              _option(context, null, dynamicsAllCategories, null, selected),
+              for (final c in options)
+                _option(context, c.id, c.name, c, selected),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked != null) widget.onCategorySelected?.call(picked.id);
+  }
+
+  Widget _option(
+    BuildContext context,
+    String? id,
+    String name,
+    Category? category,
+    Category? selected,
+  ) {
+    final isSelected = id == selected?.id;
+    return ListTile(
+      key: DynamicsSection.categoryOptionKey(id),
+      leading: category == null
+          ? const Icon(Icons.category_outlined)
+          : CategoryIconView(category.iconKey),
+      title: Text(name),
+      subtitle: category != null && category.isArchived
+          ? const Text(dynamicsArchivedNote)
+          : null,
+      trailing: isSelected ? const Icon(Icons.check) : null,
+      selected: isSelected,
+      onTap: () => Navigator.of(context).pop((id: id)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -65,11 +159,16 @@ class _DynamicsSectionState extends State<DynamicsSection> {
     final type = widget.type;
     final today = widget.today;
     final step = bucketStepFor(widget.period);
+    final options = _categoryOptions();
+    final selected = widget.categoryId == null
+        ? null
+        : options.where((c) => c.id == widget.categoryId).firstOrNull;
     final buckets = bucketTotals(
       widget.transactions,
       widget.period,
       type: type,
       currency: widget.currency,
+      categoryId: selected?.id,
     );
     final average = bucketAverage(buckets, today);
     final weights = [for (final b in buckets) b.amount.minorUnits];
@@ -207,6 +306,17 @@ class _DynamicsSectionState extends State<DynamicsSection> {
                     : (selected) => onTypeSelected(selected.first),
               ),
             ),
+            if (step != BucketStep.none &&
+                widget.onCategorySelected != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _CategoryChip(
+                  selected: selected,
+                  onPressed: () => _pickCategory(options, selected),
+                ),
+              ),
+            ],
             if (step != BucketStep.none) ...[
               const SizedBox(height: 12),
               Text(
@@ -218,6 +328,40 @@ class _DynamicsSectionState extends State<DynamicsSection> {
               const SizedBox(height: 8),
             body,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Чип фильтра: «Все категории ▾» или имя выбранной категории.
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({required this.selected, required this.onPressed});
+
+  final Category? selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = selected?.name ?? dynamicsAllCategories;
+    return Semantics(
+      label: dynamicsCategoryChipSpoken(name),
+      button: true,
+      onTap: onPressed,
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        child: ActionChip(
+          key: DynamicsSection.categoryChipKey,
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(child: Text(name, overflow: TextOverflow.ellipsis)),
+              const Icon(Icons.arrow_drop_down, size: 18),
+            ],
+          ),
+          onPressed: onPressed,
+          materialTapTargetSize: MaterialTapTargetSize.padded,
         ),
       ),
     );

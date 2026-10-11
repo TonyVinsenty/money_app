@@ -588,6 +588,8 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         firstDayKnown: controller.firstDayKnown,
         type: controller.type,
         onTypeSelected: controller.selectType,
+        dynamicsCategoryId: controller.categoryId,
+        onDynamicsCategorySelected: controller.selectCategory,
         section: controller.section,
         onSectionSelected: controller.selectSection,
         onCustomRangeSelected: controller.selectCustomRange,

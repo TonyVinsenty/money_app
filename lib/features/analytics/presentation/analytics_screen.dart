@@ -91,6 +91,8 @@ class AnalyticsScreen extends StatelessWidget {
     this.type = TransactionType.expense,
     this.onTypeSelected,
     this.onOpenCategory,
+    this.dynamicsCategoryId,
+    this.onDynamicsCategorySelected,
     this.section = AnalyticsSection.categories,
     this.onSectionSelected,
     this.firstDay,
@@ -146,6 +148,13 @@ class AnalyticsScreen extends StatelessWidget {
   /// Выбрана категория (строка списка или сектор кольца). Маршрут открывает
   /// вызывающий; без колбэка строки не кнопки.
   final ValueChanged<Category>? onOpenCategory;
+
+  /// Категория, выбранная фильтром «Динамики»; `null` — все категории.
+  final String? dynamicsCategoryId;
+
+  /// Выбрана категория фильтра «Динамики» (`null` — все); без колбэка чипа
+  /// фильтра нет.
+  final ValueChanged<String?>? onDynamicsCategorySelected;
 
   /// Раздел, содержимое которого показано под выбором периода. Раздел, которого
   /// на экране ещё нет, показывается как «Категории».
@@ -237,14 +246,21 @@ class AnalyticsScreen extends StatelessWidget {
             symbol: currencySymbol,
           ),
           dataBuilder: (context, data) => section == AnalyticsSection.dynamics
-              ? DynamicsSection(
-                  key: analyticsDynamicsKey,
-                  transactions: data.transactions,
-                  period: AnalyticsPeriod(period.kind, data.range),
-                  today: today,
-                  type: type,
-                  currency: currency,
-                  onTypeSelected: onTypeSelected,
+              ? AsyncView<List<Category>>(
+                  stream: categories,
+                  errorBuilder: (context, error) => const _SummaryError(),
+                  dataBuilder: (context, all) => DynamicsSection(
+                    key: analyticsDynamicsKey,
+                    transactions: data.transactions,
+                    period: AnalyticsPeriod(period.kind, data.range),
+                    today: today,
+                    type: type,
+                    currency: currency,
+                    onTypeSelected: onTypeSelected,
+                    categories: all,
+                    categoryId: dynamicsCategoryId,
+                    onCategorySelected: onDynamicsCategorySelected,
+                  ),
                 )
               : section == AnalyticsSection.comparison
               ? AsyncView<List<Category>>(

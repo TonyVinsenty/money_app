@@ -276,3 +276,13 @@ String _spokenPeriod(AnalyticsPeriod period, DateOnly today) {
     _ => 'за ${formatPeriodLabel(period.kind, period.range, today: today)}',
   };
 }
+
+/// Т3. Чип фильтра категории в «Динамике» без выбора и заголовок листа.
+const String dynamicsAllCategories = 'Все категории';
+const String dynamicsCategorySheetTitle = 'Категория';
+
+/// Пометка архивной категории в листе выбора.
+const String dynamicsArchivedNote = 'В архиве';
+
+/// Озвучка чипа: «Фильтр: Кафе, изменить».
+String dynamicsCategoryChipSpoken(String name) => 'Фильтр: $name, изменить';

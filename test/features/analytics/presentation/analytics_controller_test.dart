@@ -430,4 +430,42 @@ void main() {
       expect(c.type, TransactionType.income);
     });
   });
+
+  group('фильтр категории «Динамики»', () {
+    test('по умолчанию все категории; выбор уведомляет один раз', () {
+      final c = make();
+      final counter = _Counter(c);
+      expect(c.categoryId, isNull);
+
+      c.selectCategory('cafe');
+      expect(c.categoryId, 'cafe');
+      expect(counter.count, 1);
+
+      c.selectCategory('cafe');
+      expect(counter.count, 1);
+
+      c.selectCategory(null);
+      expect(c.categoryId, isNull);
+      expect(counter.count, 2);
+    });
+
+    test('смена типа сбрасывает категорию одним уведомлением', () {
+      final c = make()..selectCategory('cafe');
+      final counter = _Counter(c);
+
+      c.selectType(TransactionType.income);
+      expect(c.categoryId, isNull);
+      expect(counter.count, 1);
+    });
+
+    test('тот же тип, период и раздел категорию не трогают', () {
+      final c = make(firstDay: DateOnly(2026, 1, 1))..selectCategory('cafe');
+
+      c.selectType(TransactionType.expense);
+      c.previous();
+      c.selectKind(PeriodKind.year);
+      c.selectSection(AnalyticsSection.comparison);
+      expect(c.categoryId, 'cafe');
+    });
+  });
 }
