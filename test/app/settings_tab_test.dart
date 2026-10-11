@@ -81,8 +81,9 @@ Future<AppSettingsController> _pump(
 }
 
 ThemeMode _groupValue(WidgetTester tester) => tester
-    .widget<RadioGroup<ThemeMode>>(find.byType(RadioGroup<ThemeMode>))
-    .groupValue!;
+    .widget<SegmentedButton<ThemeMode>>(find.byType(SegmentedButton<ThemeMode>))
+    .selected
+    .single;
 
 ThemeMode _appThemeMode(WidgetTester tester) =>
     tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode!;

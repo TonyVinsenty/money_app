@@ -19,8 +19,8 @@ const bookkeepingGroupTitle = 'Учёт';
 const dataGroupTitle = 'Данные';
 const resetGroupTitle = 'Сброс';
 
-/// Подписи вариантов темы.
-const themeSystemLabel = 'Как в системе';
+/// Подписи вариантов темы («Как в системе» не помещается в одну строку).
+const themeSystemLabel = 'Системная';
 const themeLightLabel = 'Светлая';
 const themeDarkLabel = 'Тёмная';
 
@@ -463,29 +463,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListView(
       children: [
         const _GroupHeader(appearanceGroupTitle),
-        const _SectionTitle(Icons.palette_outlined, themeSectionTitle),
-        // RadioGroup держит выбранное значение для всех переключателей внутри.
-        RadioGroup<ThemeMode>(
-          groupValue: widget.themeMode,
-          onChanged: (value) {
-            if (value != null) widget.onThemeModeChanged(value);
-          },
-          child: const Column(
-            children: [
-              RadioListTile<ThemeMode>(
-                value: ThemeMode.system,
-                title: Text(themeSystemLabel),
-              ),
-              RadioListTile<ThemeMode>(
-                value: ThemeMode.light,
-                title: Text(themeLightLabel),
-              ),
-              RadioListTile<ThemeMode>(
-                value: ThemeMode.dark,
-                title: Text(themeDarkLabel),
-              ),
-            ],
-          ),
+        _ThemeRow(
+          value: widget.themeMode,
+          onChanged: widget.onThemeModeChanged,
         ),
         const _SectionTitle(Icons.donut_large, homeBalanceSectionTitle),
         RadioGroup<HomeBalanceLine>(
@@ -709,6 +689,165 @@ class _SectionTitle extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Как встаёт выбор темы относительно заголовка «Тема».
+enum ThemeRowLayout {
+  /// Сегменты справа от заголовка, в той же строке.
+  beside,
+
+  /// Сегменты под заголовком во всю ширину, по-прежнему в одну строку.
+  below,
+
+  /// Сегменты под заголовком столбиком: в строку не помещаются даже одни.
+  stacked,
+}
+
+/// Тема — три сегмента «Системная · Светлая · Тёмная» (В10).
+///
+/// Ширину сегментов оцениваем заранее по ширине подписей (с запасом), чтобы
+/// выбрать раскладку до построения: `beside`, если всё помещается в строку
+/// с «Тема», иначе `below`, а при крупном шрифте на узком экране — `stacked`.
+class _ThemeRow extends StatelessWidget {
+  const _ThemeRow({required this.value, required this.onChanged});
+
+  final ThemeMode value;
+  final ValueChanged<ThemeMode> onChanged;
+
+  static const _options = [
+    (ThemeMode.system, themeSystemLabel),
+    (ThemeMode.light, themeLightLabel),
+    (ThemeMode.dark, themeDarkLabel),
+  ];
+
+  /// Отступ подписи сегмента слева и справа (задаём сами, чтобы оценка
+  /// ширины не зависела от умолчаний Material).
+  static const _segmentPadding = AppSpacing.m;
+
+  /// Значок «выбрано» (18) с промежутком (8), рамки и запас на округление.
+  static const _selectedIconWidth = 26.0;
+  static const _segmentAllowance = 8.0;
+
+  /// Значок пункта (24) и промежуток до названия, как у `ListTile`.
+  static const _leadingWidth = 24.0 + AppSpacing.l;
+
+  double _textWidth(BuildContext context, String text, TextStyle? style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  ThemeRowLayout _layout(BuildContext context, double width) {
+    final textTheme = Theme.of(context).textTheme;
+    var buttonWidth = _selectedIconWidth;
+    for (final (_, label) in _options) {
+      buttonWidth +=
+          _textWidth(context, label, textTheme.labelLarge) +
+          2 * _segmentPadding +
+          _segmentAllowance;
+    }
+    final titleWidth =
+        _leadingWidth +
+        _textWidth(context, themeSectionTitle, textTheme.bodyLarge);
+    if (titleWidth + AppSpacing.l + buttonWidth <= width) {
+      return ThemeRowLayout.beside;
+    }
+    return buttonWidth <= width ? ThemeRowLayout.below : ThemeRowLayout.stacked;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconTheme.merge(
+          data: IconThemeData(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          child: const _ItemIcon(Icons.palette_outlined),
+        ),
+        const SizedBox(width: AppSpacing.l),
+        Flexible(
+          child: Semantics(
+            header: true,
+            child: Text(
+              themeSectionTitle,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ),
+        ),
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.l,
+        vertical: AppSpacing.s,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = _layout(context, constraints.maxWidth);
+          final button = SegmentedButton<ThemeMode>(
+            key: ValueKey(layout),
+            segments: [
+              for (final (mode, label) in _options)
+                ButtonSegment(
+                  value: mode,
+                  label: Text(
+                    label,
+                    // «Тема: тёмная, выбрано»: состояние добавляет сама кнопка.
+                    semanticsLabel:
+                        '$themeSectionTitle: ${label.toLowerCase()}',
+                  ),
+                ),
+            ],
+            selected: {value},
+            onSelectionChanged: (selected) => onChanged(selected.single),
+            direction: layout == ThemeRowLayout.stacked
+                ? Axis.vertical
+                : Axis.horizontal,
+            // Во всю ширину — только в строку: столбик в прокручиваемом
+            // списке растянулся бы и в бесконечную высоту.
+            expandedInsets: layout == ThemeRowLayout.below
+                ? EdgeInsets.zero
+                : null,
+            style: const ButtonStyle(
+              padding: WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: _segmentPadding),
+              ),
+            ),
+          );
+          if (layout == ThemeRowLayout.beside) {
+            return Row(
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: title,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.l),
+                button,
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(alignment: AlignmentDirectional.centerStart, child: title),
+              const SizedBox(height: AppSpacing.s),
+              button,
+            ],
+          );
+        },
       ),
     );
   }

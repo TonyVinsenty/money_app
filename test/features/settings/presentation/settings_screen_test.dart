@@ -66,10 +66,11 @@ Widget _app({
   );
 }
 
-/// Какая тема сейчас выбрана в группе переключателей.
+/// Какая тема сейчас выбрана в сегментах.
 ThemeMode _groupValue(WidgetTester tester) => tester
-    .widget<RadioGroup<ThemeMode>>(find.byType(RadioGroup<ThemeMode>))
-    .groupValue!;
+    .widget<SegmentedButton<ThemeMode>>(find.byType(SegmentedButton<ThemeMode>))
+    .selected
+    .single;
 
 void main() {
   // Высокое окно: после раздела «Строка «Баланс»» нижние пункты иначе
@@ -231,7 +232,7 @@ void main() {
   });
 
   for (final (label, mode) in [
-    ('Как в системе', ThemeMode.system),
+    ('Системная', ThemeMode.system),
     ('Светлая', ThemeMode.light),
     ('Тёмная', ThemeMode.dark),
   ]) {
@@ -247,6 +248,79 @@ void main() {
       expect(calls, [mode]);
     });
   }
+
+  group('тема в одну строку (В10)', () {
+    Finder layoutKey(ThemeRowLayout layout) => find.byKey(ValueKey(layout));
+
+    testWidgets('широкий экран: сегменты рядом с «Тема», в одну строку', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app());
+      expect(layoutKey(ThemeRowLayout.beside), findsOneWidget);
+      final title = tester.getCenter(find.text('Тема')).dy;
+      for (final label in ['Системная', 'Светлая', 'Тёмная']) {
+        expect(
+          tester.getCenter(find.text(label)).dy,
+          moreOrLessEquals(title, epsilon: 1),
+          reason: label,
+        );
+      }
+    });
+
+    for (final width in [320.0, 360.0, 412.0]) {
+      for (final scale in [1.0, 1.3, 2.0]) {
+        testWidgets('$width dp, шрифт ${scale * 100} %: без переполнения', (
+          tester,
+        ) async {
+          tester.view.physicalSize = Size(width, 2400);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(_app(textScale: scale));
+
+          expect(tester.takeException(), isNull);
+          final button = find.byType(SegmentedButton<ThemeMode>);
+          expect(tester.getTopRight(button).dx, lessThanOrEqualTo(width - 16));
+          expect(tester.getTopLeft(button).dx, greaterThanOrEqualTo(16));
+          // Подписи целиком, в одну строку: высота строки не больше одной.
+          for (final label in ['Системная', 'Светлая', 'Тёмная']) {
+            expect(
+              tester.getSize(find.text(label)).height,
+              lessThan(14 * scale * 2),
+              reason: '$label в одну строку',
+            );
+          }
+        });
+      }
+    }
+
+    testWidgets('крупный шрифт на узком экране: под заголовком', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app(textScale: 2));
+
+      expect(layoutKey(ThemeRowLayout.beside), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Системная')).dy,
+        greaterThan(tester.getBottomLeft(find.text('Тема')).dy),
+      );
+    });
+
+    testWidgets('выбор после смены раскладки по-прежнему работает', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final calls = <ThemeMode>[];
+      await tester.pumpWidget(_app(textScale: 2, onChanged: calls.add));
+
+      await tester.tap(find.text('Тёмная'));
+      expect(calls, [ThemeMode.dark]);
+    });
+  });
 
   group('строка «Баланс» на Главной', () {
     testWidgets('раздел виден, тексты дословно, выбран текущий', (
@@ -687,14 +761,12 @@ void main() {
       tester.getSemantics(find.text('Тема')).flagsCollection.isHeader,
       isTrue,
     );
-    final light = tester.getSemantics(
-      find.widgetWithText(RadioListTile<ThemeMode>, 'Светлая'),
-    );
-    expect(light.getSemanticsData().flagsCollection.isChecked.name, 'isTrue');
-    final dark = tester.getSemantics(
-      find.widgetWithText(RadioListTile<ThemeMode>, 'Тёмная'),
-    );
-    expect(dark.getSemanticsData().flagsCollection.isChecked.name, 'isFalse');
+    expect(find.bySemanticsLabel('Тема: светлая'), findsOneWidget);
+    final light = tester.getSemantics(find.bySemanticsLabel('Тема: светлая'));
+    expect(light.getSemanticsData().flagsCollection.isSelected.name, 'isTrue');
+    expect(light.getSemanticsData().flagsCollection.isButton, isTrue);
+    final dark = tester.getSemantics(find.bySemanticsLabel('Тема: тёмная'));
+    expect(dark.getSemanticsData().flagsCollection.isSelected.name, 'isFalse');
     expect(
       tester.getSemantics(find.text('Категории')).flagsCollection.isButton,
       isTrue,
@@ -713,8 +785,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     final tiles = {
-      for (final label in ['Как в системе', 'Светлая', 'Тёмная'])
-        label: find.widgetWithText(RadioListTile<ThemeMode>, label),
+      'Тема': find.byType(SegmentedButton<ThemeMode>),
       for (final label in ['За всё время', 'На счетах', 'Не показывать'])
         label: find.widgetWithText(RadioListTile<HomeBalanceLine>, label),
       'Категории': find.widgetWithText(ListTile, 'Категории'),
