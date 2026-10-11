@@ -10,6 +10,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/bottom_inset.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
@@ -443,7 +444,10 @@ class _HistoryList extends StatelessWidget {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: withBottomInset(
+        context,
+        const EdgeInsets.only(bottom: AppSpacing.l),
+      ),
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];
@@ -548,7 +552,7 @@ class _EmptyState extends StatelessWidget {
     // Прокрутка на случай крупного шрифта на маленьком экране.
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: withBottomInset(context, const EdgeInsets.all(AppSpacing.xl)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -795,7 +799,7 @@ class _SearchNothingFound extends StatelessWidget {
     final theme = Theme.of(context);
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: withBottomInset(context, const EdgeInsets.all(AppSpacing.xl)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -845,7 +849,7 @@ class _NothingFound extends StatelessWidget {
     final theme = Theme.of(context);
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: withBottomInset(context, const EdgeInsets.all(AppSpacing.xl)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

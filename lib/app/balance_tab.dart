@@ -10,8 +10,10 @@ import 'package:money_app/app/reminder_sync.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/bottom_inset.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_rules.dart';
 import 'package:money_app/features/accounts/domain/accounts_repository.dart';
@@ -117,7 +119,7 @@ class _BalanceTabState extends State<BalanceTab> {
             ?.today ??
         AppScope.of(context).clock.today();
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: withBottomInset(context, const EdgeInsets.all(AppSpacing.l)),
       children: [
         AccountsSection(
           accounts: _accounts,
