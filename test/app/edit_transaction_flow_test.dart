@@ -498,7 +498,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(EditTransactionScreen), findsNothing);
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.bySubtype<AlertDialog>(), findsNothing);
     expect(find.text('Изменения сохранены'), findsNothing);
     final after = await _row();
     expect(after.amountMinor, before.amountMinor);
@@ -551,7 +551,7 @@ void main() {
       await _delete(tester);
 
       // Диалога нет, экран закрыт, сообщение с «Отменить» на месте.
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
       expect(find.byType(EditTransactionScreen), findsNothing);
       expect(find.text('Операция удалена'), findsOneWidget);
       expect(find.text('Отменить'), findsOneWidget);

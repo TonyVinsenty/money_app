@@ -780,7 +780,7 @@ void main() {
 
       expect(repo.deleted, ['tx']);
       expect(find.byType(EditTransactionScreen), findsNothing);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
       expect(find.text('Операция удалена'), findsOneWidget);
       expect(find.text('Отменить'), findsOneWidget);
       expect(

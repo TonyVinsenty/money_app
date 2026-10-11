@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart'
+    show CupertinoAlertDialog, CupertinoDialogAction;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -27,7 +29,11 @@ Account _acc(String id, String name, {bool archived = false}) => Account(
 
 late AppSettingsController _settings;
 
-Future<void> _pump(WidgetTester tester, InMemoryAccountsRepository repo) async {
+Future<void> _pump(
+  WidgetTester tester,
+  InMemoryAccountsRepository repo, {
+  TargetPlatform? platform,
+}) async {
   tester.view.physicalSize = const Size(360, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -35,7 +41,7 @@ Future<void> _pump(WidgetTester tester, InMemoryAccountsRepository repo) async {
   addTearDown(_settings.dispose);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light(),
+      theme: AppTheme.light(platform: platform),
       onGenerateRoute: onGenerateAppRoute,
       home: AppScope(
         services: fakeAppServices(settings: _settings, accounts: repo),
@@ -213,7 +219,8 @@ void main() {
         find.text(
           'К счёту привязано 12 операций. '
           'После удаления они останутся без привязки к счёту. '
-          'Переводы с этим счётом (3) будут удалены.',
+          'Переводы с этим счётом (3) будут удалены. '
+          'Остатки других счетов изменятся на сумму этих переводов.',
         ),
         findsOneWidget,
       );
@@ -266,6 +273,28 @@ void main() {
           greaterThanOrEqualTo(tester.getTopRight(name).dx),
         );
       }
+    });
+
+    testWidgets('iPhone: CupertinoAlertDialog, «Удалить» красная и работает', (
+      tester,
+    ) async {
+      final repo = InMemoryAccountsRepository([
+        _acc('a', 'Карта'),
+        _acc('b', 'Тест', archived: true),
+      ]);
+      await _pump(tester, repo, platform: TargetPlatform.iOS);
+      await _expandArchive(tester);
+      await tapDelete(tester);
+
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      final delete = tester.widget<CupertinoDialogAction>(
+        find.widgetWithText(CupertinoDialogAction, 'Удалить'),
+      );
+      expect(delete.isDestructiveAction, isTrue);
+      await tester.tap(find.text('Удалить').last);
+      await tester.pumpAndSettle();
+      expect(repo.deleted, ['b']);
+      expect(find.text('Счёт «Тест» удалён'), findsOneWidget);
     });
   });
 }

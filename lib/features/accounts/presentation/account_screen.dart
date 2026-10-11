@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/adaptive_dialog_action.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
@@ -209,9 +210,9 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _archive(Account account, Money balance) async {
     if (!balance.isZero) {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await showAdaptiveDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (context) => AlertDialog.adaptive(
           title: Text(accountArchiveDialogTitle(account.name)),
           content: Text(
             accountArchiveDialogText(
@@ -222,13 +223,14 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
           scrollable: true,
           actions: [
-            TextButton(
+            AdaptiveDialogAction(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text(accountCancelLabel),
+              label: accountCancelLabel,
             ),
-            FilledButton(
+            AdaptiveDialogAction(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text(accountArchiveButton),
+              label: accountArchiveButton,
+              primary: true,
             ),
           ],
         ),

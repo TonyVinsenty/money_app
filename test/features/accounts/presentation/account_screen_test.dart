@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart'
+    show CupertinoAlertDialog, CupertinoDialogAction;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -37,6 +39,7 @@ Future<void> pumpTab(
   WidgetTester tester,
   InMemoryAccountsRepository repo, {
   double textScale = 1,
+  TargetPlatform? platform,
 }) async {
   tester.view.physicalSize = const Size(360, 800);
   tester.view.devicePixelRatio = 1;
@@ -45,7 +48,7 @@ Future<void> pumpTab(
   addTearDown(settings.dispose);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light(),
+      theme: AppTheme.light(platform: platform),
       onGenerateRoute: onGenerateAppRoute,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
@@ -264,7 +267,7 @@ void main() {
       await pumpTab(tester, repo);
       await openAccount(tester, 'Карта');
       await tapKey(tester, AccountScreen.archiveKey);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
       expect(find.byType(AccountScreen), findsNothing);
       expect(find.text(accountArchivedMessage('Карта')), findsOneWidget);
       expect(find.text('Карта'), findsNothing); // пропал со вкладки
@@ -302,6 +305,34 @@ void main() {
       expect(find.byType(AccountScreen), findsNothing);
       expect(find.text('Карта'), findsNothing);
       expect(totalText(tester), '+${formatMoney(rub(5000))}'); // без «Карты»
+      expect(find.text(accountArchivedMessage('Карта')), findsOneWidget);
+    });
+
+    testWidgets('iPhone: CupertinoAlertDialog, «Отмена» и «В архив» работают', (
+      tester,
+    ) async {
+      final repo = InMemoryAccountsRepository([
+        acc('a', 'Карта', opening: 1200000),
+        acc('b', 'Наличные', opening: 5000),
+      ]);
+      await pumpTab(tester, repo, platform: TargetPlatform.iOS);
+      await openAccount(tester, 'Карта');
+      await tapKey(tester, AccountScreen.archiveKey);
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.text(accountArchiveDialogTitle('Карта')), findsOneWidget);
+      final archive = tester.widget<CupertinoDialogAction>(
+        find.widgetWithText(CupertinoDialogAction, accountArchiveButton),
+      );
+      expect(archive.isDefaultAction, isTrue);
+
+      await tester.tap(find.text(accountCancelLabel));
+      await tester.pumpAndSettle();
+      expect(repo.all.first.isArchived, isFalse);
+
+      await tapKey(tester, AccountScreen.archiveKey);
+      await tester.tap(find.text(accountArchiveButton).last);
+      await tester.pumpAndSettle();
+      expect(repo.all.first.isArchived, isTrue);
       expect(find.text(accountArchivedMessage('Карта')), findsOneWidget);
     });
 
@@ -431,7 +462,7 @@ void main() {
     await tester.tap(find.text(accountCancelLabel));
     await tester.pumpAndSettle();
     await tapKey(tester, AccountScreen.archiveKey);
-    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.bySubtype<AlertDialog>(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

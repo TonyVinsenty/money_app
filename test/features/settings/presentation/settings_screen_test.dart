@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoAlertDialog;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart' show PlatformException;
@@ -30,9 +31,11 @@ Widget _app({
   ValueChanged<CurrencyInfo>? onMainCurrency,
   double textScale = 1,
   bool screenReader = false,
+  TargetPlatform? platform,
 }) {
   var main = catalogCurrency('RUB')!;
   return MaterialApp(
+    theme: ThemeData(platform: platform),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
         textScaler: TextScaler.linear(textScale),
@@ -608,7 +611,7 @@ void main() {
       final accept = tester.widget<TextButton>(
         find.widgetWithText(TextButton, 'Стереть всё'),
       );
-      final context = tester.element(find.byType(AlertDialog));
+      final context = tester.element(find.bySubtype<AlertDialog>());
       expect(
         accept.style?.foregroundColor?.resolve({}),
         Theme.of(context).colorScheme.error,
@@ -623,17 +626,17 @@ void main() {
       await openDialog(tester);
       await tester.tap(find.text('Отмена'));
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
 
       await openDialog(tester);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
 
       await openDialog(tester);
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
 
       expect(erased, 0);
     });
@@ -666,7 +669,7 @@ void main() {
       expect(exported, 1);
       expect(shared, ['/tmp/a.csv']);
       expect(erased, 0);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
     });
 
     testWidgets('«Стереть всё»: один вызов, сообщение Н3', (tester) async {
@@ -709,7 +712,7 @@ void main() {
       await tester.pump();
 
       expect(erased, 1);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
       expect(
         tester
             .widget<CircularProgressIndicator>(
@@ -776,7 +779,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.bySubtype<AlertDialog>(), findsNothing);
       expect(
         _titleColor(tester),
         isNot(
@@ -1365,6 +1368,73 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Созданы 2 счёта'), findsOneWidget);
+    });
+  });
+
+  group('iPhone: системные диалоги (7.31)', () {
+    Future<void> openClearAll(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Очистить всё'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Очистить всё'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('«Очистить всё»: CupertinoAlertDialog, кнопки работают', (
+      tester,
+    ) async {
+      var erased = 0;
+      await tester.pumpWidget(
+        _app(platform: TargetPlatform.iOS, onClearAll: () async => erased++),
+      );
+      await openClearAll(tester);
+
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.text(clearAllConfirmTitle), findsOneWidget);
+      expect(find.text(clearAllConfirmText), findsOneWidget);
+      // Тексты и порядок кнопок прежние.
+      final order = [
+        clearAllExportFirst,
+        clearAllCancel,
+        clearAllAccept,
+      ].map((label) => tester.getTopLeft(find.text(label)).dy).toList();
+      expect(order, orderedEquals([...order]..sort()));
+
+      await tester.tap(find.text(clearAllCancel));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(erased, 0);
+
+      await openClearAll(tester);
+      await tester.tap(find.text(clearAllAccept));
+      await tester.pumpAndSettle();
+      expect(erased, 1);
+      expect(find.text(clearAllDoneMessage), findsOneWidget);
+    });
+
+    testWidgets('смена валюты: CupertinoAlertDialog, «Сменить» работает', (
+      tester,
+    ) async {
+      final changes = <CurrencyInfo>[];
+      await tester.pumpWidget(
+        _app(platform: TargetPlatform.iOS, onMainCurrency: changes.add),
+      );
+      await tester.tap(find.text('Основная валюта'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Доллар США').first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.text(mainCurrencyConfirmText), findsOneWidget);
+      await tester.tap(find.text('Сменить'));
+      await tester.pumpAndSettle();
+      expect(changes.map((c) => c.code), ['USD']);
+    });
+
+    testWidgets('Android: прежний Material-диалог', (tester) async {
+      await tester.pumpWidget(_app(platform: TargetPlatform.android));
+      await openClearAll(tester);
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(find.widgetWithText(TextButton, clearAllAccept), findsOneWidget);
     });
   });
 }

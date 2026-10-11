@@ -5,6 +5,7 @@ import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/adaptive_dialog_action.dart';
 import 'package:money_app/core/ui/currency_picker.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -351,27 +352,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _clearAll() async {
     if (_busy) return;
-    final choice = await showDialog<_ClearAllChoice>(
+    final choice = await showAdaptiveDialog<_ClearAllChoice>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog.adaptive(
         title: const Text(clearAllConfirmTitle),
         content: const Text(clearAllConfirmText),
         actions: [
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () =>
                 Navigator.of(context).pop(_ClearAllChoice.exportFirst),
-            child: const Text(clearAllExportFirst),
+            label: clearAllExportFirst,
           ),
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text(clearAllCancel),
+            label: clearAllCancel,
           ),
-          TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
-            ),
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(context).pop(_ClearAllChoice.erase),
-            child: const Text(clearAllAccept),
+            label: clearAllAccept,
+            destructive: true,
           ),
         ],
       ),
@@ -406,19 +405,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (picked == null || picked.code == widget.mainCurrency.code) return;
     if (!mounted) return;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAdaptiveDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog.adaptive(
         title: Text(mainCurrencyConfirmTitle(picked.name)),
         content: const Text(mainCurrencyConfirmText),
         actions: [
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(mainCurrencyConfirmCancel),
+            label: mainCurrencyConfirmCancel,
           ),
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(mainCurrencyConfirmAccept),
+            label: mainCurrencyConfirmAccept,
           ),
         ],
       ),

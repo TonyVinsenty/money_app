@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoAlertDialog;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app.dart';
@@ -37,7 +38,7 @@ Finder get _startOverButton => find.widgetWithText(
 );
 
 Finder _dialogButton(String label) => find.descendant(
-  of: find.byType(AlertDialog),
+  of: find.bySubtype<AlertDialog>(),
   matching: find.widgetWithText(TextButton, label),
 );
 
@@ -88,7 +89,7 @@ void main() {
     await tester.tap(_dialogButton(databaseDialogCancelLabel));
     await tester.pumpAndSettle();
 
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.bySubtype<AlertDialog>(), findsNothing);
     expect(startOvers, 0);
     expect(opens, 1);
     expect(find.text(databaseErrorTitle), findsOneWidget);
@@ -116,7 +117,7 @@ void main() {
     await tester.tap(_dialogButton(databaseDialogCancelLabel));
     await tester.pumpAndSettle();
 
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.bySubtype<AlertDialog>(), findsNothing);
     expect(startOvers, 0);
     expect(opens, 1);
   });
@@ -296,4 +297,30 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text(databaseStartOverFailedMessage), findsOneWidget);
   });
+
+  testWidgets(
+    'iPhone: оба подтверждения — CupertinoAlertDialog, кнопки работают',
+    (tester) async {
+      var startOvers = 0;
+      await _pumpApp(tester, _alwaysFails, startOver: () async => startOvers++);
+
+      await _tapStartOver(tester);
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.text(databaseStartOverTitle1), findsOneWidget);
+      await tester.tap(find.text(databaseDialogCancelLabel));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoAlertDialog), findsNothing);
+      expect(startOvers, 0);
+
+      await _tapStartOver(tester);
+      await tester.tap(find.text(databaseDialogContinueLabel));
+      await tester.pumpAndSettle();
+      expect(find.byType(CupertinoAlertDialog), findsOneWidget);
+      expect(find.text(databaseStartOverTitle2), findsOneWidget);
+      await tester.tap(find.text(databaseStartOverLabel).last);
+      await tester.pumpAndSettle();
+      expect(startOvers, 1);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
 }

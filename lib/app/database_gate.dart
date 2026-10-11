@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/ui/adaptive_dialog_action.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 
 /// Подпись индикатора загрузки для программ экранного чтения.
@@ -186,20 +187,20 @@ class _DatabaseGateState extends State<DatabaseGate> {
     required String body,
     required String confirmLabel,
   }) async {
-    final result = await showDialog<bool>(
+    final result = await showAdaptiveDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
+      builder: (context) => AlertDialog.adaptive(
         title: Text(title),
         content: Text(body),
         actions: [
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(databaseDialogCancelLabel),
+            label: databaseDialogCancelLabel,
           ),
-          TextButton(
+          AdaptiveDialogAction(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(confirmLabel),
+            label: confirmLabel,
           ),
         ],
       ),

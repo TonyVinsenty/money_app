@@ -741,7 +741,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Диалога нет, из списка ушла, остальные на месте.
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.bySubtype<AlertDialog>(), findsNothing);
     expect(find.text('Кафе'), findsNothing);
     expect(find.text('Продукты'), findsOneWidget);
     expect(find.text(categoriesArchiveTitle(2)), findsOneWidget);
