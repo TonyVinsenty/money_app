@@ -8,6 +8,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -65,6 +66,10 @@ class CategoryBreakdownCard extends StatefulWidget {
 
   /// Ключ карточки с кольцом.
   static const cardKey = ValueKey('category-breakdown-card');
+
+  /// Ключи суммы и процента в строке списка (для тестов раскладки).
+  static const rowAmountKey = ValueKey('category-breakdown-row-amount');
+  static const rowPercentKey = ValueKey('category-breakdown-row-percent');
 
   /// Ключ списка категорий.
   static const listKey = ValueKey('category-breakdown-list');
@@ -351,7 +356,8 @@ String _percentText(PercentShare share) =>
 String _percentSpoken(PercentShare share) =>
     spokenPercent(share.percent ?? 0, isBelowOne: share.isBelowOne);
 
-/// Строка списка: метка цвета, иконка, название, сумма и процент. Скринридер
+/// Строка списка: метка цвета, иконка, название, сумма и процент (при крупном
+/// шрифте — под суммой). Скринридер
 /// читает её целиком одним узлом; метка цвета и иконка для него пусты.
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
@@ -393,6 +399,12 @@ class _CategoryRow extends StatelessWidget {
     final spokenAmount = isExpense
         ? 'минус ${spokenMoney(amount)}'
         : 'плюс ${spokenMoney(amount)}';
+    final twoLine = useTwoLineRows(context);
+    final percent = Text(
+      _percentText(share),
+      key: CategoryBreakdownCard.rowPercentKey,
+      style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+    );
     final content = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
       child: Padding(
@@ -414,20 +426,24 @@ class _CategoryRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  MaskedAmount(
-                    amountText,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: amountColor,
+                  // Сумма шире строки уменьшается, а не рвётся посреди числа.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: MaskedAmount(
+                      amountText,
+                      textKey: CategoryBreakdownCard.rowAmountKey,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: amountColor,
+                      ),
                     ),
                   ),
+                  // Крупный шрифт: процент под суммой, вся ширина — сумме.
+                  if (twoLine) percent,
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              _percentText(share),
-              style: theme.textTheme.bodyMedium?.copyWith(color: muted),
-            ),
+            if (!twoLine) ...[const SizedBox(width: 8), percent],
           ],
         ),
       ),

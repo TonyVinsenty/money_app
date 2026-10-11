@@ -6,6 +6,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/period_comparison.dart';
@@ -51,6 +52,10 @@ class ComparisonSection extends StatelessWidget {
   static const typeKey = ValueKey('comparison-type');
   static const totalKey = ValueKey('comparison-total');
   static const listKey = ValueKey('comparison-list');
+
+  /// Ключ суммы в двухэтажной строке (крупный шрифт; для тестов раскладки).
+  static const rowAmountKey = ValueKey('comparison-row-amount');
+
   static Key rowKey(String categoryId) =>
       ValueKey('comparison-row-$categoryId');
 
@@ -166,7 +171,8 @@ class ComparisonSection extends StatelessWidget {
   }
 }
 
-/// Строка категории: иконка, «Название · сумма» и под ней разница. Скринридер
+/// Строка категории: иконка, «Название · сумма» и под ней разница; при крупном
+/// шрифте название и сумма — отдельными строками. Скринридер
 /// читает её одним узлом.
 class _ComparisonRow extends StatelessWidget {
   const _ComparisonRow({
@@ -188,6 +194,7 @@ class _ComparisonRow extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final hidden = AmountsVisibility.hiddenOf(context);
+    final twoLine = useTwoLineRows(context);
     final content = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
       child: Padding(
@@ -203,11 +210,24 @@ class _ComparisonRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    comparisonRowTitle(name, change, hidden: hidden),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  if (twoLine) ...[
+                    // Крупный шрифт: название, под ним сумма. Сумма шире
+                    // строки уменьшается, а не рвётся посреди числа.
+                    Text(name, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Text(
+                        comparisonRowAmount(change, hidden: hidden),
+                        key: ComparisonSection.rowAmountKey,
+                      ),
+                    ),
+                  ] else
+                    Text(
+                      comparisonRowTitle(name, change, hidden: hidden),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   Text(
                     comparisonRowDelta(change, hidden: hidden),
                     style: theme.textTheme.bodyMedium?.copyWith(color: muted),

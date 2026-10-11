@@ -147,12 +147,16 @@ String comparisonRowTitle(
   String name,
   AmountChange change, {
   bool hidden = false,
-}) {
+}) => '$name · ${comparisonRowAmount(change, hidden: hidden)}';
+
+/// Сумма категории без названия — для двухэтажной строки при крупном шрифте:
+/// «8 000,00 ₽»; исчезнувшая — «0,00 ₽ · было 3 000,00 ₽».
+String comparisonRowAmount(AmountChange change, {bool hidden = false}) {
   final now = _money(change.current, hidden: hidden);
   if (change.current.isZero && !change.previous.isZero) {
-    return '$name · $now · было ${_money(change.previous, hidden: hidden)}';
+    return '$now · было ${_money(change.previous, hidden: hidden)}';
   }
-  return '$name · $now';
+  return now;
 }
 
 /// Т2. Вторая строка категории: «↑ на 2 300,00 ₽ (+40 %)»,

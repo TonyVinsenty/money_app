@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/money.dart';
@@ -12,6 +13,8 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+
+import '../../../support/roboto_font.dart';
 
 final _today = DateOnly(2026, 10, 11);
 final _october = monthRange(DateOnly(2026, 10, 1));
@@ -368,5 +371,65 @@ void main() {
       tester.getSize(find.byKey(ComparisonSection.rowKey('cafe'))).height,
       greaterThanOrEqualTo(48),
     );
+  });
+
+  group('крупный шрифт: двухэтажная строка (7.33)', () {
+    setUpAll(loadRoboto);
+
+    final rows = [
+      _tx('a', 'cafe', 123456789, oct),
+      _tx('b', 'cafe', 100000000, sep),
+    ];
+    final amount = find.byKey(ComparisonSection.rowAmountKey);
+
+    testWidgets('100 %: «Название · сумма» одной строкой, как раньше', (
+      tester,
+    ) async {
+      await _pump(tester, transactions: rows, onOpen: (_) {});
+      expect(tester.takeException(), isNull);
+      expect(amount, findsNothing);
+      expect(find.textContaining('Кафе · '), findsOneWidget);
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('${scale * 100} %: название, под ним сумма и разница', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          transactions: rows,
+          onOpen: (_) {},
+          textScale: scale,
+        );
+        expect(tester.takeException(), isNull);
+        final row = find.byKey(ComparisonSection.rowKey('cafe'));
+        final name = find.descendant(of: row, matching: find.text('Кафе'));
+        expect(name, findsOneWidget);
+        expect(
+          tester.getTopLeft(amount).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(name).dy),
+        );
+        // Сумма в полный размер, не шире строки.
+        expect(
+          tester.getRect(amount).width,
+          moreOrLessEquals(tester.getSize(amount).width),
+        );
+        expect(
+          tester.getTopRight(amount).dx,
+          lessThanOrEqualTo(tester.getTopRight(row).dx),
+        );
+        // Разница целиком: ни одна строка строки не обрезана многоточием.
+        for (final paragraph in tester.renderObjectList<RenderParagraph>(
+          find.descendant(of: row, matching: find.byType(RichText)),
+        )) {
+          expect(paragraph.didExceedMaxLines, isFalse);
+          expect(
+            paragraph.size.width,
+            lessThanOrEqualTo(tester.getSize(row).width),
+          );
+        }
+        expect(find.textContaining('↑ на'), findsOneWidget);
+      });
+    }
   });
 }

@@ -27,6 +27,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../../../support/fixture_transactions.dart';
+import '../../../support/roboto_font.dart';
 
 final _today = DateOnly(2026, 10, 4);
 final _september = monthRange(DateOnly(2026, 9, 1));
@@ -734,5 +735,41 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byKey(CategoryBreakdownCard.typeKey), findsOneWidget);
     });
+  });
+
+  group('крупный шрифт: процент под суммой (7.33)', () {
+    setUpAll(loadRoboto);
+
+    final amount = find.byKey(CategoryBreakdownCard.rowAmountKey).first;
+    final percent = find.byKey(CategoryBreakdownCard.rowPercentKey).first;
+    final data = [_tx('a', 123456789), _tx('b', 50000000)];
+
+    testWidgets('100 %: процент справа от суммы, как раньше', (tester) async {
+      await _pump(tester, transactions: _data(data));
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getTopLeft(percent).dx,
+        greaterThan(tester.getTopRight(amount).dx),
+      );
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('${scale * 100} %: процент под суммой, сумма целиком', (
+        tester,
+      ) async {
+        await _pump(tester, transactions: _data(data), textScale: scale);
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.getTopLeft(percent).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(amount).dy),
+        );
+        expect(tester.getTopLeft(percent).dx, tester.getTopLeft(amount).dx);
+        expect(
+          tester.getRect(amount).width,
+          moreOrLessEquals(tester.getSize(amount).width),
+        );
+        expect(tester.getTopRight(amount).dx, lessThanOrEqualTo(360 - 16));
+      });
+    }
   });
 }
