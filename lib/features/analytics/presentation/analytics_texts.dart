@@ -195,6 +195,28 @@ String comparisonNothingText(TransactionType type) =>
 String operationsTopTitle(TransactionType type) =>
     type == TransactionType.expense ? 'Крупные расходы' : 'Крупные доходы';
 
+/// Т5. Заголовок второй карточки «Операций».
+const String operationsFrequencyTitle = 'Частота и средний чек';
+
+final String _emDash = String.fromCharCode(0x2014);
+
+/// Т5. «42 операции» (склонение по числу).
+String operationsCountText(int count) =>
+    '$count ${pluralRu(count, 'операция', 'операции', 'операций')}';
+
+/// Т5. «Чаще всего — Продукты (42 операции)».
+String operationsMostFrequentText(String name, int count) =>
+    'Чаще всего $_emDash $name (${operationsCountText(count)})';
+
+/// Т5. Вторая строка категории: «42 операции · средний чек 610,00 ₽».
+String operationsStatSubtitle(int count, Money average) =>
+    '${operationsCountText(count)} · средний чек ${formatMoney(average)}';
+
+/// Т5. Озвучка строки: «Продукты, 42 операции, средний чек 610 рублей».
+String operationsStatSpoken(String name, int count, Money average) =>
+    '$name, ${operationsCountText(count)}, '
+    'средний чек ${spokenMoney(average)}';
+
 /// Т3. Заголовок «Динамики»: «Расходы по дням», «Доходы по месяцам».
 String dynamicsTitle(TransactionType type, BucketStep step) =>
     '${type == TransactionType.expense ? 'Расходы' : 'Доходы'} '

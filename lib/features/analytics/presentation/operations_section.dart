@@ -30,6 +30,7 @@ class OperationsSection extends StatelessWidget {
     this.type = TransactionType.expense,
     this.onTypeSelected,
     this.onOpenTransaction,
+    this.onOpenCategory,
     this.currency = rubCurrencyCode,
     super.key,
   });
@@ -44,10 +45,17 @@ class OperationsSection extends StatelessWidget {
   final TransactionType type;
   final ValueChanged<TransactionType>? onTypeSelected;
   final ValueChanged<Transaction>? onOpenTransaction;
+
+  /// Касание строки «Частоты»: экран категории за текущий период.
+  final ValueChanged<Category>? onOpenCategory;
   final String currency;
 
   static const typeKey = ValueKey('operations-type');
   static const listKey = ValueKey('operations-top-list');
+  static const frequencyKey = ValueKey('operations-frequency');
+  static const mostFrequentKey = ValueKey('operations-most-frequent');
+  static Key statKey(String categoryId) =>
+      ValueKey('operations-stat-$categoryId');
   static Key rowKey(String transactionId) =>
       ValueKey('operations-row-$transactionId');
 
@@ -59,8 +67,11 @@ class OperationsSection extends StatelessWidget {
     final byId = {for (final c in categories) c.id: c};
     final onTypeSelected = this.onTypeSelected;
     final onOpen = onOpenTransaction;
+    final stats = categoryStats(transactions, range, type, currency: currency);
+    final best = mostFrequentCategory(stats);
+    final onOpenCategory = this.onOpenCategory;
 
-    return Card.outlined(
+    final topCard = Card.outlined(
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -130,6 +141,128 @@ class OperationsSection extends StatelessWidget {
           ],
         ),
       ),
+    );
+    if (best == null) return topCard;
+
+    VoidCallback? openOf(String id) =>
+        onOpenCategory == null || byId[id] == null
+        ? null
+        : () => onOpenCategory(byId[id]!);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        topCard,
+        const SizedBox(height: 16),
+        Card.outlined(
+          key: frequencyKey,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(
+                    operationsFrequencyTitle,
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  operationsMostFrequentText(
+                    byId[best.categoryId]?.name ?? noCategoryLabel,
+                    best.count,
+                  ),
+                  key: mostFrequentKey,
+                  style: theme.textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 8),
+                for (final s in stats)
+                  _StatRow(
+                    key: statKey(s.categoryId),
+                    category: byId[s.categoryId],
+                    stat: s,
+                    onTap: openOf(s.categoryId),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Строка категории в «Частоте»: иконка, название и «42 операции · средний чек
+/// 610,00 ₽». Скринридер читает её одним узлом.
+class _StatRow extends StatelessWidget {
+  const _StatRow({
+    required this.category,
+    required this.stat,
+    required this.onTap,
+    super.key,
+  });
+
+  /// `null` — категории нет в справочнике («Без категории»).
+  final Category? category;
+  final CategoryStat stat;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final name = category?.name ?? noCategoryLabel;
+    final content = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 48),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: Row(
+          children: [
+            ExcludeSemantics(
+              child: CategoryIconView(
+                category?.iconKey,
+                size: 24,
+                color: muted,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(name, maxLines: 3, overflow: TextOverflow.ellipsis),
+                  Text(
+                    operationsStatSubtitle(stat.count, stat.average),
+                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    return Semantics(
+      container: true,
+      label: operationsStatSpoken(name, stat.count, stat.average),
+      button: onTap != null,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: onTap == null
+          ? content
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: content,
+            ),
     );
   }
 }

@@ -286,6 +286,7 @@ class AnalyticsScreen extends StatelessWidget {
                     currency: currency,
                     onTypeSelected: onTypeSelected,
                     onOpenTransaction: onOpenTransaction,
+                    onOpenCategory: onOpenCategory,
                   ),
                 )
               : section == AnalyticsSection.comparison

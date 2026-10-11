@@ -5,6 +5,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/analytics/presentation/operations_section.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -56,6 +57,8 @@ Future<void> _pump(
   List<Transaction> transactions, {
   TransactionType type = TransactionType.expense,
   ValueChanged<Transaction>? onOpen,
+  ValueChanged<Category>? onOpenCategory,
+  List<Category>? categories,
   double textScale = 1,
   double width = 360,
 }) async {
@@ -75,10 +78,11 @@ Future<void> _pump(
           child: OperationsSection(
             transactions: transactions,
             range: _range,
-            categories: [_food, _milk],
+            categories: categories ?? [_food, _milk],
             today: _today,
             type: type,
             onOpenTransaction: onOpen,
+            onOpenCategory: onOpenCategory,
           ),
         ),
       ),
@@ -198,5 +202,117 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.byKey(OperationsSection.rowKey('a')), findsOneWidget);
+  });
+
+  group('Частота и средний чек', () {
+    final cafe = Category.topLevel(
+      id: 'cafe',
+      kind: CategoryKind.expense,
+      name: 'Кафе',
+      iconKey: 'icon',
+      sortOrder: 1,
+    );
+
+    test('склонение операций', () {
+      const expected = {
+        1: '1 операция',
+        2: '2 операции',
+        5: '5 операций',
+        11: '11 операций',
+        21: '21 операция',
+        22: '22 операции',
+        25: '25 операций',
+        111: '111 операций',
+      };
+      expected.forEach((n, text) => expect(operationsCountText(n), text));
+    });
+
+    testWidgets('тексты и строка категории', (tester) async {
+      await _pump(
+        tester,
+        [_tx('a', 60000), _tx('b', 62000), _tx('c', 5000, category: 'cafe')],
+        categories: [_food, cafe],
+      );
+
+      expect(find.text('Частота и средний чек'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(OperationsSection.mostFrequentKey)).data,
+        'Чаще всего — Продукты (2 операции)',
+      );
+      expect(find.text('2 операции · средний чек 610,00 ₽'), findsOneWidget);
+      expect(find.text('1 операция · средний чек 50,00 ₽'), findsOneWidget);
+    });
+
+    testWidgets('ничья: больше сумма, потом меньший id', (tester) async {
+      await _pump(
+        tester,
+        [_tx('a', 1000), _tx('b', 9000, category: 'cafe')],
+        categories: [_food, cafe],
+      );
+      expect(
+        tester.widget<Text>(find.byKey(OperationsSection.mostFrequentKey)).data,
+        'Чаще всего — Кафе (1 операция)',
+      );
+    });
+
+    testWidgets('доходы: переключатель учтён; пусто — карточки нет', (
+      tester,
+    ) async {
+      await _pump(tester, [_tx('a', 1000)], type: TransactionType.income);
+      expect(find.byKey(OperationsSection.frequencyKey), findsNothing);
+
+      await _pump(tester, [
+        _tx('i', 1000, type: TransactionType.income),
+        _tx('e', 1000),
+      ], type: TransactionType.income);
+      expect(find.byKey(OperationsSection.frequencyKey), findsOneWidget);
+      expect(find.textContaining('(1 операция)'), findsOneWidget);
+    });
+
+    testWidgets('озвучка строки одним узлом', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, [_tx('a', 61000)], onOpenCategory: (_) {});
+      final label = tester
+          .getSemantics(find.byKey(OperationsSection.statKey('food')))
+          .label;
+      expect(label, 'Продукты, 1 операция, средний чек 610 рублей');
+      handle.dispose();
+    });
+
+    testWidgets('касание открывает категорию', (tester) async {
+      final opened = <String>[];
+      await _pump(tester, [
+        _tx('a', 1000),
+      ], onOpenCategory: (c) => opened.add(c.id));
+      await tester.tap(find.byKey(OperationsSection.statKey('food')));
+      expect(opened, ['food']);
+    });
+
+    testWidgets('удалённая категория: «Без категории», не кнопка', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _tx('a', 1000, category: 'gone'),
+      ], onOpenCategory: (_) {});
+      expect(find.text('Без категории'), findsNWidgets(2));
+      expect(
+        find.descendant(
+          of: find.byKey(OperationsSection.statKey('gone')),
+          matching: find.byType(InkWell),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('360 dp и шрифт 200 %: без переполнения', (tester) async {
+      await _pump(
+        tester,
+        [_tx('a', 123456789), _tx('b', 1000, category: 'cafe')],
+        categories: [_food, cafe],
+        textScale: 2,
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(OperationsSection.statKey('cafe')), findsOneWidget);
+    });
   });
 }
