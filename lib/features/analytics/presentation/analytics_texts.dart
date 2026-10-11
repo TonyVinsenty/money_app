@@ -191,6 +191,10 @@ String comparisonNothingText(TransactionType type) =>
     ? 'За этот период расходов нет'
     : 'За этот период доходов нет';
 
+/// Т5. Заголовок списка в «Операциях».
+String operationsTopTitle(TransactionType type) =>
+    type == TransactionType.expense ? 'Крупные расходы' : 'Крупные доходы';
+
 /// Т3. Заголовок «Динамики»: «Расходы по дням», «Доходы по месяцам».
 String dynamicsTitle(TransactionType type, BucketStep step) =>
     '${type == TransactionType.expense ? 'Расходы' : 'Доходы'} '

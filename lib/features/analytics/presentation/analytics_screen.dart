@@ -13,6 +13,7 @@ import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/analytics/presentation/comparison_section.dart';
 import 'package:money_app/features/analytics/presentation/dynamics_section.dart';
+import 'package:money_app/features/analytics/presentation/operations_section.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -40,6 +41,9 @@ const Key analyticsComparisonKey = ValueKey('analytics-comparison');
 /// Ключ раздела «Динамика».
 const Key analyticsDynamicsKey = ValueKey('analytics-dynamics');
 
+/// Ключ раздела «Операции».
+const Key analyticsOperationsKey = ValueKey('analytics-operations');
+
 /// Ключ строки разделов.
 const Key analyticsSectionBarKey = ValueKey('analytics-section-bar');
 
@@ -49,6 +53,7 @@ const List<AnalyticsSection> _shownSections = [
   AnalyticsSection.categories,
   AnalyticsSection.dynamics,
   AnalyticsSection.comparison,
+  AnalyticsSection.operations,
 ];
 
 /// Виды периода, которые можно выбрать чипом, в порядке слева направо.
@@ -91,6 +96,7 @@ class AnalyticsScreen extends StatelessWidget {
     this.type = TransactionType.expense,
     this.onTypeSelected,
     this.onOpenCategory,
+    this.onOpenTransaction,
     this.dynamicsCategoryId,
     this.onDynamicsCategorySelected,
     this.section = AnalyticsSection.categories,
@@ -148,6 +154,10 @@ class AnalyticsScreen extends StatelessWidget {
   /// Выбрана категория (строка списка или сектор кольца). Маршрут открывает
   /// вызывающий; без колбэка строки не кнопки.
   final ValueChanged<Category>? onOpenCategory;
+
+  /// Выбрана операция в «Крупных» (правка открывается из `lib/app/`); без
+  /// колбэка строки не кнопки.
+  final ValueChanged<Transaction>? onOpenTransaction;
 
   /// Категория, выбранная фильтром «Динамики»; `null` — все категории.
   final String? dynamicsCategoryId;
@@ -260,6 +270,22 @@ class AnalyticsScreen extends StatelessWidget {
                     categories: all,
                     categoryId: dynamicsCategoryId,
                     onCategorySelected: onDynamicsCategorySelected,
+                  ),
+                )
+              : section == AnalyticsSection.operations
+              ? AsyncView<List<Category>>(
+                  stream: categories,
+                  errorBuilder: (context, error) => const _SummaryError(),
+                  dataBuilder: (context, all) => OperationsSection(
+                    key: analyticsOperationsKey,
+                    transactions: data.transactions,
+                    range: data.range,
+                    categories: all,
+                    today: today,
+                    type: type,
+                    currency: currency,
+                    onTypeSelected: onTypeSelected,
+                    onOpenTransaction: onOpenTransaction,
                   ),
                 )
               : section == AnalyticsSection.comparison

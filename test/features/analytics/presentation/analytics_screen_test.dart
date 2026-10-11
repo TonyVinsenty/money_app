@@ -99,18 +99,21 @@ void main() {
       ],
     ));
 
-    testWidgets('по умолчанию «Категории»: три раздела и прежнее содержимое', (
-      tester,
-    ) async {
-      await _pump(tester, transactions: someData());
-      await tester.pump();
+    testWidgets(
+      'по умолчанию «Категории»: четыре раздела и прежнее содержимое',
+      (tester) async {
+        await _pump(tester, transactions: someData());
+        await tester.pump();
 
-      expect(find.widgetWithText(Tab, 'Категории'), findsOneWidget);
-      expect(find.widgetWithText(Tab, 'Динамика'), findsOneWidget);
-      expect(find.widgetWithText(Tab, 'Сравнение'), findsOneWidget);
-      expect(find.byType(PeriodSummaryCard), findsOneWidget);
-      expect(find.byKey(analyticsComparisonKey), findsNothing);
-    });
+        expect(find.byType(Tab), findsNWidgets(4));
+        expect(find.widgetWithText(Tab, 'Категории'), findsOneWidget);
+        expect(find.widgetWithText(Tab, 'Динамика'), findsOneWidget);
+        expect(find.widgetWithText(Tab, 'Сравнение'), findsOneWidget);
+        expect(find.widgetWithText(Tab, 'Операции'), findsOneWidget);
+        expect(find.byType(PeriodSummaryCard), findsOneWidget);
+        expect(find.byKey(analyticsComparisonKey), findsNothing);
+      },
+    );
 
     testWidgets('раздел «Динамика»: график, период на месте, вкладка 1', (
       tester,

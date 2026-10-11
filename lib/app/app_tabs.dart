@@ -584,6 +584,19 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         onPrevious: controller.canGoBack ? controller.previous : null,
         onNext: controller.canGoForward ? controller.next : null,
         onOpenCategory: (category) => _openCategory(context, category),
+        onOpenTransaction: (transaction) {
+          final services = AppScope.of(context);
+          Navigator.of(context).pushNamed(
+            AppRoutes.editTransaction,
+            arguments: EditTransactionRouteArguments(
+              transaction: transaction,
+              clock: services.clock,
+              categories: services.categories,
+              transactions: services.transactions,
+              accounts: services.accounts.watchAll(),
+            ),
+          );
+        },
         firstDay: controller.firstDay,
         firstDayKnown: controller.firstDayKnown,
         type: controller.type,
