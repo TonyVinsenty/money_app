@@ -62,6 +62,20 @@ void main() {
     expect(picked, ReminderTime(9, 5));
   });
 
+  testWidgets('в группе «Учёт» после «Основная валюта», со значком', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(screen(onChanged: (_) {}));
+    double top(String text) => tester.getTopLeft(find.text(text)).dy;
+
+    expect(top(reminderTimeItemLabel), greaterThan(top('Основная валюта')));
+    expect(top(reminderTimeItemLabel), lessThan(top('Данные')));
+    expect(find.byIcon(Icons.notifications_none), findsOneWidget);
+  });
+
   testWidgets('отмена выбора времени ничего не меняет', (tester) async {
     tester.view.physicalSize = const Size(400, 2400);
     tester.view.devicePixelRatio = 1;

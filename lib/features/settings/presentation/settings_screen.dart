@@ -13,6 +13,12 @@ import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
+/// Подзаголовки групп (тексты В10 утверждены 2026-10-11).
+const appearanceGroupTitle = 'Внешний вид';
+const bookkeepingGroupTitle = 'Учёт';
+const dataGroupTitle = 'Данные';
+const resetGroupTitle = 'Сброс';
+
 /// Подписи вариантов темы.
 const themeSystemLabel = 'Как в системе';
 const themeLightLabel = 'Светлая';
@@ -453,15 +459,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final errorColor = Theme.of(context).colorScheme.error;
     return ListView(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Semantics(
-            header: true,
-            child: Text(themeSectionTitle, style: textTheme.titleMedium),
-          ),
-        ),
+        const _GroupHeader(appearanceGroupTitle),
+        const _SectionTitle(Icons.palette_outlined, themeSectionTitle),
         // RadioGroup держит выбранное значение для всех переключателей внутри.
         RadioGroup<ThemeMode>(
           groupValue: widget.themeMode,
@@ -485,14 +487,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-        const Divider(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Semantics(
-            header: true,
-            child: Text(homeBalanceSectionTitle, style: textTheme.titleMedium),
-          ),
-        ),
+        const _SectionTitle(Icons.donut_large, homeBalanceSectionTitle),
         RadioGroup<HomeBalanceLine>(
           groupValue: widget.homeBalanceLine,
           onChanged: (value) {
@@ -517,22 +512,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-        const Divider(),
-        if (widget.onHideAmountsChanged case final onChanged?) ...[
+        if (widget.onHideAmountsChanged case final onChanged?)
           SwitchListTile(
+            secondary: const _ItemIcon(Icons.visibility_off_outlined),
             title: const Text(hideAmountsLabel),
             subtitle: const Text(hideAmountsSubtitle),
             value: widget.hideAmounts,
             onChanged: onChanged,
           ),
-          const Divider(),
-        ],
+        const _GroupHeader(bookkeepingGroupTitle),
         ListTile(
+          leading: const _ItemIcon(Icons.category_outlined),
           title: const Text(categoriesItemLabel),
           trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
           onTap: widget.onOpenCategories,
         ),
         ListTile(
+          leading: const _ItemIcon(Icons.payments_outlined),
           title: const Text(mainCurrencyItemLabel),
           subtitle: Text(currencyNameWithSymbol(widget.mainCurrency)),
           trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
@@ -540,6 +536,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         if (widget.onReminderTimeChanged != null)
           ListTile(
+            leading: const _ItemIcon(Icons.notifications_none),
             title: const Text(reminderTimeItemLabel),
             subtitle: Text(
               (widget.reminderTime ?? ReminderTime.defaultTime()).toString(),
@@ -547,8 +544,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
             onTap: _pickReminderTime,
           ),
-        const Divider(),
+        const _GroupHeader(dataGroupTitle),
         ListTile(
+          leading: const _ItemIcon(Icons.file_upload_outlined),
           title: const Text(exportCsvItemLabel),
           subtitle:
               isExportStale(
@@ -599,6 +597,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onTap: _busy ? null : _exportCsv,
         ),
         ListTile(
+          leading: const _ItemIcon(Icons.file_download_outlined),
           title: const Text(importCsvItemLabel),
           subtitle: const Text(importCsvItemSubtitle),
           trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
@@ -606,12 +605,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           enabled: !_busy,
           onTap: _busy ? null : _importCsv,
         ),
-        const Divider(),
+        const _GroupHeader(resetGroupTitle),
         ListTile(
+          leading: const _ItemIcon(Icons.delete_forever_outlined),
           title: const Text(clearAllItemLabel),
           // Цвет ошибки только у доступного пункта; у недоступного ListTile
           // сам берёт цвет неактивного.
-          textColor: _busy ? null : Theme.of(context).colorScheme.error,
+          textColor: _busy ? null : errorColor,
+          iconColor: _busy ? null : errorColor,
           subtitle: const Text(clearAllItemSubtitle),
           trailing: _erasing
               ? const SizedBox.square(
@@ -625,8 +626,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           enabled: !_busy,
           onTap: _busy ? null : _clearAll,
         ),
+        // «Версия» — внизу, вне групп.
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.l,
+            AppSpacing.xl,
+            AppSpacing.l,
+            AppSpacing.xl,
+          ),
           child: Text(
             versionLabel(widget.version),
             style: textTheme.bodySmall,
@@ -636,4 +643,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     );
   }
+}
+
+/// Подзаголовок группы (design-style.md, 8.4): `titleSmall`, 600, цвет
+/// акцента, слева, отступ сверху 24.
+class _GroupHeader extends StatelessWidget {
+  const _GroupHeader(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.l,
+        AppSpacing.xl,
+        AppSpacing.l,
+        AppSpacing.s,
+      ),
+      child: Semantics(
+        header: true,
+        child: Text(
+          title,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Заголовок пункта с вариантами внутри группы («Тема»): значок и название.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.icon, this.title);
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.l,
+        AppSpacing.s,
+        AppSpacing.l,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          // Цвет как у значков ListTile в соседних пунктах.
+          IconTheme.merge(
+            data: IconThemeData(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            child: _ItemIcon(icon),
+          ),
+          const SizedBox(width: AppSpacing.l),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(title, style: Theme.of(context).textTheme.bodyLarge),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Значок пункта — только для глаз: смысл несёт название.
+class _ItemIcon extends StatelessWidget {
+  const _ItemIcon(this.icon);
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(child: Icon(icon));
 }

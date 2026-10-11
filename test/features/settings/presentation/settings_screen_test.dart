@@ -94,6 +94,86 @@ void main() {
     expect(find.text('Версия 0.1.0 (19)'), findsOneWidget);
   });
 
+  group('группы (В10)', () {
+    double top(WidgetTester tester, String text) =>
+        tester.getTopLeft(find.text(text)).dy;
+
+    testWidgets('подзаголовки и пункты по порядку, «Версия» последней', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app());
+      const order = [
+        'Внешний вид',
+        'Тема',
+        'Вторая строка в кольце',
+        'Учёт',
+        'Категории',
+        'Основная валюта',
+        'Данные',
+        'Экспорт в CSV',
+        'Загрузить из CSV',
+        'Сброс',
+        'Очистить всё',
+        'Версия 0.1.0 (19)',
+      ];
+      for (var i = 1; i < order.length; i++) {
+        expect(
+          top(tester, order[i]),
+          greaterThan(top(tester, order[i - 1])),
+          reason: '«${order[i]}» ниже «${order[i - 1]}»',
+        );
+      }
+    });
+
+    testWidgets('подзаголовок — заголовок для скринридера, цвет акцента', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_app());
+      for (final title in ['Внешний вид', 'Учёт', 'Данные', 'Сброс']) {
+        expect(
+          tester.getSemantics(find.text(title)).flagsCollection.isHeader,
+          isTrue,
+          reason: title,
+        );
+        final text = tester.widget<Text>(find.text(title));
+        final context = tester.element(find.text(title));
+        expect(text.style?.color, Theme.of(context).colorScheme.primary);
+        expect(text.style?.fontWeight, FontWeight.w600);
+      }
+      semantics.dispose();
+    });
+
+    testWidgets('у пунктов значки, скрытые от скринридера', (tester) async {
+      await tester.pumpWidget(_app());
+      for (final icon in [
+        Icons.palette_outlined,
+        Icons.donut_large,
+        Icons.category_outlined,
+        Icons.payments_outlined,
+        Icons.file_upload_outlined,
+        Icons.file_download_outlined,
+        Icons.delete_forever_outlined,
+      ]) {
+        final found = find.byIcon(icon);
+        expect(found, findsOneWidget, reason: '$icon');
+        expect(
+          find.ancestor(of: found, matching: find.byType(ExcludeSemantics)),
+          findsWidgets,
+          reason: '$icon',
+        );
+      }
+    });
+
+    testWidgets('«Очистить всё»: значок цвета ошибки', (tester) async {
+      await tester.pumpWidget(_app());
+      final context = tester.element(
+        find.byIcon(Icons.delete_forever_outlined),
+      );
+      expect(IconTheme.of(context).color, Theme.of(context).colorScheme.error);
+    });
+  });
+
   group('предупреждение о давнем экспорте', () {
     // «Сегодня» в тестовом экране — 7 октября 2026.
     Future<Text> subtitle(WidgetTester tester, String text) async =>
@@ -229,6 +309,9 @@ void main() {
     }
 
     Future<void> openDialog(WidgetTester tester) async {
+      // При 200 % пункт внизу длинного списка — за краем окна.
+      await tester.ensureVisible(find.text('Очистить всё'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Очистить всё'));
       await tester.pumpAndSettle();
     }

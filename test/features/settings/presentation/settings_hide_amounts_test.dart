@@ -35,6 +35,26 @@ void main() {
     expect(find.text(hideAmountsLabel), findsNothing);
   });
 
+  testWidgets('в группе «Внешний вид», последним перед «Учёт», со значком', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(screen(onChanged: (_) {}));
+    double top(String text) => tester.getTopLeft(find.text(text)).dy;
+
+    expect(top(hideAmountsLabel), greaterThan(top('Не показывать')));
+    expect(top(hideAmountsLabel), lessThan(top('Учёт')));
+    expect(
+      find.descendant(
+        of: find.widgetWithText(SwitchListTile, hideAmountsLabel),
+        matching: find.byIcon(Icons.visibility_off_outlined),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('переключатель показывает значение и сообщает наружу', (
     tester,
   ) async {
