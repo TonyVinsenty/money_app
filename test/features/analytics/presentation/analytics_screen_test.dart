@@ -99,16 +99,33 @@ void main() {
       ],
     ));
 
-    testWidgets('по умолчанию «Категории»: два раздела и прежнее содержимое', (
+    testWidgets('по умолчанию «Категории»: три раздела и прежнее содержимое', (
       tester,
     ) async {
       await _pump(tester, transactions: someData());
       await tester.pump();
 
       expect(find.widgetWithText(Tab, 'Категории'), findsOneWidget);
+      expect(find.widgetWithText(Tab, 'Динамика'), findsOneWidget);
       expect(find.widgetWithText(Tab, 'Сравнение'), findsOneWidget);
       expect(find.byType(PeriodSummaryCard), findsOneWidget);
       expect(find.byKey(analyticsComparisonKey), findsNothing);
+    });
+
+    testWidgets('раздел «Динамика»: график, период на месте, вкладка 1', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        transactions: someData(),
+        section: AnalyticsSection.dynamics,
+      );
+      await tester.pump();
+
+      expect(find.byKey(analyticsDynamicsKey), findsOneWidget);
+      expect(find.byType(PeriodSummaryCard), findsNothing);
+      expect(find.text('Октябрь 2026'), findsOneWidget);
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
     });
 
     testWidgets('касание «Сравнение» зовёт колбэк с разделом', (tester) async {
@@ -116,6 +133,7 @@ void main() {
       await _pump(tester, transactions: someData(), onSection: calls.add);
       await tester.pump();
 
+      await tester.ensureVisible(find.widgetWithText(Tab, 'Сравнение'));
       await tester.tap(find.widgetWithText(Tab, 'Сравнение'));
       await tester.pump();
 
@@ -137,7 +155,7 @@ void main() {
       expect(find.byType(PeriodSummaryCard), findsNothing);
       expect(find.text('Октябрь 2026'), findsOneWidget);
       expect(find.widgetWithText(ChoiceChip, 'Месяц'), findsOneWidget);
-      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 2);
     });
 
     testWidgets('свайпа между разделами нет: нет TabBarView', (tester) async {
@@ -165,11 +183,13 @@ void main() {
       await _pump(tester, transactions: someData());
       await tester.pump();
 
+      await tester.ensureVisible(find.widgetWithText(Tab, 'Сравнение'));
+      await tester.pump();
       final label = tester
           .getSemantics(find.widgetWithText(Tab, 'Сравнение'))
           .label;
       expect(label, contains('Сравнение'));
-      expect(label, contains('2'));
+      expect(label, contains('3'));
       handle.dispose();
     });
   });

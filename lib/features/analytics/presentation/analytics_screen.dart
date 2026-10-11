@@ -12,6 +12,7 @@ import 'package:money_app/features/analytics/presentation/analytics_controller.d
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/analytics/presentation/comparison_section.dart';
+import 'package:money_app/features/analytics/presentation/dynamics_section.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -36,6 +37,9 @@ const Key analyticsSkeletonKey = ValueKey('analytics-skeleton');
 /// Ключ раздела «Сравнение».
 const Key analyticsComparisonKey = ValueKey('analytics-comparison');
 
+/// Ключ раздела «Динамика».
+const Key analyticsDynamicsKey = ValueKey('analytics-dynamics');
+
 /// Ключ строки разделов.
 const Key analyticsSectionBarKey = ValueKey('analytics-section-bar');
 
@@ -43,6 +47,7 @@ const Key analyticsSectionBarKey = ValueKey('analytics-section-bar');
 /// свои шаги (ROADMAP, a.4).
 const List<AnalyticsSection> _shownSections = [
   AnalyticsSection.categories,
+  AnalyticsSection.dynamics,
   AnalyticsSection.comparison,
 ];
 
@@ -231,7 +236,17 @@ class AnalyticsScreen extends StatelessWidget {
             hasOtherCurrencies: hasOtherCurrencies,
             symbol: currencySymbol,
           ),
-          dataBuilder: (context, data) => section == AnalyticsSection.comparison
+          dataBuilder: (context, data) => section == AnalyticsSection.dynamics
+              ? DynamicsSection(
+                  key: analyticsDynamicsKey,
+                  transactions: data.transactions,
+                  period: AnalyticsPeriod(period.kind, data.range),
+                  today: today,
+                  type: type,
+                  currency: currency,
+                  onTypeSelected: onTypeSelected,
+                )
+              : section == AnalyticsSection.comparison
               ? AsyncView<List<Category>>(
                   stream: categories,
                   errorBuilder: (context, error) => const _SummaryError(),

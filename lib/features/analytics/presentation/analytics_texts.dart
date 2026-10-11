@@ -3,9 +3,12 @@ import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/format/percent_format.dart';
+import 'package:money_app/core/format/period_label.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/features/analytics/domain/analytics_period.dart';
+import 'package:money_app/features/analytics/domain/buckets.dart';
 import 'package:money_app/features/analytics/domain/period_comparison.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -187,3 +190,89 @@ String comparisonNothingText(TransactionType type) =>
     type == TransactionType.expense
     ? 'За этот период расходов нет'
     : 'За этот период доходов нет';
+
+/// Т3. Заголовок «Динамики»: «Расходы по дням», «Доходы по месяцам».
+String dynamicsTitle(TransactionType type, BucketStep step) =>
+    '${type == TransactionType.expense ? 'Расходы' : 'Доходы'} '
+    '${step == BucketStep.month ? 'по месяцам' : 'по дням'}';
+
+/// Т3. Под графиком: «В среднем 2 400,00 ₽ в день» («в месяц»). Для
+/// скринридера ([spoken]) сумма словами.
+String dynamicsAverageText(
+  Money average,
+  BucketStep step, {
+  bool spoken = false,
+}) =>
+    'В среднем ${spoken ? spokenMoney(average) : formatMoney(average)} '
+    '${step == BucketStep.month ? 'в месяц' : 'в день'}';
+
+/// Т3. Название корзины: «12 октября» (год добавляется, если он не тот же, что
+/// у [today]) или «Октябрь 2026» для месячной.
+String dynamicsBucketLabel(Bucket bucket, BucketStep step, DateOnly today) {
+  final start = bucket.range.start;
+  if (step == BucketStep.month) return formatMonthTitle(start);
+  return start.year == today.year
+      ? formatDayMonth(start)
+      : '${formatDayMonth(start)} ${start.year}';
+}
+
+/// Т3. Значение выбранного столбика: «12 октября: 5 400,00 ₽».
+String dynamicsSelectedText(Bucket bucket, BucketStep step, DateOnly today) =>
+    '${dynamicsBucketLabel(bucket, step, today)}: ${formatMoney(bucket.amount)}';
+
+/// Т3. Пояснение вместо графика для вида «День».
+const String dynamicsDayHint =
+    'Выберите неделю, месяц, год или свой период — здесь появятся '
+    'столбики по дням';
+
+/// Т3. Название свёрнутого списка: «По дням» / «По месяцам».
+String dynamicsListTitle(BucketStep step) =>
+    step == BucketStep.month ? 'По месяцам' : 'По дням';
+
+/// Т3. Строка списка для скринридера: «12 октября, 5400 рублей».
+String dynamicsRowSpoken(Bucket bucket, BucketStep step, DateOnly today) =>
+    '${dynamicsBucketLabel(bucket, step, today)}, '
+    '${spokenMoney(bucket.amount)}';
+
+/// Т3. Подпись графика для скринридера (ADR 0012, п. 5): «Расходы по дням за
+/// октябрь. Больше всего 12 октября: 5400 рублей. В среднем 2400 рублей в
+/// день». Нет среднего или ненулевой корзины — эти фразы пропускаются.
+String dynamicsChartSpoken({
+  required TransactionType type,
+  required AnalyticsPeriod period,
+  required BucketStep step,
+  required List<Bucket> buckets,
+  required Money? average,
+  required DateOnly today,
+}) {
+  final parts = <String>[
+    '${dynamicsTitle(type, step)} ${_spokenPeriod(period, today)}',
+  ];
+  Bucket? top;
+  for (final b in buckets) {
+    // При равенстве остаётся более ранняя корзина.
+    if (!b.amount.isZero && (top == null || b.amount > top.amount)) top = b;
+  }
+  if (top != null) {
+    parts.add(
+      'Больше всего ${dynamicsBucketLabel(top, step, today)}: '
+      '${spokenMoney(top.amount)}',
+    );
+  }
+  if (average != null) {
+    parts.add(dynamicsAverageText(average, step, spoken: true));
+  }
+  return parts.join('. ');
+}
+
+/// «за октябрь», «за 2026 год», «за 5–11 октября».
+String _spokenPeriod(AnalyticsPeriod period, DateOnly today) {
+  final start = period.range.start;
+  return switch (period.kind) {
+    PeriodKind.month =>
+      'за ${formatMonthName(start)}'
+          '${start.year == today.year ? '' : ' ${start.year}'}',
+    PeriodKind.year => 'за ${start.year} год',
+    _ => 'за ${formatPeriodLabel(period.kind, period.range, today: today)}',
+  };
+}

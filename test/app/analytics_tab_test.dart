@@ -390,6 +390,7 @@ void main() {
     await tester.pumpAndSettle();
     await _tap(tester, _incomeSegment);
 
+    await tester.ensureVisible(find.widgetWithText(Tab, 'Сравнение'));
     await _tap(tester, find.widgetWithText(Tab, 'Сравнение'));
     await tester.pumpAndSettle();
     expect(find.byKey(analyticsComparisonKey), findsOneWidget);
@@ -425,6 +426,7 @@ void main() {
     );
     await _tap(tester, _prev);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(Tab, 'Сравнение'));
     await _tap(tester, find.widgetWithText(Tab, 'Сравнение'));
     await tester.pumpAndSettle();
 
@@ -467,6 +469,7 @@ void main() {
       repo: repo,
       categories: _twoCategories,
     );
+    await tester.ensureVisible(find.widgetWithText(Tab, 'Сравнение'));
     await _tap(tester, find.widgetWithText(Tab, 'Сравнение'));
     await tester.pumpAndSettle();
     expect(find.textContaining('1\u20134 сентября'), findsWidgets);
