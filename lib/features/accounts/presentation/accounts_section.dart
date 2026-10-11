@@ -396,36 +396,31 @@ class _ArchiveTile extends StatelessWidget {
       title: Text(accountsArchiveTitle(accounts.length)),
       children: [
         for (final a in accounts)
-          Padding(
-            // Справа кнопки сами дают поле (значок 24 в зоне 48).
-            padding: const EdgeInsetsDirectional.only(
-              start: AppSpacing.l,
-              end: AppSpacing.xs,
-            ),
-            child: Row(
-              children: [
-                _AccountAvatar(a),
-                const SizedBox(width: AppSpacing.m),
-                // Длинное название переносится, кнопки остаются на месте.
-                Expanded(child: Text(a.name, style: theme.textTheme.bodyLarge)),
+          // Без отступов: аватар на одной линии с аватарами счетов выше,
+          // справа поле дают сами кнопки (значок 24 в зоне 48).
+          Row(
+            children: [
+              _AccountAvatar(a),
+              const SizedBox(width: AppSpacing.m),
+              // Длинное название переносится, кнопки остаются на месте.
+              Expanded(child: Text(a.name, style: theme.textTheme.bodyLarge)),
+              _ArchiveAction(
+                key: AccountsSection.restoreKey(a.id),
+                icon: Icons.unarchive_outlined,
+                tooltip: accountRestoreAction,
+                label: accountRestoreLabel(a.name),
+                onPressed: () => onRestore(a),
+              ),
+              if (onDelete case final delete?)
                 _ArchiveAction(
-                  key: AccountsSection.restoreKey(a.id),
-                  icon: Icons.unarchive_outlined,
-                  tooltip: accountRestoreAction,
-                  label: accountRestoreLabel(a.name),
-                  onPressed: () => onRestore(a),
+                  key: AccountsSection.deleteKey(a.id),
+                  icon: Icons.delete_outline,
+                  tooltip: accountDeleteAction,
+                  label: accountDeleteLabel(a.name),
+                  color: theme.colorScheme.error,
+                  onPressed: () => delete(a),
                 ),
-                if (onDelete case final delete?)
-                  _ArchiveAction(
-                    key: AccountsSection.deleteKey(a.id),
-                    icon: Icons.delete_outline,
-                    tooltip: accountDeleteAction,
-                    label: accountDeleteLabel(a.name),
-                    color: theme.colorScheme.error,
-                    onPressed: () => delete(a),
-                  ),
-              ],
-            ),
+            ],
           ),
       ],
     );
