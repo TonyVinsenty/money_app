@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 
 /// Один сектор кольца: целый вес (доля считается от суммы весов) и цвет.
 class DonutSegment {
@@ -264,7 +265,14 @@ class _DonutChartState extends State<DonutChart> {
                         fit: BoxFit.scaleDown,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: side),
-                          child: center,
+                          // Текст центра растёт со шрифтом только до 130 %;
+                          // дальше FittedBox ужимает, если не помещается.
+                          child: MediaQuery(
+                            data: MediaQuery.of(
+                              context,
+                            ).copyWith(textScaler: chartLabelScalerOf(context)),
+                            child: center,
+                          ),
                         ),
                       ),
                     ),

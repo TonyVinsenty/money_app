@@ -7,5 +7,14 @@ import 'package:flutter/widgets.dart';
 double fontScaleOf(BuildContext context) =>
     fontScaleFrom(MediaQuery.textScalerOf(context));
 
+/// Наибольший масштаб подписей графиков (ADR 0013, п. 8): крупнее подписи
+/// налезают друг на друга.
+const double chartLabelMaxScale = 1.3;
+
+/// Масштаб текста системы, ограниченный [chartLabelMaxScale]: при 200 % подписи
+/// графиков такие же, как при 130 %.
+TextScaler chartLabelScalerOf(BuildContext context) =>
+    MediaQuery.textScalerOf(context).clamp(maxScaleFactor: chartLabelMaxScale);
+
 /// То же для готового [TextScaler] (когда контекст недоступен).
 double fontScaleFrom(TextScaler scaler) => scaler.scale(14) / 14;

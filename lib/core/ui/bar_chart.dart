@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/core/money/nice_ceiling.dart';
 import 'package:money_app/core/ui/donut_chart.dart' show donutHoldDelay;
+import 'package:money_app/core/ui/font_scale.dart';
 
 /// Место сверху под подпись верха шкалы, dp.
 const double barChartLabelHeight = 16;
@@ -167,8 +168,9 @@ Color barColor(Color base, int index, int? highlighted) =>
 ///
 /// [axisLabels] — необязательные подписи оси: номер столбика → короткая строка
 /// (строки готовит вызывающий). Рисуются под столбиками по центру своего
-/// столбика мелким шрифтом без масштабирования (полоса фиксированной высоты
-/// [barChartAxisHeight]; значения и так есть в озвучке). Подпись, которая
+/// столбика мелким шрифтом, растущим со шрифтом системы до 130 % (полоса
+/// высотой [barChartAxisHeight] при 100 %, дальше растёт; значения и так есть
+/// в озвучке). Подпись, которая
 /// налезла бы на предыдущую, пропускается. Из семантики подписи исключены.
 class BarChart extends StatefulWidget {
   const BarChart({
@@ -281,7 +283,12 @@ class _BarChartState extends State<BarChart> {
     final scale = widget.midLabel != null && widget.zeroLabel != null
         ? [widget.zeroLabel!, widget.midLabel!, widget.topLabel]
         : const <String>[];
-    _leftInset = _insetFor(scale, labelStyle);
+    final scaler = chartLabelScalerOf(context);
+    _leftInset = barChartLeftInset(scale, labelStyle, scaler);
+    // Полоса оси растёт вместе с подписями (при 100 % остаётся 16 dp).
+    final axisHeight = widget.axisLabels.isEmpty
+        ? 0.0
+        : barChartAxisHeightFor(scaler);
     return Semantics(
       container: true,
       label: widget.semanticsLabel,
@@ -322,6 +329,8 @@ class _BarChartState extends State<BarChart> {
                 topLabel: widget.topLabel,
                 scaleLabels: scale,
                 leftInset: _leftInset,
+                axisHeight: axisHeight,
+                textScaler: scaler,
                 labelStyle: labelStyle,
                 highlightedIndex: widget.highlightedIndex,
               ),
@@ -330,21 +339,6 @@ class _BarChartState extends State<BarChart> {
         ),
       ),
     );
-  }
-
-  /// Отступ слева: самая широкая подпись шкалы и зазор 6 dp (нет подписей — 0).
-  static double _insetFor(List<String> labels, TextStyle style) {
-    var widest = 0.0;
-    for (final s in labels) {
-      final p = TextPainter(
-        text: TextSpan(text: s, style: style),
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-      )..layout();
-      widest = math.max(widest, p.width);
-      p.dispose();
-    }
-    return labels.isEmpty ? 0 : widest + 6;
   }
 }
 
@@ -358,9 +352,15 @@ class _BarPainter extends CustomPainter {
     required this.topLabel,
     required this.scaleLabels,
     required this.leftInset,
+    required this.axisHeight,
+    required this.textScaler,
     required this.labelStyle,
     required this.highlightedIndex,
   });
+
+  /// Высота полосы подписей оси (0 — подписей нет) и масштаб их текста.
+  final double axisHeight;
+  final TextScaler textScaler;
 
   /// Подписи шкалы снизу вверх (пусто — одна подпись [topLabel] сверху).
   final List<String> scaleLabels;
@@ -377,10 +377,11 @@ class _BarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final axis = axisLabels.isEmpty ? 0.0 : barChartAxisHeight;
+    final axis = axisHeight;
     if (scaleLabels.isEmpty) {
       final label = TextPainter(
         text: TextSpan(text: topLabel, style: labelStyle),
+        textScaler: textScaler,
         textDirection: TextDirection.ltr,
         maxLines: 1,
         ellipsis: '…',
@@ -392,6 +393,7 @@ class _BarPainter extends CustomPainter {
       for (var i = 0; i < scaleLabels.length; i++) {
         final p = TextPainter(
           text: TextSpan(text: scaleLabels[i], style: labelStyle),
+          textScaler: textScaler,
           textDirection: TextDirection.ltr,
           maxLines: 1,
         )..layout();
@@ -441,6 +443,7 @@ class _BarPainter extends CustomPainter {
     for (final i in indexes) {
       final p = TextPainter(
         text: TextSpan(text: axisLabels[i], style: labelStyle),
+        textScaler: textScaler,
         textDirection: TextDirection.ltr,
         maxLines: 1,
       )..layout();
@@ -452,7 +455,7 @@ class _BarPainter extends CustomPainter {
         leftInset,
       );
       if (left >= lastRight + 2) {
-        p.paint(canvas, Offset(left, size.height - barChartAxisHeight + 2));
+        p.paint(canvas, Offset(left, size.height - axisHeight + 2));
         lastRight = left + p.width;
       }
       p.dispose();
@@ -467,6 +470,8 @@ class _BarPainter extends CustomPainter {
       old.lineColor != lineColor ||
       old.topLabel != topLabel ||
       old.leftInset != leftInset ||
+      old.axisHeight != axisHeight ||
+      old.textScaler != textScaler ||
       !listEquals(old.scaleLabels, scaleLabels) ||
       old.labelStyle != labelStyle ||
       old.highlightedIndex != highlightedIndex ||
@@ -480,3 +485,29 @@ class _BarPainter extends CustomPainter {
     return true;
   }
 }
+
+/// Отступ слева: самая широкая подпись шкалы (с масштабом [scaler]) и зазор
+/// 6 dp; нет подписей — 0.
+double barChartLeftInset(
+  List<String> labels,
+  TextStyle style,
+  TextScaler scaler,
+) {
+  var widest = 0.0;
+  for (final s in labels) {
+    final p = TextPainter(
+      text: TextSpan(text: s, style: style),
+      textScaler: scaler,
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    widest = math.max(widest, p.width);
+    p.dispose();
+  }
+  return labels.isEmpty ? 0 : widest + 6;
+}
+
+/// Высота полосы подписей оси при масштабе [scaler]: 16 dp при 100 %, дальше
+/// растёт вместе с подписями.
+double barChartAxisHeightFor(TextScaler scaler) =>
+    barChartAxisHeight * fontScaleFrom(scaler);

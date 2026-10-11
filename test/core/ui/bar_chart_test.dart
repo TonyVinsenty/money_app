@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/bar_chart.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 
@@ -170,6 +171,59 @@ void main() {
 
     test('приглушённые заметно бледнее (не выше 0.5)', () {
       expect(barColor(const Color(0xFFC62828), 0, 1).a, lessThanOrEqualTo(0.5));
+    });
+  });
+
+  group('масштаб подписей', () {
+    const style = TextStyle(fontSize: 11);
+    const labels = ['0', '2 500 ₽', '5 000 ₽'];
+    double inset(double k) => barChartLeftInset(
+      labels,
+      style,
+      TextScaler.linear(k).clamp(maxScaleFactor: chartLabelMaxScale),
+    );
+
+    test('при 100 % отступ как раньше: ширина подписи и 6 dp', () {
+      final p = TextPainter(
+        text: const TextSpan(text: '5 000 ₽', style: style),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      expect(inset(1), closeTo(p.width + 6, 1e-9));
+      expect(
+        barChartAxisHeightFor(const TextScaler.linear(1)),
+        barChartAxisHeight,
+      );
+    });
+
+    test('при 130 % подписи и полоса оси крупнее', () {
+      expect(inset(1.3), greaterThan(inset(1) * 1.2));
+      expect(
+        barChartAxisHeightFor(const TextScaler.linear(1.3)),
+        closeTo(barChartAxisHeight * 1.3, 1e-9),
+      );
+    });
+
+    test('при 200 % как при 130 %', () {
+      expect(inset(2), closeTo(inset(1.3), 1e-9));
+      final c = const TextScaler.linear(2).clamp(maxScaleFactor: 1.3);
+      expect(barChartAxisHeightFor(c), closeTo(barChartAxisHeight * 1.3, 1e-9));
+    });
+
+    test('подписи шкалы не налезают на столбики: отступ не меньше ширины', () {
+      const scaler = TextScaler.linear(1.3);
+      final p = TextPainter(
+        text: const TextSpan(text: '5 000 ₽', style: style),
+        textScaler: scaler,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final left = barRects(
+        const Size(360, 160),
+        [100, 200],
+        null,
+        0,
+        inset(1.3),
+      ).first.left;
+      expect(left, greaterThanOrEqualTo(p.width + 6));
     });
   });
 

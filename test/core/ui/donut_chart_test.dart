@@ -122,6 +122,32 @@ void main() {
       expect(find.text('Итого'), findsOneWidget);
     });
 
+    group('масштаб текста центра', () {
+      Future<double> centerWidth(WidgetTester tester, double k) async {
+        tester.platformDispatcher.textScaleFactorTestValue = k;
+        addTearDown(tester.platformDispatcher.clearAllTestValues);
+        await tester.pumpWidget(
+          _host(
+            DonutChart(
+              segments: _segments(3),
+              semanticsLabel: 'x',
+              center: const Text('Итого'),
+            ),
+            box: const Size(300, 300),
+          ),
+        );
+        return tester.getSize(find.text('Итого')).width;
+      }
+
+      testWidgets('130 % крупнее 100 %, 200 % как 130 %', (tester) async {
+        final w100 = await centerWidth(tester, 1);
+        final w130 = await centerWidth(tester, 1.3);
+        final w200 = await centerWidth(tester, 2);
+        expect(w130, greaterThan(w100 * 1.2));
+        expect(w200, closeTo(w130, 1e-9));
+      });
+    });
+
     testWidgets('у скринридера ровно одна подпись, центр не добавляет узлов', (
       tester,
     ) async {
