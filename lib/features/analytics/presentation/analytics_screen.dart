@@ -396,23 +396,57 @@ class _SectionBarState extends State<_SectionBar>
     final onSelected = widget.onSelected;
     // Без колбэка строка не реагирует на касания (сам TabBar переключил бы
     // вкладку и без onTap), поэтому касания выключены целиком.
+    final style =
+        Theme.of(context).tabBarTheme.labelStyle ??
+        Theme.of(context).textTheme.titleSmall ??
+        const TextStyle(fontSize: 14);
+    final scaler = MediaQuery.textScalerOf(context);
+    final direction = Directionality.of(context);
+    // Ширина самой длинной подписи с учётом масштаба шрифта.
+    var longest = 0.0;
+    for (final section in _shownSections) {
+      final painter = TextPainter(
+        text: TextSpan(text: analyticsSectionTitle(section), style: style),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      if (painter.width > longest) longest = painter.width;
+      painter.dispose();
+    }
     return IgnorePointer(
       ignoring: onSelected == null,
-      child: TabBar(
-        key: analyticsSectionBarKey,
-        controller: _controller,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
-        onTap: onSelected == null
-            ? null
-            : (index) => onSelected(_shownSections[index]),
-        tabs: [
-          for (final section in _shownSections)
-            Tab(text: analyticsSectionTitle(section)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Поровну: четыре раздела по четверти ширины, если подписи влезают.
+          final fits =
+              longest + 2 * _tabPadding + 1 <=
+              constraints.maxWidth / _shownSections.length;
+          return TabBar(
+            key: analyticsSectionBarKey,
+            controller: _controller,
+            isScrollable: !fits,
+            tabAlignment: fits ? TabAlignment.fill : TabAlignment.start,
+            labelPadding: EdgeInsets.symmetric(
+              horizontal: fits ? _tabPadding : _scrollTabPadding,
+            ),
+            // Справа запас: край следующего раздела виден, что есть куда листать.
+            padding: fits ? null : const EdgeInsets.only(right: 24),
+            onTap: onSelected == null
+                ? null
+                : (index) => onSelected(_shownSections[index]),
+            tabs: [
+              for (final section in _shownSections)
+                Tab(text: analyticsSectionTitle(section)),
+            ],
+          );
+        },
       ),
     );
   }
+
+  static const double _tabPadding = 2;
+  static const double _scrollTabPadding = 12;
 }
 
 class _EmptyPeriod extends StatelessWidget {

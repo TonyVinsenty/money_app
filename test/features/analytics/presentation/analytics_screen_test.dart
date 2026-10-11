@@ -38,13 +38,21 @@ Future<void> _pump(
   void Function(DateOnly, DateOnly)? onCustom,
   AnalyticsSection section = AnalyticsSection.categories,
   ValueChanged<AnalyticsSection>? onSection,
+  double width = 360,
+  double? tabFontSize,
 }) async {
-  tester.view.physicalSize = const Size(360, 800);
+  tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light(),
+      theme: tabFontSize == null
+          ? AppTheme.light()
+          : AppTheme.light().copyWith(
+              tabBarTheme: TabBarThemeData(
+                labelStyle: TextStyle(fontSize: tabFontSize),
+              ),
+            ),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -194,6 +202,75 @@ void main() {
           .label;
       expect(label, contains('Сравнение'));
       expect(label, contains('3'));
+      handle.dispose();
+    });
+
+    for (final width in [360.0, 411.0]) {
+      testWidgets('${width.toInt()} dp, 100 %: четыре раздела поровну', (
+        tester,
+      ) async {
+        // В тестах шрифт Ahem шире настоящего (квадрат на букву), поэтому размер
+        // уменьшен так, чтобы ширина совпала с живым Roboto 14 sp (~72 dp).
+        await _pump(
+          tester,
+          width: width,
+          tabFontSize: 8,
+          transactions: someData(),
+        );
+        await tester.pump();
+
+        final barRect = tester.getRect(find.byKey(analyticsSectionBarKey));
+        final bar = barRect.size;
+        expect(find.byType(Tab), findsNWidgets(4));
+        final titles = ['Категории', 'Динамика', 'Сравнение', 'Операции'];
+        for (var i = 0; i < titles.length; i++) {
+          final title = titles[i];
+          final tab = find.widgetWithText(Tab, title);
+          // Ячейки равной ширины: центр i-го раздела в середине i-й четверти.
+          expect(
+            tester.getCenter(tab).dx,
+            closeTo(barRect.left + bar.width * (i + 0.5) / 4, 0.5),
+          );
+          expect(tester.getRect(tab).right, lessThanOrEqualTo(width));
+          // Текст не обрезан: его ширина помещается в ячейку.
+          expect(
+            tester.getSize(find.text(title)).width,
+            lessThan(bar.width / 4),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('200 %: строка прокручивается, выбранный раздел виден', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(
+        tester,
+        textScale: 2,
+        section: AnalyticsSection.operations,
+        transactions: someData(),
+      );
+      await tester.pump();
+
+      final scrollable = find.descendant(
+        of: find.byKey(analyticsSectionBarKey),
+        matching: find.byType(Scrollable),
+      );
+      expect(scrollable, findsOneWidget);
+      final tab = find.widgetWithText(Tab, 'Операции');
+      await tester.ensureVisible(tab);
+      await tester.pump();
+      expect(tester.getRect(tab).right, lessThanOrEqualTo(360));
+      // Между соседними подписями есть зазор.
+      final titles = ['Категории', 'Динамика', 'Сравнение', 'Операции'];
+      for (var i = 0; i < titles.length - 1; i++) {
+        final left = tester.getRect(find.text(titles[i])).right;
+        final right = tester.getRect(find.text(titles[i + 1])).left;
+        expect(right - left, greaterThanOrEqualTo(16));
+      }
+      expect(tester.getSemantics(tab).label, contains('4'));
       handle.dispose();
     });
   });
