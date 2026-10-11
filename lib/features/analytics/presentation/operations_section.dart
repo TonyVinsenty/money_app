@@ -9,6 +9,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/operations_stats.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -267,7 +268,7 @@ class _StatRow extends StatelessWidget {
           ? content
           : InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.borderM,
               child: content,
             ),
     );
@@ -390,7 +391,7 @@ class _OperationRow extends StatelessWidget {
           ? content
           : InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.borderM,
               child: content,
             ),
     );

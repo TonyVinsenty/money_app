@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 
 /// Светлая и тёмная темы приложения (Material 3).
 abstract final class AppTheme {
@@ -7,6 +8,10 @@ abstract final class AppTheme {
   // с цветами «расход»/«доход». Вариант `neutral` убирает из фонов
   // голубой оттенок: остаются почти серые поверхности.
   static const Color _seed = Color(0xFF546E7A);
+
+  static const RoundedRectangleBorder _cardShape = RoundedRectangleBorder(
+    borderRadius: AppRadius.borderL,
+  );
 
   static ThemeData light() => _build(Brightness.light, AppColors.light);
 
@@ -25,7 +30,7 @@ abstract final class AppTheme {
       textTheme: _textTheme(base.textTheme),
       // Карточки отделяются от фона тоном, а не тенью (тень в тёмной теме
       // почти не видна).
-      cardTheme: const CardThemeData(elevation: 0),
+      cardTheme: const CardThemeData(elevation: 0, shape: _cardShape),
       extensions: <ThemeExtension<dynamic>>[colors],
     );
   }

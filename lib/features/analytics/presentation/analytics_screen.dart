@@ -6,6 +6,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
@@ -483,10 +484,7 @@ class _SummarySkeleton extends StatelessWidget {
     Widget bar(double width) => Container(
       width: width,
       height: 20,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: AppRadius.borderM),
     );
     return Semantics(
       label: 'Загрузка итогов',

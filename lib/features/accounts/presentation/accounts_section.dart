@@ -6,6 +6,7 @@ import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/account_balances.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
@@ -351,7 +352,7 @@ class _ArchiveTile extends StatelessWidget {
                   ],
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(left: 40),
+                  padding: const EdgeInsets.only(left: AppSpacing.belowAvatar),
                   child: Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: Semantics(

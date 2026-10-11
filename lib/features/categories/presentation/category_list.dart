@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 
 /// Кнопки у строки категории (и подкатегории).
@@ -198,7 +199,7 @@ class _CategoryListState extends State<CategoryList> {
       // нажатием по всей строке, а ручки не было бы видно.
       buildDefaultDragHandles: false,
       // Снизу запас под кнопку «Добавить…»: она не закрывает последнюю строку.
-      padding: const EdgeInsets.only(bottom: 96),
+      padding: const EdgeInsets.only(bottom: AppSpacing.fabClearance),
       onReorderItem: (oldIndex, newIndex) =>
           unawaited(_handleReorder(oldIndex, newIndex)),
       header: live.isEmpty
@@ -350,7 +351,7 @@ class _CategoryRow extends StatelessWidget {
           // Вторая часть: подпись и кнопки стоят под названием (отступ 40 dp =
           // ширина иконки и промежутка, чтобы выровняться по имени).
           Padding(
-            padding: const EdgeInsets.only(left: 40),
+            padding: const EdgeInsets.only(left: AppSpacing.belowAvatar),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

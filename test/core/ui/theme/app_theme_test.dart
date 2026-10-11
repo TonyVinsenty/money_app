@@ -93,4 +93,13 @@ void main() {
       });
     }
   });
+
+  group('скругления', () {
+    for (final entry in themes.entries) {
+      test('${entry.key} тема: карточка скруглена на 16', () {
+        final shape = entry.value.cardTheme.shape as RoundedRectangleBorder;
+        expect(shape.borderRadius, BorderRadius.circular(16));
+      });
+    }
+  });
 }

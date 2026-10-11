@@ -7,6 +7,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/currency_picker.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
@@ -541,7 +542,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     // Значок только для глаз: смысл несут слова.
                     ExcludeSemantics(
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 2, right: 6),
+                        padding: const EdgeInsets.only(
+                          top: AppSpacing.xs,
+                          right: AppSpacing.s,
+                        ),
                         child: Icon(
                           Icons.info_outline,
                           size: 16,

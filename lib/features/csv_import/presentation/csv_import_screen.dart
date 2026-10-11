@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:money_app/core/time/clock.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_failures.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
@@ -268,7 +269,7 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             csvImportWillCreateAccounts(accounts.length),
         ].indexed)
           Padding(
-            padding: EdgeInsets.only(top: index == 0 ? 0 : 6),
+            padding: EdgeInsets.only(top: index == 0 ? 0 : AppSpacing.s),
             child: Text(line, style: textTheme.titleMedium),
           ),
         for (final line in skipped)

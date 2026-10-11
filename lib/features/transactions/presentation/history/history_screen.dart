@@ -15,6 +15,7 @@ import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -961,10 +962,7 @@ class _HistorySkeleton extends StatelessWidget {
     Widget bar(double width, double height) => Container(
       width: width,
       height: height,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(4),
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: AppRadius.borderM),
     );
 
     Widget row() => Padding(
@@ -980,7 +978,11 @@ class _HistorySkeleton extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [bar(120, 14), const SizedBox(height: 6), bar(80, 10)],
+              children: [
+                bar(120, 14),
+                const SizedBox(height: AppSpacing.s),
+                bar(80, 10),
+              ],
             ),
           ),
           const SizedBox(width: 12),

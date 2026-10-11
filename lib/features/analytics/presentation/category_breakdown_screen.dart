@@ -10,6 +10,7 @@ import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
@@ -324,7 +325,7 @@ class _RowTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 5),
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
             child: ColorDot(color: row.color),
           ),
           const SizedBox(width: 8),

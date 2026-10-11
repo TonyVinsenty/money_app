@@ -10,6 +10,7 @@ import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -442,7 +443,7 @@ class _CategoryRow extends StatelessWidget {
           ? content
           : InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.borderM,
               child: content,
             ),
     );
