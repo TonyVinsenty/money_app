@@ -150,6 +150,7 @@ class _CategoryTile extends StatelessWidget {
                         )
                       : CategoryIconView(
                           iconKey,
+                          name: label,
                           size: _iconSize,
                           color: scheme.primary,
                         ),

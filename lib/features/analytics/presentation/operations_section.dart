@@ -219,7 +219,9 @@ class _StatRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           children: [
-            ExcludeSemantics(child: CategoryAvatar(category?.iconKey)),
+            ExcludeSemantics(
+              child: CategoryAvatar(category?.iconKey, name: category?.name),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -302,6 +304,7 @@ class _OperationRow extends StatelessWidget {
       amount: transaction.amount,
       isIncome: isIncome,
       iconKey: category?.iconKey,
+      categoryName: category?.name,
       semanticLabel: spoken.toString(),
       onTap: onTap,
       horizontalPadding: AppSpacing.xs,

@@ -463,6 +463,7 @@ class _HistoryList extends StatelessWidget {
           amount: t.amount,
           isIncome: isIncome,
           iconKey: category?.iconKey,
+          categoryName: category?.name,
           semanticLabel: label.toString(),
           onTap: () => onTransactionTap(t),
         );

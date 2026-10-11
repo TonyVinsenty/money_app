@@ -17,6 +17,7 @@ class OperationTile extends StatelessWidget {
     required this.semanticLabel,
     this.subtitle,
     this.iconKey,
+    this.categoryName,
     this.avatarColor,
     this.onTap,
     this.horizontalPadding = AppSpacing.l,
@@ -29,6 +30,9 @@ class OperationTile extends StatelessWidget {
   final bool isIncome;
   final String semanticLabel;
   final String? iconKey;
+
+  /// Название категории для буквы в аватаре (ключ «Другое»).
+  final String? categoryName;
   final Color? avatarColor;
   final VoidCallback? onTap;
 
@@ -54,7 +58,7 @@ class OperationTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            CategoryAvatar(iconKey, color: avatarColor),
+            CategoryAvatar(iconKey, name: categoryName, color: avatarColor),
             const SizedBox(width: AppSpacing.m),
             Expanded(
               child: Column(

@@ -169,6 +169,9 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
               ? _noSubcategoryLabel
               : names[totals[i].subcategoryId] ?? _unknownSubcategoryLabel,
           iconKey: icons[totals[i].subcategoryId] ?? widget.category.iconKey,
+          avatarName: icons.containsKey(totals[i].subcategoryId)
+              ? names[totals[i].subcategoryId]
+              : widget.category.name,
           amount: totals[i].amount,
           share: shares[i],
           // Палитра на 8 цветов: строки с 9-й получают серый «Остальное».
@@ -295,6 +298,7 @@ class _Row {
   const _Row({
     required this.label,
     required this.iconKey,
+    required this.avatarName,
     required this.amount,
     required this.share,
     required this.color,
@@ -302,6 +306,9 @@ class _Row {
 
   final String label;
   final String? iconKey;
+
+  /// Название для буквы в аватаре (ключ «Другое»).
+  final String? avatarName;
   final Money amount;
   final PercentShare share;
   final Color color;
@@ -327,7 +334,7 @@ class _RowTile extends StatelessWidget {
       excludeSemantics: true,
       child: Row(
         children: [
-          CategoryAvatar(row.iconKey, color: row.color),
+          CategoryAvatar(row.iconKey, name: row.avatarName, color: row.color),
           const SizedBox(width: AppSpacing.m),
           Expanded(
             child: Column(

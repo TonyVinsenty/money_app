@@ -191,7 +191,9 @@ class _ComparisonRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           children: [
-            ExcludeSemantics(child: CategoryAvatar(category?.iconKey)),
+            ExcludeSemantics(
+              child: CategoryAvatar(category?.iconKey, name: category?.name),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

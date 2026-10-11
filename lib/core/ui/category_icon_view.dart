@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/avatar_glyph.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 
 /// Значок категории: иконка Material или символ (буква, цифра).
@@ -8,16 +9,27 @@ import 'package:money_app/core/ui/category_icons.dart';
 /// Подпись для скринридера даёт строка или плитка вокруг, поэтому сам значок
 /// скрыт от семантики. `null` и неизвестный ключ рисуют запасной значок.
 class CategoryIconView extends StatelessWidget {
-  const CategoryIconView(this.iconKey, {super.key, this.size, this.color});
+  const CategoryIconView(
+    this.iconKey, {
+    super.key,
+    this.size,
+    this.color,
+    this.name,
+  });
 
   final String? iconKey;
   final double? size;
   final Color? color;
 
+  /// Название категории: для ключа «Другое» вместо «...» рисуется первая буква
+  /// названия (см. `avatarGlyph`).
+  final String? name;
+
   @override
   Widget build(BuildContext context) {
     final key = iconKey;
-    final glyph = key == null ? null : categoryGlyphFor(key);
+    final glyph =
+        (key == null ? null : categoryGlyphFor(key)) ?? avatarGlyph(key, name);
     final iconTheme = IconTheme.of(context);
     final side = size ?? iconTheme.size ?? 24.0;
     final tint = color ?? iconTheme.color;

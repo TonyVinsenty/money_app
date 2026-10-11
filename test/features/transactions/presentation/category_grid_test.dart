@@ -44,6 +44,42 @@ void main() {
     expect(find.byIcon(Icons.category_outlined), findsNothing);
   });
 
+  testWidgets('ключ «Другое» - плитка с первой буквой, озвучка прежняя', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _app(
+        CategoryGrid(
+          categories: [
+            Category.topLevel(
+              id: 'k',
+              kind: CategoryKind.expense,
+              name: 'кафе',
+              iconKey: 'more_horiz',
+              sortOrder: 0,
+            ),
+            Category.topLevel(
+              id: 'p',
+              kind: CategoryKind.expense,
+              name: 'Прочее',
+              iconKey: 'more_horiz',
+              sortOrder: 1,
+            ),
+          ],
+          onSelected: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('К'), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz), findsOneWidget);
+    // Буква скрыта от скринридера, читается только название плитки.
+    expect(find.bySemanticsLabel('К'), findsNothing);
+    expect(find.bySemanticsLabel('кафе'), findsOneWidget);
+    handle.dispose();
+  });
+
   testWidgets('плитка подкатегории берёт значок из записи', (tester) async {
     await tester.pumpWidget(
       _app(

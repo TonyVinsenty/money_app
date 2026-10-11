@@ -5,10 +5,13 @@ import 'package:money_app/core/ui/category_icon_view.dart';
 /// «Истории»); цвет заливки нужен, например, для цветной категории.
 /// От скринридера скрыт: подпись даёт строка вокруг.
 class CategoryAvatar extends StatelessWidget {
-  const CategoryAvatar(this.iconKey, {this.color, super.key});
+  const CategoryAvatar(this.iconKey, {this.name, this.color, super.key});
 
   /// Ключ `Category.iconKey`; `null` - запасной значок.
   final String? iconKey;
+
+  /// Название категории: для ключа «Другое» в кружке рисуется его первая буква.
+  final String? name;
 
   /// Цвет заливки; `null` - нейтральный.
   final Color? color;
@@ -25,6 +28,7 @@ class CategoryAvatar extends StatelessWidget {
       ),
       child: CategoryIconView(
         iconKey,
+        name: name,
         size: 24,
         color: fill == null ? null : categoryAvatarForeground(fill),
       ),

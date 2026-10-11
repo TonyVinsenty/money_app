@@ -400,6 +400,7 @@ class _CategoryRow extends StatelessWidget {
             ExcludeSemantics(
               child: CategoryAvatar(
                 category?.iconKey,
+                name: category?.name,
                 key: dotKey,
                 color: color,
               ),
