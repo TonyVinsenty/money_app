@@ -14,6 +14,8 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
+import '../../../support/bar_taps.dart';
+
 final _today = DateOnly(2026, 10, 20);
 final _nbsp = String.fromCharCode(0x00A0);
 
@@ -46,8 +48,9 @@ Future<void> _pump(
   TransactionType type = TransactionType.expense,
   ValueChanged<TransactionType>? onType,
   double textScale = 1,
+  Size size = const Size(360, 1600),
 }) async {
-  tester.view.physicalSize = const Size(360, 1600);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -81,6 +84,26 @@ String _info(WidgetTester tester) =>
 
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
+
+  testWidgets('360 x 640, 100 %: график и «В среднем» без прокрутки', (
+    tester,
+  ) async {
+    await _pump(tester, transactions: _october, size: const Size(360, 640));
+    final chart = tester.getRect(find.byKey(DynamicsSection.chartKey));
+    expect(chart.height, closeTo(256, 1e-9)); // 40 % от 640 меньше 280
+    final info = tester.getRect(find.byKey(DynamicsSection.infoKey));
+    expect(info.bottom, lessThanOrEqualTo(640));
+    final widget = tester.widget<BarChart>(
+      find.byKey(DynamicsSection.chartKey),
+    );
+    expect(widget.zeroLabel, isNotNull);
+    expect(widget.midLabel, '5${_nbsp}000,00$_nbsp₽');
+  });
+
+  testWidgets('высокий экран: график 280 dp', (tester) async {
+    await _pump(tester, transactions: _october);
+    expect(tester.getSize(find.byKey(DynamicsSection.chartKey)).height, 280);
+  });
 
   testWidgets('месяц: заголовок, график и среднее', (tester) async {
     await _pump(tester, transactions: _october);
@@ -116,11 +139,8 @@ void main() {
   ) async {
     await _pump(tester, transactions: _october);
 
-    final topLeft = tester.getTopLeft(find.byKey(DynamicsSection.chartKey));
-    final slot =
-        tester.getSize(find.byKey(DynamicsSection.chartKey)).width / 31;
     final gesture = await tester.startGesture(
-      topLeft + Offset(slot * 4.5, 100),
+      barSlotPoint(tester, find.byKey(DynamicsSection.chartKey), 4, 31),
     );
     await tester.pump();
     expect(_info(tester), '5 октября: 5${_nbsp}400,00$_nbsp₽');
@@ -581,11 +601,8 @@ void main() {
         tester,
       ) async {
         await pumpLive(tester);
-        final topLeft = tester.getTopLeft(find.byKey(DynamicsSection.chartKey));
-        final slot =
-            tester.getSize(find.byKey(DynamicsSection.chartKey)).width / 31;
         final gesture = await tester.startGesture(
-          topLeft + Offset(slot * 4.5, 100),
+          barSlotPoint(tester, find.byKey(DynamicsSection.chartKey), 4, 31),
         );
         await tester.pump();
         expect(_info(tester), startsWith('5 октября'));

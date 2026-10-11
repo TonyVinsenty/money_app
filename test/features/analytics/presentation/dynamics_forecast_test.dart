@@ -12,6 +12,8 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
+import '../../../support/bar_taps.dart';
+
 final _nbsp = String.fromCharCode(0x00A0);
 
 Transaction _tx(
@@ -159,11 +161,8 @@ void main() {
     await _pump(tester, today: DateOnly(2026, 10, 7));
     final before = tester.getTopLeft(find.byKey(DynamicsSection.forecastKey));
 
-    final topLeft = tester.getTopLeft(find.byKey(DynamicsSection.chartKey));
-    final slot =
-        tester.getSize(find.byKey(DynamicsSection.chartKey)).width / 31;
     final gesture = await tester.startGesture(
-      topLeft + Offset(slot * 2.5, 100),
+      barSlotPoint(tester, find.byKey(DynamicsSection.chartKey), 2, 31),
     );
     await tester.pump();
 

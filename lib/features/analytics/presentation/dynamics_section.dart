@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency.dart';
@@ -245,6 +247,15 @@ class _DynamicsSectionState extends State<DynamicsSection> {
             color: type == TransactionType.expense
                 ? colors.expense
                 : colors.income,
+            // Вдвое выше прежнего (около 280 dp), но не больше 40 % экрана.
+            height: math.min(280, MediaQuery.sizeOf(context).height * 0.4),
+            zeroLabel: formatMoney(Money.fromMinor(0, widget.currency)),
+            midLabel: formatMoney(
+              Money.fromMinor(
+                barScaleValues(weights, average?.minorUnits)[1],
+                widget.currency,
+              ),
+            ),
             topLabel: formatMoney(
               Money.fromMinor(
                 barChartCeiling(weights, average?.minorUnits),

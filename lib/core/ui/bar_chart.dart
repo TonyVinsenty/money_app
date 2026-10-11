@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show mapEquals;
+import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/core/money/nice_ceiling.dart';
@@ -31,12 +31,19 @@ int barChartCeiling(List<int> weights, [int? average]) {
   return niceCeiling(top);
 }
 
-/// Область столбиков: весь [size] без полосы под подпись шкалы сверху и без
-/// полосы подписей оси снизу ([axisHeight], 0 — подписей нет).
-Rect _plot(Size size, double axisHeight) {
+/// Значения шкалы снизу вверх: 0, середина и верх ([barChartCeiling]).
+List<int> barScaleValues(List<int> weights, [int? average]) {
+  final top = barChartCeiling(weights, average);
+  return [0, top ~/ 2, top];
+}
+
+/// Область столбиков: весь [size] без полосы под подпись шкалы сверху, без
+/// полосы подписей оси снизу ([axisHeight], 0 — подписей нет) и без отступа
+/// слева под подписи шкалы ([leftInset], 0 — подписей слева нет).
+Rect _plot(Size size, double axisHeight, [double leftInset = 0]) {
   final top = math.min(barChartLabelHeight, size.height);
   return Rect.fromLTRB(
-    0,
+    math.min(leftInset, size.width),
     top,
     size.width,
     math.max(top, size.height - axisHeight),
@@ -55,9 +62,10 @@ List<Rect> barRects(
   List<int> weights, [
   int? average,
   double axisHeight = 0,
+  double leftInset = 0,
 ]) {
   if (weights.isEmpty) return const [];
-  final plot = _plot(size, axisHeight);
+  final plot = _plot(size, axisHeight, leftInset);
   final top = barChartCeiling(weights, average);
   final slot = plot.width / weights.length;
   final barWidth = slot * _barFraction;
@@ -84,18 +92,40 @@ double barAverageY(
   List<int> weights,
   int average, [
   double axisHeight = 0,
+  double leftInset = 0,
 ]) {
-  final plot = _plot(size, axisHeight);
+  final plot = _plot(size, axisHeight, leftInset);
   final top = barChartCeiling(weights, average);
   return plot.bottom - average.clamp(0, top) / top * plot.height;
 }
 
+/// Координата y значения шкалы [value] (0 — низ, верх шкалы — вверху области).
+double barScaleY(
+  Size size,
+  List<int> weights,
+  int value, [
+  int? average,
+  double axisHeight = 0,
+]) {
+  final plot = _plot(size, axisHeight);
+  final top = barChartCeiling(weights, average);
+  return plot.bottom - value.clamp(0, top) / top * plot.height;
+}
+
 /// Левый край подписи шириной [width] по центру слота [index] из [count],
-/// сдвинутый внутрь, если вылезает за [totalWidth].
-double barAxisLabelLeft(int index, int count, double totalWidth, double width) {
-  final center = totalWidth / count * (index + 0.5);
+/// сдвинутый внутрь, если вылезает за [totalWidth]. Слоты начинаются с
+/// отступа [leftInset].
+double barAxisLabelLeft(
+  int index,
+  int count,
+  double totalWidth,
+  double width, [
+  double leftInset = 0,
+]) {
+  final center = leftInset + (totalWidth - leftInset) / count * (index + 0.5);
   final half = width / 2;
-  return center.clamp(half, math.max(half, totalWidth - half)) - half;
+  final lo = leftInset + half;
+  return center.clamp(lo, math.max(lo, totalWidth - half)) - half;
 }
 
 /// Номер столбика под точкой [point] или `null`, если точка за пределами
@@ -104,12 +134,20 @@ double barAxisLabelLeft(int index, int count, double totalWidth, double width) {
 /// Между столбиками (в зазоре) побеждает ближайший по x, то есть попадание
 /// считается по целому слоту. Высота не важна: касание над низким или нулевым
 /// столбиком тоже выбирает его (палец водят по всей ширине графика).
-int? barIndexAt(Offset point, Size size, List<int> weights) {
+int? barIndexAt(
+  Offset point,
+  Size size,
+  List<int> weights, [
+  double leftInset = 0,
+]) {
   if (weights.isEmpty) return null;
   if (point.dx < 0 || point.dx > size.width) return null;
   if (point.dy < 0 || point.dy > size.height) return null;
-  final slot = size.width / weights.length;
-  return math.min(weights.length - 1, (point.dx / slot).floor());
+  final slot = (size.width - leftInset) / weights.length;
+  return math.max(
+    0,
+    math.min(weights.length - 1, ((point.dx - leftInset) / slot).floor()),
+  );
 }
 
 /// Цвет столбика [index]: при подсветке остальные приглушены.
@@ -141,10 +179,18 @@ class BarChart extends StatefulWidget {
     required this.semanticsLabel,
     this.average,
     this.axisLabels = const {},
+    this.midLabel,
+    this.zeroLabel,
     this.highlightedIndex,
     this.onHighlight,
     this.height = 160,
   });
+
+  /// Подписи шкалы слева: [zeroLabel] внизу, [midLabel] посередине, [topLabel]
+  /// вверху. Если заданы обе, они рисуются слева от столбиков (отступ под
+  /// самую широкую), иначе [topLabel] — одна строка сверху.
+  final String? midLabel;
+  final String? zeroLabel;
 
   final List<int> weights;
   final int? average;
@@ -169,11 +215,12 @@ class _BarChartState extends State<BarChart> {
   ScrollPosition? _position;
   double _startPixels = 0;
   bool _scrolled = false;
+  double _leftInset = 0; // считается в build
 
   int? _hit(Offset point) {
     final size = context.size;
     if (size == null) return null;
-    return barIndexAt(point, size, widget.weights);
+    return barIndexAt(point, size, widget.weights, _leftInset);
   }
 
   void _highlight(int? index) {
@@ -229,6 +276,12 @@ class _BarChartState extends State<BarChart> {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final interactive = widget.onHighlight != null;
+    final labelStyle = (theme.textTheme.labelSmall ?? const TextStyle())
+        .copyWith(color: muted);
+    final scale = widget.midLabel != null && widget.zeroLabel != null
+        ? [widget.zeroLabel!, widget.midLabel!, widget.topLabel]
+        : const <String>[];
+    _leftInset = _insetFor(scale, labelStyle);
     return Semantics(
       container: true,
       label: widget.semanticsLabel,
@@ -267,8 +320,9 @@ class _BarChartState extends State<BarChart> {
                 color: widget.color,
                 lineColor: muted,
                 topLabel: widget.topLabel,
-                labelStyle: (theme.textTheme.labelSmall ?? const TextStyle())
-                    .copyWith(color: muted),
+                scaleLabels: scale,
+                leftInset: _leftInset,
+                labelStyle: labelStyle,
                 highlightedIndex: widget.highlightedIndex,
               ),
             ),
@@ -276,6 +330,21 @@ class _BarChartState extends State<BarChart> {
         ),
       ),
     );
+  }
+
+  /// Отступ слева: самая широкая подпись шкалы и зазор 6 dp (нет подписей — 0).
+  static double _insetFor(List<String> labels, TextStyle style) {
+    var widest = 0.0;
+    for (final s in labels) {
+      final p = TextPainter(
+        text: TextSpan(text: s, style: style),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      widest = math.max(widest, p.width);
+      p.dispose();
+    }
+    return labels.isEmpty ? 0 : widest + 6;
   }
 }
 
@@ -287,9 +356,15 @@ class _BarPainter extends CustomPainter {
     required this.color,
     required this.lineColor,
     required this.topLabel,
+    required this.scaleLabels,
+    required this.leftInset,
     required this.labelStyle,
     required this.highlightedIndex,
   });
+
+  /// Подписи шкалы снизу вверх (пусто — одна подпись [topLabel] сверху).
+  final List<String> scaleLabels;
+  final double leftInset;
 
   final List<int> weights;
   final int? average;
@@ -302,17 +377,33 @@ class _BarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final label = TextPainter(
-      text: TextSpan(text: topLabel, style: labelStyle),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: size.width);
-    label.paint(canvas, Offset.zero);
-    label.dispose();
-
     final axis = axisLabels.isEmpty ? 0.0 : barChartAxisHeight;
-    final rects = barRects(size, weights, average, axis);
+    if (scaleLabels.isEmpty) {
+      final label = TextPainter(
+        text: TextSpan(text: topLabel, style: labelStyle),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: size.width);
+      label.paint(canvas, Offset.zero);
+      label.dispose();
+    } else {
+      final values = barScaleValues(weights, average);
+      for (var i = 0; i < scaleLabels.length; i++) {
+        final p = TextPainter(
+          text: TextSpan(text: scaleLabels[i], style: labelStyle),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        )..layout();
+        final y = barScaleY(size, weights, values[i], average, axis);
+        p.paint(
+          canvas,
+          Offset(leftInset - 6 - p.width, math.max(0, y - p.height / 2)),
+        );
+        p.dispose();
+      }
+    }
+    final rects = barRects(size, weights, average, axis, leftInset);
     final radius = Radius.circular(math.min(2, size.width / 4));
     for (var i = 0; i < rects.length; i++) {
       if (rects[i].height <= 0) continue;
@@ -326,11 +417,11 @@ class _BarPainter extends CustomPainter {
 
     final avg = average;
     if (avg != null && avg > 0) {
-      final y = barAverageY(size, weights, avg, axis);
+      final y = barAverageY(size, weights, avg, axis, leftInset);
       final paint = Paint()
         ..color = lineColor
         ..strokeWidth = 1.5;
-      for (var x = 0.0; x < size.width; x += 8) {
+      for (var x = leftInset; x < size.width; x += 8) {
         canvas.drawLine(
           Offset(x, y),
           Offset(math.min(x + 4, size.width), y),
@@ -353,7 +444,13 @@ class _BarPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
         maxLines: 1,
       )..layout();
-      final left = barAxisLabelLeft(i, weights.length, size.width, p.width);
+      final left = barAxisLabelLeft(
+        i,
+        weights.length,
+        size.width,
+        p.width,
+        leftInset,
+      );
       if (left >= lastRight + 2) {
         p.paint(canvas, Offset(left, size.height - barChartAxisHeight + 2));
         lastRight = left + p.width;
@@ -369,6 +466,8 @@ class _BarPainter extends CustomPainter {
       old.color != color ||
       old.lineColor != lineColor ||
       old.topLabel != topLabel ||
+      old.leftInset != leftInset ||
+      !listEquals(old.scaleLabels, scaleLabels) ||
       old.labelStyle != labelStyle ||
       old.highlightedIndex != highlightedIndex ||
       !_sameWeights(old.weights, weights);

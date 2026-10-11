@@ -27,6 +27,29 @@ void main() {
     });
   });
 
+  group('шкала слева', () {
+    test('три значения: 0, середина = половина верха, верх', () {
+      expect(barScaleValues([100, 340, 20]), [0, 250, 500]);
+      expect(barScaleValues([100], 600), [0, 500, 1000]);
+    });
+
+    test('y подписей: низ, середина, верх области столбиков', () {
+      final v = barScaleValues([500]);
+      expect(barScaleY(_size, [500], v[0]), closeTo(116, 1e-9));
+      expect(barScaleY(_size, [500], v[1]), closeTo(66, 1e-9));
+      expect(barScaleY(_size, [500], v[2]), closeTo(16, 1e-9));
+    });
+
+    test('отступ слева сдвигает столбики и сужает слоты', () {
+      final r = barRects(_size, [500, 500], null, 0, 100);
+      expect(r.first.left, greaterThanOrEqualTo(100));
+      expect(r.last.right, lessThanOrEqualTo(300));
+      expect(r[1].left - r[0].left, closeTo(100, 1e-9));
+      expect(barIndexAt(const Offset(50, 50), _size, [1, 2], 100), 0);
+      expect(barIndexAt(const Offset(250, 50), _size, [1, 2], 100), 1);
+    });
+  });
+
   group('barRects', () {
     test('нет весов - пусто', () {
       expect(barRects(_size, []), isEmpty);
