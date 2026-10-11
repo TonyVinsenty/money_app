@@ -1,5 +1,3 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:flutter/material.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 
@@ -92,6 +90,8 @@ class MaskedAmount extends StatelessWidget {
       label: hiddenAmountLabel,
       excludeSemantics: true,
       child: Stack(
+        // Мягкая тень выходит за рамку строки.
+        clipBehavior: Clip.none,
         children: [
           Text(
             _placeholder,
@@ -100,15 +100,24 @@ class MaskedAmount extends StatelessWidget {
           ),
           Positioned.fill(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-                child: DecoratedBox(
-                  key: const ValueKey('masked-amount-cloud'),
-                  decoration: ShapeDecoration(
-                    color: color.withValues(alpha: 0.45),
-                    shape: const StadiumBorder(),
-                  ),
+              padding: const EdgeInsets.symmetric(
+                vertical: AppSpacing.xs,
+                horizontal: AppSpacing.xs,
+              ),
+              // Облачко — полоса с размытой тенью того же цвета: тень
+              // рисуется без обрезки, края получаются мягкими.
+              child: DecoratedBox(
+                key: const ValueKey('masked-amount-cloud'),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(AppRadius.l),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: AppSpacing.s,
+                      spreadRadius: AppSpacing.xs / 2,
+                    ),
+                  ],
                 ),
               ),
             ),
