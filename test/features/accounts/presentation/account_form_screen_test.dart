@@ -321,6 +321,29 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    bool nameHasFocus(WidgetTester tester) => tester
+        .widget<EditableText>(
+          find.descendant(
+            of: find.byKey(AccountFormScreen.nameFieldKey),
+            matching: find.byType(EditableText),
+          ),
+        )
+        .focusNode
+        .hasFocus;
+
+    testWidgets('клавиатура сама не открывается', (tester) async {
+      final repo = InMemoryAccountsRepository([acc('a', 'Карта')]);
+      await pumpEdit(tester, repo);
+      expect(nameHasFocus(tester), isFalse);
+    });
+
+    testWidgets('у нового счёта поле имени в фокусе', (tester) async {
+      final repo = InMemoryAccountsRepository();
+      await pumpTab(tester, repo);
+      await openForm(tester);
+      expect(nameHasFocus(tester), isTrue);
+    });
+
     testWidgets('меняет имя и значок; остатка и переключателя нет', (
       tester,
     ) async {

@@ -9,7 +9,6 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
-import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
@@ -27,9 +26,8 @@ import 'package:money_app/features/transactions/presentation/quick_add/subcatego
 
 /// Экран быстрого ввода операции.
 ///
-/// Тип операции виден тремя способами сразу, чтобы его нельзя было спутать:
-/// словом («Новый расход»), цветом (цвет расхода/дохода из темы) и знаком
-/// («\u2212» или «+» перед заголовком и перед суммой).
+/// Заголовок — только слово («Новый расход»); цвет расхода/дохода из темы и знак
+/// («\u2212» или «+») — только у суммы.
 class QuickAddScreen extends StatefulWidget {
   const QuickAddScreen({
     required this.type,
@@ -391,33 +389,12 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   @override
   Widget build(BuildContext context) {
     final isIncome = widget.type == TransactionType.income;
-    final accent = isIncome
-        ? context.appColors.income
-        : context.appColors.expense;
     final title = isIncome
         ? QuickAddScreen.incomeTitle
         : QuickAddScreen.expenseTitle;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Знак — для глаз; скринридеру он не нужен, слово читается в
-            // заголовке.
-            ExcludeSemantics(
-              child: Icon(isIncome ? Icons.add : Icons.remove, color: accent),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                title,
-                style: TextStyle(color: accent, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ),
+      appBar: AppBar(title: Text(title)),
       // Тело сжимается, когда появляется клавиатура, поэтому кнопка «Далее»
       // внизу всегда оказывается прямо над ней.
       body: SafeArea(

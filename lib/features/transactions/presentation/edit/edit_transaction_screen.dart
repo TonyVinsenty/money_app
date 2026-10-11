@@ -13,7 +13,6 @@ import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
-import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
@@ -80,7 +79,7 @@ class EditTransactionScreen extends StatefulWidget {
   static const categoryLabel = 'Категория';
   static const categoryLoadingLabel = 'Загрузка…';
   static const subcategoryLabel = 'Подкатегория';
-  static const subcategoryNoneText = 'Не выбрана';
+  static const subcategoryNoneText = 'Без подкатегории';
   static const subcategoryResetAnnouncement = 'Подкатегория сброшена';
   static const deleteTooltip = 'Удалить';
   static const deleteSemanticLabel = 'Удалить операцию';
@@ -627,9 +626,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isIncome = _type == TransactionType.income;
-    final accent = isIncome
-        ? context.appColors.income
-        : context.appColors.expense;
     final title = isIncome
         ? EditTransactionScreen.incomeTitle
         : EditTransactionScreen.expenseTitle;
@@ -639,21 +635,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ExcludeSemantics(
-              child: Icon(isIncome ? Icons.add : Icons.remove, color: accent),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                title,
-                style: TextStyle(color: accent, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
+        title: Text(title),
         // «Удалить» в углу, далеко от «Сохранить»: внизу рядом с ним над
         // клавиатурой легко промахнуться. Иконка 48 dp, цвет ошибки; скринридер
         // читает «Удалить операцию» (подпись иконки), долгое нажатие показывает
@@ -857,7 +839,7 @@ class _AccountRow extends StatelessWidget {
 }
 
 /// Строка «Подкатегория» под полем категории: в том же стиле. Скринридер
-/// читает «Подкатегория: Овощи» или «Подкатегория: не выбрана» как кнопку.
+/// читает «Подкатегория: Овощи» или «Без подкатегории» как кнопку.
 class _SubcategoryRow extends StatelessWidget {
   const _SubcategoryRow({required this.subcategory, required this.onTap});
 
@@ -872,9 +854,9 @@ class _SubcategoryRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Semantics(
         button: true,
-        label:
-            '${EditTransactionScreen.subcategoryLabel}: '
-            '${sub?.name ?? EditTransactionScreen.subcategoryNoneText.toLowerCase()}',
+        label: sub == null
+            ? EditTransactionScreen.subcategoryNoneText
+            : '${EditTransactionScreen.subcategoryLabel}: ${sub.name}',
         onTap: onTap,
         excludeSemantics: true,
         child: Material(

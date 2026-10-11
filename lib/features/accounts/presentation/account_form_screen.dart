@@ -236,7 +236,7 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                     TextField(
                       key: AccountFormScreen.nameFieldKey,
                       controller: _name,
-                      autofocus: true,
+                      autofocus: !_isEdit,
                       textCapitalization: TextCapitalization.sentences,
                       textInputAction: TextInputAction.next,
                       inputFormatters: const [

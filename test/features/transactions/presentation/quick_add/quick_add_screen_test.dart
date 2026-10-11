@@ -7,7 +7,6 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_failure_text.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
-import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -67,12 +66,9 @@ void main() {
   for (final mode in [ThemeMode.light, ThemeMode.dark]) {
     for (final type in TransactionType.values) {
       final isIncome = type == TransactionType.income;
-      testWidgets('тип $type виден словом, цветом и знаком ($mode)', (
-        tester,
-      ) async {
+      testWidgets('тип $type в заголовке только словом, без знака и цвета '
+          '($mode)', (tester) async {
         await tester.pumpWidget(_app(type, mode));
-        final colors = tester.element(find.byType(QuickAddScreen)).appColors;
-        final accent = isIncome ? colors.income : colors.expense;
 
         // Слово.
         final title = find.text(isIncome ? 'Новый доход' : 'Новый расход');
@@ -82,20 +78,10 @@ void main() {
           findsNothing,
         );
 
-        // Цвет: и у слова, и у знака.
-        expect(tester.widget<Text>(title).style?.color, accent);
-        final icon = find.descendant(
-          of: find.byType(AppBar),
-          matching: find.byIcon(isIncome ? Icons.add : Icons.remove),
-        );
-        // Знак.
-        expect(icon, findsOneWidget);
-        expect(tester.widget<Icon>(icon).color, accent);
+        // Цвета и знака в заголовке нет (они только у суммы).
+        expect(tester.widget<Text>(title).style?.color, isNull);
         expect(
-          find.descendant(
-            of: find.byType(AppBar),
-            matching: find.byIcon(isIncome ? Icons.remove : Icons.add),
-          ),
+          find.descendant(of: find.byType(AppBar), matching: find.byType(Icon)),
           findsNothing,
         );
       });

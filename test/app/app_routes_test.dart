@@ -6,7 +6,6 @@ import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
-import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -314,13 +313,14 @@ void main() {
       expect(find.byType(QuickAddScreen), findsOneWidget);
       final title = find.text('Новый расход');
       expect(title, findsOneWidget);
-      final colors = tester.element(find.byType(QuickAddScreen)).appColors;
-      expect(tester.widget<Text>(title).style?.color, colors.expense);
-      final icon = find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byIcon(Icons.remove),
+      expect(tester.widget<Text>(title).style?.color, isNull);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.remove),
+        ),
+        findsNothing,
       );
-      expect(tester.widget<Icon>(icon).color, colors.expense);
 
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
@@ -340,13 +340,14 @@ void main() {
 
       final title = find.text('Новый доход');
       expect(title, findsOneWidget);
-      final colors = tester.element(find.byType(QuickAddScreen)).appColors;
-      expect(tester.widget<Text>(title).style?.color, colors.income);
-      final icon = find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byIcon(Icons.add),
+      expect(tester.widget<Text>(title).style?.color, isNull);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.add),
+        ),
+        findsNothing,
       );
-      expect(tester.widget<Icon>(icon).color, colors.income);
 
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();

@@ -245,18 +245,19 @@ void main() {
   });
 
   group('строка «Подкатегория»', () {
-    testWidgets('есть у категории с живыми подкатегориями: «Не выбрана»', (
-      tester,
-    ) async {
-      await _open(tester, _tx());
-      expect(_subRow, findsOneWidget);
-      expect(find.text('Не выбрана'), findsOneWidget);
-    });
+    testWidgets(
+      'есть у категории с живыми подкатегориями: «Без подкатегории»',
+      (tester) async {
+        await _open(tester, _tx());
+        expect(_subRow, findsOneWidget);
+        expect(find.text('Без подкатегории'), findsOneWidget);
+      },
+    );
 
     testWidgets('показывает выбранную подкатегорию операции', (tester) async {
       await _open(tester, _tx(subcategoryId: 'veg'));
       expect(find.text('Овощи'), findsOneWidget);
-      expect(find.text('Не выбрана'), findsNothing);
+      expect(find.text('Без подкатегории'), findsNothing);
     });
 
     testWidgets('нет у категории без подкатегорий', (tester) async {
@@ -281,7 +282,7 @@ void main() {
       expect(find.text('Старая'), findsOneWidget);
     });
 
-    testWidgets('скринридер: «Подкатегория: Овощи» и «...: не выбрана»', (
+    testWidgets('скринридер: «Подкатегория: Овощи» и «Без подкатегории»', (
       tester,
     ) async {
       final semantics = tester.ensureSemantics();
@@ -292,7 +293,7 @@ void main() {
       );
       expect(node.flagsCollection.isButton, isTrue);
       await _pickSub(tester, 'Без подкатегории');
-      expect(find.bySemanticsLabel('Подкатегория: не выбрана'), findsOneWidget);
+      expect(find.bySemanticsLabel('Без подкатегории'), findsOneWidget);
       semantics.dispose();
     });
   });
@@ -342,7 +343,7 @@ void main() {
     ) async {
       final repo = await _open(tester, _tx(subcategoryId: 'veg'));
       await _pickSub(tester, 'Без подкатегории');
-      expect(find.text('Не выбрана'), findsOneWidget);
+      expect(find.text('Без подкатегории'), findsOneWidget);
 
       final saved = await _saveAndGet(tester, repo);
       expect(saved.subcategoryId, isNull);
@@ -401,7 +402,7 @@ void main() {
 
       // У «Одежды» подкатегории есть, но не выбрана.
       expect(find.text('Овощи'), findsNothing);
-      expect(find.text('Не выбрана'), findsOneWidget);
+      expect(find.text('Без подкатегории'), findsOneWidget);
       expect(announcements, ['Подкатегория сброшена']);
 
       final saved = await _saveAndGet(tester, repo);
@@ -426,7 +427,7 @@ void main() {
       await _pickCategory(tester, 'Одежда');
       await _pickCategory(tester, 'Продукты');
       expect(find.text('Овощи'), findsNothing);
-      expect(find.text('Не выбрана'), findsOneWidget);
+      expect(find.text('Без подкатегории'), findsOneWidget);
 
       final saved = await _saveAndGet(tester, repo);
       expect(saved.categoryId, 'food');

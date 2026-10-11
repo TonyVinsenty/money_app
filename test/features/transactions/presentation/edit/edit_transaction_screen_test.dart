@@ -8,7 +8,6 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
-import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -196,7 +195,7 @@ void main() {
     await initializeDateFormatting('ru');
   });
 
-  testWidgets('доход: заголовок «Правка дохода», цвет и знак дохода', (
+  testWidgets('доход: заголовок «Правка дохода» без знака и цвета', (
     tester,
   ) async {
     final income = Transaction(
@@ -212,14 +211,13 @@ void main() {
 
     final title = find.text('Правка дохода');
     expect(title, findsOneWidget);
-    final colors = tester.element(find.byType(EditTransactionScreen)).appColors;
-    expect(tester.widget<Text>(title).style?.color, colors.income);
+    expect(tester.widget<Text>(title).style?.color, isNull);
     expect(
       find.descendant(
         of: find.byType(AppBar),
         matching: find.byIcon(Icons.add),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('Зарплата'), findsOneWidget);
   });
@@ -566,16 +564,13 @@ void main() {
       final title = find.text('Правка дохода');
       expect(title, findsOneWidget);
       expect(find.text('Правка расхода'), findsNothing);
-      final colors = tester
-          .element(find.byType(EditTransactionScreen))
-          .appColors;
-      expect(tester.widget<Text>(title).style?.color, colors.income);
+      expect(tester.widget<Text>(title).style?.color, isNull);
       expect(
         find.descendant(
           of: find.byType(AppBar),
           matching: find.byIcon(Icons.add),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         tester.widget<AmountField>(find.byType(AmountField)).isIncome,

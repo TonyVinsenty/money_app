@@ -226,7 +226,7 @@ void main() {
         of: find.byType(AppBar),
         matching: find.byIcon(Icons.remove),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       tester.widget<TextField>(_amountInput).controller!.text,

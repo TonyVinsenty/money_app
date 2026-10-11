@@ -134,6 +134,23 @@ void main() {
     addTearDown(repository.dispose);
   });
 
+  bool nameHasFocus(WidgetTester tester) =>
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus;
+
+  testWidgets('фокус в имени у новой категории, при правке его нет', (
+    tester,
+  ) async {
+    await _openForm(tester, repository);
+    expect(nameHasFocus(tester), isTrue);
+  });
+
+  testWidgets('при правке категории клавиатура сама не открывается', (
+    tester,
+  ) async {
+    await _openForm(tester, repository, renaming: _c('food', 'Продукты', 0));
+    expect(nameHasFocus(tester), isFalse);
+  });
+
   testWidgets('новая расходная категория: в конец своего вида, иконка по '
       'умолчанию — первая', (tester) async {
     await _openForm(tester, repository);
@@ -731,7 +748,7 @@ void main() {
     expect(find.byType(SegmentedButton<CategoryKind>), findsOneWidget);
   });
 
-  testWidgets('поле названия сразу в фокусе: при создании и переименовании', (
+  testWidgets('поле названия в фокусе при создании, но не при переименовании', (
     tester,
   ) async {
     bool nameHasFocus() =>
@@ -748,7 +765,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     final cafe = repository.all.firstWhere((c) => c.id == 'cafe');
     await _openForm(tester, repository, renaming: cafe);
-    expect(nameHasFocus(), isTrue);
+    expect(nameHasFocus(), isFalse);
   });
 
   testWidgets('переименование в занятое имя: сообщение о дубле', (

@@ -263,7 +263,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                   children: [
                     TextField(
                       controller: _name,
-                      autofocus: true,
+                      autofocus: widget.renaming == null,
                       textCapitalization: TextCapitalization.sentences,
                       textInputAction: TextInputAction.done,
                       inputFormatters: const [
