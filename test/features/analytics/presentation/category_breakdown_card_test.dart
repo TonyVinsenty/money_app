@@ -130,7 +130,7 @@ Future<void> _pump(
     await tester.pump();
   }
   // Кольцо достраивается (анимация построения).
-  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pump(const Duration(milliseconds: 800));
 }
 
 Stream<PeriodTransactions> _data(List<Transaction> list, [DateRange? range]) =>

@@ -118,7 +118,7 @@ Future<void> _pump(
     await tester.pump();
   }
   // Кольцо достраивается (анимация построения).
-  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pump(const Duration(milliseconds: 800));
 }
 
 /// Тестовый набор: все операции и категории с названиями «Кат» и id.
@@ -157,13 +157,13 @@ void main() {
     await initializeDateFormatting('ru');
   });
 
-  testWidgets('заголовок карточки - CardHeader: слева, titleMedium, 600', (
+  testWidgets('заголовок карточки - CardHeader: по центру, titleMedium, 600', (
     tester,
   ) async {
     await _pump(tester);
     expect(find.byType(CardHeader), findsOneWidget);
     final title = tester.widget<Text>(find.text('Расходы по категориям'));
-    expect(title.textAlign, TextAlign.start);
+    expect(title.textAlign, TextAlign.center);
     expect(title.style?.fontWeight, FontWeight.w600);
   });
 

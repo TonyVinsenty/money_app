@@ -191,7 +191,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const CardHeader('Расходы по категориям'),
+            const CardHeader('Расходы по категориям', centered: true),
             // Кольцо по центру оставшейся высоты, легенда прижата к низу.
             Expanded(child: body),
           ],

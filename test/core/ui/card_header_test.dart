@@ -29,6 +29,15 @@ void main() {
     );
   });
 
+  testWidgets('centered: заголовок по центру', (tester) async {
+    await tester.pumpWidget(
+      _app(const CardHeader('Расходы по дням', centered: true)),
+    );
+    final text = tester.widget<Text>(find.text('Расходы по дням'));
+    expect(text.textAlign, TextAlign.center);
+    expect(tester.getCenter(find.text('Расходы по дням')).dx, 180);
+  });
+
   testWidgets('справа одно действие', (tester) async {
     await tester.pumpWidget(
       _app(

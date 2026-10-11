@@ -116,7 +116,7 @@ Future<void> _pump(
     await tester.pump();
   }
   // Кольцо достраивается (анимация построения).
-  await tester.pump(const Duration(milliseconds: 600));
+  await tester.pump(const Duration(milliseconds: 800));
 }
 
 String _money(int minor) => formatMoney(Money.fromMinor(minor, 'RUB'));

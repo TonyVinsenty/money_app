@@ -24,7 +24,7 @@ const double _thicknessFraction = 0.16;
 const double _fullTurn = 2 * math.pi;
 
 /// Сколько кольцо «вырастает» из верхней точки при первом показе и смене данных.
-const Duration donutBuildDuration = Duration(milliseconds: 500);
+const Duration donutBuildDuration = Duration(milliseconds: 650);
 
 /// Сколько пальцу полежать на кольце, чтобы экран перестал прокручиваться и
 /// палец мог ходить по секторам. Короче стандартного долгого нажатия (500 мс):

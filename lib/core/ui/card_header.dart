@@ -6,9 +6,17 @@ import 'package:money_app/core/ui/theme/app_spacing.dart';
 /// Суммы в заголовок не кладём: они идут строкой ниже. Длинный заголовок
 /// переносится на следующую строку, а не обрезается.
 class CardHeader extends StatelessWidget {
-  const CardHeader(this.title, {this.trailing, super.key});
+  const CardHeader(
+    this.title, {
+    this.trailing,
+    this.centered = false,
+    super.key,
+  });
 
   final String title;
+
+  /// Заголовок по центру (без действия справа); по умолчанию слева.
+  final bool centered;
 
   /// Не больше одного действия справа (значок-кнопка или меню).
   final Widget? trailing;
@@ -19,7 +27,7 @@ class CardHeader extends StatelessWidget {
       header: true,
       child: Text(
         title,
-        textAlign: TextAlign.start,
+        textAlign: centered ? TextAlign.center : TextAlign.start,
         style: Theme.of(context).textTheme.titleMedium
             ?.copyWith(fontWeight: FontWeight.w600),
       ),
@@ -28,7 +36,12 @@ class CardHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.m),
       child: trailing == null
-          ? Align(alignment: AlignmentDirectional.centerStart, child: text)
+          ? Align(
+              alignment: centered
+                  ? AlignmentDirectional.center
+                  : AlignmentDirectional.centerStart,
+              child: text,
+            )
           : Row(
               children: [
                 Expanded(child: text),

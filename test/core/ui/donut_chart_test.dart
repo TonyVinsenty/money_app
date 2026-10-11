@@ -237,7 +237,7 @@ void main() {
 
     testWidgets('короткое нажатие выбирает сектор', (tester) async {
       await tester.pumpWidget(chart());
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       await tester.tapAt(global(tester, _at(0.1)));
       await tester.pump();
       expect(log, ['h0', 's0', 'hnull']);
@@ -246,7 +246,7 @@ void main() {
     testWidgets('палец с первого касания ведёт подсветку и выбирает сектор '
         'отпускания', (tester) async {
       await tester.pumpWidget(chart());
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       final g = await tester.startGesture(global(tester, _at(0.1)));
       await tester.pump();
       expect(shown, 0);
@@ -268,7 +268,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(chart());
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       final g = await tester.startGesture(global(tester, _at(0.1)));
       await tester.pump();
       await g.moveTo(global(tester, const Offset(100, 100)));
@@ -284,7 +284,7 @@ void main() {
 
     testWidgets('отпускание в дырке и за краем не выбирает', (tester) async {
       await tester.pumpWidget(chart());
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       for (final p in [const Offset(100, 100), const Offset(199, 1)]) {
         log.clear();
         final g = await tester.startGesture(global(tester, _at(0.1)));
@@ -301,7 +301,7 @@ void main() {
 
     testWidgets('нажатие в дырке ничего не выбирает', (tester) async {
       await tester.pumpWidget(chart());
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       await tester.tapAt(global(tester, const Offset(100, 100)));
       await tester.pump();
       expect(selects(), isEmpty);
@@ -312,7 +312,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(chart(scroll: _Scroll.long));
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       final g = await tester.startGesture(global(tester, _at(0.1)));
       await tester.pump(const Duration(milliseconds: 150));
       expect(shown, 0);
@@ -332,7 +332,7 @@ void main() {
     testWidgets('если прокручивать нечего, движение по кольцу только '
         'подсвечивает и выбирает', (tester) async {
       await tester.pumpWidget(chart(scroll: _Scroll.none));
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       final g = await tester.startGesture(global(tester, _at(0.1)));
       await tester.pump();
       await g.moveTo(global(tester, _at(0.35)));
@@ -358,7 +358,7 @@ void main() {
       testWidgets('долгое нажатие держит экран: палец ходит по секторам, '
           'отпускание на секторе выбирает (${scroll.name})', (tester) async {
         await tester.pumpWidget(chart(scroll: scroll));
-        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump(const Duration(milliseconds: 800));
         final g = await tester.startGesture(global(tester, _at(0.1)));
         await tester.pump(_hold);
         expect(shown, 0);
@@ -379,7 +379,7 @@ void main() {
       testWidgets('долгое нажатие, отпускание вне кольца: ничего не выбрано, '
           'экран стоит (${scroll.name})', (tester) async {
         await tester.pumpWidget(chart(scroll: scroll));
-        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump(const Duration(milliseconds: 800));
         final g = await tester.startGesture(global(tester, _at(0.1)));
         await tester.pump(_hold);
         await g.moveBy(const Offset(0, 250));
@@ -396,7 +396,7 @@ void main() {
     testWidgets('пружинящая прокрутка: быстрый свайп по кольцу двигает экран и '
         'ничего не выбирает', (tester) async {
       await tester.pumpWidget(chart(scroll: _Scroll.bounce));
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       final g = await tester.startGesture(global(tester, _at(0.1)));
       await tester.pump(const Duration(milliseconds: 100));
       await g.moveBy(const Offset(0, 60));
@@ -417,7 +417,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(chart());
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       final g = await tester.startGesture(global(tester, _at(0.1)));
       await tester.pump();
       expect(shown, 0);
@@ -429,7 +429,7 @@ void main() {
 
     testWidgets('второй палец игнорируется', (tester) async {
       await tester.pumpWidget(chart());
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       final first = await tester.startGesture(global(tester, _at(0.1)));
       await tester.pump();
       final second = await tester.startGesture(global(tester, _at(0.8)));
@@ -474,7 +474,7 @@ void main() {
           ),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       final g = await tester.startGesture(global(tester, _at(0.8)));
       await tester.pump();
       // Сектора 3 больше нет: остались два.
@@ -588,9 +588,9 @@ void main() {
     testWidgets('растёт от 0 до 1', (tester) async {
       await tester.pumpWidget(chart(_segments(3)));
       expect(progressOf(tester), 0);
-      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump(const Duration(milliseconds: 325));
       expect(progressOf(tester), inExclusiveRange(0, 1));
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       expect(progressOf(tester), 1);
     });
 
@@ -603,12 +603,12 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(chart(_segments(3)));
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       await tester.pumpWidget(chart(_segments(3)));
       expect(progressOf(tester), 1);
       await tester.pumpWidget(chart(_segments(4)));
       expect(progressOf(tester), 0);
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       expect(progressOf(tester), 1);
     });
   });
