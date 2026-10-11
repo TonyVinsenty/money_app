@@ -207,6 +207,30 @@ class AppSettingsController extends ChangeNotifier {
     }
   }
 
+  bool _hideAmounts = false;
+
+  /// Скрыты ли суммы «облачком» (по умолчанию нет).
+  bool get hideAmounts => _hideAmounts;
+
+  /// Меняет сразу, запись в базу идёт в фоне; ошибка записи только попадает
+  /// в лог.
+  void setHideAmounts(bool value) {
+    if (value == _hideAmounts) return;
+    _hideAmounts = value;
+    notifyListeners();
+    unawaited(_persistHideAmounts(value));
+  }
+
+  Future<void> _persistHideAmounts(bool value) async {
+    final repository = _repository;
+    if (repository == null) return;
+    try {
+      await repository.write(hideAmountsSettingKey, value.toString());
+    } catch (error) {
+      debugPrint('Не удалось сохранить «Скрыть суммы»: $error');
+    }
+  }
+
   /// Подключает хранилище и применяет сохранённую в нём тему. Ошибка чтения
   /// не пробрасывается: тема остаётся прежней («как в системе» при старте).
   Future<void> attach(SettingsRepository repository) async {
@@ -273,6 +297,18 @@ class AppSettingsController extends ChangeNotifier {
       }
     } catch (error) {
       debugPrint('Не удалось прочитать время напоминаний из настроек: $error');
+    }
+    try {
+      final stored = await repository.read(hideAmountsSettingKey);
+      if (_repository != repository) return;
+      // Включает только `true`: пусто или испорчено — суммы видны.
+      final hide = stored == 'true';
+      if (hide != _hideAmounts) {
+        _hideAmounts = hide;
+        notifyListeners();
+      }
+    } catch (error) {
+      debugPrint('Не удалось прочитать «Скрыть суммы» из настроек: $error');
     }
   }
 

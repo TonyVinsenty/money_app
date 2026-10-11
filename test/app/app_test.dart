@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/app/app_tabs.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/home/presentation/home_screen.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
@@ -80,5 +81,27 @@ void main() {
     settings.setThemeMode(ThemeMode.light);
     await tester.pumpAndSettle();
     expect(currentBrightness(), Brightness.light);
+  });
+
+  testWidgets('«Скрыть суммы» у контроллера доходит до всех экранов', (
+    tester,
+  ) async {
+    final settings = AppSettingsController();
+    addTearDown(settings.dispose);
+    await tester.pumpWidget(
+      MoneyApp(settings: settings, openDatabase: openInMemoryDatabase),
+    );
+    await tester.pump();
+
+    bool hidden() =>
+        AmountsVisibility.hiddenOf(tester.element(find.byType(Scaffold).first));
+
+    expect(hidden(), isFalse);
+    settings.setHideAmounts(true);
+    await tester.pumpAndSettle();
+    expect(hidden(), isTrue);
+    settings.setHideAmounts(false);
+    await tester.pumpAndSettle();
+    expect(hidden(), isFalse);
   });
 }

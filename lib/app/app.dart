@@ -9,6 +9,7 @@ import 'package:money_app/app/database_gate.dart';
 import 'package:money_app/app/keyboard_dismiss_observer.dart';
 import 'package:money_app/app/reminder_sync.dart';
 import 'package:money_app/core/database/app_database.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/recurring/data/reminders_channel.dart';
 import 'package:money_app/features/settings/data/settings_repository_impl.dart';
@@ -79,6 +80,11 @@ class MoneyApp extends StatelessWidget {
           localizationsDelegates: localizationsDelegates,
           onGenerateRoute: onGenerateAppRoute,
           navigatorObservers: [KeyboardDismissObserver()],
+          // «Скрыть суммы» — над навигатором, то есть над всеми экранами.
+          builder: (context, child) => AmountsVisibility(
+            hidden: settings.hideAmounts,
+            child: child ?? const SizedBox.shrink(),
+          ),
           home: DatabaseGate(
             open: _openAndLoadSettings,
             onStartOver: startOverDatabase,

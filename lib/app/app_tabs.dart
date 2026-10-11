@@ -155,6 +155,8 @@ class _SettingsTabState extends State<SettingsTab> {
       onThemeModeChanged: settings.setThemeMode,
       homeBalanceLine: settings.homeBalanceLine,
       onHomeBalanceLineChanged: settings.setHomeBalanceLine,
+      hideAmounts: settings.hideAmounts,
+      onHideAmountsChanged: settings.setHideAmounts,
       reminderTime: settings.reminderTime,
       onReminderTimeChanged: settings.setReminderTime,
       mainCurrency: settings.mainCurrency,

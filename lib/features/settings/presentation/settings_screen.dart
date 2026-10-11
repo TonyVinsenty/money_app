@@ -27,6 +27,11 @@ const homeBalanceAllTimeLabel = 'За всё время';
 const homeBalanceAllTimeSubtitle = 'Все доходы минус все расходы';
 const homeBalanceAccountsLabel = 'На счетах';
 const homeBalanceAccountsSubtitle = 'Счета в основной валюте';
+
+/// Переключатель «Скрыть суммы».
+const hideAmountsLabel = 'Скрыть суммы';
+const hideAmountsSubtitle =
+    'Вместо цифр — облачко, как в банковских приложениях';
 const homeBalanceNoneLabel = 'Не показывать';
 
 /// Пункт, ведущий к управлению категориями.
@@ -209,8 +214,14 @@ class SettingsScreen extends StatefulWidget {
     this.shareFile = shareCsvFile,
     this.reminderTime,
     this.onReminderTimeChanged,
+    this.hideAmounts = false,
+    this.onHideAmountsChanged,
     super.key,
   });
+
+  /// «Скрыть суммы» и обработчик; без обработчика пункта нет.
+  final bool hideAmounts;
+  final ValueChanged<bool>? onHideAmountsChanged;
 
   /// Время напоминаний и обработчик выбора; без обработчика пункта нет.
   final ReminderTime? reminderTime;
@@ -507,6 +518,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const Divider(),
+        if (widget.onHideAmountsChanged case final onChanged?) ...[
+          SwitchListTile(
+            title: const Text(hideAmountsLabel),
+            subtitle: const Text(hideAmountsSubtitle),
+            value: widget.hideAmounts,
+            onChanged: onChanged,
+          ),
+          const Divider(),
+        ],
         ListTile(
           title: const Text(categoriesItemLabel),
           trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),

@@ -1,0 +1,57 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/money/currency_catalog.dart';
+import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/features/settings/domain/home_balance_line.dart';
+import 'package:money_app/features/settings/presentation/settings_screen.dart';
+
+void main() {
+  Widget screen({bool hide = false, ValueChanged<bool>? onChanged}) =>
+      MaterialApp(
+        home: Scaffold(
+          body: SettingsScreen(
+            themeMode: ThemeMode.system,
+            onThemeModeChanged: (_) {},
+            homeBalanceLine: HomeBalanceLine.allTime,
+            onHomeBalanceLineChanged: (_) {},
+            onOpenCategories: () {},
+            mainCurrency: currencyInfoFor('RUB'),
+            onMainCurrencyChanged: (_) {},
+            onExportCsv: () async => '',
+            lastExportDay: null,
+            today: DateOnly(2026, 10, 12),
+            onExportShared: () {},
+            onImportCsv: () async => null,
+            onClearAll: () async {},
+            version: '0.1.0+24',
+            hideAmounts: hide,
+            onHideAmountsChanged: onChanged,
+          ),
+        ),
+      );
+
+  testWidgets('без обработчика переключателя нет', (tester) async {
+    await tester.pumpWidget(screen());
+    expect(find.text(hideAmountsLabel), findsNothing);
+  });
+
+  testWidgets('переключатель показывает значение и сообщает наружу', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    bool? changed;
+    await tester.pumpWidget(screen(onChanged: (v) => changed = v));
+    final tile = find.widgetWithText(SwitchListTile, hideAmountsLabel);
+    expect(tester.widget<SwitchListTile>(tile).value, isFalse);
+
+    await tester.tap(tile);
+    expect(changed, isTrue);
+
+    await tester.pumpWidget(screen(hide: true, onChanged: (v) => changed = v));
+    expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+    await tester.tap(tile);
+    expect(changed, isFalse);
+  });
+}

@@ -442,6 +442,49 @@ void main() {
       expect(other.reminderTime, ReminderTime(8, 5));
     });
 
+    test('«Скрыть суммы»: выкл. по умолчанию, пишется и читается', () async {
+      final repo = _FakeSettingsRepository();
+      final controller = AppSettingsController();
+      addTearDown(controller.dispose);
+      await controller.attach(repo);
+      expect(controller.hideAmounts, isFalse);
+
+      var notified = 0;
+      controller.addListener(() => notified++);
+      controller.setHideAmounts(true);
+      controller.setHideAmounts(true);
+      expect(notified, 1);
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.data[hideAmountsSettingKey], 'true');
+
+      final other = AppSettingsController();
+      addTearDown(other.dispose);
+      await other.attach(repo);
+      expect(other.hideAmounts, isTrue);
+    });
+
+    test(
+      '«Скрыть суммы»: испорчено - видны; сбой записи - выбор остаётся',
+      () async {
+        for (final bad in ['', 'yes', 'TRUE', '1']) {
+          final repo = _FakeSettingsRepository()
+            ..data[hideAmountsSettingKey] = bad;
+          final controller = AppSettingsController();
+          addTearDown(controller.dispose);
+          await controller.attach(repo);
+          expect(controller.hideAmounts, isFalse, reason: bad);
+        }
+
+        final broken = _FakeSettingsRepository(failWrite: true);
+        final controller = AppSettingsController();
+        addTearDown(controller.dispose);
+        await controller.attach(broken);
+        controller.setHideAmounts(true);
+        await Future<void>.delayed(Duration.zero);
+        expect(controller.hideAmounts, isTrue);
+      },
+    );
+
     test('испорченное время напоминаний - 10:00', () {
       for (final bad in [null, '', 'abc', '25:00', '10:60', '1000']) {
         expect(
