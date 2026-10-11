@@ -6,6 +6,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/period_comparison.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
@@ -74,8 +75,9 @@ class ComparisonSection extends StatelessWidget {
     final byId = {for (final c in categories) c.id: c};
     final phrase = comparisonPhrase(previousRange, today);
     final onTypeSelected = this.onTypeSelected;
+    final hidden = AmountsVisibility.hiddenOf(context);
     final title = formatMoney(total.current);
-    final summary = comparisonSummaryText(total, type, phrase);
+    final summary = comparisonSummaryText(total, type, phrase, hidden: hidden);
 
     return Card.outlined(
       margin: EdgeInsets.zero,
@@ -113,14 +115,14 @@ class ComparisonSection extends StatelessWidget {
               container: true,
               excludeSemantics: true,
               label:
-                  '${comparisonTotalTitle(type, total.current, spoken: true)}. '
-                  '${comparisonSummaryText(total, type, phrase, spoken: true)}',
+                  '${comparisonTotalTitle(type, total.current, spoken: true, hidden: hidden)}. '
+                  '${comparisonSummaryText(total, type, phrase, spoken: true, hidden: hidden)}',
               child: Column(
                 key: totalKey,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CardHeader(comparisonTotalHeading(type)),
-                  Text(title, style: theme.textTheme.titleLarge),
+                  MaskedAmount(title, style: theme.textTheme.titleLarge),
                   const SizedBox(height: 4),
                   Text(
                     summary,
@@ -185,6 +187,7 @@ class _ComparisonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
+    final hidden = AmountsVisibility.hiddenOf(context);
     final content = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
       child: Padding(
@@ -201,12 +204,12 @@ class _ComparisonRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    comparisonRowTitle(name, change),
+                    comparisonRowTitle(name, change, hidden: hidden),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    comparisonRowDelta(change),
+                    comparisonRowDelta(change, hidden: hidden),
                     style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                   ),
                 ],
@@ -218,7 +221,7 @@ class _ComparisonRow extends StatelessWidget {
     );
     return Semantics(
       container: true,
-      label: comparisonRowSpoken(name, change),
+      label: comparisonRowSpoken(name, change, hidden: hidden),
       button: onTap != null,
       onTap: onTap,
       excludeSemantics: true,

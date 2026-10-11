@@ -221,7 +221,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        Text(
+        MaskedAmount(
           totalText,
           style: theme.textTheme.headlineSmall?.copyWith(color: totalColor),
         ),
@@ -241,7 +241,8 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
                 highlightedIndex: highlighted,
                 onHighlight: (index) => setState(() => _highlight = index),
                 semanticsLabel:
-                    'Диаграмма по подкатегориям. Всего: ${spokenMoney(total)}',
+                    'Диаграмма по подкатегориям. Всего: '
+                    '${maskedSpoken(context, spokenMoney(total))}',
                 center: SizedBox(
                   width: ringCenterWidth,
                   child: FittedBox(
@@ -341,7 +342,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        Text(
+        MaskedAmount(
           text,
           textAlign: TextAlign.center,
           style: theme.textTheme.titleMedium?.copyWith(color: color),
@@ -362,7 +363,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall,
         ),
-        Text(
+        MaskedAmount(
           formatMoney(row.amount),
           textAlign: TextAlign.center,
           style: theme.textTheme.titleMedium,
@@ -421,11 +422,15 @@ class _RowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final small = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     return Semantics(
       container: true,
       label:
           '${row.label}, ${row.isExpense ? 'расход' : 'доход'} '
-          '${spokenMoney(row.amount)}, ${row.percentSpoken}',
+          '${maskedSpoken(context, spokenMoney(row.amount))}, '
+          '${row.percentSpoken}',
       excludeSemantics: true,
       child: Row(
         children: [
@@ -436,20 +441,29 @@ class _RowTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(row.label, style: theme.textTheme.bodyMedium),
-                Text.rich(
-                  TextSpan(
+                if (AmountsVisibility.hiddenOf(context))
+                  Row(
                     children: [
-                      TextSpan(
-                        text: row.signedAmount,
-                        style: TextStyle(color: row.amountColor),
+                      MaskedAmount(
+                        row.signedAmount,
+                        style: small?.copyWith(color: row.amountColor),
                       ),
-                      TextSpan(text: ' · ${row.percentText}'),
+                      Text(' · ${row.percentText}', style: small),
                     ],
+                  )
+                else
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: row.signedAmount,
+                          style: TextStyle(color: row.amountColor),
+                        ),
+                        TextSpan(text: ' · ${row.percentText}'),
+                      ],
+                    ),
+                    style: small,
                   ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
               ],
             ),
           ),

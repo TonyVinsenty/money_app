@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 
@@ -123,14 +124,17 @@ class _Line extends StatelessWidget {
         color: theme.colorScheme.onSurfaceVariant,
       ),
     );
-    final amount = Text(
-      text,
-      textAlign: stacked ? TextAlign.start : TextAlign.end,
-      style: theme.textTheme.titleLarge?.copyWith(color: color),
+    final amount = Align(
+      alignment: stacked ? Alignment.centerLeft : Alignment.centerRight,
+      child: MaskedAmount(
+        text,
+        textAlign: stacked ? TextAlign.start : TextAlign.end,
+        style: theme.textTheme.titleLarge?.copyWith(color: color),
+      ),
     );
     return Semantics(
       container: true,
-      label: '$title, $spoken',
+      label: '$title, ${maskedSpoken(context, spoken)}',
       excludeSemantics: true,
       child: stacked
           ? Column(

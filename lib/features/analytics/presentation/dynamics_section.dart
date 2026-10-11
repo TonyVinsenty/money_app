@@ -8,6 +8,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/bar_chart.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/buckets.dart';
@@ -167,6 +168,7 @@ class _DynamicsSectionState extends State<DynamicsSection> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
+    final hidden = AmountsVisibility.hiddenOf(context);
     final type = widget.type;
     final today = widget.today;
     final step = bucketStepFor(widget.period);
@@ -232,10 +234,15 @@ class _DynamicsSectionState extends State<DynamicsSection> {
       );
     } else {
       final infoText = highlighted != null
-          ? dynamicsSelectedText(buckets[highlighted], step, today)
+          ? dynamicsSelectedText(
+              buckets[highlighted],
+              step,
+              today,
+              hidden: hidden,
+            )
           : average == null
           ? ''
-          : dynamicsAverageText(average, step);
+          : dynamicsAverageText(average, step, hidden: hidden);
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -249,19 +256,25 @@ class _DynamicsSectionState extends State<DynamicsSection> {
                 : colors.income,
             // Вдвое выше прежнего (около 280 dp), но не больше 40 % экрана.
             height: math.min(280, MediaQuery.sizeOf(context).height * 0.4),
-            zeroLabel: formatMoney(Money.fromMinor(0, widget.currency)),
-            midLabel: formatMoney(
-              Money.fromMinor(
-                barScaleValues(weights, average?.minorUnits)[1],
-                widget.currency,
-              ),
-            ),
-            topLabel: formatMoney(
-              Money.fromMinor(
-                barChartCeiling(weights, average?.minorUnits),
-                widget.currency,
-              ),
-            ),
+            zeroLabel: hidden
+                ? maskedMoneyText
+                : formatMoney(Money.fromMinor(0, widget.currency)),
+            midLabel: hidden
+                ? maskedMoneyText
+                : formatMoney(
+                    Money.fromMinor(
+                      barScaleValues(weights, average?.minorUnits)[1],
+                      widget.currency,
+                    ),
+                  ),
+            topLabel: hidden
+                ? maskedMoneyText
+                : formatMoney(
+                    Money.fromMinor(
+                      barChartCeiling(weights, average?.minorUnits),
+                      widget.currency,
+                    ),
+                  ),
             semanticsLabel: dynamicsChartSpoken(
               type: type,
               period: widget.period,
@@ -270,6 +283,7 @@ class _DynamicsSectionState extends State<DynamicsSection> {
               average: average,
               today: today,
               categoryName: selected?.name,
+              hidden: hidden,
             ),
             highlightedIndex: highlighted,
             onHighlight: (index) => setState(() => _highlighted = index),
@@ -293,11 +307,13 @@ class _DynamicsSectionState extends State<DynamicsSection> {
                 forecast.forecast,
                 widget.period.range.end,
                 spoken: true,
+                hidden: hidden,
               ),
               child: Text(
                 dynamicsForecastText(
                   forecast.forecast,
                   widget.period.range.end,
+                  hidden: hidden,
                 ),
                 key: DynamicsSection.forecastKey,
                 style: theme.textTheme.bodyMedium?.copyWith(color: muted),
@@ -315,7 +331,7 @@ class _DynamicsSectionState extends State<DynamicsSection> {
                 Semantics(
                   container: true,
                   excludeSemantics: true,
-                  label: dynamicsRowSpoken(b, step, today),
+                  label: dynamicsRowSpoken(b, step, today, hidden: hidden),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 48),
                     child: Row(
@@ -324,7 +340,7 @@ class _DynamicsSectionState extends State<DynamicsSection> {
                           child: Text(dynamicsBucketLabel(b, step, today)),
                         ),
                         const SizedBox(width: 12),
-                        Text(formatMoney(b.amount)),
+                        MaskedAmount(formatMoney(b.amount)),
                       ],
                     ),
                   ),

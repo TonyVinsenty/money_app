@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/hints.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
@@ -54,6 +55,7 @@ class AnalyticsHintsCard extends StatelessWidget {
       period: period,
       today: today,
       spoken: spoken,
+      hidden: AmountsVisibility.hiddenOf(context),
     );
 
     // Заголовок для скринридера: одна подпись на всю карточку, строки внутри

@@ -7,6 +7,7 @@ import 'package:money_app/core/format/period_label.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/buckets.dart';
 import 'package:money_app/features/analytics/domain/comparison.dart';
@@ -86,9 +87,16 @@ String comparisonTotalTitle(
   TransactionType type,
   Money total, {
   bool spoken = false,
+  bool hidden = false,
 }) =>
     '${type == TransactionType.expense ? 'Расходы' : 'Доходы'}: '
-    '${spoken ? spokenMoney(total) : formatMoney(total)}';
+    '${_money(total, spoken: spoken, hidden: hidden)}';
+
+/// Сумма для текста: словами при [spoken]; при [hidden] - скрыта.
+String _money(Money m, {bool spoken = false, bool hidden = false}) {
+  if (hidden) return spoken ? hiddenAmountLabel : maskedMoneyText;
+  return spoken ? spokenMoney(m) : formatMoney(m);
+}
 
 final NumberFormat _percentFormat = NumberFormat.decimalPattern('ru');
 
@@ -125,6 +133,7 @@ String comparisonSummaryText(
   TransactionType type,
   String phrase, {
   bool spoken = false,
+  bool hidden = false,
 }) {
   if (change.previous.isZero) {
     final what = type == TransactionType.expense ? 'расходов' : 'доходов';
@@ -135,7 +144,7 @@ String comparisonSummaryText(
   final more = !difference.isNegative;
   final amount = more ? difference : -difference;
   final percent = change.percent!;
-  final money = spoken ? spokenMoney(amount) : formatMoney(amount);
+  final money = _money(amount, spoken: spoken, hidden: hidden);
   final percentText = spoken
       ? spokenSignedPercent(percent, isBelowOne: percent == 0)
       : '(${signedPercent(percent, isBelowOne: percent == 0)})';
@@ -150,22 +159,26 @@ String _capitalize(String text) =>
 
 /// Т2. Первая строка категории: «Кафе · 8 000,00 ₽»; исчезнувшая —
 /// «Кафе · 0,00 ₽ · было 3 000,00 ₽».
-String comparisonRowTitle(String name, AmountChange change) {
-  final now = formatMoney(change.current);
+String comparisonRowTitle(
+  String name,
+  AmountChange change, {
+  bool hidden = false,
+}) {
+  final now = _money(change.current, hidden: hidden);
   if (change.current.isZero && !change.previous.isZero) {
-    return '$name · $now · было ${formatMoney(change.previous)}';
+    return '$name · $now · было ${_money(change.previous, hidden: hidden)}';
   }
   return '$name · $now';
 }
 
 /// Т2. Вторая строка категории: «↑ на 2 300,00 ₽ (+40 %)»,
 /// «↓ на 500,00 ₽ (\u22126 %)», «= столько же»; новая — «раньше не было».
-String comparisonRowDelta(AmountChange change) {
+String comparisonRowDelta(AmountChange change, {bool hidden = false}) {
   if (change.previous.isZero) return 'раньше не было';
   final difference = change.difference;
   if (difference.isZero) return '= столько же';
   final more = !difference.isNegative;
-  final amount = formatMoney(more ? difference : -difference);
+  final amount = _money(more ? difference : -difference, hidden: hidden);
   final arrow = more ? '↑' : '↓';
   final percent = change.percent!;
   return '$arrow на $amount (${signedPercent(percent, isBelowOne: percent == 0)})';
@@ -173,20 +186,28 @@ String comparisonRowDelta(AmountChange change) {
 
 /// Т2. Озвучка строки категории: «Кафе, 8000 рублей, больше на 2300 рублей,
 /// плюс 40 процентов».
-String comparisonRowSpoken(String name, AmountChange change) {
-  final now = spokenMoney(change.current);
+String comparisonRowSpoken(
+  String name,
+  AmountChange change, {
+  bool hidden = false,
+}) {
+  final now = _money(change.current, spoken: true, hidden: hidden);
   if (change.previous.isZero) return '$name, $now, раньше не было';
   final difference = change.difference;
   final percent = change.percent!;
   final percentText = spokenSignedPercent(percent, isBelowOne: percent == 0);
   if (change.current.isZero) {
     // Исчезнувшая категория: разница равна прежней сумме, не повторяем её.
-    return '$name, $now, раньше было ${spokenMoney(change.previous)}, '
+    return '$name, $now, раньше было ${_money(change.previous, spoken: true, hidden: hidden)}, '
         '$percentText';
   }
   if (difference.isZero) return '$name, $now, столько же';
   final more = !difference.isNegative;
-  final amount = spokenMoney(more ? difference : -difference);
+  final amount = _money(
+    more ? difference : -difference,
+    spoken: true,
+    hidden: hidden,
+  );
   return '$name, $now, ${more ? 'больше' : 'меньше'} на $amount, '
       '$percentText';
 }
@@ -217,13 +238,23 @@ String operationsMostFrequentText(String name, int count) =>
     'Чаще всего $_emDash $name (${operationsCountText(count)})';
 
 /// Т5. Вторая строка категории: «42 операции · средний чек 610,00 ₽».
-String operationsStatSubtitle(int count, Money average) =>
-    '${operationsCountText(count)} · средний чек ${formatMoney(average)}';
+String operationsStatSubtitle(
+  int count,
+  Money average, {
+  bool hidden = false,
+}) =>
+    '${operationsCountText(count)} · средний чек '
+    '${_money(average, hidden: hidden)}';
 
 /// Т5. Озвучка строки: «Продукты, 42 операции, средний чек 610 рублей».
-String operationsStatSpoken(String name, int count, Money average) =>
+String operationsStatSpoken(
+  String name,
+  int count,
+  Money average, {
+  bool hidden = false,
+}) =>
     '$name, ${operationsCountText(count)}, '
-    'средний чек ${spokenMoney(average)}';
+    'средний чек ${_money(average, spoken: true, hidden: hidden)}';
 
 /// Т6. Заголовок карточки подсказок: виден только скринридеру.
 const String analyticsHintsTitle = 'Подсказки по расходам';
@@ -277,15 +308,12 @@ String analyticsHintText(
   required AnalyticsPeriod period,
   required DateOnly today,
   bool spoken = false,
+  bool hidden = false,
 }) {
   switch (hint) {
     case CategoryAbovePreviousHint():
-      final now = spoken
-          ? spokenMoney(hint.current)
-          : formatMoney(hint.current);
-      final before = spoken
-          ? spokenMoney(hint.previousTotal)
-          : formatMoney(hint.previousTotal);
+      final now = _money(hint.current, spoken: spoken, hidden: hidden);
+      final before = _money(hint.previousTotal, spoken: spoken, hidden: hidden);
       final tail = _wholePreviousTail(period, today);
       final name = nameOf(hint.categoryId);
       return spoken
@@ -322,8 +350,9 @@ String dynamicsAverageText(
   Money average,
   BucketStep step, {
   bool spoken = false,
+  bool hidden = false,
 }) =>
-    'В среднем ${spoken ? spokenMoney(average) : formatMoney(average)} '
+    'В среднем ${_money(average, spoken: spoken, hidden: hidden)} '
     '${step == BucketStep.month ? 'в месяц' : 'в день'}';
 
 /// Т4. Прогноз: «Если тратить так же, к 31 октября будет ≈ 74 000,00 ₽».
@@ -332,9 +361,11 @@ String dynamicsForecastText(
   Money forecast,
   DateOnly monthEnd, {
   bool spoken = false,
+  bool hidden = false,
 }) =>
     'Если тратить так же, к ${formatDayMonth(monthEnd)} будет '
-    '${spoken ? 'примерно ${spokenMoney(forecast)}' : '≈ ${formatMoney(forecast)}'}';
+    '${spoken ? 'примерно ' : '≈ '}'
+    '${_money(forecast, spoken: spoken, hidden: hidden)}';
 
 /// Т3. Название корзины: «12 октября» (год добавляется, если он не тот же, что
 /// у [today]) или «Октябрь 2026» для месячной.
@@ -347,8 +378,14 @@ String dynamicsBucketLabel(Bucket bucket, BucketStep step, DateOnly today) {
 }
 
 /// Т3. Значение выбранного столбика: «12 октября: 5 400,00 ₽».
-String dynamicsSelectedText(Bucket bucket, BucketStep step, DateOnly today) =>
-    '${dynamicsBucketLabel(bucket, step, today)}: ${formatMoney(bucket.amount)}';
+String dynamicsSelectedText(
+  Bucket bucket,
+  BucketStep step,
+  DateOnly today, {
+  bool hidden = false,
+}) =>
+    '${dynamicsBucketLabel(bucket, step, today)}: '
+    '${_money(bucket.amount, hidden: hidden)}';
 
 /// Первые буквы месяцев для подписей оси («Я Ф М А М И И А С О Н Д»).
 const String _monthInitials = 'ЯФМАМИИАСОНД';
@@ -414,9 +451,14 @@ String dynamicsListTitle(BucketStep step) =>
     step == BucketStep.month ? 'По месяцам' : 'По дням';
 
 /// Т3. Строка списка для скринридера: «12 октября, 5400 рублей».
-String dynamicsRowSpoken(Bucket bucket, BucketStep step, DateOnly today) =>
+String dynamicsRowSpoken(
+  Bucket bucket,
+  BucketStep step,
+  DateOnly today, {
+  bool hidden = false,
+}) =>
     '${dynamicsBucketLabel(bucket, step, today)}, '
-    '${spokenMoney(bucket.amount)}';
+    '${_money(bucket.amount, spoken: true, hidden: hidden)}';
 
 /// Т3. Подпись графика для скринридера (ADR 0012, п. 5): «Расходы по дням за
 /// октябрь. Больше всего 12 октября: 5400 рублей. В среднем 2400 рублей в
@@ -429,6 +471,7 @@ String dynamicsChartSpoken({
   required Money? average,
   required DateOnly today,
   String? categoryName,
+  bool hidden = false,
 }) {
   final category = categoryName == null ? '' : ', категория $categoryName,';
   final parts = <String>[
@@ -442,11 +485,11 @@ String dynamicsChartSpoken({
   if (top != null) {
     parts.add(
       'Больше всего ${dynamicsBucketLabel(top, step, today)}: '
-      '${spokenMoney(top.amount)}',
+      '${_money(top.amount, spoken: true, hidden: hidden)}',
     );
   }
   if (average != null) {
-    parts.add(dynamicsAverageText(average, step, spoken: true));
+    parts.add(dynamicsAverageText(average, step, spoken: true, hidden: hidden));
   }
   return parts.join('. ');
 }

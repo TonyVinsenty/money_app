@@ -213,6 +213,7 @@ class _StatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
+    final hidden = AmountsVisibility.hiddenOf(context);
     final name = category?.name ?? noCategoryLabel;
     final content = ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 48),
@@ -231,7 +232,11 @@ class _StatRow extends StatelessWidget {
                 children: [
                   Text(name, maxLines: 3, overflow: TextOverflow.ellipsis),
                   Text(
-                    operationsStatSubtitle(stat.count, stat.average),
+                    operationsStatSubtitle(
+                      stat.count,
+                      stat.average,
+                      hidden: hidden,
+                    ),
                     style: theme.textTheme.bodyMedium?.copyWith(color: muted),
                   ),
                 ],
@@ -243,7 +248,12 @@ class _StatRow extends StatelessWidget {
     );
     return Semantics(
       container: true,
-      label: operationsStatSpoken(name, stat.count, stat.average),
+      label: operationsStatSpoken(
+        name,
+        stat.count,
+        stat.average,
+        hidden: hidden,
+      ),
       button: onTap != null,
       onTap: onTap,
       excludeSemantics: true,

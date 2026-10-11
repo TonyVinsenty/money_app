@@ -8,6 +8,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
@@ -198,9 +199,10 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
     final highlighted = lit != null && lit < slices.length ? lit : null;
 
     final label = isExpense ? 'Расходы' : 'Доходы';
-    final totalSpoken = isExpense
-        ? 'минус ${spokenMoney(total)}'
-        : 'плюс ${spokenMoney(total)}';
+    final totalSpoken = maskedSpoken(
+      context,
+      isExpense ? 'минус ${spokenMoney(total)}' : 'плюс ${spokenMoney(total)}',
+    );
     final what = isExpense ? 'расходов' : 'доходов';
 
     return [
@@ -292,7 +294,7 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
           ),
         ),
         _fit(
-          Text(
+          MaskedAmount(
             text,
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(color: color),
@@ -315,7 +317,7 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
           style: theme.textTheme.titleMedium,
         ),
         _fit(
-          Text(
+          MaskedAmount(
             formatMoney(slice.amount),
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall,
@@ -412,7 +414,7 @@ class _CategoryRow extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  Text(
+                  MaskedAmount(
                     amountText,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: amountColor,
@@ -433,7 +435,9 @@ class _CategoryRow extends StatelessWidget {
     return Semantics(
       // container: каждая строка — отдельный узел, а не слитый с соседями.
       container: true,
-      label: '$name, $spokenAmount, ${_percentSpoken(share)}',
+      label:
+          '$name, ${maskedSpoken(context, spokenAmount)}, '
+          '${_percentSpoken(share)}',
       button: onTap != null,
       onTap: onTap,
       excludeSemantics: true,
