@@ -246,8 +246,6 @@ const String transferCurrencyChangedHint =
 const String transferNeedPairHint = 'Нужны два счёта в одной валюте';
 
 // История счетов (тексты Ж2-Ж7 утверждены пользователем 2026-10-10).
-const String balanceJournalButton = 'История';
-
 /// Озвучка кнопки (чтобы не путать с вкладкой «История»).
 const String balanceJournalButtonSpoken = 'История счетов';
 const String balanceJournalTitle = 'История счетов';

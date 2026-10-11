@@ -308,4 +308,24 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('transfer amount is not smaller than title, tabular digits', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      accounts: Stream.value([card, cash]),
+      transfers: Stream.value([transfer('t1', 'a1', 'a2', 500000, 9)]),
+    );
+    final row = find.byKey(const ValueKey('journal-TransferEntry-t1'));
+    final amount = tester.widget<Text>(
+      find.descendant(of: row, matching: find.textContaining('5')),
+    );
+    final bodyLarge = Theme.of(tester.element(row)).textTheme.bodyLarge!;
+    expect(amount.style!.fontSize, greaterThanOrEqualTo(bodyLarge.fontSize!));
+    expect(
+      amount.style!.fontFeatures,
+      contains(const FontFeature.tabularFigures()),
+    );
+  });
 }

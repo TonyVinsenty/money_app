@@ -112,6 +112,9 @@ class AccountTransfersList extends StatelessWidget {
                     fit: BoxFit.scaleDown,
                     child: Text(
                       transferRowAmount(outgoing, t.amount, currency),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                 ),

@@ -233,6 +233,9 @@ class _JournalList extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   child: Text(
                     formatMoney(transfer.amount, currency: _currency(transfer)),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ),
