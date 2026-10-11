@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
@@ -166,6 +167,8 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
   void dispose() {
     unawaited(_accountsSub?.cancel());
     _amount.dispose();
+    // Страховка от редкого сбоя iOS: клавиатура могла «зависнуть» после «Назад».
+    unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.hide'));
     super.dispose();
   }
 

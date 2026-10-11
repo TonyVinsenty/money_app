@@ -52,6 +52,31 @@ void main() {
   Future<void> pumpHost(WidgetTester tester) =>
       tester.pumpWidget(_host(controller));
 
+  for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+    testWidgets('в фокусе рамок нет ни одной (${mode.name})', (tester) async {
+      await tester.pumpWidget(_host(controller, mode: mode));
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      expect(controller.focusNode.hasFocus, isTrue);
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      final context = tester.element(find.byType(TextField));
+      final decoration = field.decoration!.applyDefaults(
+        Theme.of(context).inputDecorationTheme,
+      );
+      for (final border in [
+        decoration.border,
+        decoration.enabledBorder,
+        decoration.focusedBorder,
+        decoration.errorBorder,
+        decoration.focusedErrorBorder,
+        decoration.disabledBorder,
+      ]) {
+        expect(border, InputBorder.none);
+      }
+    });
+  }
+
   testWidgets('буква не печатается, цифры группируются', (tester) async {
     await tester.pumpWidget(_host(controller));
 

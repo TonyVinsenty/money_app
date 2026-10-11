@@ -241,8 +241,18 @@ class AmountField extends StatelessWidget {
                                   maxLines: 1,
                                   style: style,
                                   cursorColor: accent,
-                                  decoration: const InputDecoration.collapsed(
-                                    hintText: null,
+                                  // Как `InputDecoration.collapsed`, но все рамки
+                                  // заданы явно: иначе тема полей подставит свою
+                                  // рамку при фокусе.
+                                  decoration: const InputDecoration(
+                                    isCollapsed: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    errorBorder: InputBorder.none,
+                                    focusedErrorBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
                                   ),
                                 ),
                               ),
