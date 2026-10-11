@@ -10,8 +10,8 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
-import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
@@ -441,14 +441,29 @@ class _HistoryList extends StatelessWidget {
         final subcategory = t.subcategoryId == null
             ? null
             : categoriesById[t.subcategoryId];
-        return _TransactionTile(
-          transaction: t,
-          title: _title(category, subcategory),
+        final title = _title(category, subcategory);
+        final dayText = byAmount
+            ? _shortDayLabel(t.occurredOn, today)
+            : historyDayLabel(t.occurredOn, today: today);
+        final isIncome = t.type == TransactionType.income;
+        final note = t.note;
+        // Сводная подпись для скринридера: тип, сумма словами, категория, день
+        // и комментарий одной фразой.
+        final label = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
+          ..write(spokenMoney(t.amount))
+          ..write(', $title, $dayText');
+        if (note != null) label.write(', комментарий: $note');
+        // Вторая строка: при сортировке по сумме - «день · комментарий».
+        final subtitle = byAmount
+            ? (note == null ? dayText : '$dayText · $note')
+            : note;
+        return OperationTile(
+          title: title,
+          subtitle: subtitle,
+          amount: t.amount,
+          isIncome: isIncome,
           iconKey: category?.iconKey,
-          dayText: byAmount
-              ? _shortDayLabel(t.occurredOn, today)
-              : historyDayLabel(t.occurredOn, today: today),
-          showDay: byAmount,
+          semanticLabel: label.toString(),
           onTap: () => onTransactionTap(t),
         );
       },
@@ -479,124 +494,6 @@ class _DayHeader extends StatelessWidget {
           label,
           style: theme.textTheme.titleSmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({
-    required this.transaction,
-    required this.title,
-    required this.iconKey,
-    required this.dayText,
-    required this.showDay,
-    required this.onTap,
-  });
-
-  final Transaction transaction;
-  final String title;
-
-  /// Показать день во второй строке («30 сентября · комментарий»).
-  final bool showDay;
-
-  /// Ключ иконки категории; `null` — категории нет, берётся запасная иконка.
-  final String? iconKey;
-  final String dayText;
-  final VoidCallback onTap;
-
-  static String _spoken(Money money) => spokenMoney(money);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isIncome = transaction.type == TransactionType.income;
-    final accent = isIncome
-        ? context.appColors.income
-        : context.appColors.expense;
-    final amountText =
-        '${isIncome ? '+' : _minusSign}${formatMoney(transaction.amount)}';
-    final note = transaction.note;
-
-    // Сводная подпись для скринридера: тип, сумма словами, категория, день и
-    // комментарий одной фразой; содержимое строки из озвучки исключено.
-    final label = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
-      ..write(_spoken(transaction.amount))
-      ..write(', $title, $dayText');
-    if (note != null) label.write(', комментарий: $note');
-
-    return Semantics(
-      button: true,
-      label: label.toString(),
-      onTap: onTap,
-      excludeSemantics: true,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          // Зона нажатия не ниже 48 dp; при крупном шрифте строка растёт сама.
-          constraints: const BoxConstraints(minHeight: 56),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    shape: BoxShape.circle,
-                  ),
-                  child: CategoryIconView(iconKey, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyLarge,
-                      ),
-                      if (note != null || showDay)
-                        Text(
-                          showDay
-                              ? (note == null ? dayText : '$dayText · $note')
-                              : note!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Сумма не занимает больше 45% ширины: очень длинная сумма при
-                // крупном шрифте уменьшается, а не выталкивает название.
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      amountText,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: accent,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),

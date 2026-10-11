@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/day_label.dart';
-import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -9,7 +8,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
-import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/operations_stats.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
@@ -290,14 +289,7 @@ class _OperationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
     final isIncome = transaction.type == TransactionType.income;
-    final accent = isIncome
-        ? context.appColors.income
-        : context.appColors.expense;
-    final sign = isIncome ? '+' : String.fromCharCode(0x2212);
-    final amountText = '$sign${formatMoney(transaction.amount)}';
     final title = category == null
         ? noCategoryLabel
         : subcategory == null
@@ -310,77 +302,15 @@ class _OperationRow extends StatelessWidget {
       ..write(', $title, $day');
     if (note != null) spoken.write(', комментарий: $note');
 
-    final content = ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 56),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                shape: BoxShape.circle,
-              ),
-              child: CategoryIconView(category?.iconKey, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                  Text(
-                    note == null ? day : '$day · $note',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(color: muted),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Сумма не шире 45% экрана: длинная при крупном шрифте уменьшается.
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-              ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Text(
-                  amountText,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: accent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    return Semantics(
-      container: true,
-      label: spoken.toString(),
-      button: onTap != null,
+    return OperationTile(
+      title: title,
+      subtitle: note == null ? day : '$day · $note',
+      amount: transaction.amount,
+      isIncome: isIncome,
+      iconKey: category?.iconKey,
+      semanticLabel: spoken.toString(),
       onTap: onTap,
-      excludeSemantics: true,
-      child: onTap == null
-          ? content
-          : InkWell(
-              onTap: onTap,
-              borderRadius: AppRadius.borderM,
-              child: content,
-            ),
+      horizontalPadding: AppSpacing.xs,
     );
   }
 }
