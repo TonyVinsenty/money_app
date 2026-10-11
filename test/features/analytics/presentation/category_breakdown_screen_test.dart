@@ -197,7 +197,9 @@ void main() {
     for (var i = 0; i < totals.length; i++) {
       expect(find.text(names[totals[i].subcategoryId]!), findsOneWidget);
       expect(
-        find.text('${formatMoney(totals[i].amount)} · ${_pct(shares[i])}'),
+        find.text(
+          '$_minus${formatMoney(totals[i].amount)} · ${_pct(shares[i])}',
+        ),
         findsOneWidget,
       );
     }
@@ -233,6 +235,81 @@ void main() {
     expect(income.style?.color, colors.income);
   });
 
+  Color? amountColorOf(WidgetTester tester, String text) {
+    final rich = tester.widget<Text>(find.text(text));
+    final span = rich.textSpan! as TextSpan;
+    return (span.children!.first as TextSpan).style?.color;
+  }
+
+  testWidgets('сумма подкатегории: расход "-" красным, доход "+" зелёным', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      transactions: Stream.value([_tx('cat-food', null, 120000)]),
+    );
+    final colors = tester.element(find.byType(Scaffold)).appColors;
+    expect(
+      amountColorOf(tester, '$_minus${_money(120000)} · 100$_nbsp%'),
+      colors.expense,
+    );
+
+    final salary = _top('salary', 'Зарплата', kind: CategoryKind.income);
+    await _pump(
+      tester,
+      category: salary,
+      transactions: Stream.value([
+        _tx('salary', null, 5000000, type: TransactionType.income),
+      ]),
+    );
+    expect(
+      amountColorOf(tester, '+${_money(5000000)} · 100$_nbsp%'),
+      colors.income,
+    );
+  });
+
+  testWidgets('озвучка строки дохода со словом "доход"', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _pump(
+      tester,
+      category: _top('salary', 'Зарплата', kind: CategoryKind.income),
+      transactions: Stream.value([
+        _tx('salary', null, 100000, type: TransactionType.income),
+      ]),
+    );
+    expect(
+      find.bySemanticsLabel(
+        'Без подкатегории, доход 1000 рублей, 100 процентов',
+      ),
+      findsOneWidget,
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('длинный список прокручивается вместе с итогом', (tester) async {
+    final subs = [for (var i = 0; i < 12; i++) 's$i'];
+    await _pump(
+      tester,
+      transactions: Stream.value([
+        for (var i = 0; i < subs.length; i++)
+          _tx('cat-food', subs[i], 100000 - i * 1000),
+      ]),
+      categories: Stream.value([
+        _food,
+        for (final id in subs) _sub(_food, id, 'Под $id'),
+      ]),
+      height: 600,
+    );
+    final title = find.text('Всего за период');
+    expect(title, findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -900));
+    await tester.pump();
+
+    // Итог ушёл вверх вместе со списком.
+    expect(title.hitTestable(), findsNothing);
+  });
+
   testWidgets('категория без подкатегорий: одна строка, кольца нет', (
     tester,
   ) async {
@@ -242,7 +319,7 @@ void main() {
     );
 
     expect(find.text('Без подкатегории'), findsOneWidget);
-    expect(find.text('${_money(10000)} · 100$_nbsp%'), findsOneWidget);
+    expect(find.text('$_minus${_money(10000)} · 100$_nbsp%'), findsOneWidget);
     expect(find.byType(DonutChart), findsNothing);
   });
 
@@ -415,11 +492,13 @@ void main() {
 
       // 534213 из 1302213 копеек: 41,02 %.
       expect(
-        find.bySemanticsLabel('Пятёрочка, 5342 рубля 13 копеек, 41 процент'),
+        find.bySemanticsLabel(
+          'Пятёрочка, расход 5342 рубля 13 копеек, 41 процент',
+        ),
         findsOneWidget,
       );
       expect(
-        find.bySemanticsLabel('Рынок, 7680 рублей, 59 процентов'),
+        find.bySemanticsLabel('Рынок, расход 7680 рублей, 59 процентов'),
         findsOneWidget,
       );
       // Аватар не даёт отдельных узлов: в семантику ушли бы лишние

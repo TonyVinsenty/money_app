@@ -162,6 +162,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
     for (final t in totals) {
       total += t.amount;
     }
+    final isExpense = widget.category.kind == CategoryKind.expense;
     final rows = [
       for (var i = 0; i < totals.length; i++)
         _Row(
@@ -173,6 +174,8 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
               ? names[totals[i].subcategoryId]
               : widget.category.name,
           amount: totals[i].amount,
+          isExpense: isExpense,
+          amountColor: isExpense ? colors.expense : colors.income,
           share: shares[i],
           // Палитра на 8 цветов: строки с 9-й получают серый «Остальное».
           color: i < colors.chartPalette.length
@@ -182,7 +185,6 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
     ];
     final lit = _highlight;
     final highlighted = lit != null && lit < rows.length ? lit : null;
-    final isExpense = widget.category.kind == CategoryKind.expense;
     final totalColor = isExpense ? colors.expense : colors.income;
     final totalText = isExpense
         ? '\u2212${formatMoney(total)}'
@@ -192,7 +194,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
     final ringCenterWidth = side * 0.6;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.l),
       children: [
         Text(
           'Всего за период',
@@ -300,6 +302,8 @@ class _Row {
     required this.iconKey,
     required this.avatarName,
     required this.amount,
+    required this.isExpense,
+    required this.amountColor,
     required this.share,
     required this.color,
   });
@@ -310,8 +314,14 @@ class _Row {
   /// Название для буквы в аватаре (ключ «Другое»).
   final String? avatarName;
   final Money amount;
+  final bool isExpense;
+  final Color amountColor;
   final PercentShare share;
   final Color color;
+
+  /// Сумма со знаком типа: «−…» для расхода, «+…» для дохода.
+  String get signedAmount =>
+      isExpense ? '−${formatMoney(amount)}' : '+${formatMoney(amount)}';
 
   String get percentText =>
       formatPercent(share.percent ?? 0, isBelowOne: share.isBelowOne);
@@ -330,7 +340,9 @@ class _RowTile extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       container: true,
-      label: '${row.label}, ${spokenMoney(row.amount)}, ${row.percentSpoken}',
+      label:
+          '${row.label}, ${row.isExpense ? 'расход' : 'доход'} '
+          '${spokenMoney(row.amount)}, ${row.percentSpoken}',
       excludeSemantics: true,
       child: Row(
         children: [
@@ -341,8 +353,16 @@ class _RowTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(row.label, style: theme.textTheme.bodyMedium),
-                Text(
-                  '${formatMoney(row.amount)} · ${row.percentText}',
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: row.signedAmount,
+                        style: TextStyle(color: row.amountColor),
+                      ),
+                      TextSpan(text: ' · ${row.percentText}'),
+                    ],
+                  ),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
