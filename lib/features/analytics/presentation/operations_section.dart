@@ -8,6 +8,7 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/operations_stats.dart';
@@ -294,7 +295,7 @@ class _OperationRow extends StatelessWidget {
     final day = _dayText(transaction.occurredOn, today);
     final note = transaction.note;
     final spoken = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
-      ..write(spokenMoney(transaction.amount))
+      ..write(maskedSpoken(context, spokenMoney(transaction.amount)))
       ..write(', $title, $day');
     if (note != null) spoken.write(', комментарий: $note');
 

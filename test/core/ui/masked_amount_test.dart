@@ -105,4 +105,40 @@ void main() {
     expect(shown, '10 ₽');
     expect(hiddenText, maskedMoneyText);
   });
+
+  testWidgets('maskedSpoken подменяет озвучку', (tester) async {
+    late String shown;
+    late String hiddenText;
+    Widget probe(bool hidden, void Function(String) save) => _host(
+      hidden: hidden,
+      child: Builder(
+        builder: (context) {
+          save(maskedSpoken(context, '10 рублей'));
+          return const SizedBox();
+        },
+      ),
+    );
+    await tester.pumpWidget(probe(false, (s) => shown = s));
+    await tester.pumpWidget(probe(true, (s) => hiddenText = s));
+    expect(shown, '10 рублей');
+    expect(hiddenText, hiddenAmountLabel);
+  });
+
+  testWidgets('maxLines, softWrap и overflow доходят до Text', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        hidden: false,
+        child: const MaskedAmount(
+          '5 ₽',
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+    final text = tester.widget<Text>(find.text('5 ₽'));
+    expect(text.maxLines, 1);
+    expect(text.softWrap, isFalse);
+    expect(text.overflow, TextOverflow.ellipsis);
+  });
 }

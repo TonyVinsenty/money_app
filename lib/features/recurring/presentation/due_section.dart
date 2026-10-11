@@ -8,6 +8,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/section_card.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -224,6 +225,7 @@ class _DueSectionState extends State<DueSection> {
     final theme = Theme.of(context);
     final p = due.payment;
     final archived = _archivedText(p);
+    final hidden = AmountsVisibility.hiddenOf(context);
     return Padding(
       key: DueSection.rowKey(due.id),
       padding: const EdgeInsets.only(bottom: 8),
@@ -232,7 +234,7 @@ class _DueSectionState extends State<DueSection> {
         children: [
           Semantics(
             container: true,
-            label: dueRowSemantics(p, due.dueOn, widget.today),
+            label: dueRowSemantics(p, due.dueOn, widget.today, hidden: hidden),
             button: true,
             onTap: () => archived == null ? _openSheet(due) : widget.onEdit(p),
             excludeSemantics: true,
@@ -247,7 +249,7 @@ class _DueSectionState extends State<DueSection> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        dueRowText(p),
+                        dueRowText(p, hidden: hidden),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge,

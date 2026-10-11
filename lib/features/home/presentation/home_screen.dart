@@ -36,8 +36,15 @@ class HomeScreen extends StatefulWidget {
     this.balanceLine,
     this.balanceLineKind = HomeBalanceLine.allTime,
     this.banner,
+    this.hideAmounts = false,
+    this.onHideAmountsChanged,
     super.key,
   });
+
+  /// Суммы скрыты ли сейчас и как это переключить («глаз» в карточке итогов).
+  /// Без обработчика значка нет.
+  final bool hideAmounts;
+  final ValueChanged<bool>? onHideAmountsChanged;
 
   /// Какая это вторая строка в кольце («За всё время» или «На счетах»).
   final HomeBalanceLine balanceLineKind;
@@ -134,6 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     month: w.month,
                     onPreviousMonth: w.onPreviousMonth,
                     onNextMonth: w.onNextMonth,
+                    hideAmounts: w.hideAmounts,
+                    onHideAmountsChanged: w.onHideAmountsChanged,
                   ),
                 ),
               ),

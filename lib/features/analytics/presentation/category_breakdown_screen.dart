@@ -12,6 +12,7 @@ import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -309,7 +310,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
     final day = _operationDay(t.occurredOn, widget.today);
     final note = t.note;
     final spoken = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
-      ..write(spokenMoney(t.amount))
+      ..write(maskedSpoken(context, spokenMoney(t.amount)))
       ..write(', $title, $day');
     if (note != null) spoken.write(', комментарий: $note');
     return OperationTile(

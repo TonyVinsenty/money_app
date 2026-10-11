@@ -6,6 +6,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -57,8 +58,16 @@ class MonthSummaryCard extends StatelessWidget {
     required this.month,
     this.onPreviousMonth,
     this.onNextMonth,
+    this.hideAmounts = false,
+    this.onHideAmountsChanged,
     super.key,
   });
+
+  /// Значок «глаз» (скрыть/показать суммы): есть только с обработчиком.
+  static const hideAmountsKey = ValueKey('month-summary-hide-amounts');
+  static const double _eyeSize = 48;
+  final bool hideAmounts;
+  final ValueChanged<bool>? onHideAmountsChanged;
 
   /// Стрелки «‹» и «›» заголовка; `null` — стрелка недоступна.
   final VoidCallback? onPreviousMonth;
@@ -83,6 +92,41 @@ class MonthSummaryCard extends StatelessWidget {
     final width =
         MediaQuery.sizeOf(context).width - 2 * _screenInset - 2 * _cardPadding;
     return summaryFitsInRow(width, fontScaleOf(context));
+  }
+
+  /// Переключатель месяца; со значком «глаз» справа (и пустым местом слева,
+  /// чтобы подпись месяца осталась по центру), если есть обработчик.
+  Widget _header(String title, ColorScheme scheme) {
+    final switcher = PeriodSwitcher(
+      label: title,
+      onPrevious: onPreviousMonth,
+      onNext: onNextMonth,
+      previousTooltip: 'Предыдущий месяц',
+      nextTooltip: 'Следующий месяц',
+    );
+    final onChanged = onHideAmountsChanged;
+    if (onChanged == null) return switcher;
+    return Row(
+      children: [
+        const SizedBox(width: _eyeSize),
+        Expanded(child: switcher),
+        IconButton(
+          key: hideAmountsKey,
+          icon: Icon(
+            hideAmounts
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
+          ),
+          tooltip: hideAmounts ? 'Показать суммы' : 'Скрыть суммы',
+          color: scheme.onSurfaceVariant,
+          onPressed: () => onChanged(!hideAmounts),
+          constraints: const BoxConstraints.tightFor(
+            width: _eyeSize,
+            height: _eyeSize,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -146,13 +190,7 @@ class MonthSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            PeriodSwitcher(
-              label: title,
-              onPrevious: onPreviousMonth,
-              onNext: onNextMonth,
-              previousTooltip: 'Предыдущий месяц',
-              nextTooltip: 'Следующий месяц',
-            ),
+            _header(title, scheme),
             const SizedBox(height: 4),
             columns,
           ],
@@ -237,7 +275,7 @@ class _SummaryColumn extends StatelessWidget {
         // В ряду сумма всегда в одну строку: иначе IntrinsicHeight мерил бы её
         // как перенесённую, а FittedBox рисовал бы в одну, и ряд вышел бы
         // высоким с пустотой внутри.
-        final amount = Text(
+        final amount = MaskedAmount(
           '$sign${formatMoney(sum)}',
           maxLines: fit ? 1 : null,
           softWrap: !fit,
@@ -249,7 +287,9 @@ class _SummaryColumn extends StatelessWidget {
         // карточкой (Card сам собирает узел из потомков).
         return Semantics(
           container: true,
-          label: '$title за $monthName: ${spokenMoney(sum)}',
+          label:
+              '$title за $monthName: '
+              '${maskedSpoken(context, spokenMoney(sum))}',
           excludeSemantics: true,
           child: lines(
             fit

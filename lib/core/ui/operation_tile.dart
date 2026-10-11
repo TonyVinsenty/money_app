@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 
@@ -92,7 +93,7 @@ class OperationTile extends StatelessWidget {
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerRight,
-                child: Text(
+                child: MaskedAmount(
                   '$sign${formatMoney(amount)}',
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: accent,

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/presentation/recurring_texts.dart';
 
@@ -26,7 +27,10 @@ class DueBanner extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 16),
           child: Semantics(
             button: true,
-            label: dueBannerSemantics(list),
+            label: dueBannerSemantics(
+              list,
+              hidden: AmountsVisibility.hiddenOf(context),
+            ),
             onTap: onTap,
             excludeSemantics: true,
             child: Material(
@@ -78,7 +82,7 @@ class DueBanner extends StatelessWidget {
         ?.copyWith(color: scheme.onSecondaryContainer);
     if (list.length != 1) {
       return Text(
-        dueBannerText(list),
+        dueBannerText(list, hidden: AmountsVisibility.hiddenOf(context)),
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
         style: style,
@@ -101,7 +105,13 @@ class DueBanner extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(dueBannerTail(payment), style: style),
+              child: Text(
+                dueBannerTail(
+                  payment,
+                  hidden: AmountsVisibility.hiddenOf(context),
+                ),
+                style: style,
+              ),
             ),
           ),
         ],

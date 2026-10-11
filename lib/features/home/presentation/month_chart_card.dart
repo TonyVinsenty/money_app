@@ -12,6 +12,7 @@ import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
@@ -279,8 +280,10 @@ class _MonthChartCardState extends State<MonthChartCard> {
     Widget ringWith(Money? line) {
       final label =
           'Диаграмма расходов за ${formatMonthName(month)}. '
-          '${_topLabel(month)}: ${_spokenSigned(balance)}'
-          '${line == null ? '' : '. ${_lineLabel()}: ${_spokenLine(line)}'}';
+          '${_topLabel(month)}: '
+          '${maskedSpoken(context, _spokenSigned(balance))}'
+          '${line == null ? '' : '. ${_lineLabel()}: '
+                    '${maskedSpoken(context, _spokenLine(line))}'}';
       return SizedBox.square(
         dimension: side,
         child: DonutChart(
@@ -304,7 +307,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
           center: SizedBox(
             width: side * 0.66,
             child: highlighted == null
-                ? _totalCenter(theme, colors, month, balance, line)
+                ? _totalCenter(context, theme, colors, month, balance, line)
                 : _sliceCenter(
                     theme,
                     slices[highlighted],
@@ -383,6 +386,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
   /// Под ними - мельче - строка «За всё время: …» или «На счетах: …» ([line]),
   /// если она есть.
   Widget _totalCenter(
+    BuildContext context,
     ThemeData theme,
     AppColors colors,
     DateOnly month,
@@ -407,7 +411,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
           ),
         ),
         _fit(
-          Text(
+          MaskedAmount(
             text,
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall?.copyWith(color: color),
@@ -416,7 +420,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
         if (line != null)
           _fit(
             Text(
-              '${_lineLabel()}: ${_lineText(line)}',
+              '${_lineLabel()}: ${maskedMoney(context, _lineText(line))}',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
@@ -451,7 +455,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
           style: theme.textTheme.titleMedium,
         ),
         _fit(
-          Text(
+          MaskedAmount(
             formatMoney(slice.amount),
             textAlign: TextAlign.center,
             style: theme.textTheme.headlineSmall,
@@ -595,7 +599,7 @@ class _LegendItemView extends StatelessWidget {
       // container: каждый элемент — отдельный узел, а не слитый с соседями.
       container: true,
       label:
-          '${item.label}, ${spokenMoney(item.amount)}, '
+          '${item.label}, ${maskedSpoken(context, spokenMoney(item.amount))}, '
           '${_percentSpoken(item.share)}',
       button: onTap != null,
       onTap: onTap,

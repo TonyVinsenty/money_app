@@ -34,6 +34,10 @@ class AmountsVisibility extends InheritedWidget {
 String maskedMoney(BuildContext context, String money) =>
     AmountsVisibility.hiddenOf(context) ? maskedMoneyText : money;
 
+/// [spoken] или [hiddenAmountLabel], если суммы скрыты: для озвучки.
+String maskedSpoken(BuildContext context, String spoken) =>
+    AmountsVisibility.hiddenOf(context) ? hiddenAmountLabel : spoken;
+
 /// Текст суммы. Когда суммы скрыты, вместо цифр — «облачко»: размытое пятно
 /// цвета текста одной ширины для любой суммы (длина числа не выдаётся),
 /// а скринридер говорит «сумма скрыта».
@@ -43,8 +47,16 @@ class MaskedAmount extends StatelessWidget {
     this.style,
     this.textAlign,
     this.semanticsLabel,
+    this.maxLines,
+    this.softWrap,
+    this.overflow,
     super.key,
   });
+
+  /// Передаются в [Text], когда сумма видна.
+  final int? maxLines;
+  final bool? softWrap;
+  final TextOverflow? overflow;
 
   final String text;
   final TextStyle? style;
@@ -64,6 +76,9 @@ class MaskedAmount extends StatelessWidget {
         style: style,
         textAlign: textAlign,
         semanticsLabel: semanticsLabel,
+        maxLines: maxLines,
+        softWrap: softWrap,
+        overflow: overflow,
       );
     }
     final resolved = DefaultTextStyle.of(context).style.merge(style);

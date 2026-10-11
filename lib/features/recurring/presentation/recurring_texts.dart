@@ -3,6 +3,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -75,8 +76,9 @@ final String _minus = String.fromCharCode(0x2212);
 final String _emDash = String.fromCharCode(0x2014);
 
 /// Сумма строки со знаком: у расхода настоящий минус (U+2212), у дохода «+».
-String recurringAmountText(RecurringPayment payment) {
-  final shown = formatMoney(payment.amount);
+/// При [hidden] вместо суммы - [maskedMoneyText].
+String recurringAmountText(RecurringPayment payment, {bool hidden = false}) {
+  final shown = hidden ? maskedMoneyText : formatMoney(payment.amount);
   return payment.type == TransactionType.income ? '+$shown' : '$_minus$shown';
 }
 
@@ -134,9 +136,14 @@ String recurringSubtitleText(RecurringPayment payment, DateOnly? nextDue) {
 
 /// Озвучка строки: «Интернет, расход 650 рублей, каждый месяц 5-го,
 /// следующий 5 ноября»; у завершённого - «..., завершён».
-String recurringRowSemantics(RecurringPayment payment, DateOnly? nextDue) {
+String recurringRowSemantics(
+  RecurringPayment payment,
+  DateOnly? nextDue, {
+  bool hidden = false,
+}) {
   final kind = payment.type == TransactionType.income ? 'доход' : 'расход';
-  final head = '${payment.title}, $kind ${spokenMoney(payment.amount)}';
+  final spoken = hidden ? hiddenAmountLabel : spokenMoney(payment.amount);
+  final head = '${payment.title}, $kind $spoken';
   if (nextDue == null) return '$head, завершён';
   final repeat = recurringRepeatText(payment)
       .toLowerCase()
@@ -184,13 +191,20 @@ String dueDayText(DateOnly day, DateOnly today) {
 }
 
 /// Строка записи: «Интернет · 650,00 ₽».
-String dueRowText(RecurringPayment payment) =>
-    '${payment.title} · ${formatMoney(payment.amount)}';
+String dueRowText(RecurringPayment payment, {bool hidden = false}) =>
+    '${payment.title} · '
+    '${hidden ? maskedMoneyText : formatMoney(payment.amount)}';
 
 /// Озвучка строки: «Интернет, расход 650 рублей, сегодня».
-String dueRowSemantics(RecurringPayment payment, DateOnly day, DateOnly today) {
+String dueRowSemantics(
+  RecurringPayment payment,
+  DateOnly day,
+  DateOnly today, {
+  bool hidden = false,
+}) {
   final kind = payment.type == TransactionType.income ? 'доход' : 'расход';
-  return '${payment.title}, $kind ${spokenMoney(payment.amount)}, '
+  final spoken = hidden ? hiddenAmountLabel : spokenMoney(payment.amount);
+  return '${payment.title}, $kind $spoken, '
       '${dueDayText(day, today).toLowerCase()}';
 }
 
@@ -205,10 +219,10 @@ String dueSkippedMessage(String title, DateOnly day) =>
 
 /// Плашка на «Главной» (Р10): «К оплате: Интернет — 650,00 ₽» или
 /// «К оплате: 3 платежа».
-String dueBannerText(List<RecurringDue> dues) {
+String dueBannerText(List<RecurringDue> dues, {bool hidden = false}) {
   if (dues.length == 1) {
     final p = dues.single.payment;
-    return dueBannerHead(p) + dueBannerTail(p);
+    return dueBannerHead(p) + dueBannerTail(p, hidden: hidden);
   }
   return '$dueSectionTitleBase: ${_dueCountText(dues.length)}';
 }
@@ -218,18 +232,19 @@ String dueBannerText(List<RecurringDue> dues) {
 String dueBannerHead(RecurringPayment p) => '$dueSectionTitleBase: ${p.title}';
 
 /// Хвост плашки с одним платежом: « — 650,00 ₽».
-String dueBannerTail(RecurringPayment p) =>
-    ' $_emDash ${formatMoney(p.amount)}';
+String dueBannerTail(RecurringPayment p, {bool hidden = false}) =>
+    ' $_emDash ${hidden ? maskedMoneyText : formatMoney(p.amount)}';
 
 String _dueCountText(int n) =>
     '$n ${pluralRu(n, 'платёж', 'платежа', 'платежей')}';
 
 /// Озвучка плашки. Для нескольких - по Р10: «К оплате 3 платежа. Открыть»;
 /// для одного - по Р10б: «К оплате: Интернет, 650 рублей. Открыть».
-String dueBannerSemantics(List<RecurringDue> dues) {
+String dueBannerSemantics(List<RecurringDue> dues, {bool hidden = false}) {
   if (dues.length == 1) {
     final p = dues.single.payment;
-    return '$dueSectionTitleBase: ${p.title}, ${spokenMoney(p.amount)}. '
+    final spoken = hidden ? hiddenAmountLabel : spokenMoney(p.amount);
+    return '$dueSectionTitleBase: ${p.title}, $spoken. '
         'Открыть';
   }
   return '$dueSectionTitleBase ${_dueCountText(dues.length)}. Открыть';

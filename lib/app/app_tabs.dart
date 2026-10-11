@@ -310,6 +310,8 @@ class _HomeTabState extends State<HomeTab> {
       month: month.start,
       isCurrentMonth: month == monthRange(browse.today),
       currency: _currency!,
+      hideAmounts: AppScope.of(context).settings.hideAmounts,
+      onHideAmountsChanged: AppScope.of(context).settings.setHideAmounts,
       onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,
       onNextMonth: browse.canGoForward ? browse.nextMonth : null,
       // Месяц и порядок «Истории» не меняются; новый экран не открывается.

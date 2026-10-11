@@ -11,6 +11,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
@@ -450,7 +451,7 @@ class _HistoryList extends StatelessWidget {
         // Сводная подпись для скринридера: тип, сумма словами, категория, день
         // и комментарий одной фразой.
         final label = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
-          ..write(spokenMoney(t.amount))
+          ..write(maskedSpoken(context, spokenMoney(t.amount)))
           ..write(', $title, $dayText');
         if (note != null) label.write(', комментарий: $note');
         // Вторая строка: при сортировке по сумме - «день · комментарий».

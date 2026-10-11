@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/section_card.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
@@ -125,9 +126,10 @@ class _Row extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = context.appColors;
     final isIncome = payment.type == TransactionType.income;
+    final hidden = AmountsVisibility.hiddenOf(context);
     return Semantics(
       container: true,
-      label: recurringRowSemantics(payment, next),
+      label: recurringRowSemantics(payment, next, hidden: hidden),
       button: onOpen != null,
       onTap: onOpen == null ? null : () => onOpen!(payment),
       excludeSemantics: true,
@@ -170,7 +172,7 @@ class _Row extends StatelessWidget {
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      recurringAmountText(payment),
+                      recurringAmountText(payment, hidden: hidden),
                       softWrap: false,
                       textAlign: TextAlign.end,
                       style: theme.textTheme.bodyLarge?.copyWith(

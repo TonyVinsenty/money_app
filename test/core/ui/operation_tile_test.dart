@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -127,6 +128,32 @@ void main() {
       ),
     );
     expect(find.byType(InkWell), findsNothing);
+  });
+
+  testWidgets('суммы скрыты: цифр нет, облачко, остальное на месте', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: AmountsVisibility(
+            hidden: true,
+            child: OperationTile(
+              title: 'Еда',
+              subtitle: 'Сегодня',
+              amount: _rub(12345),
+              isIncome: false,
+              semanticLabel: 'Расход, сумма скрыта, Еда',
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.textContaining(formatMoney(_rub(12345))), findsNothing);
+    expect(find.byKey(const ValueKey('masked-amount-cloud')), findsOneWidget);
+    expect(find.text('Еда'), findsOneWidget);
+    expect(find.text('Сегодня'), findsOneWidget);
   });
 
   group('CategoryAvatar', () {
