@@ -727,9 +727,12 @@ class _ThemeRow extends StatelessWidget {
   /// ширины не зависела от умолчаний Material).
   static const _segmentPadding = AppSpacing.m;
 
-  /// Значок «выбрано» (18) с промежутком (8), рамки и запас на округление.
-  static const _selectedIconWidth = 26.0;
+  /// Рамки и запас на округление у каждого сегмента. Значка «выбрано» нет:
+  /// выбранный сегмент залит цветом, а скринридер говорит «выбрано».
   static const _segmentAllowance = 8.0;
+
+  /// Запас строки «Тема + сегменты».
+  static const _besideReserve = AppSpacing.xl;
 
   /// Значок пункта (24) и промежуток до названия, как у `ListTile`.
   static const _leadingWidth = 24.0 + AppSpacing.l;
@@ -748,20 +751,28 @@ class _ThemeRow extends StatelessWidget {
 
   ThemeRowLayout _layout(BuildContext context, double width) {
     final textTheme = Theme.of(context).textTheme;
-    var buttonWidth = _selectedIconWidth;
+    var buttonWidth = 0.0;
+    var widestSegment = 0.0;
     for (final (_, label) in _options) {
-      buttonWidth +=
+      final segment =
           _textWidth(context, label, textTheme.labelLarge) +
           2 * _segmentPadding +
           _segmentAllowance;
+      buttonWidth += segment;
+      if (segment > widestSegment) widestSegment = segment;
     }
     final titleWidth =
         _leadingWidth +
         _textWidth(context, themeSectionTitle, textTheme.bodyLarge);
-    if (titleWidth + AppSpacing.l + buttonWidth <= width) {
+    // Запас: оценка по тексту не учитывает всего, что рисует Material, а
+    // ошибка здесь рвёт «Тема» посреди слова.
+    if (titleWidth + AppSpacing.l + buttonWidth + _besideReserve <= width) {
       return ThemeRowLayout.beside;
     }
-    return buttonWidth <= width ? ThemeRowLayout.below : ThemeRowLayout.stacked;
+    // Во всю ширину сегменты равные: решает самый широкий.
+    return widestSegment * _options.length <= width
+        ? ThemeRowLayout.below
+        : ThemeRowLayout.stacked;
   }
 
   @override
@@ -810,6 +821,7 @@ class _ThemeRow extends StatelessWidget {
                 ),
             ],
             selected: {value},
+            showSelectedIcon: false,
             onSelectionChanged: (selected) => onChanged(selected.single),
             direction: layout == ThemeRowLayout.stacked
                 ? Axis.vertical
@@ -819,10 +831,16 @@ class _ThemeRow extends StatelessWidget {
             expandedInsets: layout == ThemeRowLayout.below
                 ? EdgeInsets.zero
                 : null,
-            style: const ButtonStyle(
-              padding: WidgetStatePropertyAll(
+            style: ButtonStyle(
+              padding: const WidgetStatePropertyAll(
                 EdgeInsets.symmetric(horizontal: _segmentPadding),
               ),
+              // Столбиком «таблетка» раздувается в овал: скругление поля.
+              shape: layout == ThemeRowLayout.stacked
+                  ? const WidgetStatePropertyAll(
+                      RoundedRectangleBorder(borderRadius: AppRadius.borderM),
+                    )
+                  : null,
             ),
           );
           if (layout == ThemeRowLayout.beside) {

@@ -281,13 +281,26 @@ void main() {
           final button = find.byType(SegmentedButton<ThemeMode>);
           expect(tester.getTopRight(button).dx, lessThanOrEqualTo(width - 16));
           expect(tester.getTopLeft(button).dx, greaterThanOrEqualTo(16));
-          // Подписи целиком, в одну строку: высота строки не больше одной.
-          for (final label in ['Системная', 'Светлая', 'Тёмная']) {
+          // Подписи целиком, без переноса посреди слова: высота абзаца
+          // равна высоте того же текста в одну строку.
+          for (final label in ['Тема', 'Системная', 'Светлая', 'Тёмная']) {
+            final paragraph = tester.renderObject<RenderParagraph>(
+              find.descendant(
+                of: find.text(label),
+                matching: find.byType(RichText),
+              ),
+            );
+            final oneLine = TextPainter(
+              text: paragraph.text,
+              textDirection: TextDirection.ltr,
+              textScaler: paragraph.textScaler,
+            )..layout();
             expect(
-              tester.getSize(find.text(label)).height,
-              lessThan(14 * scale * 2),
+              paragraph.size.height,
+              moreOrLessEquals(oneLine.height, epsilon: 0.5),
               reason: '$label в одну строку',
             );
+            oneLine.dispose();
           }
         });
       }
