@@ -7,7 +7,7 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
-import 'package:money_app/core/ui/color_dot.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -156,6 +156,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
     }
 
     final names = {for (final c in categories) c.id: c.name};
+    final icons = {for (final c in categories) c.id: c.iconKey};
     final shares = percentShares([for (final t in totals) t.amount]);
     var total = Money.zero(widget.currency);
     for (final t in totals) {
@@ -167,6 +168,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
           label: totals[i].subcategoryId == null
               ? _noSubcategoryLabel
               : names[totals[i].subcategoryId] ?? _unknownSubcategoryLabel,
+          iconKey: icons[totals[i].subcategoryId] ?? widget.category.iconKey,
           amount: totals[i].amount,
           share: shares[i],
           // Палитра на 8 цветов: строки с 9-й получают серый «Остальное».
@@ -292,12 +294,14 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
 class _Row {
   const _Row({
     required this.label,
+    required this.iconKey,
     required this.amount,
     required this.share,
     required this.color,
   });
 
   final String label;
+  final String? iconKey;
   final Money amount;
   final PercentShare share;
   final Color color;
@@ -322,13 +326,9 @@ class _RowTile extends StatelessWidget {
       label: '${row.label}, ${spokenMoney(row.amount)}, ${row.percentSpoken}',
       excludeSemantics: true,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xs),
-            child: ColorDot(color: row.color),
-          ),
-          const SizedBox(width: 8),
+          CategoryAvatar(row.iconKey, color: row.color),
+          const SizedBox(width: AppSpacing.m),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

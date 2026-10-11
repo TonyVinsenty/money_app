@@ -5,9 +5,8 @@ import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
-import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
-import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -398,13 +397,11 @@ class _CategoryRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           children: [
-            ColorDot(key: dotKey, color: color),
-            const SizedBox(width: 12),
             ExcludeSemantics(
-              child: CategoryIconView(
+              child: CategoryAvatar(
                 category?.iconKey,
-                size: 24,
-                color: muted,
+                key: dotKey,
+                color: color,
               ),
             ),
             const SizedBox(width: 12),

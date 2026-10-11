@@ -6,7 +6,7 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/card_header.dart';
-import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -219,13 +219,7 @@ class _StatRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           children: [
-            ExcludeSemantics(
-              child: CategoryIconView(
-                category?.iconKey,
-                size: 24,
-                color: muted,
-              ),
-            ),
+            ExcludeSemantics(child: CategoryAvatar(category?.iconKey)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

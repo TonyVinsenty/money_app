@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/presentation/comparison_section.dart';
@@ -135,6 +136,14 @@ void main() {
       find.text('↑ на 2${_nbsp}300,00$_nbsp₽ (+40$_nbsp%)'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('строка категории с нейтральным аватаром', (tester) async {
+    await _pump(tester, transactions: [_tx('a', 'cafe', 800000, oct)]);
+
+    final avatar = tester.widget<CategoryAvatar>(find.byType(CategoryAvatar));
+    expect(avatar.iconKey, 'icon');
+    expect(avatar.color, isNull);
   });
 
   testWidgets('меньше, целый прошлый месяц: «чем в августе»', (tester) async {

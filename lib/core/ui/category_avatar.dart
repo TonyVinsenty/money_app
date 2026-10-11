@@ -15,14 +15,36 @@ class CategoryAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fill = color;
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: color ?? Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: fill ?? Theme.of(context).colorScheme.surfaceContainerHighest,
         shape: BoxShape.circle,
       ),
-      child: CategoryIconView(iconKey, size: 24),
+      child: CategoryIconView(
+        iconKey,
+        size: 24,
+        color: fill == null ? null : categoryAvatarForeground(fill),
+      ),
     );
   }
 }
+
+const Color _lightGlyph = Color(0xFFFFFFFF);
+const Color _darkGlyph = Color(0xFF212121);
+
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/// Цвет значка на цветной заливке: белый или тёмный - тот, что контрастнее.
+Color categoryAvatarForeground(Color fill) =>
+    _contrast(_lightGlyph, fill) >= _contrast(_darkGlyph, fill)
+    ? _lightGlyph
+    : _darkGlyph;

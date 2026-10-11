@@ -8,7 +8,7 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
-import 'package:money_app/core/ui/color_dot.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -266,7 +266,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.byType(DonutChart), findsNothing);
-    expect(find.byType(ColorDot), findsNothing);
+    expect(find.byType(CategoryAvatar), findsNothing);
     expect(find.text('Всего за период'), findsNothing);
   });
 
@@ -352,7 +352,7 @@ void main() {
 
     final colors = tester.element(find.byType(Scaffold)).appColors;
     final dots = tester
-        .widgetList<ColorDot>(find.byType(ColorDot))
+        .widgetList<CategoryAvatar>(find.byType(CategoryAvatar))
         .map((d) => d.color)
         .toList();
     expect(dots.length, 10);
@@ -420,9 +420,9 @@ void main() {
         find.bySemanticsLabel('Рынок, 7680 рублей, 59 процентов'),
         findsOneWidget,
       );
-      // Метка цвета не даёт отдельных узлов: в семантику ушли бы лишние
+      // Аватар не даёт отдельных узлов: в семантику ушли бы лишние
       // пустые элементы.
-      expect(find.byType(ColorDot), findsNWidgets(2));
+      expect(find.byType(CategoryAvatar), findsNWidgets(2));
       semantics.dispose();
     });
 
