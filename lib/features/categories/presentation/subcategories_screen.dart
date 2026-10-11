@@ -116,7 +116,6 @@ class _SubcategoriesScreenState extends State<SubcategoriesScreen>
                   archiveKey: 'archive-subcategories',
                   archiveNote: subcategoriesArchiveNote,
                   emptyText: subcategoriesEmptyText,
-                  onArchive: (c) => unawaited(archiveCategory(c)),
                   onRestore: (c) => unawaited(restoreCategory(c)),
                   onRename: (c) =>
                       unawaited(openOnce(() => widget.onRename(c))),

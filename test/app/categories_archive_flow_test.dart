@@ -216,8 +216,8 @@ void main() {
       await tester.tap(find.text(categoriesScreenTitle));
       await tester.pumpAndSettle();
       expect(find.text('Кафе'), findsOneWidget);
-      // «В архив» лежит в меню «⋮» строки.
-      await tester.tap(find.byTooltip(categoriesMoreLabel('Кафе')));
+      // «В архив» лежит в правке: касание строки открывает форму.
+      await tester.tap(find.text('Кафе'));
       await tester.pumpAndSettle();
       await tester.tap(find.text(categoriesArchiveAction));
       await tester.pumpAndSettle();

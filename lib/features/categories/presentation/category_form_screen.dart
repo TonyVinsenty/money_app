@@ -11,6 +11,9 @@ import 'package:money_app/features/categories/domain/categories_repository.dart'
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
+import 'package:money_app/features/categories/presentation/categories_screen.dart';
+import 'package:money_app/features/categories/presentation/category_actions.dart';
+import 'package:money_app/features/categories/presentation/subcategories_screen.dart';
 
 /// Заголовки экрана формы.
 const categoryFormCreateTitle = 'Новая категория';
@@ -56,8 +59,13 @@ class CategoryFormScreen extends StatefulWidget {
     required this.initialKind,
     this.renaming,
     this.parent,
+    this.onOpenSubcategories,
     super.key,
   });
+
+  /// Открывает экран подкатегорий правимой категории верхнего уровня; `null` —
+  /// строки «Подкатегории» нет. Future завершается, когда экран закрыли.
+  final Future<void> Function(Category category)? onOpenSubcategories;
 
   final CategoriesRepository categories;
 
@@ -77,8 +85,21 @@ class CategoryFormScreen extends StatefulWidget {
   State<CategoryFormScreen> createState() => _CategoryFormScreenState();
 }
 
-class _CategoryFormScreenState extends State<CategoryFormScreen> {
+class _CategoryFormScreenState extends State<CategoryFormScreen>
+    with CategoryActions<CategoryFormScreen> {
   late final TextEditingController _name;
+
+  /// Живые подкатегории правимой категории верхнего уровня (для числа в строке
+  /// «Подкатегории»); у остальных форм `null`.
+  Stream<List<Category>>? _subcategories;
+
+  @override
+  CategoriesRepository get categoriesRepository => widget.categories;
+
+  @override
+  String archivedMessage(String name) => widget.renaming?.parentId != null
+      ? subcategoriesArchivedMessage(name)
+      : categoriesArchivedMessage(name);
   late CategoryKind _kind;
 
   /// Иконка по умолчанию — первая в наборе.
@@ -109,6 +130,11 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     _kind = widget.renaming?.kind ?? widget.initialKind;
     final renaming = widget.renaming;
     final parent = widget.parent;
+    if (renaming != null &&
+        renaming.parentId == null &&
+        widget.onOpenSubcategories != null) {
+      _subcategories = widget.categories.watchAll();
+    }
     if (renaming == null && parent != null) {
       // Новая подкатегория: по умолчанию значок родителя.
       _iconKey = parent.iconKey;
@@ -239,9 +265,53 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
     }
   }
 
+  /// «В архив» из правки: после успеха форма закрывается (сообщение с
+  /// «Вернуть» показано на корневом мессенджере и остаётся).
+  Future<void> _archive() async {
+    final category = widget.renaming!;
+    final navigator = Navigator.of(context);
+    final ok = await archiveCategory(category);
+    if (ok && mounted) navigator.pop();
+  }
+
+  /// Строка «Подкатегории» с числом живых подкатегорий и шевроном.
+  Widget _subcategoriesRow(ThemeData theme) {
+    final category = widget.renaming!;
+    return StreamBuilder<List<Category>>(
+      stream: _subcategories,
+      builder: (context, snapshot) {
+        final count = [
+          for (final c in snapshot.data ?? const <Category>[])
+            if (c.parentId == category.id && !c.isArchived) c,
+        ].length;
+        return ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text(categoriesSubcategoriesAction),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (count > 0)
+                Text(
+                  '$count',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              const Icon(Icons.chevron_right),
+            ],
+          ),
+          onTap: () =>
+              unawaited(openOnce(() => widget.onOpenSubcategories!(category))),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final renaming = widget.renaming;
+    final canArchive = renaming != null && !renaming.isArchived;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -310,6 +380,10 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                         onSelectionChanged: (selection) =>
                             setState(() => _kind = selection.first),
                       ),
+                    ],
+                    if (_subcategories != null) ...[
+                      const SizedBox(height: 8),
+                      _subcategoriesRow(theme),
                     ],
                     // Значок выбирается и у категории, и у подкатегории.
                     ...[
@@ -401,6 +475,17 @@ class _CategoryFormScreenState extends State<CategoryFormScreen> {
                     onPressed: _saving ? null : () => unawaited(_save()),
                     child: const Text(categoryFormSaveLabel),
                   ),
+                  if (canArchive)
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.error,
+                        minimumSize: const Size(48, 48),
+                      ),
+                      onPressed: _saving
+                          ? null
+                          : () => unawaited(openOnce(_archive)),
+                      child: const Text(categoriesArchiveAction),
+                    ),
                 ],
               ),
             ),

@@ -14,7 +14,6 @@ export 'package:money_app/features/categories/presentation/category_list.dart'
         categoriesArchiveAction,
         categoriesArchiveTitle,
         categoriesArchivedDuration,
-        categoriesMoreLabel,
         categoriesMovedAnnouncement,
         categoriesRestoreAction,
         categoriesRestoreLabel,
@@ -48,12 +47,12 @@ const categoriesLoadErrorText = 'Не удалось загрузить кате
 ///
 /// Два вида, «Расходы» и «Доходы»; в каждом живые категории верхнего уровня в
 /// порядке репозитория (`sortOrder`) и свёрнутый раздел «Архив (N)». Архив
-/// обратим, поэтому подтверждения нет. У живой категории есть кнопка перехода
-/// к её подкатегориям; сами подкатегории на этом экране не показываются.
+/// обратим, поэтому подтверждения нет. «В архив» и «Подкатегории» лежат в форме
+/// правки категории; сами подкатегории на этом экране не показываются.
 ///
-/// Форма создания и переименования и экран подкатегорий лежат на других
-/// маршрутах: их открывают колбэки [onCreate] (с видом открытой вкладки),
-/// [onRename] и [onOpenSubcategories], их даёт приложение. Колбэк возвращает
+/// Форма создания и правки лежит на другом маршруте: её открывают колбэки
+/// [onCreate] (с видом открытой вкладки) и [onRename], их даёт приложение.
+/// Колбэк возвращает
 /// Future, который завершается, когда экран закрыли: пока он открыт, повторный
 /// тап (двойной) второго экрана не открывает.
 class CategoriesScreen extends StatefulWidget {
@@ -61,14 +60,12 @@ class CategoriesScreen extends StatefulWidget {
     required this.categories,
     required this.onCreate,
     required this.onRename,
-    required this.onOpenSubcategories,
     super.key,
   });
 
   final CategoriesRepository categories;
   final Future<void> Function(CategoryKind kind) onCreate;
   final Future<void> Function(Category category) onRename;
-  final Future<void> Function(Category category) onOpenSubcategories;
 
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
@@ -114,9 +111,6 @@ class _CategoriesScreenState extends State<CategoriesScreen>
       archiveNote: categoriesArchiveNote,
       emptyText: categoriesEmptyText,
       subcategoryCounts: _subcategoryCounts(data),
-      onOpenSubcategories: (c) =>
-          unawaited(openOnce(() => widget.onOpenSubcategories(c))),
-      onArchive: (c) => unawaited(archiveCategory(c)),
       onRestore: (c) => unawaited(restoreCategory(c)),
       onRename: (c) => unawaited(openOnce(() => widget.onRename(c))),
       onReorder: reorderCategories,

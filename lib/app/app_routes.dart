@@ -525,15 +525,6 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
               renaming: category,
             ),
           ),
-          onOpenSubcategories: (parent) =>
-              Navigator.of(context).pushNamed<void>(
-                AppRoutes.subcategories,
-                arguments: SubcategoriesRouteArguments(
-                  parent: parent,
-                  categories: arguments.categories,
-                  idGenerator: arguments.idGenerator,
-                ),
-              ),
         ),
       );
     case AppRoutes.subcategories:
@@ -860,12 +851,23 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
       }
       return MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) => CategoryFormScreen(
+        builder: (context) => CategoryFormScreen(
           categories: arguments.categories,
           idGenerator: arguments.idGenerator,
           initialKind: arguments.kind,
           renaming: arguments.renaming,
           parent: arguments.parent,
+          // «Подкатегории» в правке категории: экран подкатегорий открывает
+          // приложение (фичи друг друга не импортируют).
+          onOpenSubcategories: (parent) =>
+              Navigator.of(context).pushNamed<void>(
+                AppRoutes.subcategories,
+                arguments: SubcategoriesRouteArguments(
+                  parent: parent,
+                  categories: arguments.categories,
+                  idGenerator: arguments.idGenerator,
+                ),
+              ),
         ),
       );
   }

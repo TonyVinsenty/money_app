@@ -66,8 +66,8 @@ Future<InMemoryCategoriesRepository> _pumpCategories(
 }
 
 Future<void> _openSubcategories(WidgetTester tester, String name) async {
-  // «Подкатегории» лежат в меню «⋮» строки категории.
-  await tester.tap(find.byTooltip(categoriesMoreLabel(name)));
+  // «Подкатегории» лежат в правке категории: касание строки открывает её.
+  await tester.tap(find.text(name));
   await tester.pumpAndSettle();
   await tester.tap(find.text(categoriesSubcategoriesAction));
   await tester.pumpAndSettle();
@@ -122,8 +122,16 @@ void main() {
     expect(find.text('Батон'), findsOneWidget);
     expect(find.text('Хлеб'), findsNothing);
 
-    // Назад на «Категории»: у «Продуктов» счётчик, у «Кафе» нет.
+    // Назад в правку «Продуктов»: в строке «Подкатегории» стоит число 2.
     Navigator.of(tester.element(find.byType(SubcategoriesScreen))).pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(CategoryFormScreen), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(ListTile), matching: find.text('2')),
+      findsOneWidget,
+    );
+    // Назад на «Категории»: у «Продуктов» счётчик, у «Кафе» нет.
+    Navigator.of(tester.element(find.byType(CategoryFormScreen))).pop();
     await tester.pumpAndSettle();
     expect(find.byType(CategoriesScreen), findsOneWidget);
     expect(find.text(categoriesSubcategoryCount(2)), findsOneWidget);

@@ -14,8 +14,30 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
 import 'package:money_app/features/categories/presentation/categories_screen.dart';
+import 'package:money_app/features/categories/presentation/category_form_screen.dart';
 
+import '../../../support/fake_id_generator.dart';
 import '../../../support/fakes.dart';
+
+/// Навигатор тестового приложения: через него `onRename` может открыть настоящую
+/// форму правки (там лежит «В архив»).
+final navKey = GlobalKey<NavigatorState>();
+
+/// Пока `true`, `onRename` открывает настоящую форму правки, а не «заглушку».
+bool openRealForm = false;
+
+/// Открывает настоящую форму правки [category] поверх списка.
+Future<void> openEditForm(CategoriesRepository repository, Category category) =>
+    navKey.currentState!.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => CategoryFormScreen(
+          categories: repository,
+          idGenerator: FakeIdGenerator(),
+          initialKind: category.kind,
+          renaming: category,
+        ),
+      ),
+    );
 
 Category _c(
   String id,
@@ -70,6 +92,7 @@ Future<void> _pumpWith(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
+      navigatorKey: navKey,
       theme: AppTheme.light(),
       locale: MoneyApp.appLocale,
       supportedLocales: MoneyApp.supportedLocales,
@@ -87,11 +110,11 @@ Future<void> _pumpWith(
         },
         onRename: (category) async {
           renamed.add(category);
-          await formGate;
-        },
-        onOpenSubcategories: (category) async {
-          openedSubcategories.add(category);
-          await formGate;
+          if (openRealForm) {
+            await openEditForm(repository, category);
+          } else {
+            await formGate;
+          }
         },
       ),
     ),
@@ -99,11 +122,9 @@ Future<void> _pumpWith(
   await tester.pumpAndSettle();
 }
 
-/// Что попросил открыть экран: виды для создания, категории для
-/// переименования и категории, чьи подкатегории открывают.
+/// Что попросил открыть экран: виды для создания и категории для правки.
 final created = <CategoryKind>[];
 final renamed = <Category>[];
-final openedSubcategories = <Category>[];
 
 /// Пока не завершён, «форма» считается открытой (колбэки ждут его).
 Future<void>? formGate;
@@ -118,20 +139,19 @@ Finder _button(String id) => find
     )
     .first;
 
-/// Меню «⋮» живой строки категории с id [id].
-Finder _menuOf(String id) => find.descendant(
-  of: find.byKey(ValueKey<String>(id)),
-  matching: find.byIcon(Icons.more_vert),
-);
-
-/// Сама кнопка меню (иконка внутри неё меньше 48 dp).
-Finder _menuBox(String id) =>
-    find.ancestor(of: _menuOf(id), matching: find.byType(IconButton)).first;
-
-/// «В архив» через меню «⋮» строки.
+/// «В архив» из формы правки: касание строки открывает форму, кнопка внизу
+/// формы отправляет категорию в архив, и форма закрывается.
 Future<void> _archive(WidgetTester tester, String id) async {
-  await tester.tap(_menuOf(id));
+  openRealForm = true;
+  await tester.tap(
+    find.descendant(
+      of: find.byKey(ValueKey<String>(id)),
+      matching: find.text(_nameOf(id)),
+    ),
+  );
   await tester.pumpAndSettle();
+  openRealForm = false;
+  await _dismissSnackBar(tester);
   await tester.tap(find.text(categoriesArchiveAction));
   await tester.pumpAndSettle();
 }
@@ -170,12 +190,12 @@ void main() {
   setUp(() {
     created.clear();
     renamed.clear();
-    openedSubcategories.clear();
     formGate = null;
+    openRealForm = false;
   });
 
-  testWidgets('меню «⋮» живой строки: «Подкатегории» и «В архив»; у архивной '
-      '«Вернуть из архива» — кнопка цветом primary от 48 dp', (tester) async {
+  testWidgets('в строках нет меню «⋮» и кнопок; у архивной «Вернуть из архива» '
+      '— кнопка цветом primary от 48 dp', (tester) async {
     await _pump(tester, _fixture());
     final primary = Theme.of(tester.element(find.byType(CategoriesScreen)))
         .colorScheme
@@ -211,15 +231,12 @@ void main() {
       );
     }
 
-    // У живой строки текстовых кнопок нет, действия лежат в меню «⋮».
+    // У живой строки нет ни кнопок, ни меню «⋮»: действия лежат в правке.
     expect(rowButton('cafe', categoriesArchiveAction), findsNothing);
-    expect(tester.getSize(_menuBox('cafe')).height, greaterThanOrEqualTo(48));
-    await tester.tap(_menuOf('cafe'));
-    await tester.pumpAndSettle();
-    expect(find.text(categoriesArchiveAction), findsOneWidget);
-    expect(find.text(categoriesSubcategoriesAction), findsOneWidget);
-    await tester.tapAt(Offset.zero);
-    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.more_vert), findsNothing);
+    expect(find.byType(PopupMenuButton<Object?>), findsNothing);
+    expect(find.text(categoriesArchiveAction), findsNothing);
+    expect(find.text(categoriesSubcategoriesAction), findsNothing);
 
     await _openArchive(tester);
     expectActionStyle(
@@ -242,9 +259,8 @@ void main() {
     addTearDown(tester.view.reset);
     await _pump(tester, _fixture());
 
-    // Одна строка: значок, название, «⋮» и ручка на одной высоте.
+    // Одна строка: значок, название и ручка на одной высоте.
     final nameY = tester.getCenter(inCafe(find.text('Кафе'))).dy;
-    expect(tester.getCenter(_menuOf('cafe')).dy, closeTo(nameY, 1));
     expect(
       tester.getCenter(inCafe(find.byIcon(Icons.drag_handle))).dy,
       closeTo(nameY, 1),
@@ -306,36 +322,6 @@ void main() {
   });
 
   group('подкатегории в строке', () {
-    /// «Подкатегории» через меню «⋮» строки [id].
-    Future<void> openSubs(WidgetTester tester, String id) async {
-      await tester.tap(_menuOf(id));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(categoriesSubcategoriesAction));
-      await tester.pump();
-    }
-
-    testWidgets('у живой категории в меню «⋮» есть «Подкатегории»; пункт '
-        'открывает подкатегории этой категории', (tester) async {
-      await _pump(tester, _fixture());
-
-      await openSubs(tester, 'cafe');
-      await tester.pumpAndSettle();
-      expect(openedSubcategories.map((c) => c.id), ['cafe']);
-    });
-
-    testWidgets('меню «⋮» подписано именем для скринридера, зона от 48 dp', (
-      tester,
-    ) async {
-      final handle = tester.ensureSemantics();
-      await _pump(tester, _fixture());
-
-      expect(find.byTooltip(categoriesMoreLabel('Кафе')), findsOneWidget);
-      final size = tester.getSize(_menuBox('cafe'));
-      expect(size.width, greaterThanOrEqualTo(48));
-      expect(size.height, greaterThanOrEqualTo(48));
-      handle.dispose();
-    });
-
     testWidgets('счётчик «Подкатегорий: N» только у категорий с живыми '
         'подкатегориями', (tester) async {
       final food = _c('food', 'Продукты', 0);
@@ -377,28 +363,17 @@ void main() {
       );
     });
 
-    testWidgets('у архивной категории кнопки подкатегорий нет', (tester) async {
+    testWidgets('у архивной категории нет счётчика и ручки', (tester) async {
       await _pump(tester, _fixture());
       await _openArchive(tester);
 
       expect(find.text('Одежда'), findsOneWidget);
-      expect(_menuOf('clothes'), findsNothing);
-      expect(_menuOf('food'), findsOneWidget);
-    });
-
-    testWidgets('двойной тап по кнопке открывает один экран подкатегорий', (
-      tester,
-    ) async {
-      final gate = Completer<void>();
-      formGate = gate.future;
-      await _pump(tester, _fixture());
-
-      await openSubs(tester, 'cafe');
-      await openSubs(tester, 'cafe');
-      expect(openedSubcategories.map((c) => c.id), ['cafe']);
-
-      gate.complete();
-      await tester.pumpAndSettle();
+      Finder handleIn(String id) => find.descendant(
+        of: find.byKey(ValueKey<String>(id)),
+        matching: find.byIcon(Icons.drag_handle),
+      );
+      expect(handleIn('clothes'), findsNothing);
+      expect(handleIn('food'), findsOneWidget);
     });
 
     testWidgets('масштаб 200 %: строка с четырьмя элементами без '
@@ -539,11 +514,20 @@ void main() {
             body: TextButton(
               onPressed: () => Navigator.of(context).push<void>(
                 MaterialPageRoute(
-                  builder: (_) => CategoriesScreen(
+                  builder: (routeContext) => CategoriesScreen(
                     categories: repository,
                     onCreate: (_) async {},
-                    onRename: (_) async {},
-                    onOpenSubcategories: (_) async {},
+                    onRename: (category) =>
+                        Navigator.of(routeContext).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => CategoryFormScreen(
+                              categories: repository,
+                              idGenerator: FakeIdGenerator(),
+                              initialKind: category.kind,
+                              renaming: category,
+                            ),
+                          ),
+                        ),
                   ),
                 ),
               ),
@@ -638,11 +622,20 @@ void main() {
             body: TextButton(
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => CategoriesScreen(
+                  builder: (routeContext) => CategoriesScreen(
                     categories: repository,
                     onCreate: (_) async {},
-                    onRename: (_) async {},
-                    onOpenSubcategories: (_) async {},
+                    onRename: (category) =>
+                        Navigator.of(routeContext).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => CategoryFormScreen(
+                              categories: repository,
+                              idGenerator: FakeIdGenerator(),
+                              initialKind: category.kind,
+                              renaming: category,
+                            ),
+                          ),
+                        ),
                   ),
                 ),
               ),
@@ -772,8 +765,14 @@ void main() {
     expect(find.byType(SnackBar), findsNothing);
     // Архив опустел: раздела нет.
     expect(find.textContaining('Архив'), findsNothing);
-    // Вернулась в конец своего вида: у неё снова меню «⋮» с «В архив».
-    expect(_menuOf('clothes'), findsOneWidget);
+    // Вернулась в конец своего вида: снова живая строка с ручкой.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('clothes')),
+        matching: find.byIcon(Icons.drag_handle),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('дубль имени при возврате: сообщение, категория остаётся в '
@@ -812,14 +811,17 @@ void main() {
     await _archive(tester, 'food');
     await tester.pumpAndSettle();
 
+    // Форма осталась открытой, ошибка видна.
     expect(find.text(categorySaveFailedText), findsOneWidget);
-    expect(find.text('Продукты'), findsOneWidget);
+    expect(find.text(categoryFormSaveLabel), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     // Кнопка снова работает: запись не «залипла».
     repository.failWith = null;
-    await _archive(tester, 'food');
+    await _dismissSnackBar(tester);
+    await tester.tap(find.text(categoriesArchiveAction));
     await tester.pumpAndSettle();
+    expect(find.text(categoryFormSaveLabel), findsNothing);
     expect(find.text('Продукты'), findsNothing);
   });
 
@@ -860,10 +862,6 @@ void main() {
     await tester.pumpAndSettle();
     await _openArchive(tester);
     expect(find.text(categoriesRestoreAction), findsOneWidget);
-    // «В архив» лежит в меню «⋮» и достижимо.
-    await tester.tap(_menuOf('long'));
-    await tester.pumpAndSettle();
-    expect(find.text(categoriesArchiveAction), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1145,4 +1143,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+}
+
+/// Закрывает сообщение внизу: оно от прошлого «В архив» и закрывало бы кнопку
+/// «В архив» в форме (человек сам смахнёт его или дождётся).
+Future<void> _dismissSnackBar(WidgetTester tester) async {
+  tester
+      .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger).first)
+      .hideCurrentSnackBar();
+  await tester.pumpAndSettle();
 }

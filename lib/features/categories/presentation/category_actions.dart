@@ -82,10 +82,11 @@ mixin CategoryActions<T extends StatefulWidget> on State<T> {
     restoring: true,
   );
 
-  Future<void> archiveCategory(Category category) async {
+  /// True, если категория ушла в архив (сообщение с «Вернуть» показано).
+  Future<bool> archiveCategory(Category category) async {
     final messenger = ScaffoldMessenger.of(context);
     final ok = await _change(category, categoriesRepository.archive, messenger);
-    if (!ok || !mounted) return;
+    if (!ok || !mounted) return false;
     // Прежнее сообщение скрываем: при быстрых нажатиях они не копятся.
     // `persist: false`: у сообщения с кнопкой иначе время не отсчитывается.
     messenger
@@ -103,6 +104,7 @@ mixin CategoryActions<T extends StatefulWidget> on State<T> {
           ),
         ),
       );
+    return true;
   }
 
   /// Записывает новый порядок живых строк. `false` при любой ошибке

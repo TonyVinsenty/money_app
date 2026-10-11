@@ -9,6 +9,11 @@ import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/categories/domain/category_rules.dart';
+import 'package:money_app/features/categories/presentation/categories_screen.dart'
+    show
+        categoriesArchiveAction,
+        categoriesSubcategoriesAction,
+        categoriesUndoAction;
 import 'package:money_app/features/categories/presentation/category_form_screen.dart';
 
 import '../../../support/fake_id_generator.dart';
@@ -62,6 +67,7 @@ Future<void> _openForm(
   CategoryKind kind = CategoryKind.expense,
   Category? renaming,
   Category? parent,
+  Future<void> Function(Category category)? onOpenSubcategories,
   double textScale = 1,
 }) async {
   tester.view.physicalSize = const Size(360, 740);
@@ -88,6 +94,7 @@ Future<void> _openForm(
                       initialKind: kind,
                       renaming: renaming,
                       parent: parent,
+                      onOpenSubcategories: onOpenSubcategories,
                     ),
                   ),
                 ),
@@ -1063,6 +1070,138 @@ void main() {
     await tester.longPress(_icon('glyph:Ж'));
     await tester.pump();
     expect(find.text('Буква Ж'), findsOneWidget);
+  });
+
+  group('«Подкатегории» и «В архив» в правке', () {
+    final cafe = _c('cafe', 'Кафе', 1);
+
+    testWidgets('«Подкатегории» с числом ведёт к подкатегориям категории', (
+      tester,
+    ) async {
+      final food = _c('food', 'Продукты', 0);
+      final repo = _repo([
+        food,
+        Category.subcategoryOf(
+          id: 'milk',
+          parent: food,
+          name: 'Молоко',
+          iconKey: 'restaurant',
+          sortOrder: 0,
+        ),
+        Category.subcategoryOf(
+          id: 'old',
+          parent: food,
+          name: 'Старое',
+          iconKey: 'restaurant',
+          sortOrder: 1,
+        ).archived(DateTime.utc(2026, 9, 1)),
+      ]);
+      addTearDown(repo.dispose);
+      final opened = <String>[];
+      await _openForm(
+        tester,
+        repo,
+        renaming: food,
+        onOpenSubcategories: (c) async => opened.add(c.id),
+      );
+
+      expect(find.text(categoriesSubcategoriesAction), findsOneWidget);
+      // Архивная подкатегория не считается.
+      expect(
+        find.descendant(of: find.byType(ListTile), matching: find.text('1')),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+      await tester.tap(find.text(categoriesSubcategoriesAction));
+      await tester.pumpAndSettle();
+      expect(opened, ['food']);
+    });
+
+    testWidgets('«В архив» из правки: архив с «Вернуть», запись ушла из '
+        'списка, форма закрылась', (tester) async {
+      await _openForm(tester, repository, renaming: cafe);
+      final archive = find.text(categoriesArchiveAction);
+      expect(archive, findsOneWidget);
+      // Цвет error.
+      final button = tester.widget<TextButton>(
+        find.widgetWithText(TextButton, categoriesArchiveAction),
+      );
+      final error = Theme.of(tester.element(find.byType(CategoryFormScreen)))
+          .colorScheme
+          .error;
+      expect(button.style?.foregroundColor?.resolve({}), error);
+
+      await tester.tap(archive);
+      await tester.pumpAndSettle();
+
+      expect(_formIsOpen(), isFalse);
+      expect(
+        repository.all.firstWhere((c) => c.id == 'cafe').isArchived,
+        isTrue,
+      );
+      expect(find.text('Категория «Кафе» в архиве'), findsOneWidget);
+      await tester.tap(find.text(categoriesUndoAction));
+      await tester.pumpAndSettle();
+      expect(
+        repository.all.firstWhere((c) => c.id == 'cafe').isArchived,
+        isFalse,
+      );
+    });
+
+    testWidgets('сбой записи при «В архив»: форма остаётся, сообщение об '
+        'ошибке', (tester) async {
+      await _openForm(tester, repository, renaming: cafe);
+      repository.failWith = Exception('disk');
+      await tester.tap(find.text(categoriesArchiveAction));
+      await tester.pumpAndSettle();
+
+      expect(_formIsOpen(), isTrue);
+      expect(find.text(categorySaveFailedText), findsOneWidget);
+    });
+
+    testWidgets('при создании новой категории этих действий нет', (
+      tester,
+    ) async {
+      await _openForm(tester, repository, onOpenSubcategories: (_) async {});
+      expect(find.text(categoriesSubcategoriesAction), findsNothing);
+      expect(find.text(categoriesArchiveAction), findsNothing);
+    });
+
+    testWidgets('у подкатегории только «В архив», без «Подкатегории»', (
+      tester,
+    ) async {
+      final food = _c('food', 'Продукты', 0);
+      final milk = Category.subcategoryOf(
+        id: 'milk',
+        parent: food,
+        name: 'Молоко',
+        iconKey: 'restaurant',
+        sortOrder: 0,
+      );
+      final repo = _repo([food, milk]);
+      addTearDown(repo.dispose);
+      await _openForm(
+        tester,
+        repo,
+        renaming: milk,
+        parent: food,
+        onOpenSubcategories: (_) async {},
+      );
+      expect(find.text(categoriesSubcategoriesAction), findsNothing);
+      expect(find.text(categoriesArchiveAction), findsOneWidget);
+      await tester.tap(find.text(categoriesArchiveAction));
+      await tester.pumpAndSettle();
+      expect(find.text('Подкатегория «Молоко» в архиве'), findsOneWidget);
+    });
+
+    testWidgets('у архивной категории «В архив» нет', (tester) async {
+      await _openForm(
+        tester,
+        repository,
+        renaming: _c('old', 'Старая', 5, archived: true),
+      );
+      expect(find.text(categoriesArchiveAction), findsNothing);
+    });
   });
 
   testWidgets('группы: 360 dp и шрифт 200 % без переполнения', (tester) async {

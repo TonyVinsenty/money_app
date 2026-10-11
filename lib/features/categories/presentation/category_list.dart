@@ -19,9 +19,6 @@ const categoriesUndoAction = 'Вернуть';
 /// скопировано: фича не импортирует чужой `presentation` (ADR 0002).
 const categoriesArchivedDuration = Duration(seconds: 6);
 
-/// Подпись меню «⋮» у строки: имя нужно скринридеру и подсказке.
-String categoriesMoreLabel(String name) => 'Действия: $name';
-
 /// Строка под названием категории, у которой есть подкатегории.
 String categoriesSubcategoryCount(int count) => 'Подкатегорий: $count';
 
@@ -54,12 +51,10 @@ class CategoryList extends StatefulWidget {
     required this.archiveKey,
     required this.archiveNote,
     required this.emptyText,
-    required this.onArchive,
     required this.onRestore,
     required this.onRename,
     required this.onReorder,
     this.subcategoryCounts,
-    this.onOpenSubcategories,
     super.key,
   });
 
@@ -78,7 +73,6 @@ class CategoryList extends StatefulWidget {
   /// Пока в списке нет ни одной живой строки.
   final String emptyText;
 
-  final void Function(Category category) onArchive;
   final void Function(Category category) onRestore;
   final void Function(Category category) onRename;
 
@@ -87,11 +81,8 @@ class CategoryList extends StatefulWidget {
   final Future<bool> Function(List<String> orderedIds) onReorder;
 
   /// Сколько живых подкатегорий у категории (по id); нет записи — ноль. Если
-  /// `null`, у строк нет ни кнопки, ни счётчика подкатегорий.
+  /// `null`, у строк нет счётчика подкатегорий.
   final Map<String, int>? subcategoryCounts;
-
-  /// Открывает экран подкатегорий; кнопка есть только у живых строк.
-  final void Function(Category category)? onOpenSubcategories;
 
   @override
   State<CategoryList> createState() => _CategoryListState();
@@ -186,7 +177,6 @@ class _CategoryListState extends State<CategoryList> {
         if (c.isArchived) c,
     ];
     final counts = widget.subcategoryCounts;
-    final openSubcategories = widget.onOpenSubcategories;
     // Кнопок «Переместить вверх/вниз/в начало/в конец» для скринридера отдельно
     // делать не нужно: ReorderableListView сам вешает их на каждую строку (без
     // недоступных у крайних) и озвучивает по-русски.
@@ -227,7 +217,7 @@ class _CategoryListState extends State<CategoryList> {
                   _CategoryRow(
                     key: ValueKey<String>(c.id),
                     category: c,
-                    onPressed: () => widget.onRestore(c),
+                    onRestore: () => widget.onRestore(c),
                     onRename: () => widget.onRename(c),
                   ),
               ],
@@ -237,60 +227,48 @@ class _CategoryListState extends State<CategoryList> {
           _CategoryRow(
             key: ValueKey<String>(live[i].id),
             category: live[i],
-            onPressed: () => widget.onArchive(live[i]),
             onRename: () => widget.onRename(live[i]),
             dragIndex: i,
             subcategoryCount: counts == null ? null : counts[live[i].id] ?? 0,
-            onOpenSubcategories: openSubcategories == null
-                ? null
-                : () => openSubcategories(live[i]),
           ),
       ],
     );
   }
 }
 
-/// Пункты меню «⋮» у живой строки.
-enum _RowMenu { archive, subcategories }
-
-/// Строка категории: одна строка (значок, название с подписью, «⋮», ручка);
-/// касание строки открывает правку. У архивной строки вместо «⋮» под названием
-/// стоит кнопка «Вернуть из архива».
+/// Строка категории: одна строка (значок, название с подписью, ручка);
+/// касание строки открывает правку (там «Подкатегории» и «В архив»). У архивной
+/// строки под названием стоит кнопка «Вернуть из архива».
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.category,
-    required this.onPressed,
     required this.onRename,
+    this.onRestore,
     this.dragIndex,
     this.subcategoryCount,
-    this.onOpenSubcategories,
     super.key,
   });
 
   final Category category;
 
-  /// «В архив» (у живой строки) или «Вернуть из архива» (у архивной).
-  final VoidCallback onPressed;
+  /// «Вернуть из архива» (только у архивной строки).
+  final VoidCallback? onRestore;
 
   /// Правка: касание строки.
   final VoidCallback onRename;
 
-  /// Место строки в переставляемом списке; ручка и меню «⋮» есть только у
-  /// живых строк (у архивных `null`).
+  /// Место строки в переставляемом списке; ручка есть только у живых строк (у
+  /// архивных `null`).
   final int? dragIndex;
 
   /// Сколько подкатегорий у категории; `null` — счётчик не показываем.
   final int? subcategoryCount;
-
-  /// Переход к подкатегориям; `null` — пункта в меню нет.
-  final VoidCallback? onOpenSubcategories;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final count = subcategoryCount;
     final live = dragIndex != null;
-    final subcategories = onOpenSubcategories;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -298,8 +276,8 @@ class _CategoryRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
             children: [
-              // Касание названия и значка открывает правку. Меню и ручка стоят
-              // рядом, а не внутри: у них свои касания.
+              // Касание названия и значка открывает правку. Ручка стоит рядом,
+              // а не внутри: у неё своё касание.
               Expanded(
                 child: InkWell(
                   onTap: onRename,
@@ -335,31 +313,6 @@ class _CategoryRow extends StatelessWidget {
                   ),
                 ),
               ),
-              // Меню «⋮»: «В архив» и «Подкатегории». Временное место до шага
-              // 7.25, который перенесёт их внутрь правки.
-              if (live)
-                PopupMenuButton<_RowMenu>(
-                  tooltip: categoriesMoreLabel(category.name),
-                  onSelected: (item) {
-                    switch (item) {
-                      case _RowMenu.archive:
-                        onPressed();
-                      case _RowMenu.subcategories:
-                        subcategories?.call();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    if (subcategories != null)
-                      const PopupMenuItem(
-                        value: _RowMenu.subcategories,
-                        child: Text(categoriesSubcategoriesAction),
-                      ),
-                    const PopupMenuItem(
-                      value: _RowMenu.archive,
-                      child: Text(categoriesArchiveAction),
-                    ),
-                  ],
-                ),
               // Ручка: тянуть можно только за неё, чтобы не мешать прокрутке.
               // Скринридеру ручка не нужна: у строки есть действия «Переместить».
               if (live)
@@ -396,7 +349,7 @@ class _CategoryRow extends StatelessWidget {
         padding: EdgeInsets.zero,
         alignment: Alignment.centerLeft,
       ),
-      onPressed: onPressed,
+      onPressed: onRestore,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
