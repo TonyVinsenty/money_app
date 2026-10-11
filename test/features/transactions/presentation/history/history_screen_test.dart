@@ -110,23 +110,31 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
     expect(find.bySemanticsLabel('Загрузка операций'), findsOneWidget);
   });
 
-  testWidgets('firstDay ответил null: «Операций пока нет»', (tester) async {
-    await tester.pumpWidget(_app(transactions: Stream.value([]), hasAny: null));
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('Операций пока нет'), findsNothing);
+  testWidgets(
+    'firstDay ответил null: «Здесь будут все ваши доходы и расходы»',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(transactions: Stream.value([]), hasAny: null),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
 
-    await tester.pumpWidget(
-      _app(transactions: Stream.value([]), hasAny: false),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(find.text('Операций пока нет'), findsOneWidget);
-  });
+      await tester.pumpWidget(
+        _app(transactions: Stream.value([]), hasAny: false),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(
+        find.text('Здесь будут все ваши доходы и расходы'),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('новые сверху, заголовки дней: Сегодня, Вчера, дата', (
     tester,
@@ -303,16 +311,84 @@ void main() {
     expect(tapped.map((t) => t.id), ['b']);
   });
 
-  testWidgets('операций нет: пустое состояние с подсказкой', (tester) async {
-    await tester.pumpWidget(_app(transactions: Stream.value(const [])));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Операций пока нет'), findsOneWidget);
-    expect(
-      find.text('Добавьте расход или доход на вкладке «Главная»'),
-      findsOneWidget,
+  group('пустая «История» (У4)', () {
+    Widget screen({
+      bool? hasAny = false,
+      VoidCallback? onAdd,
+      String query = '',
+      double textScale = 1,
+    }) => MaterialApp(
+      theme: AppTheme.light(),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context)
+            .copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: Scaffold(
+        body: HistoryScreen(
+          transactions: Stream.value(const []),
+          categories: Stream.value(_categories),
+          today: _today,
+          month: _today,
+          hasAnyTransactions: hasAny,
+          onTransactionTap: (_) {},
+          onAddExpense: onAdd,
+          searchQuery: query,
+          onSearchChanged: (_) {},
+        ),
+      ),
     );
-    expect(find.byKey(historySkeletonKey), findsNothing);
+
+    testWidgets('операций нет: текст и «Добавить расход», поиска нет', (
+      tester,
+    ) async {
+      var added = 0;
+      await tester.pumpWidget(screen(onAdd: () => added++));
+      await tester.pumpAndSettle();
+
+      expect(find.text(historyEmptyTitle), findsOneWidget);
+      expect(find.byKey(historySkeletonKey), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+      final button = find.widgetWithText(FilledButton, historyAddExpenseLabel);
+      expect(button, findsOneWidget);
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+      await tester.tap(button);
+      expect(added, 1);
+    });
+
+    testWidgets('без обработчика кнопки нет', (tester) async {
+      await tester.pumpWidget(screen());
+      await tester.pumpAndSettle();
+      expect(find.text(historyEmptyTitle), findsOneWidget);
+      expect(find.text(historyAddExpenseLabel), findsNothing);
+    });
+
+    testWidgets('операции есть, месяц пуст: прежний текст, поиск есть', (
+      tester,
+    ) async {
+      await tester.pumpWidget(screen(hasAny: true, onAdd: () {}));
+      await tester.pumpAndSettle();
+      expect(find.text('Выберите другой месяц стрелками вверху'), findsOne);
+      expect(find.text(historyEmptyTitle), findsNothing);
+      expect(find.text(historyAddExpenseLabel), findsNothing);
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
+    testWidgets('поиск начат, а база опустела: поле остаётся', (tester) async {
+      await tester.pumpWidget(screen(query: 'кофе', onAdd: () {}));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
+    testWidgets('360 dp, шрифт 200 %: без переполнения', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(screen(onAdd: () {}, textScale: 2));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text(historyAddExpenseLabel), findsOneWidget);
+    });
   });
 
   testWidgets('до первого значения скелетон; пустое состояние не мигает', (
@@ -327,24 +403,24 @@ void main() {
     );
 
     expect(find.byKey(historySkeletonKey), findsOneWidget);
-    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
 
     // Справочник пришёл, операции ещё нет: по-прежнему скелетон.
     cats.add(_categories);
     await tester.pumpAndSettle();
     expect(find.byKey(historySkeletonKey), findsOneWidget);
-    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
 
-    // Операции пришли пустыми: только теперь «Операций пока нет».
+    // Операции пришли пустыми: только теперь «Здесь будут все ваши доходы и расходы».
     txs.add(const []);
     await tester.pumpAndSettle();
     expect(find.byKey(historySkeletonKey), findsNothing);
-    expect(find.text('Операций пока нет'), findsOneWidget);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsOneWidget);
 
     // Появилась операция: список заменяет пустое состояние.
     txs.add([_tx('a', _today)]);
     await tester.pumpAndSettle();
-    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
     expect(find.text('Продукты'), findsOneWidget);
   });
 

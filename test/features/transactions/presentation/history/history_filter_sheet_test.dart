@@ -283,9 +283,11 @@ void main() {
     expect(find.text('Сначала крупные'), findsNothing);
   });
 
-  testWidgets('в «Операций пока нет» кнопки «Фильтр» нет', (tester) async {
+  testWidgets('в «Здесь будут все ваши доходы и расходы» кнопки «Фильтр» нет', (
+    tester,
+  ) async {
     await _pump(tester, list: const [], hasAny: false);
-    expect(find.text('Операций пока нет'), findsOneWidget);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsOneWidget);
     expect(find.widgetWithText(TextButton, 'Фильтр'), findsNothing);
   });
 

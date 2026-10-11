@@ -347,32 +347,35 @@ class HomeActions extends StatelessWidget {
   const HomeActions({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Сервисы берём здесь, под AppScope: открытый маршрут AppScope не видит.
-    final services = AppScope.of(context);
-    final browse = BrowseScope.of(context);
-    return HomeActionBar(
-      onAddTransaction: (type) => Navigator.of(context).pushNamed(
-        AppRoutes.quickAdd,
-        arguments: QuickAddRouteArguments(
-          type: type,
-          clock: services.clock,
-          categories: services.categories,
-          transactions: services.transactions,
-          idGenerator: services.idGenerator,
-          currency: services.settings.mainCurrency,
-          accounts: services.accounts.watchAll(),
-          defaultAccountId: services.settings.defaultAccountId,
-          // Общий месяц переключается на месяц новой операции.
-          onSaved: (day) {
-            // Приложение могло пережить полночь: сначала свежее «сегодня».
-            browse.updateToday(services.clock.today());
-            browse.showMonthOf(day);
-          },
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      HomeActionBar(onAddTransaction: (type) => openQuickAdd(context, type));
+}
+
+/// Открывает быстрый ввод дохода или расхода (кнопки «Главной», «Добавить
+/// расход» пустой «Истории»). [context] — под `AppScope` и `BrowseScope`:
+/// открытый маршрут их не видит, поэтому сервисы берём до перехода.
+void openQuickAdd(BuildContext context, TransactionType type) {
+  final services = AppScope.of(context);
+  final browse = BrowseScope.of(context);
+  Navigator.of(context).pushNamed(
+    AppRoutes.quickAdd,
+    arguments: QuickAddRouteArguments(
+      type: type,
+      clock: services.clock,
+      categories: services.categories,
+      transactions: services.transactions,
+      idGenerator: services.idGenerator,
+      currency: services.settings.mainCurrency,
+      accounts: services.accounts.watchAll(),
+      defaultAccountId: services.settings.defaultAccountId,
+      // Общий месяц переключается на месяц новой операции.
+      onSaved: (day) {
+        // Приложение могло пережить полночь: сначала свежее «сегодня».
+        browse.updateToday(services.clock.today());
+        browse.showMonthOf(day);
+      },
+    ),
+  );
 }
 
 /// Вкладка «История»: даёт экрану фичи `transactions` потоки из репозиториев.
@@ -453,6 +456,7 @@ class _HistoryTabState extends State<HistoryTab> {
       today: browse.today,
       month: _month!.start,
       hasAnyTransactions: browse.firstDayKnown ? browse.firstDay != null : null,
+      onAddExpense: () => openQuickAdd(context, TransactionType.expense),
       filter: browse.historyFilter,
       sort: browse.historySort,
       onResetFilter: browse.resetHistoryFilter,

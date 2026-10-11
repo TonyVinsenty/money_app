@@ -210,7 +210,7 @@ void main() {
     expect(find.text('note-sept'), findsNothing);
     expect(find.text('note-oct'), findsNothing);
     expect(find.textContaining('Фильтр:'), findsNothing);
-    expect(find.text('Операций пока нет'), findsOneWidget);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsOneWidget);
 
     // «Аналитика»: текущий месяц (переход вперёд невозможен).
     await _openTab(tester, 'Аналитика');

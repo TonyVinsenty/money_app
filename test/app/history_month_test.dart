@@ -206,7 +206,7 @@ void main() {
     await _pump(tester, _repoWith(const []));
     await _openTab(tester, 'История');
 
-    expect(find.text('Операций пока нет'), findsOneWidget);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsOneWidget);
     expect(find.text('Октябрь 2026'), findsOneWidget);
   });
 
@@ -217,7 +217,7 @@ void main() {
 
     expect(find.text('За октябрь 2026 операций нет'), findsOneWidget);
     expect(find.text('Выберите другой месяц стрелками вверху'), findsOneWidget);
-    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
     expect(find.text('Октябрь 2026'), findsOneWidget);
 
     await _tap(tester, _prev);
@@ -292,7 +292,7 @@ void main() {
     expect(find.text('Сентябрь 2026'), findsOneWidget);
     expect(find.text('октябрьская'), findsOneWidget);
     expect(find.textContaining('операций нет'), findsNothing);
-    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
 
     hold.complete();
     await tester.pump();

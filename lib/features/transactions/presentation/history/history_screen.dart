@@ -29,6 +29,10 @@ import 'package:money_app/features/transactions/presentation/history/history_fil
 /// Настоящий минус (U+2212), а не дефис (как в `AmountField`).
 final String _minusSign = String.fromCharCode(0x2212);
 
+/// Пустая «История» (У4, тексты утверждены 2026-10-11).
+const historyEmptyTitle = 'Здесь будут все ваши доходы и расходы';
+const historyAddExpenseLabel = 'Добавить расход';
+
 /// Ключ заглушки-скелетона: по нему тесты отличают «ещё грузится» от «пусто».
 const Key historySkeletonKey = ValueKey('history-skeleton');
 
@@ -65,8 +69,13 @@ class HistoryScreen extends StatefulWidget {
     this.currencySymbol = '₽',
     this.currencyCode = 'RUB',
     this.accounts,
+    this.onAddExpense,
     super.key,
   });
+
+  /// «Добавить расход» в пустой «Истории»: куда ведёт, решает приложение
+  /// (`lib/app`, ADR 0002). `null` — кнопки нет.
+  final VoidCallback? onAddExpense;
 
   /// Счета (для имени в полоске фильтра по счёту); тот же поток между
   /// перерисовками. Без него неизвестный счёт подписывается запасным текстом.
@@ -320,6 +329,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 month: data.month,
                 hasOtherCurrencies: widget.hasOtherCurrencies,
                 currencySymbol: widget.currencySymbol,
+                onAddExpense: widget.onAddExpense,
               );
               return hasAny ? withBar(empty, showSort: false) : empty;
             }
@@ -363,7 +373,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.onSearchChanged != null)
+        // Пока искать нечего, поля нет; начатый поиск (база опустела во время
+        // него) поле не прячет, чтобы его можно было очистить.
+        if (widget.onSearchChanged != null &&
+            (widget.hasAnyTransactions != false || _searching))
           _SearchField(controller: _search, onChanged: widget.onSearchChanged!),
         // Переключатель вне списка: при прокрутке остаётся на месте. Во время
         // поиска стрелок нет (ищем во всех месяцах); высота та же, что со
@@ -511,7 +524,11 @@ class _EmptyState extends StatelessWidget {
     required this.month,
     required this.hasOtherCurrencies,
     required this.currencySymbol,
+    required this.onAddExpense,
   });
+
+  /// Кнопка «Добавить расход» при пустой базе; `null` — кнопки нет.
+  final VoidCallback? onAddExpense;
 
   final bool hasAnyTransactions;
   final DateOnly month;
@@ -523,10 +540,11 @@ class _EmptyState extends StatelessWidget {
     final theme = Theme.of(context);
     final title = hasAnyTransactions
         ? 'За ${formatMonthName(month)} ${month.year} операций нет'
-        : 'Операций пока нет';
+        : historyEmptyTitle;
     final hint = hasAnyTransactions
         ? 'Выберите другой месяц стрелками вверху'
-        : 'Добавьте расход или доход на вкладке «Главная»';
+        : null;
+    final add = onAddExpense;
     // Прокрутка на случай крупного шрифта на маленьком экране.
     return Center(
       child: SingleChildScrollView(
@@ -539,14 +557,24 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
-            Text(
-              hint,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+            if (hint != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                hint,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
+            ],
+            if (!hasAnyTransactions && add != null) ...[
+              const SizedBox(height: AppSpacing.l),
+              FilledButton.icon(
+                onPressed: add,
+                icon: const Icon(Icons.add),
+                label: const Text(historyAddExpenseLabel),
+              ),
+            ],
             OtherCurrenciesHint(
               hasOther: hasOtherCurrencies,
               symbol: currencySymbol,

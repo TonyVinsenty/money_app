@@ -138,7 +138,7 @@ void main() {
     browse.setHistoryFilter(HistoryFilter.expenseCategories({'zzz'}));
     await tester.pumpAndSettle();
     expect(find.text('Ничего не найдено'), findsOneWidget);
-    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
 
     await tester.tap(find.text('Сбросить фильтр'));
     await tester.pumpAndSettle();

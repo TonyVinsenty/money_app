@@ -20,6 +20,7 @@ import 'package:money_app/features/settings/presentation/app_settings_controller
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
 import '../support/fake_id_generator.dart';
 import '../support/fixed_clock.dart';
@@ -95,8 +96,30 @@ void main() {
     await _pumpApp(tester);
     await _openTab(tester, 'История');
 
-    expect(find.text('Операций пока нет'), findsOneWidget);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsOneWidget);
     expect(find.text('Здесь будет список доходов и расходов'), findsNothing);
+    await _finish(tester);
+  });
+
+  testWidgets('пустая «История»: «Добавить расход» открывает ввод расхода, '
+      'после сохранения список и поиск на месте', (tester) async {
+    await _pumpApp(tester);
+    await _openTab(tester, 'История');
+    expect(find.byType(TextField), findsNothing);
+
+    await tester.tap(find.text('Добавить расход'));
+    await tester.pumpAndSettle();
+    final quickAdd = tester.widget<QuickAddScreen>(find.byType(QuickAddScreen));
+    expect(quickAdd.type, TransactionType.expense);
+
+    await tester.enterText(find.byType(TextField), '120');
+    await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Продукты'));
+    await settleDatabase(tester);
+
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
+    expect(find.byType(TextField), findsOneWidget);
     await _finish(tester);
   });
 
@@ -105,7 +128,10 @@ void main() {
     (tester) async {
       await _pumpApp(tester);
       await _openTab(tester, 'История');
-      expect(find.text('Операций пока нет'), findsOneWidget);
+      expect(
+        find.text('Здесь будут все ваши доходы и расходы'),
+        findsOneWidget,
+      );
 
       // «Главная» -> «Расход» -> сумма -> категория.
       await _openTab(tester, 'Главная');
@@ -120,7 +146,7 @@ void main() {
       // Вкладка уже открывалась: список обновился сам, без «обновить».
       await _openTab(tester, 'История');
       final amount = '$_minus${formatMoney(Money.fromMinor(35000, 'RUB'))}';
-      expect(find.text('Операций пока нет'), findsNothing);
+      expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
       expect(find.text('Сегодня'), findsOneWidget);
       expect(find.text('Продукты'), findsOneWidget);
       expect(find.text(amount), findsOneWidget);
@@ -130,7 +156,10 @@ void main() {
       await tester.tap(find.text('Отменить'));
       await tester.pumpAndSettle();
       await _openTab(tester, 'История');
-      expect(find.text('Операций пока нет'), findsOneWidget);
+      expect(
+        find.text('Здесь будут все ваши доходы и расходы'),
+        findsOneWidget,
+      );
       await _finish(tester);
     },
   );
@@ -163,7 +192,7 @@ void main() {
 
     // В «Истории» операция есть, с нулевой суммой.
     await _openTab(tester, 'История');
-    expect(find.text('Операций пока нет'), findsNothing);
+    expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
     expect(find.text('Продукты'), findsOneWidget);
     expect(find.text('$_minus$zero'), findsOneWidget);
     await _finish(tester);
