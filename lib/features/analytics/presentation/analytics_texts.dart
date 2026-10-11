@@ -220,6 +220,60 @@ String dynamicsBucketLabel(Bucket bucket, BucketStep step, DateOnly today) {
 String dynamicsSelectedText(Bucket bucket, BucketStep step, DateOnly today) =>
     '${dynamicsBucketLabel(bucket, step, today)}: ${formatMoney(bucket.amount)}';
 
+/// Первые буквы месяцев для подписей оси («Я Ф М А М И И А С О Н Д»).
+const String _monthInitials = 'ЯФМАМИИАСОНД';
+
+const List<String> _weekdayShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+String _twoDigits(int n) => n.toString().padLeft(2, '0');
+
+/// Т3. Подписи оси под столбиками: номер столбика -> короткая строка.
+///
+/// Месяц: «1», «10», «20» и последний день. Неделя: «Пн»…«Вс». Год: первые
+/// буквы всех 12 месяцев. Свой интервал по дням: первый, средний и последний
+/// день как «15.12». Свой по месяцам: первые буквы месяцев, при больше чем 12
+/// месяцах каждый второй (до 24), а дальше каждый третий, чтобы не налезали.
+/// Для вида «День» (корзин нет) подписей нет.
+Map<int, String> dynamicsAxisLabels(
+  AnalyticsPeriod period,
+  List<Bucket> buckets,
+) {
+  final n = buckets.length;
+  if (n == 0) return const {};
+  DateOnly start(int i) => buckets[i].range.start;
+  String initial(int i) => _monthInitials[start(i).month - 1];
+  switch (period.kind) {
+    case PeriodKind.day:
+      return const {};
+    case PeriodKind.week:
+      return {
+        for (var i = 0; i < n; i++)
+          i: _weekdayShort[start(i).toDateTime().weekday - 1],
+      };
+    case PeriodKind.month:
+      return {
+        for (var i = 0; i < n; i++)
+          if (i == n - 1 || const {1, 10, 20}.contains(start(i).day))
+            i: '${start(i).day}',
+      };
+    case PeriodKind.year:
+      return {for (var i = 0; i < n; i++) i: initial(i)};
+    case PeriodKind.custom:
+      if (bucketStepFor(period) == BucketStep.month) {
+        final stride = n <= 12
+            ? 1
+            : n <= 24
+            ? 2
+            : 3;
+        return {for (var i = 0; i < n; i += stride) i: initial(i)};
+      }
+      return {
+        for (final i in {0, n ~/ 2, n - 1})
+          i: '${_twoDigits(start(i).day)}.${_twoDigits(start(i).month)}',
+      };
+  }
+}
+
 /// Т3. Пояснение вместо графика для вида «День».
 const String dynamicsDayHint =
     'Выберите неделю, месяц, год или свой период — здесь появятся '

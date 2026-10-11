@@ -228,6 +228,7 @@ class _DynamicsSectionState extends State<DynamicsSection> {
             key: DynamicsSection.chartKey,
             weights: weights,
             average: average?.minorUnits,
+            axisLabels: dynamicsAxisLabels(widget.period, buckets),
             color: type == TransactionType.expense
                 ? colors.expense
                 : colors.income,

@@ -235,6 +235,46 @@ void main() {
       expect(bucketAverage(b, today), Money.fromMinor(100, 'RUB')); // 1100/11
     });
 
+    test('год с данными с августа: делит на 3 (август-октябрь)', () {
+      final b = _totals([
+        _tx(DateOnly(2026, 8, 10), 3000),
+        _tx(DateOnly(2026, 10, 3), 600),
+      ], currentPeriod(PeriodKind.year, today));
+      expect(bucketAverage(b, today), Money.fromMinor(1200, 'RUB')); // 3600/3
+    });
+
+    test('пустые дни в начале месяца не учитываются', () {
+      final b = _totals([_tx(DateOnly(2026, 10, 8), 400)], october);
+      expect(bucketAverage(b, today), Money.fromMinor(100, 'RUB')); // 8-11: /4
+    });
+
+    test('нули после первой операции учитываются', () {
+      final b = _totals([
+        _tx(DateOnly(2026, 10, 3), 500),
+        _tx(DateOnly(2026, 10, 7), 500),
+      ], october);
+      expect(bucketAverage(b, today), Money.fromMinor(111, 'RUB')); // 1000/9
+    });
+
+    test('прошедший период тоже считается с первой ненулевой', () {
+      final b = _totals([
+        _tx(DateOnly(2026, 9, 21), 1000),
+      ], currentPeriod(PeriodKind.month, DateOnly(2026, 9, 5)));
+      expect(
+        bucketAverage(b, today),
+        Money.fromMinor(100, 'RUB'),
+      ); // 21-30: /10
+    });
+
+    test('первая операция в будущей корзине — null', () {
+      final b = _totals([_tx(DateOnly(2026, 10, 20), 500)], october);
+      expect(bucketAverage(b, today), isNull);
+    });
+
+    test('все корзины нулевые — null', () {
+      expect(bucketAverage(_totals([], october), today), isNull);
+    });
+
     test('нет корзин — null', () {
       expect(bucketAverage([], today), isNull);
       final d = _totals([], currentPeriod(PeriodKind.day, today));

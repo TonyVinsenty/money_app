@@ -32,7 +32,7 @@ Transaction _tx(
 );
 
 /// Октябрь: 3-го 1000, 5-го 5400, 12-го 3000 рублей; до 20-го всего 9400 за
-/// 20 дней, то есть 470 рублей в день.
+/// 18 дней (с 3-го), то есть около 522 рублей в день.
 final _october = [
   _tx('a', 100000, DateOnly(2026, 10, 3)),
   _tx('b', 540000, DateOnly(2026, 10, 5)),
@@ -87,12 +87,28 @@ void main() {
 
     expect(find.text('Расходы по дням'), findsOneWidget);
     expect(find.byType(BarChart), findsOneWidget);
-    expect(_info(tester), 'В среднем 470,00$_nbsp₽ в день');
+    expect(_info(tester), 'В среднем 522,22$_nbsp₽ в день');
     // Верх шкалы: «круглое» число не меньше 5400 рублей (5400 > 5000, значит 10 000).
     expect(
       tester.widget<BarChart>(find.byType(BarChart)).topLabel,
       '10${_nbsp}000,00$_nbsp₽',
     );
+  });
+
+  testWidgets('подписи оси: 360 dp и 200 % без переполнения', (tester) async {
+    for (final kind in [PeriodKind.month, PeriodKind.week, PeriodKind.year]) {
+      await _pump(
+        tester,
+        transactions: [..._october, _tx('w', 100, _today)],
+        period: currentPeriod(kind, _today),
+        textScale: 2,
+      );
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.widget<BarChart>(find.byType(BarChart)).axisLabels,
+        isNotEmpty,
+      );
+    }
   });
 
   testWidgets('выбор столбика меняет строку, отпускание возвращает среднее', (
@@ -111,7 +127,7 @@ void main() {
 
     await gesture.up();
     await tester.pump();
-    expect(_info(tester), 'В среднем 470,00$_nbsp₽ в день');
+    expect(_info(tester), 'В среднем 522,22$_nbsp₽ в день');
   });
 
   testWidgets('подпись для скринридера: период, максимум, среднее', (
@@ -123,7 +139,7 @@ void main() {
     expect(
       tester.getSemantics(find.byKey(DynamicsSection.chartKey)).label,
       'Расходы по дням за октябрь. Больше всего 5 октября: 5400 рублей. '
-      'В среднем 470 рублей в день',
+      'В среднем 522 рубля 22 копейки в день',
     );
     handle.dispose();
   });
@@ -136,8 +152,8 @@ void main() {
     );
 
     expect(find.text('Расходы по месяцам'), findsOneWidget);
-    // 9400 рублей за 10 месяцев (январь–октябрь) = 940 рублей.
-    expect(_info(tester), 'В среднем 940,00$_nbsp₽ в месяц');
+    // Операции только в октябре: среднее считается с него, 9400 рублей / 1.
+    expect(_info(tester), 'В среднем 9${_nbsp}400,00$_nbsp₽ в месяц');
   });
 
   testWidgets('свой длинный период: по месяцам, список с месяцами', (
@@ -342,8 +358,8 @@ void main() {
 
       expect(controller.categoryId, 'cafe');
       expect(find.text('Кафе'), findsOneWidget);
-      // 1000 рублей за 20 дней - 50 рублей в день.
-      expect(_info(tester), 'В среднем 50,00$_nbsp₽ в день');
+      // 1000 рублей за 18 дней (с 3-го по 20-е): 55,56 рубля в день.
+      expect(_info(tester), 'В среднем 55,56$_nbsp₽ в день');
       expect(_info(tester), isNot(infoBefore));
       final after = tester.widget<BarChart>(find.byType(BarChart)).weights;
       expect(after, isNot(before));
@@ -454,7 +470,7 @@ void main() {
       expect(
         spoken(),
         'Расходы по дням, категория Кафе, за октябрь. '
-        'Больше всего 3 октября: 1000 рублей. В среднем 50 рублей в день',
+        'Больше всего 3 октября: 1000 рублей. В среднем 55 рублей 56 копеек в день',
       );
       handle.dispose();
     });

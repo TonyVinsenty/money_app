@@ -78,6 +78,32 @@ void main() {
       final r = barRects(_size, [100], 1000);
       expect(r.single.height, closeTo(10, 1e-9));
     });
+
+    test('полоса подписей оси: столбики кончаются выше, высота меньше', () {
+      final r = barRects(_size, [500], null, barChartAxisHeight).single;
+      expect(r.bottom, closeTo(100, 1e-9));
+      expect(r.top, closeTo(16, 1e-9));
+      expect(r.height, closeTo(84, 1e-9));
+    });
+  });
+
+  group('подписи оси: геометрия', () {
+    test('среднее учитывает полосу подписей', () {
+      expect(
+        barAverageY(_size, [500], 250, barChartAxisHeight),
+        closeTo(58, 1e-9),
+      );
+    });
+
+    test('подпись по центру слота', () {
+      // 4 слота по 75 dp; подпись 20 dp в слоте 1 (центр 112,5).
+      expect(barAxisLabelLeft(1, 4, 300, 20), closeTo(102.5, 1e-9));
+    });
+
+    test('крайние подписи сдвигаются внутрь', () {
+      expect(barAxisLabelLeft(0, 31, 300, 30), 0);
+      expect(barAxisLabelLeft(30, 31, 300, 30), closeTo(270, 1e-9));
+    });
   });
 
   group('barAverageY', () {
@@ -140,6 +166,55 @@ void main() {
       );
       expect(t.takeException(), isNull);
       expect(t.getSize(find.byType(BarChart)).width, 360);
+    });
+
+    testWidgets('подписи оси: 360 dp, 200 %, без переполнения и семантики', (
+      t,
+    ) async {
+      final handle = t.ensureSemantics();
+      await t.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SizedBox(
+              width: 360,
+              child: BarChart(
+                weights: List.generate(31, (i) => i * 100),
+                axisLabels: const {0: '1', 9: '10', 19: '20', 30: '31'},
+                color: Colors.red,
+                topLabel: '5 000 ₽',
+                semanticsLabel: 'график',
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(t.takeException(), isNull);
+      expect(t.getSize(find.byType(BarChart)).height, 160);
+      expect(find.bySemanticsLabel('10'), findsNothing);
+      expect(find.bySemanticsLabel('график'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('подписи оси: больше столбиков, чем индексов - без падения', (
+      t,
+    ) async {
+      await t.pumpWidget(
+        _host(
+          const BarChart(
+            weights: [1, 2],
+            axisLabels: {0: 'a', 1: 'b', 5: 'x', -1: 'y'},
+            color: Colors.red,
+            topLabel: '2',
+            semanticsLabel: 'x',
+          ),
+        ),
+      );
+      expect(t.takeException(), isNull);
     });
 
     testWidgets('пустые и нулевые веса не падают', (t) async {
@@ -220,6 +295,18 @@ void main() {
             topLabel: 'a',
             semanticsLabel: 'x',
             average: 1,
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        await changed(
+          const BarChart(
+            weights: [1, 2],
+            axisLabels: {0: 'Пн'},
+            color: Colors.red,
+            topLabel: 'a',
+            semanticsLabel: 'x',
           ),
         ),
         isTrue,

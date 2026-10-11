@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/core/money/nice_ceiling.dart';
@@ -7,6 +8,9 @@ import 'package:money_app/core/ui/donut_chart.dart' show donutHoldDelay;
 
 /// Место сверху под подпись верха шкалы, dp.
 const double barChartLabelHeight = 16;
+
+/// Высота полосы подписей оси под столбиками, dp (если подписи есть).
+const double barChartAxisHeight = 16;
 
 /// Доля ширины слота, которую занимает сам столбик (остальное — зазор).
 const double _barFraction = 0.7;
@@ -27,23 +31,33 @@ int barChartCeiling(List<int> weights, [int? average]) {
   return niceCeiling(top);
 }
 
-/// Область столбиков: весь [size] без полосы под подпись шкалы сверху.
-Rect _plot(Size size) => Rect.fromLTRB(
-  0,
-  math.min(barChartLabelHeight, size.height),
-  size.width,
-  size.height,
-);
+/// Область столбиков: весь [size] без полосы под подпись шкалы сверху и без
+/// полосы подписей оси снизу ([axisHeight], 0 — подписей нет).
+Rect _plot(Size size, double axisHeight) {
+  final top = math.min(barChartLabelHeight, size.height);
+  return Rect.fromLTRB(
+    0,
+    top,
+    size.width,
+    math.max(top, size.height - axisHeight),
+  );
+}
 
 /// Прямоугольники столбиков, по одному на вес, слева направо.
 ///
 /// Ширина делится на равные слоты, столбик занимает по центру 70 % слота.
 /// Высота пропорциональна весу относительно [barChartCeiling]. Нулевой и
 /// отрицательный вес — прямоугольник нулевой высоты на нижней линии; ненулевой
-/// не ниже 1 dp. Нет весов — пустой список.
-List<Rect> barRects(Size size, List<int> weights, [int? average]) {
+/// не ниже 1 dp. Нет весов — пустой список. Если есть подписи оси, передают
+/// [axisHeight] ([barChartAxisHeight]): столбики кончаются выше на эту полосу.
+List<Rect> barRects(
+  Size size,
+  List<int> weights, [
+  int? average,
+  double axisHeight = 0,
+]) {
   if (weights.isEmpty) return const [];
-  final plot = _plot(size);
+  final plot = _plot(size, axisHeight);
   final top = barChartCeiling(weights, average);
   final slot = plot.width / weights.length;
   final barWidth = slot * _barFraction;
@@ -65,10 +79,23 @@ List<Rect> barRects(Size size, List<int> weights, [int? average]) {
 }
 
 /// Координата y линии среднего (ниже по экрану — больше).
-double barAverageY(Size size, List<int> weights, int average) {
-  final plot = _plot(size);
+double barAverageY(
+  Size size,
+  List<int> weights,
+  int average, [
+  double axisHeight = 0,
+]) {
+  final plot = _plot(size, axisHeight);
   final top = barChartCeiling(weights, average);
   return plot.bottom - average.clamp(0, top) / top * plot.height;
+}
+
+/// Левый край подписи шириной [width] по центру слота [index] из [count],
+/// сдвинутый внутрь, если вылезает за [totalWidth].
+double barAxisLabelLeft(int index, int count, double totalWidth, double width) {
+  final center = totalWidth / count * (index + 0.5);
+  final half = width / 2;
+  return center.clamp(half, math.max(half, totalWidth - half)) - half;
 }
 
 /// Номер столбика под точкой [point] или `null`, если точка за пределами
@@ -99,6 +126,12 @@ Color barColor(Color base, int index, int? highlighted) =>
 /// по столбикам, реальная прокрутка родителя снимает подсветку, а удержание
 /// [donutHoldDelay] останавливает прокрутку. Для скринридера весь график —
 /// один узел с подписью [semanticsLabel] (её собирает вызывающий).
+///
+/// [axisLabels] — необязательные подписи оси: номер столбика → короткая строка
+/// (строки готовит вызывающий). Рисуются под столбиками по центру своего
+/// столбика мелким шрифтом без масштабирования (полоса фиксированной высоты
+/// [barChartAxisHeight]; значения и так есть в озвучке). Подпись, которая
+/// налезла бы на предыдущую, пропускается. Из семантики подписи исключены.
 class BarChart extends StatefulWidget {
   const BarChart({
     super.key,
@@ -107,6 +140,7 @@ class BarChart extends StatefulWidget {
     required this.topLabel,
     required this.semanticsLabel,
     this.average,
+    this.axisLabels = const {},
     this.highlightedIndex,
     this.onHighlight,
     this.height = 160,
@@ -114,6 +148,7 @@ class BarChart extends StatefulWidget {
 
   final List<int> weights;
   final int? average;
+  final Map<int, String> axisLabels;
   final Color color;
   final String topLabel;
   final String semanticsLabel;
@@ -228,6 +263,7 @@ class _BarChartState extends State<BarChart> {
               painter: _BarPainter(
                 weights: widget.weights,
                 average: widget.average,
+                axisLabels: widget.axisLabels,
                 color: widget.color,
                 lineColor: muted,
                 topLabel: widget.topLabel,
@@ -247,6 +283,7 @@ class _BarPainter extends CustomPainter {
   _BarPainter({
     required this.weights,
     required this.average,
+    required this.axisLabels,
     required this.color,
     required this.lineColor,
     required this.topLabel,
@@ -256,6 +293,7 @@ class _BarPainter extends CustomPainter {
 
   final List<int> weights;
   final int? average;
+  final Map<int, String> axisLabels;
   final Color color;
   final Color lineColor;
   final String topLabel;
@@ -273,7 +311,8 @@ class _BarPainter extends CustomPainter {
     label.paint(canvas, Offset.zero);
     label.dispose();
 
-    final rects = barRects(size, weights, average);
+    final axis = axisLabels.isEmpty ? 0.0 : barChartAxisHeight;
+    final rects = barRects(size, weights, average, axis);
     final radius = Radius.circular(math.min(2, size.width / 4));
     for (var i = 0; i < rects.length; i++) {
       if (rects[i].height <= 0) continue;
@@ -283,9 +322,11 @@ class _BarPainter extends CustomPainter {
       );
     }
 
+    if (axisLabels.isNotEmpty) _paintAxis(canvas, size);
+
     final avg = average;
     if (avg != null && avg > 0) {
-      final y = barAverageY(size, weights, avg);
+      final y = barAverageY(size, weights, avg, axis);
       final paint = Paint()
         ..color = lineColor
         ..strokeWidth = 1.5;
@@ -299,9 +340,32 @@ class _BarPainter extends CustomPainter {
     }
   }
 
+  /// Подписи оси слева направо; налезающая на предыдущую пропускается.
+  void _paintAxis(Canvas canvas, Size size) {
+    final indexes = [
+      for (final i in axisLabels.keys)
+        if (i >= 0 && i < weights.length) i,
+    ]..sort();
+    var lastRight = double.negativeInfinity;
+    for (final i in indexes) {
+      final p = TextPainter(
+        text: TextSpan(text: axisLabels[i], style: labelStyle),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      final left = barAxisLabelLeft(i, weights.length, size.width, p.width);
+      if (left >= lastRight + 2) {
+        p.paint(canvas, Offset(left, size.height - barChartAxisHeight + 2));
+        lastRight = left + p.width;
+      }
+      p.dispose();
+    }
+  }
+
   @override
   bool shouldRepaint(_BarPainter old) =>
       old.average != average ||
+      !mapEquals(old.axisLabels, axisLabels) ||
       old.color != color ||
       old.lineColor != lineColor ||
       old.topLabel != topLabel ||
