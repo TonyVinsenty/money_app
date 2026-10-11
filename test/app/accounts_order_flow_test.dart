@@ -57,7 +57,10 @@ Future<void> _pump(
 }
 
 Future<void> _openOrder(WidgetTester tester) async {
-  await tester.ensureVisible(find.byKey(AccountsSection.orderKey));
+  // Пункт «Порядок счетов» теперь в меню «⋮» заголовка карточки.
+  await tester.ensureVisible(find.byKey(AccountsSection.moreKey));
+  await tester.tap(find.byKey(AccountsSection.moreKey));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(AccountsSection.orderKey));
   await tester.pumpAndSettle();
 }

@@ -8,7 +8,9 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
+import 'package:money_app/core/ui/section_card.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
@@ -195,26 +197,15 @@ class _DueSectionState extends State<DueSection> {
   @override
   Widget build(BuildContext context) {
     if (_dues.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Semantics(
-              header: true,
-              child: Text(
-                dueSectionTitle(_dues.length),
-                key: DueSection.titleKey,
-                style: theme.textTheme.titleMedium,
-              ),
-            ),
-          ),
+        SectionCard(
+          title: dueSectionTitle(_dues.length),
+          titleKey: DueSection.titleKey,
+          children: [for (final due in _dues) _buildRow(context, due)],
         ),
-        for (final due in _dues) _buildRow(context, due),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
       ],
     );
   }
@@ -240,6 +231,7 @@ class _DueSectionState extends State<DueSection> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Semantics(
+            container: true,
             label: dueRowSemantics(p, due.dueOn, widget.today),
             button: true,
             onTap: () => archived == null ? _openSheet(due) : widget.onEdit(p),

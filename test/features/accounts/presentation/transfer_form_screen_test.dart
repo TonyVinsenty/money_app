@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -563,7 +563,7 @@ void main() {
     }
 
     bool transferEnabled(WidgetTester tester) => tester
-        .widget<OutlinedButton>(find.byKey(AccountsSection.transferKey))
+        .widget<ButtonStyleButton>(find.byKey(AccountsSection.transferKey))
         .enabled;
 
     testWidgets('one account: no Transfer, Add fills the width', (
@@ -572,9 +572,10 @@ void main() {
       await pumpTab(tester, [acc('a1', 'Карта')]);
       expect(find.byKey(AccountsSection.transferKey), findsNothing);
       expect(find.byKey(AccountsSection.transferHintKey), findsNothing);
+      // Карточка: 360 - 2 * 16 (экран) - 2 * 16 (карточка) = 296.
       expect(
         tester.getSize(find.byKey(AccountsSection.addButtonKey)).width,
-        328,
+        296,
       );
     });
 
@@ -619,29 +620,25 @@ void main() {
       expect(transferEnabled(tester), isFalse);
     });
 
-    testWidgets('with a pair: enabled, Transfer left of Add, 50/50', (
+    testWidgets('with a pair: Transfer is the main button, Add is the plus', (
       tester,
     ) async {
       await pumpTab(tester, [acc('a1', 'Карта'), acc('a2', 'Наличные')]);
       expect(transferEnabled(tester), isTrue);
       expect(find.byKey(AccountsSection.transferHintKey), findsNothing);
       final t = find.byKey(AccountsSection.transferKey);
-      final a = find.byKey(AccountsSection.addButtonKey);
-      expect(tester.getCenter(t).dy, tester.getCenter(a).dy);
-      expect(tester.getTopLeft(t).dx, lessThan(tester.getTopLeft(a).dx));
-      expect(tester.getSize(t).width, tester.getSize(a).width);
+      expect(find.byKey(AccountsSection.addButtonKey), findsNothing);
+      expect(find.byKey(AccountsSection.addIconKey), findsOneWidget);
+      expect(tester.getSize(t).width, 296);
       expect(tester.getSize(t).height, greaterThanOrEqualTo(48));
     });
 
-    testWidgets('text scale 200 percent: column, no overflow', (tester) async {
+    testWidgets('text scale 200 percent: no overflow', (tester) async {
       await pumpTab(tester, [
         acc('a1', 'Карта'),
         acc('a2', 'Наличные'),
       ], textScale: 2);
-      final t = find.byKey(AccountsSection.transferKey);
-      final a = find.byKey(AccountsSection.addButtonKey);
-      expect(tester.getTopLeft(t).dy, lessThan(tester.getTopLeft(a).dy));
-      expect(tester.getSize(t).width, tester.getSize(a).width);
+      expect(find.byKey(AccountsSection.transferKey), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

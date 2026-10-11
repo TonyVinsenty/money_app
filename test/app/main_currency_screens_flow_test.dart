@@ -344,8 +344,9 @@ void main() {
     );
     expect(find.byKey(const ValueKey('accounts-total-RUB')), findsOneWidget);
 
-    await tester.ensureVisible(find.byKey(AccountsSection.addButtonKey));
-    await tester.tap(find.byKey(AccountsSection.addButtonKey));
+    // Счетов два и больше: «Добавить счёт» - значок «+» в заголовке карточки.
+    await tester.ensureVisible(find.byKey(AccountsSection.addIconKey));
+    await tester.tap(find.byKey(AccountsSection.addIconKey));
     await tester.pumpAndSettle();
     expect(
       find.descendant(

@@ -15,6 +15,10 @@ abstract final class AppSpacing {
   /// другого элемента, поэтому не из шкалы.
   static const double belowAvatar = 40;
 
+  /// Ширина аватара-кружка (`CategoryAvatar`, аватар счёта): по ней текст
+  /// под аватаром выравнивается по названию.
+  static const double avatarWidth = 40;
+
   /// Запас снизу списка под кнопку «Добавить…», чтобы она не закрывала
   /// последнюю строку. Привязан к размеру кнопки, поэтому не из шкалы.
   static const double fabClearance = 96;

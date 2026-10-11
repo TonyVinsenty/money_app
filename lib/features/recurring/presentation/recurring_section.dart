@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/section_card.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
@@ -68,22 +69,9 @@ class RecurringSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SectionCard(
+      title: recurringSectionTitle,
       children: [
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Semantics(
-              header: true,
-              child: Text(
-                recurringSectionTitle,
-                style: theme.textTheme.titleMedium,
-              ),
-            ),
-          ),
-        ),
         AsyncView<List<RecurringListItem>>(
           stream: items,
           loadingBuilder: (_) => const AsyncLoading(),

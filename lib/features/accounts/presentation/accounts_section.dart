@@ -4,7 +4,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/async_view.dart';
-import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/core/ui/section_card.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -34,8 +34,8 @@ class AccountsSection extends StatelessWidget {
     super.key,
   });
 
-  /// «История»: открыть журнал счетов. Кнопка справа от заголовка, видна, если
-  /// есть хотя бы один счёт (в том числе только архивные).
+  /// «История счетов»: пункт меню «⋮», виден, если есть хотя бы один счёт
+  /// (в том числе только архивные).
   final VoidCallback? onOpenJournal;
 
   static const journalKey = ValueKey('accounts-journal');
@@ -47,11 +47,13 @@ class AccountsSection extends StatelessWidget {
   static const transferKey = ValueKey('accounts-transfer');
   static const transferHintKey = ValueKey('accounts-transfer-hint');
 
-  /// Открывает экран «Порядок счетов»; пункт виден при двух и более активных
-  /// счетах.
+  /// Открывает экран «Порядок счетов»; пункт меню «⋮» виден при двух и более
+  /// активных счетах.
   final VoidCallback? onOpenOrder;
 
   static const orderKey = ValueKey('accounts-order');
+  static const moreKey = ValueKey('accounts-more');
+  static const addIconKey = ValueKey('accounts-add-icon');
 
   /// «Вернуть из архива» у счёта из раздела «Архив»; без него раздела нет.
   final ValueChanged<Account>? onRestoreAccount;
@@ -116,10 +118,16 @@ class AccountsSection extends StatelessWidget {
           emptyBuilder: (context) => _withAdd(context, _emptyText(context)),
           dataBuilder: (context, all) => AsyncView<Map<String, Money>>(
             stream: balances,
-            loadingBuilder: (_) =>
-                _withAdd(context, const AsyncLoading(), journal: true),
-            errorBuilder: (context, error) =>
-                _withAdd(context, _error(context, error), journal: true),
+            loadingBuilder: (_) => _withAdd(
+              context,
+              const AsyncLoading(),
+              menu: _menu(hasAny: true, shownCount: 0),
+            ),
+            errorBuilder: (context, error) => _withAdd(
+              context,
+              _error(context, error),
+              menu: _menu(hasAny: true, shownCount: 0),
+            ),
             dataBuilder: (context, byId) {
               final shown = _visible(all);
               final archived = [
@@ -128,12 +136,20 @@ class AccountsSection extends StatelessWidget {
               ];
               // Счёт уже появился, а его остаток ещё считается: ждём.
               if (shown.any((a) => !byId.containsKey(a.id))) {
-                return _withAdd(context, const AsyncLoading(), journal: true);
+                return _withAdd(
+                  context,
+                  const AsyncLoading(),
+                  menu: _menu(hasAny: true, shownCount: shown.length),
+                );
               }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              final withTransfer = _hasTransfer(shown);
+              return SectionCard(
+                title: accountsSectionTitle,
+                trailing: _trailing(
+                  menu: _menu(hasAny: true, shownCount: shown.length),
+                  showPlus: withTransfer,
+                ),
                 children: [
-                  _header(context, journal: true),
                   if (shown.isEmpty)
                     _emptyText(context)
                   else ...[
@@ -147,7 +163,7 @@ class AccountsSection extends StatelessWidget {
                           (total, _infoOf(shown, total.currency)),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.s),
                     for (final a in shown)
                       _AccountRow(
                         a,
@@ -163,16 +179,6 @@ class AccountsSection extends StatelessWidget {
                       ),
                   ],
                   _buttons(context, shown),
-                  if (shown.length >= 2 && onOpenOrder != null)
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: TextButton.icon(
-                        key: orderKey,
-                        onPressed: onOpenOrder,
-                        icon: const Icon(Icons.swap_vert),
-                        label: const Text(accountsOrderTitle),
-                      ),
-                    ),
                   if (archived.isNotEmpty && onRestoreAccount != null)
                     _ArchiveTile(archived, onRestoreAccount!),
                 ],
@@ -180,6 +186,58 @@ class AccountsSection extends StatelessWidget {
             },
           ),
         ),
+      ],
+    );
+  }
+
+  /// «Перевод» - главная кнопка, когда счетов два и больше; иначе главная
+  /// «Добавить счёт», а значок «+» в заголовке не нужен (был бы дублем).
+  bool _hasTransfer(List<Account> shown) =>
+      onTransfer != null && shown.length >= 2;
+
+  /// Пункты меню «⋮»: журнал (есть любой счёт, в том числе архивный) и порядок
+  /// (два и больше активных). Без пунктов меню нет.
+  List<_MenuEntry> _menu({required bool hasAny, required int shownCount}) => [
+    if (hasAny && onOpenJournal != null) _MenuEntry.journal,
+    if (shownCount >= 2 && onOpenOrder != null) _MenuEntry.order,
+  ];
+
+  Widget? _trailing({required List<_MenuEntry> menu, required bool showPlus}) {
+    if (menu.isEmpty && !showPlus) return null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showPlus)
+          IconButton(
+            key: addIconKey,
+            tooltip: accountsAddButton,
+            onPressed: onAddAccount,
+            icon: const Icon(Icons.add),
+          ),
+        if (menu.isNotEmpty)
+          PopupMenuButton<_MenuEntry>(
+            key: moreKey,
+            tooltip: accountsMoreTooltip,
+            onSelected: (entry) => switch (entry) {
+              _MenuEntry.journal => onOpenJournal?.call(),
+              _MenuEntry.order => onOpenOrder?.call(),
+            },
+            itemBuilder: (_) => [
+              for (final entry in menu)
+                switch (entry) {
+                  _MenuEntry.journal => const PopupMenuItem(
+                    key: journalKey,
+                    value: _MenuEntry.journal,
+                    child: Text(balanceJournalButtonSpoken),
+                  ),
+                  _MenuEntry.order => const PopupMenuItem(
+                    key: orderKey,
+                    value: _MenuEntry.order,
+                    child: Text(accountsOrderTitle),
+                  ),
+                },
+            ],
+          ),
       ],
     );
   }
@@ -198,60 +256,33 @@ class AccountsSection extends StatelessWidget {
 
   /// Состояния без ряда кнопок (загрузка, ошибка, нет счетов): «Добавить
   /// счёт» под ними на всю ширину.
-  Widget _withAdd(BuildContext context, Widget body, {bool journal = false}) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _header(context, journal: journal),
-          body,
-          const SizedBox(height: 8),
-          _addButton(),
-        ],
-      );
+  Widget _withAdd(
+    BuildContext context,
+    Widget body, {
+    List<_MenuEntry> menu = const [],
+  }) => SectionCard(
+    title: accountsSectionTitle,
+    trailing: _trailing(menu: menu, showPlus: false),
+    children: [
+      body,
+      const SizedBox(height: AppSpacing.s),
+      _addButton(),
+    ],
+  );
 
-  /// Заголовок «Счета»; с кнопкой «История», когда счета уже есть. Заголовок
-  /// живёт в состояниях потока, а не над ним: поток счетов слушается один раз.
-  Widget _header(BuildContext context, {required bool journal}) {
-    final title = Text(
-      accountsSectionTitle,
-      style: Theme.of(context).textTheme.titleMedium,
-    );
-    // Высота 48 одинакова во всех состояниях: заголовок не прыгает, когда
-    // появляется кнопка.
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48),
-      child: journal && onOpenJournal != null
-          ? Row(
-              children: [
-                Expanded(child: title),
-                Semantics(
-                  label: balanceJournalButtonSpoken,
-                  button: true,
-                  excludeSemantics: true,
-                  onTap: onOpenJournal,
-                  child: TextButton.icon(
-                    key: journalKey,
-                    onPressed: onOpenJournal,
-                    icon: const Icon(Icons.history),
-                    label: const Text(balanceJournalButton),
-                  ),
-                ),
-              ],
-            )
-          : Align(alignment: AlignmentDirectional.centerStart, child: title),
-    );
-  }
-
-  /// Ряд «Перевод» | «Добавить счёт» 50/50; на узком экране или при крупном
-  /// шрифте - столбик («Перевод» сверху). Меньше двух счетов - «Перевод» нет;
-  /// есть два, но нет пары одной валюты - «Перевод» неактивна с подсказкой.
+  /// Одна главная кнопка карточки: «Перевод» при двух и больше счетах, иначе
+  /// «Добавить счёт». Есть два счёта, но нет пары одной валюты - «Перевод»
+  /// неактивна с подсказкой.
   Widget _buttons(BuildContext context, List<Account> shown) {
     final add = _addButton();
-    if (onTransfer == null || shown.length < 2) {
-      return Padding(padding: const EdgeInsets.only(top: 8), child: add);
+    if (!_hasTransfer(shown)) {
+      return Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.s),
+        child: add,
+      );
     }
     final canTransfer = canTransferAny(shown);
-    final transferButton = OutlinedButton.icon(
+    final transferButton = FilledButton.tonalIcon(
       key: transferKey,
       style: _buttonStyle,
       onPressed: canTransfer ? onTransfer : null,
@@ -270,29 +301,16 @@ class AccountsSection extends StatelessWidget {
             excludeSemantics: true,
             child: transferButton,
           );
-    final stacked =
-        MediaQuery.sizeOf(context).width < 340 || fontScaleOf(context) >= 1.3;
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: AppSpacing.s),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (stacked) ...[
-            transfer,
-            const SizedBox(height: 8),
-            add,
-          ] else
-            Row(
-              children: [
-                Expanded(child: transfer),
-                const SizedBox(width: 8),
-                Expanded(child: add),
-              ],
-            ),
+          transfer,
           if (!canTransfer)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
               child: ExcludeSemantics(
                 child: Text(
                   transferNeedPairHint,
@@ -318,6 +336,37 @@ class AccountsSection extends StatelessWidget {
   );
 }
 
+/// Пункты меню «⋮» в заголовке карточки «Счета».
+enum _MenuEntry { journal, order }
+
+/// Значок счёта в нейтральном кружке 40 dp: строки счетов выглядят как строки
+/// операций (design-style.md, 8.5). От скринридера скрыт: подпись даёт строка.
+class _AccountAvatar extends StatelessWidget {
+  const _AccountAvatar(this.account);
+
+  final Account account;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        shape: BoxShape.circle,
+      ),
+      child: AccountIconView(
+        account.iconKey,
+        name: account.name,
+        size: 24,
+        color: scheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
 /// Свёрнутый раздел «Архив (N)» внизу списка, как у категорий: у каждого
 /// счёта под названием кнопка «Вернуть из архива».
 class _ArchiveTile extends StatelessWidget {
@@ -341,19 +390,17 @@ class _ArchiveTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    AccountIconView(
-                      a.iconKey,
-                      name: a.name,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 16),
+                    _AccountAvatar(a),
+                    const SizedBox(width: AppSpacing.m),
                     Expanded(
                       child: Text(a.name, style: theme.textTheme.bodyLarge),
                     ),
                   ],
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(left: AppSpacing.belowAvatar),
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.avatarWidth + AppSpacing.m,
+                  ),
                   child: Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: Semantics(
@@ -472,12 +519,8 @@ class _AccountRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
-                AccountIconView(
-                  account.iconKey,
-                  name: account.name,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 12),
+                _AccountAvatar(account),
+                const SizedBox(width: AppSpacing.m),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

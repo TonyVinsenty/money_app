@@ -102,6 +102,9 @@ Future<void> _pumpApp(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
+  // «История счетов» теперь пункт меню «⋮» в заголовке карточки «Счета».
+  await tester.tap(find.byKey(AccountsSection.moreKey));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(AccountsSection.journalKey));
   await tester.pumpAndSettle();
 }

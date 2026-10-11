@@ -13,6 +13,7 @@ const String accountsTotalLabel = 'Всего на счетах';
 const String accountsEmptyText =
     'Добавьте счёт: карту, наличные, вклад — и укажите, сколько на нём сейчас';
 const String accountsAddButton = 'Добавить счёт';
+const String accountsMoreTooltip = 'Ещё';
 const String accountsLoadError = 'Не удалось загрузить счета';
 
 // Форма счёта (тексты утверждены).
