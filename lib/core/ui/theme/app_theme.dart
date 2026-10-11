@@ -9,6 +9,32 @@ abstract final class AppTheme {
   // голубой оттенок: остаются почти серые поверхности.
   static const Color _seed = Color(0xFF546E7A);
 
+  // Акцент (кнопки, выбранные элементы): синий. Берём из его схемы только
+  // группу primary; фоны и поверхности остаются нейтральными.
+  static const Color _accentSeed = Color(0xFF2F6FD6);
+
+  /// Нейтральная схема, у которой primary-группа заменена на синюю.
+  static ColorScheme scheme(Brightness brightness) {
+    final neutral = ColorScheme.fromSeed(
+      seedColor: _seed,
+      brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.neutral,
+    );
+    final accent = ColorScheme.fromSeed(
+      seedColor: _accentSeed,
+      brightness: brightness,
+      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+    );
+    return neutral.copyWith(
+      primary: accent.primary,
+      onPrimary: accent.onPrimary,
+      primaryContainer: accent.primaryContainer,
+      onPrimaryContainer: accent.onPrimaryContainer,
+      inversePrimary: accent.inversePrimary,
+      surfaceTint: accent.primary,
+    );
+  }
+
   static const RoundedRectangleBorder _cardShape = RoundedRectangleBorder(
     borderRadius: AppRadius.borderL,
   );
@@ -18,14 +44,7 @@ abstract final class AppTheme {
   static ThemeData dark() => _build(Brightness.dark, AppColors.dark);
 
   static ThemeData _build(Brightness brightness, AppColors colors) {
-    final base = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _seed,
-        brightness: brightness,
-        dynamicSchemeVariant: DynamicSchemeVariant.neutral,
-      ),
-    );
+    final base = ThemeData(useMaterial3: true, colorScheme: scheme(brightness));
     return base.copyWith(
       textTheme: _textTheme(base.textTheme),
       // Карточки отделяются от фона тоном, а не тенью (тень в тёмной теме

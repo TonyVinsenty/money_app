@@ -50,6 +50,46 @@ void main() {
     }
   });
 
+  group('акцентный цвет (синий)', () {
+    for (final entry in themes.entries) {
+      final scheme = entry.value.colorScheme;
+      final brightness = scheme.brightness;
+
+      test('${entry.key} тема: onPrimary на primary ≥ 4.5', () {
+        expect(
+          contrastRatio(scheme.onPrimary, scheme.primary),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+      test('${entry.key} тема: primary на surface ≥ 4.5', () {
+        expect(
+          contrastRatio(scheme.primary, scheme.surface),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+      test('${entry.key} тема: primary на surfaceContainerHighest ≥ 4.5', () {
+        expect(
+          contrastRatio(scheme.primary, scheme.surfaceContainerHighest),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+      test(
+        '${entry.key} тема: фоны и текст как в прежней нейтральной схеме',
+        () {
+          final old = ColorScheme.fromSeed(
+            seedColor: const Color(0xFF546E7A),
+            brightness: brightness,
+            dynamicSchemeVariant: DynamicSchemeVariant.neutral,
+          );
+          expect(scheme.surface, old.surface);
+          expect(scheme.onSurface, old.onSurface);
+          expect(scheme.surfaceContainerHighest, old.surfaceContainerHighest);
+          expect(scheme.outline, old.outline);
+        },
+      );
+    }
+  });
+
   group('карточки без тени', () {
     for (final entry in themes.entries) {
       test('${entry.key} тема: cardTheme.elevation == 0', () {
