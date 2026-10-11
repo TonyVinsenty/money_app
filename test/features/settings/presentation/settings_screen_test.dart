@@ -166,6 +166,29 @@ void main() {
       }
     });
 
+    testWidgets('варианты «Вторая строка в кольце» на общих линиях', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app());
+      final titleLine = tester.getTopLeft(find.text('Категории')).dx;
+      for (final label in ['За всё время', 'На счетах', 'Не показывать']) {
+        expect(
+          tester.getTopLeft(find.text(label)).dx,
+          moreOrLessEquals(titleLine, epsilon: 0.5),
+          reason: label,
+        );
+      }
+      final iconCenter = tester
+          .getCenter(find.byIcon(Icons.category_outlined))
+          .dx;
+      for (final radio in find.byType(Radio<HomeBalanceLine>).evaluate()) {
+        expect(
+          tester.getCenter(find.byElementPredicate((e) => e == radio)).dx,
+          moreOrLessEquals(iconCenter, epsilon: 0.5),
+        );
+      }
+    });
+
     testWidgets('«Очистить всё»: значок цвета ошибки', (tester) async {
       await tester.pumpWidget(_app());
       final context = tester.element(

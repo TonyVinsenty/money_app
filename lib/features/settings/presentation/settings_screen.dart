@@ -473,23 +473,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onChanged: (value) {
             if (value != null) widget.onHomeBalanceLineChanged(value);
           },
-          child: const Column(
-            children: [
-              RadioListTile<HomeBalanceLine>(
-                value: HomeBalanceLine.allTime,
-                title: Text(homeBalanceAllTimeLabel),
-                subtitle: Text(homeBalanceAllTimeSubtitle),
-              ),
-              RadioListTile<HomeBalanceLine>(
-                value: HomeBalanceLine.accounts,
-                title: Text(homeBalanceAccountsLabel),
-                subtitle: Text(homeBalanceAccountsSubtitle),
-              ),
-              RadioListTile<HomeBalanceLine>(
-                value: HomeBalanceLine.none,
-                title: Text(homeBalanceNoneLabel),
-              ),
-            ],
+          // Кружок (20 в зоне 40) — по центру колонки значков (24 от края 16),
+          // текст — на линии названий остальных пунктов (16 + 24 + 16 = 56):
+          // начало 8, промежуток 8.
+          child: ListTileTheme.merge(
+            contentPadding: const EdgeInsetsDirectional.only(
+              start: AppSpacing.s,
+              end: AppSpacing.xl,
+            ),
+            horizontalTitleGap: AppSpacing.s,
+            child: const Column(
+              children: [
+                RadioListTile<HomeBalanceLine>(
+                  value: HomeBalanceLine.allTime,
+                  title: Text(homeBalanceAllTimeLabel),
+                  subtitle: Text(homeBalanceAllTimeSubtitle),
+                ),
+                RadioListTile<HomeBalanceLine>(
+                  value: HomeBalanceLine.accounts,
+                  title: Text(homeBalanceAccountsLabel),
+                  subtitle: Text(homeBalanceAccountsSubtitle),
+                ),
+                RadioListTile<HomeBalanceLine>(
+                  value: HomeBalanceLine.none,
+                  title: Text(homeBalanceNoneLabel),
+                ),
+              ],
+            ),
           ),
         ),
         if (widget.onHideAmountsChanged case final onChanged?)
