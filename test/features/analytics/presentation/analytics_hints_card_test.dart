@@ -115,7 +115,7 @@ void main() {
     test('правило 1: месяц', () {
       expect(
         _above(_october, _today),
-        'Кафе: уже ${_money(800000)} $_dash больше, чем за весь сентябрь '
+        'Кафе: уже потрачено ${_money(800000)} $_dash больше, чем за весь сентябрь '
         '(${_money(650000)})',
       );
     });
@@ -227,7 +227,7 @@ void main() {
     test('озвучка: слова вместо знаков', () {
       expect(
         _above(_october, _today, spoken: true),
-        'Кафе: уже 8000 рублей, больше, чем за весь сентябрь, 6500 рублей',
+        'Кафе: уже потрачено 8000 рублей, больше, чем за весь сентябрь, 6500 рублей',
       );
       String weekday(int share) => analyticsHintText(
         BusiestWeekdayHint(
@@ -266,7 +266,7 @@ void main() {
       expect(find.byIcon(Icons.lightbulb_outline), findsOneWidget);
       expect(
         find.text(
-          'Кафе: уже ${_money(800000)} $_dash больше, чем за весь сентябрь '
+          'Кафе: уже потрачено ${_money(800000)} $_dash больше, чем за весь сентябрь '
           '(${_money(650000)})',
         ),
         findsOneWidget,
@@ -279,7 +279,7 @@ void main() {
 
       expect(
         tester.widget<Text>(find.byKey(AnalyticsHintsCard.lineKey(0))).data,
-        startsWith('Кафе: уже '),
+        startsWith('Кафе: уже потрачено '),
       );
       expect(
         tester.widget<Text>(find.byKey(AnalyticsHintsCard.lineKey(1))).data,
@@ -292,50 +292,74 @@ void main() {
       expect(find.byKey(AnalyticsHintsCard.lineKey(3)), findsNothing);
     });
 
-    testWidgets('правило 1 не показывается для прошедшего периода', (
+    testWidgets('прошедший период: правила 1 нет, остаётся правило 3', (
       tester,
     ) async {
       final september = currentPeriod(PeriodKind.month, DateOnly(2026, 9, 15));
-      // Август 6 500, сентябрь 8 000: подсказка правила 1 есть в данных,
-      // но «уже» про прошедший месяц не говорят.
+      // Август 6 500, сентябрь 8 000: «уже» про прошедший месяц не говорят.
       await _pump(tester, [
         _tx('a', 650000, DateOnly(2026, 8, 19), 'cafe'),
         _tx('s', 800000, DateOnly(2026, 9, 10), 'cafe'),
       ], period: september);
 
-      expect(
-        analyticsHints(
-          [
-            _tx('a', 650000, DateOnly(2026, 8, 19), 'cafe'),
-            _tx('s', 800000, DateOnly(2026, 9, 10), 'cafe'),
-          ],
-          september,
-          _today,
-          currency: 'RUB',
-        ),
-        contains(isA<CategoryAbovePreviousHint>()),
-      );
-      // Остаётся только правило 3 (день недели): строка с «уже» не показана.
       expect(find.byKey(AnalyticsHintsCard.lineKey(0)), findsOneWidget);
       expect(find.byKey(AnalyticsHintsCard.lineKey(1)), findsNothing);
       expect(find.textContaining('уже'), findsNothing);
     });
 
-    testWidgets('озвучка: «Подсказки» и каждая строка одним узлом', (
-      tester,
-    ) async {
-      final handle = tester.ensureSemantics();
-      await _pump(tester, _rule1());
-
-      expect(find.bySemanticsLabel('Подсказки'), findsOneWidget);
-      expect(
-        find.bySemanticsLabel(
-          'Кафе: уже 8000 рублей, больше, чем за весь сентябрь, 6500 рублей',
+    testWidgets('«Без категории» и архивная категория в имени', (tester) async {
+      final archived = _category(
+        'old',
+        'Старая',
+      ).archived(DateTime.utc(2026, 9, 1));
+      tester.view.physicalSize = const Size(360, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AnalyticsHintsCard(
+                transactions: [
+                  _tx('a', 650000, DateOnly(2026, 9, 19), 'old'),
+                  _tx('b', 800000, DateOnly(2026, 10, 10), 'old'),
+                  _tx('c', 640000, DateOnly(2026, 9, 19), 'ghost'),
+                  _tx('d', 700000, DateOnly(2026, 10, 10), 'ghost'),
+                ],
+                period: _october,
+                today: _today,
+                categories: [archived],
+                currency: 'RUB',
+              ),
+            ),
+          ),
         ),
+      );
+
+      expect(find.textContaining('Старая: уже потрачено '), findsOneWidget);
+      expect(
+        find.textContaining('Без категории: уже потрачено '),
         findsOneWidget,
       );
-      handle.dispose();
     });
+
+    testWidgets(
+      'озвучка: заголовок на всю карточку, строки отдельными узлами',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        await _pump(tester, _rule1());
+
+        expect(find.bySemanticsLabel('Подсказки по расходам'), findsOneWidget);
+        expect(
+          find.bySemanticsLabel(
+            'Кафе: уже потрачено 8000 рублей, больше, чем за весь сентябрь, '
+            '6500 рублей',
+          ),
+          findsOneWidget,
+        );
+        handle.dispose();
+      },
+    );
 
     testWidgets('360 dp и 200 %: без переполнения', (tester) async {
       await _pump(tester, [..._rule1(), ..._rule2()], textScale: 2, width: 360);

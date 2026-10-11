@@ -222,7 +222,7 @@ String operationsStatSpoken(String name, int count, Money average) =>
     'средний чек ${spokenMoney(average)}';
 
 /// Т6. Заголовок карточки подсказок: виден только скринридеру.
-const String analyticsHintsTitle = 'Подсказки';
+const String analyticsHintsTitle = 'Подсказки по расходам';
 
 /// Т6. Дни недели в дательном падеже («по субботам»), индекс 0 — понедельник.
 const List<String> _weekdaysDative = [
@@ -259,7 +259,7 @@ String _wholePreviousTail(AnalyticsPeriod period, DateOnly today) {
 
 /// Т6. Строка подсказки.
 ///
-/// 1. «Кафе: уже 8 000,00 ₽ — больше, чем за весь сентябрь (6 500,00 ₽)»;
+/// 1. «Кафе: уже потрачено 8 000,00 ₽ — больше, чем за весь сентябрь (6 500,00 ₽)»;
 /// 2. «Продукты: средний чек на 18 % больше, чем 1–11 сентября»
 ///    («меньше», если снизился);
 /// 3. «Больше всего тратите по субботам — 28 % расходов».
@@ -285,8 +285,8 @@ String analyticsHintText(
       final tail = _wholePreviousTail(period, today);
       final name = nameOf(hint.categoryId);
       return spoken
-          ? '$name: уже $now, больше, чем $tail, $before'
-          : '$name: уже $now $_emDash больше, чем $tail ($before)';
+          ? '$name: уже потрачено $now, больше, чем $tail, $before'
+          : '$name: уже потрачено $now $_emDash больше, чем $tail ($before)';
     case AverageCheckChangeHint():
       final value = hint.percent.abs();
       final percent = spoken

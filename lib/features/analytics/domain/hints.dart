@@ -120,7 +120,7 @@ List<Money> weekdayTotals(
 /// Результат не зависит от порядка входного списка. Если правил сработало
 /// больше трёх, лишние (с конца) отбрасываются.
 ///
-/// 1. Категория в текущем периоде (на сегодня) больше (строго), чем за ВЕСЬ
+/// 1. Только если период содержит [today]. Категория в текущем периоде (на сегодня) больше (строго), чем за ВЕСЬ
 ///    прошлый период (`previousPeriod`, а для своего интервала - отрезок
 ///    перед ним), и прошлое >= 1 000 целых единиц валюты (порог в минорных
 ///    единицах: 1000 * 10^знаков). Прошлый период целиком всегда лежит в
@@ -133,27 +133,32 @@ List<Money> weekdayTotals(
 ///    нужно >= 28. День недели с долей >= 25 % (точно: сумма * 4 >= итог);
 ///    при равных суммах - более ранний день недели.
 ///
-/// [currencyDigits] - число знаков своей валюты, если её нет в каталоге
-/// (иначе 2); для валют каталога игнорируется.
+/// «Сейчас» в правилах 1 и 2 - операции периода по [today] включительно
+/// (будущие не учитываются, чтобы «уже» было правдой). Правило 1 есть только
+/// если период содержит [today]. [currency] - основная валюта из каталога.
 List<AnalyticsHint> analyticsHints(
   Iterable<Transaction> transactions,
   AnalyticsPeriod period,
   DateOnly today, {
   required String currency,
-  int? currencyDigits,
 }) {
   final all = transactions.toList();
-  final current = period.range;
+  final periodRange = period.range;
+  final includesToday = periodRange.contains(today);
+  // Период целиком в будущем: «сейчас» пусто, правила 1 и 2 молчат.
+  final current = periodRange.start > today
+      ? null
+      : DateRange(
+          periodRange.start,
+          periodRange.end < today ? periodRange.end : today,
+        );
   final comparison = comparisonRange(period, today);
   final whole = previousPeriod(period)?.range ?? comparison;
   const expense = TransactionType.expense;
 
-  final nowTotals = totalsByCategory(
-    all,
-    current,
-    type: expense,
-    currency: currency,
-  );
+  final nowTotals = current == null
+      ? const <CategoryTotal>[]
+      : totalsByCategory(all, current, type: expense, currency: currency);
   final wholeTotals = {
     for (final t in totalsByCategory(
       all,
@@ -163,7 +168,7 @@ List<AnalyticsHint> analyticsHints(
     ))
       t.categoryId: t.amount,
   };
-  final digits = currencyInfoFor(currency, digits: currencyDigits ?? 2).digits;
+  final digits = currencyInfoFor(currency).digits;
   var threshold = _minPreviousWholeUnits;
   for (var i = 0; i < digits; i++) {
     threshold *= 10;
@@ -172,7 +177,8 @@ List<AnalyticsHint> analyticsHints(
   final hints = <AnalyticsHint>[];
 
   // Правило 1 (nowTotals уже по сумме по убыванию, ничья - по id).
-  for (final total in nowTotals) {
+  // Только для периода с сегодняшним днём: «уже» про прошедший - неправда.
+  for (final total in includesToday ? nowTotals : const <CategoryTotal>[]) {
     final before = wholeTotals[total.categoryId];
     if (before == null) continue;
     if (before.minorUnits >= threshold &&
@@ -188,7 +194,9 @@ List<AnalyticsHint> analyticsHints(
   }
 
   // Правило 2.
-  final nowStats = categoryStats(all, current, expense, currency: currency);
+  final nowStats = current == null
+      ? const <CategoryStat>[]
+      : categoryStats(all, current, expense, currency: currency);
   final beforeStats = {
     for (final s in categoryStats(all, comparison, expense, currency: currency))
       s.categoryId: s,

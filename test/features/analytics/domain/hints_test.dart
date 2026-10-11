@@ -38,14 +38,7 @@ List<AnalyticsHint> _hints(
   List<Transaction> all, {
   AnalyticsPeriod? period,
   String currency = 'RUB',
-  int? digits,
-}) => analyticsHints(
-  all,
-  period ?? _october,
-  _today,
-  currency: currency,
-  currencyDigits: digits,
-);
+}) => analyticsHints(all, period ?? _october, _today, currency: currency);
 
 String _d(AnalyticsHint h) => switch (h) {
   CategoryAbovePreviousHint() =>
@@ -90,7 +83,7 @@ void main() {
       expect(hints.whereType<CategoryAbovePreviousHint>(), isEmpty);
     });
 
-    test('threshold follows currency digits (JPY 0, custom 3)', () {
+    test('threshold follows currency digits (JPY 0)', () {
       List<Transaction> jpy(int before) => [
         _tx(before, _sep(20), category: 'a', currency: 'JPY'),
         _tx(before + 1, _oct(10), category: 'a', currency: 'JPY'),
@@ -109,35 +102,93 @@ void main() {
         ).whereType<CategoryAbovePreviousHint>(),
         isEmpty,
       );
-      List<Transaction> xyz(int before) => [
-        _tx(before, _sep(20), category: 'a', currency: 'XYZ'),
-        _tx(before + 1, _oct(10), category: 'a', currency: 'XYZ'),
-      ];
-      expect(
-        _hints(
-          xyz(1000000),
-          currency: 'XYZ',
-          digits: 3,
-        ).whereType<CategoryAbovePreviousHint>(),
-        hasLength(1),
-      );
-      expect(
-        _hints(
-          xyz(999999),
-          currency: 'XYZ',
-          digits: 3,
-        ).whereType<CategoryAbovePreviousHint>(),
-        isEmpty,
-      );
     });
 
-    test('complete past period is compared with the whole one before it', () {
+    test('past month: rule 1 is not offered ("already" would be untrue)', () {
       final september = currentPeriod(PeriodKind.month, _sep(15));
       final hints = _hints([
         _tx(100000, DateOnly(2026, 8, 5), category: 'cafe'),
         _tx(100001, _sep(5), category: 'cafe'),
       ], period: september);
-      expect(_describe(hints).first, 'above cafe 100001/100000');
+      expect(hints.whereType<CategoryAbovePreviousHint>(), isEmpty);
+    });
+
+    test('past period: 4 rule 1 categories do not push rule 2 out', () {
+      final september = currentPeriod(PeriodKind.month, _sep(15));
+      final hints = _hints([
+        for (final id in ['c1', 'c2', 'c3', 'c4']) ...[
+          _tx(100000, DateOnly(2026, 8, 5), category: id),
+          _tx(100001, _sep(5), category: id),
+        ],
+        ..._five('prod', 1000, (i) => DateOnly(2026, 8, i)),
+        ..._five('prod', 1200, _sep),
+      ], period: september);
+      expect(_describe(hints).where((s) => s.startsWith('avg')), [
+        'avg prod 1200/1000 20',
+      ]);
+      expect(hints.whereType<CategoryAbovePreviousHint>(), isEmpty);
+    });
+
+    test('future operations are not counted as "already"', () {
+      final hints = _hints([
+        _tx(100000, _sep(20), category: 'cafe'),
+        _tx(100000, _oct(10), category: 'cafe'),
+        _tx(500000, _oct(20), category: 'cafe'), // после сегодня (11.10)
+      ]);
+      expect(hints.whereType<CategoryAbovePreviousHint>(), isEmpty);
+      // А операция сегодня учитывается (включительно).
+      final withToday = _hints([
+        _tx(100000, _sep(20), category: 'cafe'),
+        _tx(100001, _oct(11), category: 'cafe'),
+      ]);
+      expect(withToday.whereType<CategoryAbovePreviousHint>(), hasLength(1));
+    });
+
+    test('own interval, week and year compare with their previous span', () {
+      List<CategoryAbovePreviousHint> above(
+        AnalyticsPeriod period,
+        DateOnly before,
+        DateOnly now,
+      ) => _hints([
+        _tx(100000, before, category: 'cafe'),
+        _tx(100001, now, category: 'cafe'),
+      ], period: period).whereType<CategoryAbovePreviousHint>().toList();
+
+      // Свой интервал 3-11.10 (9 дней): прошлое - 24.09-2.10.
+      final custom = customPeriod(_oct(3), _today, today: _today);
+      expect(above(custom, _sep(30), _oct(5)), hasLength(1));
+      expect(above(custom, _sep(23), _oct(5)), isEmpty);
+      // Неделя 5-11.10: прошлая - 28.09-4.10.
+      final week = currentPeriod(PeriodKind.week, _today);
+      expect(above(week, _sep(30), _oct(6)), hasLength(1));
+      expect(above(week, _sep(27), _oct(6)), isEmpty);
+      // Год 2026: прошлый - 2025.
+      final year = currentPeriod(PeriodKind.year, _today);
+      expect(
+        above(year, DateOnly(2025, 3, 1), DateOnly(2026, 1, 5)),
+        hasLength(1),
+      );
+      expect(
+        above(year, DateOnly(2024, 12, 31), DateOnly(2026, 1, 5)),
+        isEmpty,
+      );
+    });
+
+    test('equal sums: tie is broken by category id', () {
+      List<Transaction> data(List<String> ids) => [
+        for (final id in ids) ...[
+          _tx(100000, _sep(20), category: id),
+          _tx(100001, _oct(10), category: id),
+        ],
+      ];
+      expect(_describe(_hints(data(['b', 'a']))), [
+        'above a 100001/100000',
+        'above b 100001/100000',
+      ]);
+      expect(_describe(_hints(data(['a', 'b']))), [
+        'above a 100001/100000',
+        'above b 100001/100000',
+      ]);
     });
 
     test('income of the category is ignored', () {
@@ -166,6 +217,11 @@ void main() {
     test('-15 % exactly: hint, -14 %: none', () {
       expect(_describe(_hints(data(850))), ['avg prod 850/1000 -15']);
       expect(_hints(data(856)), isEmpty);
+    });
+
+    test('14.5 % rounds to 15: hint both ways', () {
+      expect(_hints(data(1145)), hasLength(1));
+      expect(_hints(data(855)), hasLength(1));
     });
 
     test('5 operations in both periods needed: 4 now or 4 before - none', () {
