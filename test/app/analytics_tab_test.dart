@@ -23,6 +23,7 @@ import 'package:money_app/features/analytics/presentation/analytics_screen.dart'
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_screen.dart';
 import 'package:money_app/features/analytics/presentation/comparison_section.dart';
+import 'package:money_app/features/analytics/presentation/period_header.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -120,6 +121,14 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.pump();
 }
 
+/// Открывает меню вида периода и выбирает пункт.
+Future<void> _pickKind(WidgetTester tester, Finder item) async {
+  await tester.tap(find.byKey(PeriodHeader.kindButtonKey));
+  await tester.pumpAndSettle();
+  await tester.tap(item);
+  await tester.pumpAndSettle();
+}
+
 Finder get _prev => find.byKey(PeriodSwitcher.previousKey);
 Finder get _next => find.byKey(PeriodSwitcher.nextKey);
 
@@ -174,7 +183,7 @@ void main() {
   testWidgets('«Неделя» показывает подпись недели', (tester) async {
     await _pump(tester);
 
-    await _tap(tester, find.widgetWithText(ChoiceChip, 'Неделя'));
+    await _pickKind(tester, find.byKey(PeriodHeader.itemKey(PeriodKind.week)));
 
     expect(find.text('28 сентября \u2013 4 октября'), findsOneWidget);
   });
@@ -366,7 +375,7 @@ void main() {
     );
     expect(repo.requests.where((r) => r == week), isEmpty);
 
-    await _tap(tester, find.widgetWithText(ChoiceChip, 'Неделя'));
+    await _pickKind(tester, find.byKey(PeriodHeader.itemKey(PeriodKind.week)));
     expect(repo.requests.where((r) => r == week), hasLength(1));
 
     // Переключение вкладок и смена фильтра «Истории» поток не пересоздают.
@@ -559,9 +568,13 @@ void main() {
     Future<void> openSeptemberPicker(WidgetTester tester) async {
       await _pump(tester, firstDay: DateOnly(2026, 9, 1), repo: _Repo(all));
       await _tap(tester, _prev);
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Свой'));
-      await tester.pumpAndSettle();
+      await _pickKind(tester, find.byKey(PeriodHeader.customItemKey));
     }
+
+    Finder kindButtonText(String text) => find.descendant(
+      of: find.byKey(PeriodHeader.kindButtonKey),
+      matching: find.text(text),
+    );
 
     Finder day(String text) => find.descendant(
       of: find.byType(DateRangePickerDialog),
@@ -605,12 +618,7 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('Операций: ${summary.count}'), findsOneWidget);
-        expect(
-          tester
-              .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Свой'))
-              .selected,
-          isTrue,
-        );
+        expect(kindButtonText('Свой период'), findsOneWidget);
         expect(_prev, findsNothing);
         expect(_next, findsNothing);
       },
@@ -623,18 +631,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Сентябрь 2026'), findsOneWidget);
-      expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Месяц'))
-            .selected,
-        isTrue,
-      );
-      expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Свой'))
-            .selected,
-        isFalse,
-      );
+      expect(kindButtonText('Месяц'), findsOneWidget);
+      expect(kindButtonText('Свой период'), findsNothing);
     });
   });
 }

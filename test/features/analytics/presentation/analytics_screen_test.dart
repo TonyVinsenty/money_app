@@ -15,6 +15,7 @@ import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/analytics/presentation/analytics_screen.dart';
+import 'package:money_app/features/analytics/presentation/period_header.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -78,17 +79,36 @@ Future<void> _pump(
   );
 }
 
+Finder _kindButtonText(String text) => find.descendant(
+  of: find.byKey(PeriodHeader.kindButtonKey),
+  matching: find.text(text),
+);
+
+Future<void> _openMenu(WidgetTester tester) async {
+  await tester.tap(find.byKey(PeriodHeader.kindButtonKey));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pickItem(WidgetTester tester, Finder item) async {
+  await _openMenu(tester);
+  await tester.tap(item);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
 
-  testWidgets('чипы видов и подпись месяца', (tester) async {
+  testWidgets('кнопка вида, пункты меню и подпись месяца', (tester) async {
     await _pump(tester);
 
-    for (final label in ['День', 'Неделя', 'Месяц', 'Год']) {
-      expect(find.widgetWithText(ChoiceChip, label), findsOneWidget);
-    }
-    expect(find.widgetWithText(ChoiceChip, 'Свой'), findsOneWidget);
+    expect(_kindButtonText('Месяц'), findsOneWidget);
+    expect(find.byType(ChoiceChip), findsNothing);
     expect(find.text('Октябрь 2026'), findsOneWidget);
+
+    await _openMenu(tester);
+    for (final label in ['День', 'Неделя', 'Месяц', 'Год', 'Свой период…']) {
+      expect(find.widgetWithText(MenuItemButton, label), findsOneWidget);
+    }
   });
 
   group('строка разделов', () {
@@ -166,7 +186,7 @@ void main() {
       expect(find.byKey(analyticsComparisonKey), findsOneWidget);
       expect(find.byType(PeriodSummaryCard), findsNothing);
       expect(find.text('Октябрь 2026'), findsOneWidget);
-      expect(find.widgetWithText(ChoiceChip, 'Месяц'), findsOneWidget);
+      expect(_kindButtonText('Месяц'), findsOneWidget);
       expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 2);
     });
 
@@ -275,28 +295,33 @@ void main() {
     });
   });
 
-  testWidgets('выбранный чип отмечен «выбрано» для скринридера', (
+  testWidgets('кнопка вида озвучена, текущий пункт меню отмечен', (
     tester,
   ) async {
     final handle = tester.ensureSemantics();
     await _pump(tester, kind: PeriodKind.week);
 
     expect(
-      tester.getSemantics(find.widgetWithText(ChoiceChip, 'Неделя')),
-      isSemantics(isSelected: true),
+      tester.getSemantics(find.byKey(PeriodHeader.kindButtonKey)).label,
+      contains('Период: неделя, изменить'),
     );
+    await _openMenu(tester);
     expect(
-      tester.getSemantics(find.widgetWithText(ChoiceChip, 'Месяц')),
-      isSemantics(isSelected: false),
+      find.descendant(
+        of: find.byKey(PeriodHeader.itemKey(PeriodKind.week)),
+        matching: find.byIcon(Icons.check),
+      ),
+      findsOneWidget,
     );
+    expect(find.byIcon(Icons.check), findsOneWidget);
     handle.dispose();
   });
 
-  testWidgets('нажатие чипа зовёт колбэк с видом', (tester) async {
+  testWidgets('выбор пункта меню зовёт колбэк с видом', (tester) async {
     final calls = <PeriodKind>[];
     await _pump(tester, onKindSelected: calls.add);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Год'));
+    await _pickItem(tester, find.byKey(PeriodHeader.itemKey(PeriodKind.year)));
 
     expect(calls, [PeriodKind.year]);
   });
@@ -346,40 +371,34 @@ void main() {
     }
   });
 
-  testWidgets('шрифт 200% на 360 dp: чипы переносятся, без переполнения', (
+  testWidgets('шрифт 200% на 360 dp: вид над стрелками, без переполнения', (
     tester,
   ) async {
     await _pump(tester, textScale: 2, onPrevious: () {}, onNext: () {});
 
     expect(tester.takeException(), isNull);
-    final tops = {
-      for (final label in ['День', 'Неделя', 'Месяц', 'Год'])
-        tester.getTopLeft(find.widgetWithText(ChoiceChip, label)).dy,
-    };
-    expect(tops.length, greaterThan(1));
+    expect(
+      tester.getTopLeft(find.byKey(PeriodHeader.kindButtonKey)).dy,
+      lessThan(tester.getTopLeft(find.byKey(PeriodSwitcher.previousKey)).dy),
+    );
     expect(find.text('Октябрь 2026'), findsOneWidget);
+    await _openMenu(tester);
+    expect(tester.takeException(), isNull);
   });
 
-  testWidgets('шрифт 100% на 360 dp: пять чипов в одну строку, без галочки', (
+  testWidgets('шрифт 100% на 360 dp: вид и стрелки в одной строке', (
     tester,
   ) async {
-    // В тестах нет настоящего шрифта: вместо него квадратные буквы шириной в
-    // целый кегль, вдвое шире Roboto. Масштаб 0.55 даёт ширину слов, как у
-    // Roboto при шрифте 100%.
-    await _pump(tester, textScale: 0.55, onCustom: (_, _) {});
+    await _pump(tester, onPrevious: () {}, onNext: () {});
 
     expect(tester.takeException(), isNull);
-    final tops = {
-      for (final label in ['День', 'Неделя', 'Месяц', 'Год', 'Свой'])
-        tester.getTopLeft(find.widgetWithText(ChoiceChip, label)).dy,
-    };
-    expect(tops.length, 1);
-    for (final chip in tester.widgetList<ChoiceChip>(find.byType(ChoiceChip))) {
-      expect(chip.showCheckmark, isFalse);
-    }
+    expect(
+      tester.getTopLeft(find.byKey(PeriodHeader.kindButtonKey)).dy,
+      closeTo(tester.getTopLeft(find.byKey(PeriodSwitcher.previousKey)).dy, 8),
+    );
   });
 
-  testWidgets('чипы периода проходят проверку зоны нажатия', (tester) async {
+  testWidgets('шапка периода проходит проверку зоны нажатия', (tester) async {
     final handle = tester.ensureSemantics();
     await _pump(tester, onCustom: (_, _) {});
 
@@ -743,49 +762,53 @@ void main() {
       today: _today,
     );
 
-    testWidgets('чип «Свой» пятый; без выбора интервала не выбран', (
+    final customItem = find.byKey(PeriodHeader.customItemKey);
+
+    testWidgets('пункт «Свой период…» последний; без выбора не отмечен', (
       tester,
     ) async {
       await _pump(tester, onCustom: (_, _) {});
+      await _openMenu(tester);
 
       final labels = [
-        for (final chip in tester.widgetList<ChoiceChip>(
-          find.byType(ChoiceChip),
+        for (final item in tester.widgetList<MenuItemButton>(
+          find.byType(MenuItemButton),
         ))
-          (chip.label as Text).data,
+          (item.child! as Text).data,
       ];
-      expect(labels, ['День', 'Неделя', 'Месяц', 'Год', 'Свой']);
+      expect(labels, ['День', 'Неделя', 'Месяц', 'Год', 'Свой период…']);
       expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Свой'))
-            .selected,
-        isFalse,
+        find.descendant(of: customItem, matching: find.byIcon(Icons.check)),
+        findsNothing,
       );
     });
 
-    testWidgets('для своего интервала чип отмечен выбранным', (tester) async {
+    testWidgets('без колбэка пункт «Свой период…» недоступен', (tester) async {
+      await _pump(tester);
+      await _openMenu(tester);
+
+      expect(tester.widget<MenuItemButton>(customItem).onPressed, isNull);
+    });
+
+    testWidgets('для своего интервала пункт отмечен, кнопка «Свой период»', (
+      tester,
+    ) async {
       await _pump(tester, period: custom, onCustom: (_, _) {});
 
+      expect(_kindButtonText('Свой период'), findsOneWidget);
+      await _openMenu(tester);
       expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Свой'))
-            .selected,
-        isTrue,
+        find.descendant(of: customItem, matching: find.byIcon(Icons.check)),
+        findsOneWidget,
       );
-      expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Месяц'))
-            .selected,
-        isFalse,
-      );
+      expect(find.byIcon(Icons.check), findsOneWidget);
     });
 
     testWidgets('нажатие открывает диалог: последний день — сегодня, первый — '
         'день первой операции', (tester) async {
       await _pump(tester, firstDay: DateOnly(2026, 9, 10), onCustom: (_, _) {});
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Свой'));
-      await tester.pumpAndSettle();
+      await _pickItem(tester, customItem);
 
       final dialog = tester.widget<DateRangePickerDialog>(
         find.byType(DateRangePickerDialog),
@@ -802,8 +825,7 @@ void main() {
     testWidgets('без операций первый день — сегодня', (tester) async {
       await _pump(tester, onCustom: (_, _) {});
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Свой'));
-      await tester.pumpAndSettle();
+      await _pickItem(tester, customItem);
 
       final dialog = tester.widget<DateRangePickerDialog>(
         find.byType(DateRangePickerDialog),
@@ -822,8 +844,7 @@ void main() {
           onCustom: (_, _) {},
         );
 
-        await tester.tap(find.widgetWithText(ChoiceChip, 'Свой'));
-        await tester.pumpAndSettle();
+        await _pickItem(tester, customItem);
 
         expect(find.byType(DateRangePickerDialog), findsOneWidget);
         expect(
@@ -846,8 +867,7 @@ void main() {
         onCustom: (s, e) => calls.add((s, e)),
       );
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Свой'));
-      await tester.pumpAndSettle();
+      await _pickItem(tester, customItem);
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
 
@@ -855,13 +875,15 @@ void main() {
       expect(find.byType(DateRangePickerDialog), findsNothing);
     });
 
-    testWidgets('шрифт 200% на 360 dp: пять чипов без переполнения', (
+    testWidgets('шрифт 200% на 360 dp: «Свой период» без переполнения', (
       tester,
     ) async {
       await _pump(tester, textScale: 2, period: custom, onCustom: (_, _) {});
 
       expect(tester.takeException(), isNull);
-      expect(find.widgetWithText(ChoiceChip, 'Свой'), findsOneWidget);
+      expect(_kindButtonText('Свой период'), findsOneWidget);
+      await _openMenu(tester);
+      expect(tester.takeException(), isNull);
     });
   });
 }

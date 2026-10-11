@@ -39,7 +39,7 @@ class PeriodHeader extends StatelessWidget {
   final PeriodKind kind;
   final String label;
   final ValueChanged<PeriodKind> onKindSelected;
-  final VoidCallback onCustomSelected;
+  final VoidCallback? onCustomSelected;
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final String previousTooltip;

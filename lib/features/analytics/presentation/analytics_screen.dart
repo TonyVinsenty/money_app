@@ -5,7 +5,6 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
-import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
@@ -16,6 +15,7 @@ import 'package:money_app/features/analytics/presentation/category_breakdown_car
 import 'package:money_app/features/analytics/presentation/comparison_section.dart';
 import 'package:money_app/features/analytics/presentation/dynamics_section.dart';
 import 'package:money_app/features/analytics/presentation/operations_section.dart';
+import 'package:money_app/features/analytics/presentation/period_header.dart';
 import 'package:money_app/features/analytics/presentation/period_summary_card.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -57,19 +57,6 @@ const List<AnalyticsSection> _shownSections = [
   AnalyticsSection.comparison,
   AnalyticsSection.operations,
 ];
-
-/// Виды периода, которые можно выбрать чипом, в порядке слева направо.
-const List<(PeriodKind, String)> _kindChips = [
-  (PeriodKind.day, 'День'),
-  (PeriodKind.week, 'Неделя'),
-  (PeriodKind.month, 'Месяц'),
-  (PeriodKind.year, 'Год'),
-];
-
-/// Поля чипа уже стандартных, чтобы пять чипов встали в одну строку на 360 dp.
-/// Высота зоны нажатия (48 dp) от полей не зависит.
-const EdgeInsets _chipPadding = EdgeInsets.symmetric(horizontal: 4);
-const EdgeInsets _chipLabelPadding = EdgeInsets.symmetric(horizontal: 4);
 
 /// Подсказки стрелок по виду периода: (назад, вперёд).
 (String, String) _arrowTooltips(PeriodKind kind) => switch (kind) {
@@ -208,41 +195,20 @@ class AnalyticsScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         _SectionBar(section: section, onSelected: onSectionSelected),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 4,
-          runSpacing: 4,
-          children: [
-            for (final (kind, label) in _kindChips)
-              ChoiceChip(
-                label: Text(label),
-                showCheckmark: false,
-                padding: _chipPadding,
-                labelPadding: _chipLabelPadding,
-                selected: period.kind == kind,
-                onSelected: (_) => onKindSelected(kind),
-              ),
-            ChoiceChip(
-              label: const Text('Свой'),
-              showCheckmark: false,
-              padding: _chipPadding,
-              labelPadding: _chipLabelPadding,
-              selected: period.kind == PeriodKind.custom,
-              onSelected: onCustomRangeSelected == null
-                  ? null
-                  : (_) => _pickCustomRange(context),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        PeriodSwitcher(
+        const SizedBox(height: AppSpacing.s),
+        PeriodHeader(
+          kind: period.kind,
           label: formatPeriodLabel(period.kind, period.range, today: today),
+          onKindSelected: onKindSelected,
+          onCustomSelected: onCustomRangeSelected == null
+              ? null
+              : () => _pickCustomRange(context),
           onPrevious: onPrevious,
           onNext: onNext,
           previousTooltip: previousTooltip,
           nextTooltip: nextTooltip,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.l),
         AsyncView<PeriodTransactions>(
           // Ключ по валюте: при смене основной валюты прежние данные (в старой
           // валюте) выбрасываются, и до ответа нового потока виден скелетон.
