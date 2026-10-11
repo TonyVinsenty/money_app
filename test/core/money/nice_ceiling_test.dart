@@ -27,6 +27,17 @@ void main() {
       }
     });
 
+    test('большие значения без переполнения', () {
+      expect(niceCeiling(1000000000000000), 1000000000000000);
+      expect(niceCeiling(1000000000000001), 2000000000000000);
+      expect(niceCeiling(1000000000000000000), 1000000000000000000);
+      expect(niceCeiling(3000000000000000000), 5000000000000000000);
+      // Следующее «круглое» (10^19) не помещается: возвращается сам максимум.
+      const maxInt = 9223372036854775807;
+      expect(niceCeiling(maxInt), maxInt);
+      expect(niceCeiling(5000000000000000001), 5000000000000000001);
+    });
+
     test('отрицательное — ArgumentError', () {
       expect(() => niceCeiling(-1), throwsArgumentError);
     });

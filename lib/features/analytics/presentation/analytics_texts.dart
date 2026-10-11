@@ -244,9 +244,11 @@ String dynamicsChartSpoken({
   required List<Bucket> buckets,
   required Money? average,
   required DateOnly today,
+  String? categoryName,
 }) {
+  final category = categoryName == null ? '' : ', категория $categoryName,';
   final parts = <String>[
-    '${dynamicsTitle(type, step)} ${_spokenPeriod(period, today)}',
+    '${dynamicsTitle(type, step)}$category ${_spokenPeriod(period, today)}',
   ];
   Bucket? top;
   for (final b in buckets) {
@@ -265,16 +267,36 @@ String dynamicsChartSpoken({
   return parts.join('. ');
 }
 
-/// «за октябрь», «за 2026 год», «за 5–11 октября».
+/// «за октябрь», «за 2026 год», «с 5 по 11 октября», «с 15 декабря 2025 по
+/// 20 февраля 2026». Год у недели — если она не в году [today], у своего
+/// интервала — всегда.
 String _spokenPeriod(AnalyticsPeriod period, DateOnly today) {
   final start = period.range.start;
-  return switch (period.kind) {
-    PeriodKind.month =>
-      'за ${formatMonthName(start)}'
-          '${start.year == today.year ? '' : ' ${start.year}'}',
-    PeriodKind.year => 'за ${start.year} год',
-    _ => 'за ${formatPeriodLabel(period.kind, period.range, today: today)}',
-  };
+  final end = period.range.end;
+  switch (period.kind) {
+    case PeriodKind.month:
+      return 'за ${formatMonthName(start)}'
+          '${start.year == today.year ? '' : ' ${start.year}'}';
+    case PeriodKind.year:
+      return 'за ${start.year} год';
+    case PeriodKind.day:
+    case PeriodKind.week:
+    case PeriodKind.custom:
+      if (start == end) {
+        return 'за ${formatPeriodLabel(period.kind, period.range, today: today)}';
+      }
+      if (start.year != end.year) {
+        return 'с ${formatDayMonth(start)} ${start.year} '
+            'по ${formatDayMonth(end)} ${end.year}';
+      }
+      final withYear =
+          period.kind == PeriodKind.custom || start.year != today.year;
+      final year = withYear ? ' ${end.year}' : '';
+      final from = start.month == end.month
+          ? '${start.day}'
+          : formatDayMonth(start);
+      return 'с $from по ${formatDayMonth(end)}$year';
+  }
 }
 
 /// Т3. Чип фильтра категории в «Динамике» без выбора и заголовок листа.
@@ -284,5 +306,11 @@ const String dynamicsCategorySheetTitle = 'Категория';
 /// Пометка архивной категории в листе выбора.
 const String dynamicsArchivedNote = 'В архиве';
 
-/// Озвучка чипа: «Фильтр: Кафе, изменить».
-String dynamicsCategoryChipSpoken(String name) => 'Фильтр: $name, изменить';
+/// Озвучка чипа: «Категория: Кафе, изменить».
+String dynamicsCategoryChipSpoken(String name) => 'Категория: $name, изменить';
+
+/// Пустой график при выбранной категории: «В категории «Кафе» за этот период
+/// расходов нет».
+String dynamicsCategoryNothingText(String name, TransactionType type) =>
+    'В категории «$name» за этот период '
+    '${type == TransactionType.expense ? 'расходов' : 'доходов'} нет';

@@ -270,13 +270,18 @@ void main() {
         'pay',
         type: TransactionType.income,
       ),
+      // Архивная, операции только в прошлом периоде (сентябрь).
+      tx('e', 20000, DateOnly(2026, 9, 10), 'past'),
     ];
     final cats = [
       cat('cafe', 'Кафе'),
       cat('taxi', 'Такси'),
+      cat('free', 'Бесплатно'),
       cat('old', 'Старое', archived: true),
       cat('dead', 'Мёртвое', archived: true),
+      cat('past', 'Прошлое', archived: true),
       cat('pay', 'Зарплата', income: true),
+      cat('gift', 'Подарки', income: true),
     ];
 
     Future<AnalyticsController> pumpFilter(
@@ -384,6 +389,11 @@ void main() {
         find.byKey(DynamicsSection.categoryOptionKey('dead')),
         findsNothing,
       );
+      // Операции есть, но только в сентябре, а период - октябрь.
+      expect(
+        find.byKey(DynamicsSection.categoryOptionKey('past')),
+        findsNothing,
+      );
       expect(
         find.byKey(DynamicsSection.categoryOptionKey('pay')),
         findsNothing,
@@ -419,14 +429,162 @@ void main() {
       final handle = tester.ensureSemantics();
       final controller = await pumpFilter(tester);
       expect(
-        find.bySemanticsLabel('Фильтр: Все категории, изменить'),
+        find.bySemanticsLabel('Категория: Все категории, изменить'),
         findsOneWidget,
       );
 
       controller.selectCategory('cafe');
       await tester.pump();
-      expect(find.bySemanticsLabel('Фильтр: Кафе, изменить'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Категория: Кафе, изменить'),
+        findsOneWidget,
+      );
       handle.dispose();
+    });
+
+    testWidgets('озвучка графика с категорией и без', (tester) async {
+      final handle = tester.ensureSemantics();
+      final controller = await pumpFilter(tester);
+      String spoken() =>
+          tester.getSemantics(find.byKey(DynamicsSection.chartKey)).label;
+      expect(spoken(), startsWith('Расходы по дням за октябрь.'));
+
+      controller.selectCategory('cafe');
+      await tester.pump();
+      expect(
+        spoken(),
+        'Расходы по дням, категория Кафе, за октябрь. '
+        'Больше всего 3 октября: 1000 рублей. В среднем 50 рублей в день',
+      );
+      handle.dispose();
+    });
+
+    testWidgets('заголовок листа - заголовок для скринридера', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpFilter(tester);
+      await openSheet(tester);
+
+      expect(
+        tester.getSemantics(find.text('Категория')),
+        isSemantics(isHeader: true),
+      );
+      handle.dispose();
+    });
+
+    testWidgets('в категории нет операций: пустое состояние с названием', (
+      tester,
+    ) async {
+      final controller = await pumpFilter(tester);
+      controller.selectCategory('free');
+      await tester.pump();
+
+      expect(find.byType(BarChart), findsNothing);
+      expect(
+        find.text('В категории «Бесплатно» за этот период расходов нет'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Доходы'));
+      await tester.pump();
+      controller.selectCategory('gift');
+      await tester.pump();
+      expect(
+        find.text('В категории «Подарки» за этот период доходов нет'),
+        findsOneWidget,
+      );
+    });
+
+    group('меняющиеся данные', () {
+      late ValueNotifier<List<Transaction>> current;
+      late AnalyticsController controller;
+
+      Future<void> pumpLive(WidgetTester tester) async {
+        current = ValueNotifier(data);
+        controller = AnalyticsController(today: _today);
+        tester.view.physicalSize = const Size(360, 1600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        addTearDown(controller.dispose);
+        addTearDown(current.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: ListenableBuilder(
+                listenable: Listenable.merge([controller, current]),
+                builder: (context, _) => ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    DynamicsSection(
+                      transactions: current.value,
+                      period: currentPeriod(PeriodKind.month, _today),
+                      today: _today,
+                      type: controller.type,
+                      onTypeSelected: controller.selectType,
+                      categories: cats,
+                      categoryId: controller.categoryId,
+                      onCategorySelected: controller.selectCategory,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      testWidgets('выбор сохраняется, когда категория пропала из листа, и '
+          'возвращается', (tester) async {
+        await pumpLive(tester);
+        controller.selectCategory('old');
+        await tester.pump();
+        expect(find.text('Старое'), findsOneWidget);
+
+        current.value = [
+          for (final t in data)
+            if (t.categoryId != 'old') t,
+        ];
+        await tester.pump();
+        expect(controller.categoryId, 'old');
+        expect(find.text('Все категории'), findsOneWidget);
+        await openSheet(tester);
+        expect(
+          find.byKey(DynamicsSection.categoryOptionKey('old')),
+          findsNothing,
+        );
+        await tester.tapAt(const Offset(5, 5));
+        await tester.pumpAndSettle();
+
+        current.value = data;
+        await tester.pump();
+        expect(controller.categoryId, 'old');
+        expect(find.text('Старое'), findsOneWidget);
+      });
+
+      testWidgets('график исчез посреди жеста: выбор не залипает', (
+        tester,
+      ) async {
+        await pumpLive(tester);
+        final topLeft = tester.getTopLeft(find.byKey(DynamicsSection.chartKey));
+        final slot =
+            tester.getSize(find.byKey(DynamicsSection.chartKey)).width / 31;
+        final gesture = await tester.startGesture(
+          topLeft + Offset(slot * 4.5, 100),
+        );
+        await tester.pump();
+        expect(_info(tester), startsWith('5 октября'));
+
+        current.value = const [];
+        await tester.pump();
+        expect(find.byType(BarChart), findsNothing);
+
+        current.value = data;
+        await tester.pump();
+        expect(_info(tester), startsWith('В среднем'));
+        await gesture.up();
+        await tester.pump();
+        expect(_info(tester), startsWith('В среднем'));
+      });
     });
 
     testWidgets('без колбэка чипа нет', (tester) async {

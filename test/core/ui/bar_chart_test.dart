@@ -118,6 +118,10 @@ void main() {
       expect(barColor(c, 1, 1), c);
       expect(barColor(c, 0, 1).a, lessThan(1));
     });
+
+    test('приглушённые заметно бледнее (не выше 0.5)', () {
+      expect(barColor(const Color(0xFFC62828), 0, 1).a, lessThanOrEqualTo(0.5));
+    });
   });
 
   group('BarChart', () {
@@ -352,6 +356,76 @@ void main() {
       expect(shown, isNull);
     });
 
+    testWidgets('график убран во время жеста: слушатель прокрутки снят', (
+      t,
+    ) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      final show = ValueNotifier(true);
+      addTearDown(show.dispose);
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 200,
+                child: SingleChildScrollView(
+                  controller: controller,
+                  child: Column(
+                    children: [
+                      ValueListenableBuilder(
+                        valueListenable: show,
+                        builder: (context, visible, _) => visible
+                            ? BarChart(
+                                weights: const [1, 2, 0, 4],
+                                color: Colors.red,
+                                topLabel: '4',
+                                semanticsLabel: 'x',
+                                height: 100,
+                                onHighlight: log.add,
+                              )
+                            : const SizedBox(height: 100),
+                      ),
+                      const SizedBox(height: 1000),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final g = await t.startGesture(const Offset(75, 60));
+      await t.pump();
+      expect(log, [1]);
+      show.value = false;
+      await t.pump();
+      controller.jumpTo(50);
+      await t.pump();
+      expect(t.takeException(), isNull);
+      expect(log, [1]);
+      await g.up();
+      await t.pump();
+      expect(t.takeException(), isNull);
+    });
+
+    testWidgets('меньше столбиков при подсвеченном большом индексе', (t) async {
+      Widget c(List<int> w, int? h) => _host(
+        BarChart(
+          weights: w,
+          color: Colors.red,
+          topLabel: 'x',
+          semanticsLabel: 'x',
+          highlightedIndex: h,
+        ),
+      );
+      await t.pumpWidget(c(List.filled(31, 5), 25));
+      await t.pumpWidget(c([5, 6], 25));
+      expect(t.takeException(), isNull);
+      expect(barColor(Colors.red, 0, 25).a, lessThan(1));
+    });
+
     testWidgets('без onHighlight касания игнорируются', (t) async {
       await t.pumpWidget(chart(callbacks: false));
       await t.tapAt(at(t, 1));
@@ -378,10 +452,12 @@ void main() {
       final surface = theme.colorScheme.surface;
       final bars = {'расход': colors.expense, 'доход': colors.income};
       for (final c in bars.entries) {
-        test('${entry.key} тема: ${c.key}, обычный и приглушённый', () {
+        test('${entry.key} тема: ${c.key}, обычный и выбранный', () {
           expect(contrastRatio(c.value, surface), greaterThanOrEqualTo(3.0));
+          // Выбранный столбик рисуется основным цветом. Приглушённые из
+          // требования исключены: значение выбранного показано текстом.
           expect(
-            contrastRatio(barColor(c.value, 0, 1), surface),
+            contrastRatio(barColor(c.value, 1, 1), surface),
             greaterThanOrEqualTo(3.0),
           );
         });

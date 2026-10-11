@@ -76,20 +76,23 @@ class _DynamicsSectionState extends State<DynamicsSection> {
   void didUpdateWidget(DynamicsSection old) {
     super.didUpdateWidget(old);
     // Новый период или тип: прежний номер столбика ни к чему.
-    if (old.period != widget.period || old.type != widget.type) {
+    if (old.period != widget.period ||
+        old.type != widget.type ||
+        old.categoryId != widget.categoryId) {
       _highlighted = null;
     }
   }
 
   /// Категории верхнего уровня текущего типа: живые и архивные, у которых
-  /// есть операции этого типа в переданных данных. По порядку категорий.
+  /// есть операции этого типа в текущем периоде. По порядку категорий.
   List<Category> _categoryOptions() {
     final kind = widget.type == TransactionType.expense
         ? CategoryKind.expense
         : CategoryKind.income;
+    final range = widget.period.range;
     final used = {
       for (final t in widget.transactions)
-        if (t.type == widget.type) t.categoryId,
+        if (t.type == widget.type && range.contains(t.occurredOn)) t.categoryId,
     };
     return [
       for (final c in widget.categories)
@@ -113,9 +116,12 @@ class _DynamicsSectionState extends State<DynamicsSection> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                child: Text(
-                  dynamicsCategorySheetTitle,
-                  style: Theme.of(context).textTheme.titleMedium,
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    dynamicsCategorySheetTitle,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
               ),
               _option(context, null, dynamicsAllCategories, null, selected),
@@ -183,6 +189,12 @@ class _DynamicsSectionState extends State<DynamicsSection> {
     ];
 
     final Widget body;
+    if (step == BucketStep.none || nonZero.isEmpty) {
+      // Графика нет (его могли убрать посреди жеста): выбор не должен
+      // «залипнуть» и вернуться, когда график появится снова. Это поле самого
+      // состояния, setState в сборке не нужен.
+      _highlighted = null;
+    }
     if (step == BucketStep.none) {
       body = Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
@@ -196,7 +208,9 @@ class _DynamicsSectionState extends State<DynamicsSection> {
       body = Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
         child: Text(
-          comparisonNothingText(type),
+          selected == null
+              ? comparisonNothingText(type)
+              : dynamicsCategoryNothingText(selected.name, type),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyLarge?.copyWith(color: muted),
         ),
@@ -230,6 +244,7 @@ class _DynamicsSectionState extends State<DynamicsSection> {
               buckets: buckets,
               average: average,
               today: today,
+              categoryName: selected?.name,
             ),
             highlightedIndex: highlighted,
             onHighlight: (index) => setState(() => _highlighted = index),

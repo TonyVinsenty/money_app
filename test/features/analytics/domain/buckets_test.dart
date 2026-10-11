@@ -114,6 +114,55 @@ void main() {
       expect(_sum(b), 3);
     });
 
+    test('свой интервал через Новый год 15.12-20.02: 68 дней, по месяцам', () {
+      final p = customPeriod(
+        DateOnly(2025, 12, 15),
+        DateOnly(2026, 2, 20),
+        today: DateOnly(2026, 2, 20),
+      );
+      expect(p.range.lengthInDays, 68);
+      expect(bucketStepFor(p), BucketStep.month);
+      final b = _totals([
+        _tx(DateOnly(2025, 12, 31), 1),
+        _tx(DateOnly(2026, 1, 1), 2),
+        _tx(DateOnly(2026, 2, 20), 4),
+        _tx(DateOnly(2025, 12, 14), 8), // вне периода
+      ], p);
+      expect(b, hasLength(3));
+      expect(
+        b.first.range,
+        DateRange(DateOnly(2025, 12, 15), DateOnly(2025, 12, 31)),
+      );
+      expect(b[1].range, monthRange(DateOnly(2026, 1, 1)));
+      expect(
+        b.last.range,
+        DateRange(DateOnly(2026, 2, 1), DateOnly(2026, 2, 20)),
+      );
+      expect([for (final x in b) x.amount.minorUnits], [1, 2, 4]);
+    });
+
+    test('февраль 2028 (високосный): 29 корзин', () {
+      final p = currentPeriod(PeriodKind.month, DateOnly(2028, 2, 10));
+      final b = _totals([_tx(DateOnly(2028, 2, 29), 7)], p);
+      expect(b, hasLength(29));
+      expect(b.last.range, dayRange(DateOnly(2028, 2, 29)));
+      expect(b.last.amount.minorUnits, 7);
+    });
+
+    test('неделя через год: 29.12.2025-04.01.2026, 7 корзин по порядку', () {
+      final p = currentPeriod(PeriodKind.week, DateOnly(2026, 1, 1));
+      expect(p.range.start, DateOnly(2025, 12, 29));
+      expect(p.range.end, DateOnly(2026, 1, 4));
+      final b = _totals([
+        _tx(DateOnly(2025, 12, 31), 3),
+        _tx(DateOnly(2026, 1, 1), 5),
+      ], p);
+      expect(b, hasLength(7));
+      expect(b[2].amount.minorUnits, 3);
+      expect(b[3].range, dayRange(DateOnly(2026, 1, 1)));
+      expect(b[3].amount.minorUnits, 5);
+    });
+
     test('день — корзин нет', () {
       final d = currentPeriod(PeriodKind.day, today);
       expect(bucketStepFor(d), BucketStep.none);
@@ -175,6 +224,15 @@ void main() {
         bucketAverage(b, DateOnly(2026, 10, 6)),
         Money.fromMinor(3, 'RUB'),
       ); // 5/2
+    });
+
+    test('операция с будущей датой есть в столбике, но не в среднем', () {
+      final b = _totals([
+        _tx(DateOnly(2026, 10, 1), 1100),
+        _tx(DateOnly(2026, 10, 20), 5000), // позже «сегодня» (11 октября)
+      ], october);
+      expect(b[19].amount.minorUnits, 5000);
+      expect(bucketAverage(b, today), Money.fromMinor(100, 'RUB')); // 1100/11
     });
 
     test('нет корзин — null', () {

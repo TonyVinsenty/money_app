@@ -3,6 +3,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/features/analytics/domain/analytics_period.dart';
+import 'package:money_app/features/analytics/domain/buckets.dart';
 import 'package:money_app/features/analytics/domain/period_comparison.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
@@ -186,6 +188,90 @@ void main() {
           '1\u201311 сентября',
         ),
         '1\u201311 сентября доходов не было',
+      );
+    });
+  });
+
+  group('Т3: озвучка периода и категории в подписи графика', () {
+    String spoken(AnalyticsPeriod p, {String? category}) => dynamicsChartSpoken(
+      type: TransactionType.expense,
+      period: p,
+      step: BucketStep.day,
+      buckets: const [],
+      average: null,
+      today: _today,
+      categoryName: category,
+    );
+
+    test('неделя и свой интервал: «с ... по ...»', () {
+      expect(
+        spoken(currentPeriod(PeriodKind.week, _today)),
+        'Расходы по дням с 5 по 11 октября',
+      );
+      expect(
+        spoken(
+          customPeriod(
+            DateOnly(2026, 9, 28),
+            DateOnly(2026, 10, 4),
+            today: _today,
+          ),
+        ),
+        'Расходы по дням с 28 сентября по 4 октября 2026',
+      );
+      expect(
+        spoken(
+          customPeriod(
+            DateOnly(2025, 12, 15),
+            DateOnly(2026, 2, 20),
+            today: _today,
+          ),
+        ),
+        'Расходы по дням с 15 декабря 2025 по 20 февраля 2026',
+      );
+      expect(
+        spoken(currentPeriod(PeriodKind.week, DateOnly(2025, 11, 26))),
+        'Расходы по дням с 24 по 30 ноября 2025',
+      );
+      expect(
+        spoken(currentPeriod(PeriodKind.week, DateOnly(2026, 1, 1))),
+        'Расходы по дням с 29 декабря 2025 по 4 января 2026',
+      );
+    });
+
+    test('месяц, год, один день своего интервала', () {
+      expect(
+        spoken(currentPeriod(PeriodKind.month, _today)),
+        'Расходы по дням за октябрь',
+      );
+      expect(
+        spoken(currentPeriod(PeriodKind.year, _today)),
+        'Расходы по дням за 2026 год',
+      );
+      expect(
+        spoken(customPeriod(_today, _today, today: _today)),
+        'Расходы по дням за 11 октября 2026',
+      );
+    });
+
+    test('категория вставляется после заголовка', () {
+      expect(
+        spoken(currentPeriod(PeriodKind.month, _today), category: 'Кафе'),
+        'Расходы по дням, категория Кафе, за октябрь',
+      );
+    });
+
+    test('пустое состояние с категорией и озвучка чипа', () {
+      expect(
+        dynamicsCategoryNothingText('Кафе', TransactionType.expense),
+        'В категории «Кафе» за этот период расходов нет',
+      );
+      expect(
+        dynamicsCategoryNothingText('Подарки', TransactionType.income),
+        'В категории «Подарки» за этот период доходов нет',
+      );
+      expect(
+        dynamicsCategoryChipSpoken('Все категории'),
+        'Категория: Все категории, изменить',
       );
     });
   });

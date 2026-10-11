@@ -11,8 +11,9 @@ const double barChartLabelHeight = 16;
 /// Доля ширины слота, которую занимает сам столбик (остальное — зазор).
 const double _barFraction = 0.7;
 
-/// Непрозрачность приглушённых столбиков, когда есть подсветка.
-const double _mutedAlpha = 0.75;
+/// Непрозрачность приглушённых столбиков, когда есть подсветка: заметно
+/// бледнее выбранного, чтобы выбор виден сразу.
+const double _mutedAlpha = 0.45;
 
 /// Нижняя граница высоты ненулевого столбика, dp: чтобы малая сумма была видна.
 const double _minBarHeightDp = 1;
@@ -270,6 +271,7 @@ class _BarPainter extends CustomPainter {
       ellipsis: '…',
     )..layout(maxWidth: size.width);
     label.paint(canvas, Offset.zero);
+    label.dispose();
 
     final rects = barRects(size, weights, average);
     final radius = Radius.circular(math.min(2, size.width / 4));
