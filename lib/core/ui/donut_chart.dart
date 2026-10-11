@@ -23,6 +23,9 @@ const double _thicknessFraction = 0.16;
 
 const double _fullTurn = 2 * math.pi;
 
+/// Сколько кольцо «вырастает» из верхней точки при первом показе и смене данных.
+const Duration donutBuildDuration = Duration(milliseconds: 500);
+
 /// Сколько пальцу полежать на кольце, чтобы экран перестал прокручиваться и
 /// палец мог ходить по секторам. Короче стандартного долгого нажатия (500 мс):
 /// быстрый свайп всё равно успевает сдвинуться раньше и прокручивает экран.
@@ -117,7 +120,57 @@ class DonutChart extends StatefulWidget {
   State<DonutChart> createState() => _DonutChartState();
 }
 
-class _DonutChartState extends State<DonutChart> {
+class _DonutChartState extends State<DonutChart>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: donutBuildDuration,
+  );
+  late final Animation<double> _progress = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+  );
+  bool _started = false;
+
+  /// Доля построенного кольца (0..1) с учётом кривой; для тестов.
+  @visibleForTesting
+  double get progress => _progress.value;
+
+  bool _sameWeights(List<DonutSegment> a, List<DonutSegment> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].weight != b[i].weight) return false;
+    }
+    return true;
+  }
+
+  /// Строим кольцо с нуля; при «Уменьшить движение» сразу целиком.
+  void _restart() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+    } else {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      _started = true;
+      _restart();
+    } else if (MediaQuery.disableAnimationsOf(context) &&
+        _controller.isAnimating) {
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(DonutChart old) {
+    super.didUpdateWidget(old);
+    if (!_sameWeights(old.segments, widget.segments)) _restart();
+  }
+
   /// Палец, за которым следим (первый); остальные игнорируются.
   int? _pointer;
 
@@ -164,7 +217,8 @@ class _DonutChartState extends State<DonutChart> {
   }
 
   void _down(PointerDownEvent e) {
-    if (_pointer != null) return;
+    // Пока кольцо строится, сектор не выбираем.
+    if (_pointer != null || _controller.isAnimating) return;
     _pointer = e.pointer;
     _lastHighlight = widget.highlightedIndex;
     _watchScroll();
@@ -200,6 +254,7 @@ class _DonutChartState extends State<DonutChart> {
     // Палец ещё может лежать на экране: его события дойдут до удалённого
     // виджета, поэтому «следим за пальцем» тоже сбрасываем.
     _reset();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -210,6 +265,7 @@ class _DonutChartState extends State<DonutChart> {
       highlightedIndex: widget.highlightedIndex,
       emptyColor:
           widget.emptyColor ?? Theme.of(context).colorScheme.outlineVariant,
+      progress: _progress,
     );
     final interactive = widget.onHighlight != null || widget.onSelect != null;
     // Listener (сырые события), а не GestureDetector: он видит палец всегда,
@@ -292,11 +348,15 @@ class _DonutPainter extends CustomPainter {
     required this.segments,
     required this.highlightedIndex,
     required this.emptyColor,
-  });
+    required this.progress,
+  }) : super(repaint: progress);
 
   final List<DonutSegment> segments;
   final int? highlightedIndex;
   final Color emptyColor;
+
+  /// Какая доля круга (от «12 часов» по часовой) уже построена.
+  final Animation<double> progress;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -316,6 +376,7 @@ class _DonutPainter extends CustomPainter {
       canvas.drawArc(rect, 0, _fullTurn, false, paint);
       return;
     }
+    final limit = progress.value.clamp(0.0, 1.0) * _fullTurn;
     final total = visible.fold<int>(0, (sum, i) => sum + segments[i].weight);
     if (visible.length == 1) {
       final i = visible.single;
@@ -323,7 +384,7 @@ class _DonutPainter extends CustomPainter {
         ..color = segments[i].color
         ..strokeWidth =
             ring.thickness + (i == highlightedIndex ? _highlightExtraDp : 0);
-      canvas.drawArc(rect, 0, _fullTurn, false, paint);
+      canvas.drawArc(rect, -math.pi / 2, limit, false, paint);
       return;
     }
 
@@ -336,7 +397,10 @@ class _DonutPainter extends CustomPainter {
         ..strokeWidth =
             ring.thickness + (i == highlightedIndex ? _highlightExtraDp : 0);
       final drawSweep = math.max(0.0, sweep - gap);
-      canvas.drawArc(rect, start + gap / 2, drawSweep, false, paint);
+      final from = start + gap / 2;
+      // Рисуем только то, что «бегущий конец» уже дошёл.
+      final shown = math.min(drawSweep, limit - (from + math.pi / 2));
+      if (shown > 0) canvas.drawArc(rect, from, shown, false, paint);
       start += sweep;
     }
   }

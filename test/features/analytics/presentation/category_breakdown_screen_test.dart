@@ -112,6 +112,8 @@ Future<void> _pump(
   for (var i = 0; i < 3; i++) {
     await tester.pump();
   }
+  // Кольцо достраивается (анимация построения).
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 String _money(int minor) => formatMoney(Money.fromMinor(minor, 'RUB'));

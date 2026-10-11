@@ -113,6 +113,8 @@ Future<void> _pump(
   for (var i = 0; i < 3; i++) {
     await tester.pump();
   }
+  // Кольцо достраивается (анимация построения).
+  await tester.pump(const Duration(milliseconds: 600));
 }
 
 /// Тестовый набор: все операции и категории с названиями «Кат» и id.
