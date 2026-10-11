@@ -224,6 +224,7 @@ class _HomeTabState extends State<HomeTab> {
   TransactionsRepository? _repository;
   DateRange? _month;
   String? _currency;
+  bool? _hasAny;
   late Stream<Money> _monthExpenses;
   late Stream<Money> _monthIncome;
   late Stream<List<Transaction>> _monthTransactions;
@@ -245,7 +246,16 @@ class _HomeTabState extends State<HomeTab> {
     final month = BrowseScope.of(context).month;
     // Основная валюта из настроек: при её смене потоки создаются заново.
     final currency = services.settings.mainCurrencyCode;
-    if (!identical(services.transactions, _repository) ||
+    // Приветствие (операций нет) убирает карточки итогов и кольца, а потоки
+    // одноразовые: когда карточки вернутся, им нужны новые.
+    final browse = BrowseScope.of(context);
+    final hasAny = browse.firstDayKnown ? browse.firstDay != null : null;
+    // Только «приветствие → карточки»: при «неизвестно → есть» карточки
+    // не снимались, и прежние потоки живы.
+    final remount = _hasAny == false && hasAny != false;
+    _hasAny = hasAny;
+    if (remount ||
+        !identical(services.transactions, _repository) ||
         month != _month ||
         currency != _currency) {
       _repository = services.transactions;
@@ -266,14 +276,15 @@ class _HomeTabState extends State<HomeTab> {
         currency: currency,
       );
     }
-    if (!identical(services.categories, _categoriesRepository)) {
+    if (remount || !identical(services.categories, _categoriesRepository)) {
       _categoriesRepository = services.categories;
       _categories = services.categories.watchAll();
     }
     // Строка «Баланс» не зависит от месяца: поток новый только при смене
     // настройки, основной валюты или репозиториев.
     final line = services.settings.homeBalanceLine;
-    if (line != _balanceLine ||
+    if (remount ||
+        line != _balanceLine ||
         currency != _balanceCurrency ||
         !identical(services.transactions, _balanceTransactions) ||
         !identical(services.accounts, _balanceAccounts)) {
@@ -310,6 +321,8 @@ class _HomeTabState extends State<HomeTab> {
       month: month.start,
       isCurrentMonth: month == monthRange(browse.today),
       currency: _currency!,
+      // Тот же признак, по которому потоки созданы заново (didChangeDependencies).
+      hasAnyTransactions: _hasAny,
       hideAmounts: AppScope.of(context).settings.hideAmounts,
       onHideAmountsChanged: AppScope.of(context).settings.setHideAmounts,
       onPreviousMonth: browse.canGoBack ? browse.previousMonth : null,

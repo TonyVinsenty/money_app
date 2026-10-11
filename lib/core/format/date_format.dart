@@ -36,6 +36,26 @@ String formatMonthYear(DateOnly date) =>
 String formatMonthName(DateOnly date) =>
     DateFormat.LLLL('ru').format(date.toDateTime());
 
+/// Месяцы в предложном падеже («в августе»).
+const List<String> _monthsPrepositional = [
+  'январе',
+  'феврале',
+  'марте',
+  'апреле',
+  'мае',
+  'июне',
+  'июле',
+  'августе',
+  'сентябре',
+  'октябре',
+  'ноябре',
+  'декабре',
+];
+
+/// Месяц в предложном падеже, чтобы вставить после «в»: «октябре».
+String formatMonthPrepositional(DateOnly date) =>
+    _monthsPrepositional[date.month - 1];
+
 /// Подпись переключателя месяца: «Сентябрь 2026» (с большой буквы, без «г.»).
 /// Требует `initializeDateFormatting('ru')`.
 String formatMonthTitle(DateOnly date) {

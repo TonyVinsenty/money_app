@@ -19,6 +19,7 @@ import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
+import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/history_view.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -268,27 +269,28 @@ void main() {
     expect(_inCard('month-summary-expense', _expense(12803388)), findsOne);
   });
 
-  testWidgets('пустой прошлый месяц: «За сентябрь 2026 расходов нет»; '
-      'пустой текущий: «В этом месяце расходов пока нет»', (tester) async {
+  testWidgets('пустой прошлый месяц: строка «В сентябре 2026 операций не '
+      'было» без кольца', (tester) async {
     final repo = _Repo([_tx('a', DateOnly(2026, 10, 2), 5000)])
       ..firstDay = DateOnly(2026, 9, 3);
     await _pump(tester, repo);
-    expect(find.text('В этом месяце расходов пока нет'), findsNothing);
+    expect(find.textContaining('операций'), findsNothing);
 
     await tester.tap(_prev);
     await tester.pump();
     await tester.pump();
-    expect(find.text('За сентябрь 2026 расходов нет'), findsOneWidget);
-    expect(find.text('В этом месяце расходов пока нет'), findsNothing);
+    expect(find.text('В сентябре 2026 операций не было'), findsOneWidget);
+    expect(find.byType(DonutChart), findsNothing);
   });
 
-  testWidgets('пустой текущий месяц: прежний текст', (tester) async {
+  testWidgets('операций нет вообще: приветствие вместо итогов и кольца', (
+    tester,
+  ) async {
     await _pump(tester, _Repo(const []));
-    expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
-    expect(find.textContaining('расходов нет'), findsNothing);
-    // Операций нет вообще: стрелки скрыты, подпись на месте.
+    expect(find.text(homeWelcomeTitle), findsOneWidget);
+    expect(find.byType(DonutChart), findsNothing);
     expect(_prev, findsNothing);
-    expect(find.text('Октябрь 2026'), findsOneWidget);
+    expect(find.text('Октябрь 2026'), findsNothing);
   });
 
   testWidgets('категория с «Главной» открывается за выбранный месяц', (

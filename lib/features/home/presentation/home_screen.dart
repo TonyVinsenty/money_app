@@ -5,7 +5,9 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/home/presentation/month_chart_card.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
@@ -38,8 +40,13 @@ class HomeScreen extends StatefulWidget {
     this.banner,
     this.hideAmounts = false,
     this.onHideAmountsChanged,
+    this.hasAnyTransactions,
     super.key,
   });
+
+  /// Есть ли в базе хоть одна операция; `false` — вместо итогов и кольца
+  /// приветствие, `null` — пока неизвестно (экран как обычно).
+  final bool? hasAnyTransactions;
 
   /// Суммы скрыты ли сейчас и как это переключить («глаз» в карточке итогов).
   /// Без обработчика значка нет.
@@ -132,36 +139,45 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: banner,
                   ),
                 ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: MonthSummaryCard(
-                    expenses: w.monthExpenses,
-                    income: w.monthIncome,
-                    month: w.month,
-                    onPreviousMonth: w.onPreviousMonth,
-                    onNextMonth: w.onNextMonth,
-                    hideAmounts: w.hideAmounts,
-                    onHideAmountsChanged: w.onHideAmountsChanged,
+              if (w.hasAnyTransactions == false)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: AppSpacing.l),
+                    child: HomeWelcomeCard(),
+                  ),
+                )
+              else ...[
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: MonthSummaryCard(
+                      expenses: w.monthExpenses,
+                      income: w.monthIncome,
+                      month: w.month,
+                      onPreviousMonth: w.onPreviousMonth,
+                      onNextMonth: w.onNextMonth,
+                      hideAmounts: w.hideAmounts,
+                      onHideAmountsChanged: w.onHideAmountsChanged,
+                    ),
                   ),
                 ),
-              ),
-              // Карточка кольца занимает остаток высоты до панели кнопок; если
-              // содержимое выше остатка, она растёт и середина прокручивается.
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: MonthChartCard(
-                  transactions: w.monthTransactions,
-                  categories: w.categories,
-                  month: w.month,
-                  isCurrentMonth: w.isCurrentMonth,
-                  currency: w.currency,
-                  balanceLine: w.balanceLine,
-                  balanceLineKind: w.balanceLineKind,
-                  ringSize: ring,
-                  onOpenCategory: w.onOpenCategory,
+                // Карточка кольца занимает остаток высоты до панели кнопок; если
+                // содержимое выше остатка, она растёт и середина прокручивается.
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: MonthChartCard(
+                    transactions: w.monthTransactions,
+                    categories: w.categories,
+                    month: w.month,
+                    isCurrentMonth: w.isCurrentMonth,
+                    currency: w.currency,
+                    balanceLine: w.balanceLine,
+                    balanceLineKind: w.balanceLineKind,
+                    ringSize: ring,
+                    onOpenCategory: w.onOpenCategory,
+                  ),
                 ),
-              ),
+              ],
             ],
           );
         },

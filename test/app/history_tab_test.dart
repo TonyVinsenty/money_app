@@ -15,6 +15,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/data/categories_repository_impl.dart';
+import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -142,7 +143,8 @@ void main() {
       of: find.byKey(const ValueKey('month-summary-expense')),
       matching: find.text('Пока нет'),
     );
-    expect(emptyExpenses, findsOneWidget);
+    // Пустая база: вместо итогов приветствие (У4).
+    expect(find.text(homeWelcomeTitle), findsOneWidget);
 
     // «Главная» -> «Расход» -> сумма 0 -> категория.
     await tester.tap(find.text('Расход'));

@@ -14,6 +14,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
+import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -29,6 +30,9 @@ import '../support/settle_database.dart';
 /// ручного «обновить».
 late AppDatabase _db;
 late FixedClock _clock;
+
+/// В базе ни одной операции: вместо итогов приветствие (У4).
+final _welcome = find.text(homeWelcomeTitle);
 
 /// Пустое состояние расходов: «Пока нет» внутри карточки расходов.
 final _empty = find.descendant(
@@ -132,12 +136,13 @@ void main() {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = false;
   });
 
-  testWidgets('операций нет: пустое состояние', (tester) async {
+  testWidgets('операций нет: приветствие вместо итогов', (tester) async {
     await _pumpApp(tester);
     await tester.pumpAndSettle();
 
-    expect(_empty, findsOneWidget);
-    expect(find.text('Сентябрь 2026'), findsOneWidget);
+    // Ни одной операции: вместо итогов приветствие (У4).
+    expect(_welcome, findsOneWidget);
+    expect(_empty, findsNothing);
     await _finish(tester);
   });
 
@@ -333,7 +338,7 @@ void main() {
         '«Отменить» возвращает пустое состояние', (tester) async {
       await _pumpApp(tester);
       await tester.pumpAndSettle();
-      expect(emptyIncome, findsOneWidget);
+      expect(_welcome, findsOneWidget);
 
       await tester.tap(find.text('Доход'));
       await tester.pumpAndSettle();
@@ -350,16 +355,46 @@ void main() {
 
       await tester.tap(find.text('Отменить'));
       await tester.pumpAndSettle();
-      expect(emptyIncome, findsOneWidget);
+      expect(_welcome, findsOneWidget);
       await _finish(tester);
     });
+  });
+
+  testWidgets('приветствие → итоги → приветствие → итоги: карточки получают '
+      'новые потоки, без «Stream has already been listened to»', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+    await tester.pumpAndSettle();
+
+    Future<void> addExpense() async {
+      await tester.tap(find.text('Расход'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '350');
+      await tester.tap(find.widgetWithText(FilledButton, 'Далее'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Продукты'));
+      await settleDatabase(tester);
+    }
+
+    await addExpense();
+    expect(_inExpense(_total(35000)), findsOneWidget);
+    await tester.tap(find.text('Отменить'));
+    await settleDatabase(tester);
+    expect(_welcome, findsOneWidget);
+
+    await addExpense();
+    expect(tester.takeException(), isNull);
+    expect(_welcome, findsNothing);
+    expect(_inExpense(_total(35000)), findsOneWidget);
+    await _finish(tester);
   });
 
   testWidgets('после сохранения расхода итог обновляется сам, «Отменить» '
       'возвращает пустое состояние', (tester) async {
     await _pumpApp(tester);
     await tester.pumpAndSettle();
-    expect(_empty, findsOneWidget);
+    expect(_welcome, findsOneWidget);
 
     // «Главная» -> «Расход» -> сумма -> категория. Кнопки выше сообщения,
     // поэтому «Расход» доступен и при показанном сообщении (второй расход).

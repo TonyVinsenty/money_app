@@ -33,22 +33,6 @@ String analyticsSectionTitle(AnalyticsSection section) => switch (section) {
   AnalyticsSection.operations => 'Операции',
 };
 
-/// Месяцы в предложном падеже («в августе»).
-const List<String> _monthsPrepositional = [
-  'январе',
-  'феврале',
-  'марте',
-  'апреле',
-  'мае',
-  'июне',
-  'июле',
-  'августе',
-  'сентябре',
-  'октябре',
-  'ноябре',
-  'декабре',
-];
-
 /// Т2. С чем сравниваем, так, чтобы вставить после «чем» и «сколько»:
 /// «1\u201311 сентября», «в августе», «вчера», «в 2025 году». Год пишется,
 /// только если он не тот же, что у [today]. Требует
@@ -65,7 +49,7 @@ String comparisonPhrase(DateRange range, DateOnly today) {
     return '${formatDayMonth(start)}${start.year == today.year ? '' : ' ${start.year}'}';
   }
   if (range == monthRange(start)) {
-    return 'в ${_monthsPrepositional[start.month - 1]}$yearSuffix';
+    return 'в ${formatMonthPrepositional(start)}$yearSuffix';
   }
   if (range == yearRange(start)) return 'в ${start.year} году';
   if (start.year != end.year) {

@@ -109,7 +109,8 @@ void main() {
     await _pumpApp(tester);
     _browse(tester).showMonthOf(DateOnly(2026, 8, 10));
     await tester.pumpAndSettle();
-    expect(find.text('Август 2026'), findsOneWidget);
+    // Операций нет: подписи месяца на «Главной» нет (приветствие).
+    expect(_browse(tester).month, monthRange(DateOnly(2026, 8, 10)));
 
     await _addExpense(tester);
     expect(find.text('Октябрь 2026'), findsOneWidget);
@@ -136,7 +137,8 @@ void main() {
     expect(find.text('Октябрь 2026'), findsOneWidget);
     await tester.tap(find.text('Отменить'));
     await tester.pumpAndSettle();
-    expect(find.text('Октябрь 2026'), findsOneWidget);
+    // База снова пуста: на «Главной» приветствие, месяц прежний.
+    expect(find.text('Октябрь 2026'), findsNothing);
     expect(_browse(tester).month, monthRange(DateOnly(2026, 10, 4)));
     await _finish(tester);
   });

@@ -86,6 +86,21 @@ void main() {
     });
   });
 
+  group('formatMonthPrepositional', () {
+    test('все двенадцать месяцев после «в»', () {
+      expect(
+        [
+          for (var m = 1; m <= 12; m++)
+            formatMonthPrepositional(DateOnly(2026, m, 1)),
+        ],
+        [
+          'январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', //
+          'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре',
+        ],
+      );
+    });
+  });
+
   group('formatMonthYear', () {
     test('сентябрь 2026', () {
       expect(

@@ -132,7 +132,8 @@ void main() {
     await _settings.setMainCurrency(_usd);
     await tester.pumpAndSettle();
     expect(_expenseEmpty, findsOneWidget);
-    expect(_inRing(_money(0, 'USD')), findsOneWidget);
+    // Операций в долларах в месяце нет: строка вместо серого кольца (У4).
+    expect(find.textContaining('операций пока нет'), findsOneWidget);
 
     await _addExpense(tester, '12,50');
     final usd = _money(1250, 'USD');

@@ -22,6 +22,7 @@ import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/presentation/accounts_section.dart';
 import 'package:money_app/features/analytics/presentation/category_breakdown_card.dart';
 import 'package:money_app/features/categories/domain/default_categories.dart';
+import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/history_view.dart';
@@ -224,9 +225,9 @@ void main() {
     expect(find.byKey(AccountsSection.addButtonKey), findsOneWidget);
 
     await _openTab(tester, 'Главная');
-    expect(find.text('Октябрь 2026'), findsOneWidget);
-    expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
-    expect(find.textContaining('0,00'), findsWidgets);
+    // Как при первом запуске: приветствие вместо итогов и кольца (У4).
+    expect(find.text(homeWelcomeTitle), findsOneWidget);
+    expect(find.text('Октябрь 2026'), findsNothing);
     expect(find.textContaining('123'), findsNothing);
     expect(find.textContaining('Продукт'), findsNothing);
 

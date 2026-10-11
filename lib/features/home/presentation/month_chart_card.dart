@@ -19,6 +19,7 @@ import 'package:money_app/features/analytics/domain/category_totals.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -231,6 +232,47 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final theme = Theme.of(context);
     final colors = context.appColors;
     final range = monthRange(month);
+    // Месяц без единой операции: серое кольцо 0,00 ₽ ничего не говорит,
+    // хватает короткой строки (У4). Вторая строка («За всё время», «На
+    // счетах») остаётся: 1-го числа она по-прежнему нужна.
+    if (!transactions.any(
+      (t) => range.contains(t.occurredOn) && t.amount.currency == data.currency,
+    )) {
+      final muted = theme.colorScheme.onSurfaceVariant;
+      Widget emptyWith(Money? line) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              homeEmptyMonthText(month, isCurrentMonth: data.isCurrentMonth),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(color: muted),
+            ),
+            if (line != null) ...[
+              const SizedBox(height: AppSpacing.s),
+              MergeSemantics(
+                child: Text(
+                  '${_lineLabel()}: ${maskedMoney(context, _lineText(line))}',
+                  textAlign: TextAlign.center,
+                  semanticsLabel:
+                      '${_lineLabel()}: '
+                      '${maskedSpoken(context, _spokenLine(line))}',
+                  style: theme.textTheme.titleSmall?.copyWith(color: muted),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+      final lineStream = widget.balanceLine;
+      return lineStream == null
+          ? emptyWith(null)
+          : StreamBuilder<Money?>(
+              stream: lineStream,
+              builder: (context, snapshot) =>
+                  emptyWith(snapshot.hasError ? null : snapshot.data),
+            );
+    }
     final balance = summarizePeriod(
       transactions,
       range,

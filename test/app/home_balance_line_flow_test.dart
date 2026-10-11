@@ -8,8 +8,8 @@ import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
+import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
-import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
@@ -20,9 +20,12 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import '../support/fakes.dart';
 import '../support/fixed_clock.dart';
 
-/// Итоги «за всё время» заданы числами; операций месяца нет.
+/// Итоги «за всё время» заданы числами; операций месяца нет, но в прошлом
+/// они были (иначе «Главная» показала бы приветствие).
 class _Repo extends FakeTransactionsRepository {
-  _Repo({required this.income, required this.expense});
+  _Repo({required this.income, required this.expense}) {
+    firstDay = DateOnly(2026, 1, 1);
+  }
 
   final Map<String, int> income;
   final Map<String, int> expense;
@@ -95,9 +98,6 @@ Future<AppSettingsController> _pump(
   return settings;
 }
 
-Finder get _inRing =>
-    find.descendant(of: find.byType(DonutChart), matching: find.byType(Text));
-
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 4; i++) {
     await tester.pump();
@@ -134,7 +134,8 @@ void main() {
     await _settle(tester);
     expect(find.textContaining('За всё время'), findsNothing);
     expect(find.textContaining('На счетах'), findsNothing);
-    expect(_inRing, findsWidgets);
+    // Месяц пуст: вместо кольца короткая строка (У4), она на месте.
+    expect(find.textContaining('операций пока нет'), findsOneWidget);
 
     settings.setHomeBalanceLine(HomeBalanceLine.allTime);
     await _settle(tester);

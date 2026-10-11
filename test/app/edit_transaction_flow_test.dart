@@ -17,6 +17,7 @@ import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/data/categories_repository_impl.dart';
+import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
@@ -140,10 +141,8 @@ Future<void> _openTab(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
-final _homeEmpty = find.descendant(
-  of: find.byKey(const ValueKey('month-summary-expense')),
-  matching: find.text('Пока нет'),
-);
+/// Удалили единственную операцию: на «Главной» снова приветствие (У4).
+final _homeEmpty = find.text(homeWelcomeTitle);
 // Сумма расходов со знаком «минус» (U+2212); подпись «Расходы за сентябрь» отдельно.
 final _homeTotal = find.descendant(
   of: find.byKey(const ValueKey('month-summary-expense')),

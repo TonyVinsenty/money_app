@@ -77,6 +77,7 @@ Future<void> _pump(
   Stream<Money?>? balanceLine,
   HomeBalanceLine balanceLineKind = HomeBalanceLine.allTime,
   DateOnly? month,
+  bool isCurrentMonth = true,
 }) async {
   tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1;
@@ -106,6 +107,7 @@ Future<void> _pump(
                 onOpenCategory: onOpen,
                 balanceLine: balanceLine,
                 balanceLineKind: balanceLineKind,
+                isCurrentMonth: isCurrentMonth,
               ),
             ),
           ),
@@ -177,22 +179,47 @@ void main() {
     expect(size, 236);
     expect(size, greaterThan(210));
   });
-  testWidgets('пустой месяц: серое кольцо, «Всего» и ноль, текст вместо '
-      'легенды', (tester) async {
+  testWidgets('пустой месяц: строка вместо серого кольца 0,00 (У4)', (
+    tester,
+  ) async {
     await _pump(tester);
 
     expect(find.text('Расходы по категориям'), findsOneWidget);
-    expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
-    expect(_inRing('За сентябрь'), findsOneWidget);
+    expect(find.text('В сентябре операций пока нет'), findsOneWidget);
+    expect(find.byType(DonutChart), findsNothing);
+    expect(find.text(_money(0)), findsNothing);
     final colors = tester.element(find.byType(MonthChartCard)).appColors;
-    // Сумма нейтральная: ни цвет расхода, ни цвет дохода.
-    final total = tester.widget<Text>(_inRing(_money(0)));
-    expect(total.style?.color, isNot(colors.expense));
-    expect(total.style?.color, isNot(colors.income));
     final empty = tester.widget<Text>(
-      find.text('В этом месяце расходов пока нет'),
+      find.text('В сентябре операций пока нет'),
     );
     expect(empty.style?.color, isNot(colors.expense));
+    expect(empty.style?.color, isNot(colors.income));
+  });
+
+  testWidgets('пустой прошлый месяц: «В сентябре 2026 операций не было»', (
+    tester,
+  ) async {
+    await _pump(tester, isCurrentMonth: false);
+    expect(find.text('В сентябре 2026 операций не было'), findsOneWidget);
+  });
+
+  testWidgets('пустой месяц: вторая строка «За всё время» остаётся', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      balanceLine: Stream.value(Money.fromMinor(750000, 'RUB')),
+    );
+    await tester.pump();
+    expect(find.text('В сентябре операций пока нет'), findsOneWidget);
+    expect(find.text('За всё время: +${_money(750000)}'), findsOneWidget);
+  });
+
+  testWidgets('в месяце только доход: кольцо на месте', (tester) async {
+    await _pump(tester, transactions: Stream.value([_income(5000)]));
+    await tester.pump();
+    expect(find.byType(DonutChart), findsOneWidget);
+    expect(find.text('В этом месяце расходов пока нет'), findsOneWidget);
   });
 
   testWidgets('сентябрь тестового набора: всего расходов и проценты легенды', (
@@ -311,10 +338,10 @@ void main() {
     });
   });
 
-  testWidgets('текст «расходов пока нет» по центру карточки', (tester) async {
+  testWidgets('строка пустого месяца по центру карточки', (tester) async {
     await _pump(tester);
     final card = tester.getRect(find.byType(MonthChartCard));
-    final text = tester.getRect(find.text('В этом месяце расходов пока нет'));
+    final text = tester.getRect(find.text('В сентябре операций пока нет'));
     expect((text.center.dx - card.center.dx).abs(), lessThan(1));
   });
 
@@ -578,12 +605,9 @@ void main() {
 
       await _pump(tester);
       await tester.pump();
-      expect(
-        find.bySemanticsLabel(
-          'Диаграмма расходов за сентябрь. За сентябрь: 0 рублей',
-        ),
-        findsOneWidget,
-      );
+      // Пустой месяц: кольца нет, строку читает сам текст.
+      expect(find.bySemanticsLabel(RegExp('^Диаграмма')), findsNothing);
+      expect(find.text('В сентябре операций пока нет'), findsOneWidget);
       semantics.dispose();
     });
 
@@ -1244,11 +1268,23 @@ void main() {
     });
 
     testWidgets('другой месяц: «За октябрь»', (tester) async {
-      await pumpWith(
+      // Пустой месяц показывает строку без кольца: нужна операция октября.
+      await _pump(
         tester,
-        Stream.value(rub(100)),
+        transactions: Stream.value([
+          Transaction(
+            id: 'oct',
+            type: TransactionType.expense,
+            amount: Money.fromMinor(100, 'RUB'),
+            occurredOn: DateOnly(2026, 10, 3),
+            occurredAt: DateTime.utc(2026, 10, 3, 9),
+            categoryId: 'food',
+          ),
+        ]),
+        balanceLine: Stream.value(rub(100)),
         month: DateOnly(2026, 10, 3),
       );
+      await tester.pump();
 
       expect(_inRing('За октябрь'), findsOneWidget);
       expect(_inRing('За сентябрь'), findsNothing);
