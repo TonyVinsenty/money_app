@@ -8,6 +8,7 @@ import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/buckets.dart';
+import 'package:money_app/features/analytics/domain/pace.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -63,6 +64,7 @@ class DynamicsSection extends StatefulWidget {
   static const typeKey = ValueKey('dynamics-type');
   static const chartKey = ValueKey('dynamics-chart');
   static const infoKey = ValueKey('dynamics-info');
+  static const forecastKey = ValueKey('dynamics-forecast');
   static const listKey = ValueKey('dynamics-list');
 
   @override
@@ -177,6 +179,16 @@ class _DynamicsSectionState extends State<DynamicsSection> {
       categoryId: selected?.id,
     );
     final average = bucketAverage(buckets, today);
+    final forecast = type == TransactionType.expense
+        ? monthForecast(
+            widget.transactions,
+            widget.period,
+            type,
+            today,
+            currency: widget.currency,
+            categoryId: selected?.id,
+          )
+        : null;
     final weights = [for (final b in buckets) b.amount.minorUnits];
     final onTypeSelected = widget.onTypeSelected;
     final colors = context.appColors;
@@ -260,6 +272,26 @@ class _DynamicsSectionState extends State<DynamicsSection> {
               style: theme.textTheme.bodyMedium?.copyWith(color: muted),
             ),
           ),
+          if (forecast != null) ...[
+            const SizedBox(height: 4),
+            Semantics(
+              container: true,
+              excludeSemantics: true,
+              label: dynamicsForecastText(
+                forecast.forecast,
+                widget.period.range.end,
+                spoken: true,
+              ),
+              child: Text(
+                dynamicsForecastText(
+                  forecast.forecast,
+                  widget.period.range.end,
+                ),
+                key: DynamicsSection.forecastKey,
+                style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+              ),
+            ),
+          ],
           ExpansionTile(
             key: DynamicsSection.listKey,
             tilePadding: EdgeInsets.zero,

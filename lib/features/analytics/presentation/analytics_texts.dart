@@ -206,6 +206,16 @@ String dynamicsAverageText(
     'В среднем ${spoken ? spokenMoney(average) : formatMoney(average)} '
     '${step == BucketStep.month ? 'в месяц' : 'в день'}';
 
+/// Т4. Прогноз: «Если тратить так же, к 31 октября будет ≈ 74 000,00 ₽».
+/// Для скринридера ([spoken]) «примерно» и сумма словами.
+String dynamicsForecastText(
+  Money forecast,
+  DateOnly monthEnd, {
+  bool spoken = false,
+}) =>
+    'Если тратить так же, к ${formatDayMonth(monthEnd)} будет '
+    '${spoken ? 'примерно ${spokenMoney(forecast)}' : '≈ ${formatMoney(forecast)}'}';
+
 /// Т3. Название корзины: «12 октября» (год добавляется, если он не тот же, что
 /// у [today]) или «Октябрь 2026» для месячной.
 String dynamicsBucketLabel(Bucket bucket, BucketStep step, DateOnly today) {
