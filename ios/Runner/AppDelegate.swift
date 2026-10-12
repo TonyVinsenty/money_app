@@ -21,10 +21,21 @@ import UserNotifications
   // Делегат окна — сам AppDelegate: он живёт всё время работы приложения.
   private var pendingPick: FlutterResult?
 
+  // Был ли тап по нашему уведомлению с прошлого вопроса Dart (takeOpenRequest,
+  // ADR 0013, п. 11).
+  private var openRequested = false
+
+  // Канал напоминаний, когда движок готов: для вызова openDue.
+  private var remindersChannel: FlutterMethodChannel?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Делегат — до конца запуска: иначе тап, которым приложение запустили,
+    // не дойдёт до didReceive. Он же показывает уведомление при открытом
+    // приложении (willPresent ниже).
+    UNUserNotificationCenter.current().delegate = self
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -56,8 +67,7 @@ import UserNotifications
     reminders.setMethodCallHandler { call, result in
       self.handleReminders(call, result: result)
     }
-    // Чтобы уведомление показывалось и при открытом приложении (willPresent ниже).
-    UNUserNotificationCenter.current().delegate = self
+    remindersChannel = reminders
   }
 
   // Показ уведомления, когда приложение открыто.
@@ -67,6 +77,20 @@ import UserNotifications
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     completionHandler([.banner, .list, .sound])
+  }
+
+  // Тап по уведомлению: запоминаем; если движок уже работает, подсказываем
+  // Dart спросить сейчас же. Иначе Dart спросит сам при запуске.
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    if response.actionIdentifier == UNNotificationDefaultActionIdentifier {
+      openRequested = true
+      remindersChannel?.invokeMethod("openDue", arguments: nil)
+    }
+    completionHandler()
   }
 
   private func handleReminders(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -89,6 +113,10 @@ import UserNotifications
         }
         DispatchQueue.main.async { result(status) }
       }
+    // Ответ сбрасывает флаг: тап обрабатывается ровно один раз.
+    case "takeOpenRequest":
+      result(openRequested)
+      openRequested = false
     case "replaceAll":
       guard let items = call.arguments as? [[String: Any]] else {
         result(FlutterError(code: "bad_args", message: "Не передан список напоминаний", details: nil))

@@ -48,8 +48,23 @@ List<String> checkRemindersSwift(String source) {
     'repeats: false',
     'willPresent',
     '[.banner, .list, .sound]',
+    // Тап по уведомлению (ADR 0013, п. 11).
+    '"$remindersTakeOpenRequestMethod"',
+    'invokeMethod("$remindersOpenDueMethod"',
+    'didReceive response: UNNotificationResponse',
+    'UNNotificationDefaultActionIdentifier',
   ]) {
     if (!source.contains(needle)) errors.add('Не найдено $needle');
+  }
+  // Делегат уведомлений - до конца запуска, иначе тап, которым запустили
+  // приложение, теряется.
+  final launch = source.indexOf('didFinishLaunchingWithOptions');
+  final launchEnd = launch < 0 ? -1 : source.indexOf('func ', launch);
+  if (launch < 0 ||
+      !source
+          .substring(launch, launchEnd < 0 ? source.length : launchEnd)
+          .contains('UNUserNotificationCenter.current().delegate = self')) {
+    errors.add('Делегат уведомлений не назначен в didFinishLaunching');
   }
   return errors;
 }
@@ -148,6 +163,20 @@ void main() {
       checkRemindersSwift(swift.replaceAll('"minute"', '"min"')),
       isNotEmpty,
     );
+  });
+
+  test('сторож замечает потерю тапа по уведомлению в Swift', () {
+    for (final broken in [
+      swift.replaceAll('"takeOpenRequest"', '"takeOpen"'),
+      swift.replaceAll('"openDue"', '"open"'),
+      swift.replaceAll('didReceive response', 'didGet response'),
+      swift.replaceFirst(
+        'UNUserNotificationCenter.current().delegate = self\n    return super',
+        'return super',
+      ),
+    ]) {
+      expect(checkRemindersSwift(broken), isNotEmpty);
+    }
   });
 
   test('сторож замечает отсутствие показа при открытом приложении', () {
