@@ -26,6 +26,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../../../support/fixture_transactions.dart';
+import '../../../support/roboto_font.dart';
 
 final _month = DateOnly(2026, 9, 20);
 final _range = monthRange(_month);
@@ -364,39 +365,41 @@ void main() {
     expect(ring.contains(amount.bottomRight), isTrue);
   });
 
-  testWidgets('узкий экран 320 dp, шрифт 130 %: центр без overflow', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      transactions: Stream.value([_expense('food', 7340600)]),
-      categories: Stream.value([_category('food', 'Еда')]),
-      textScale: 1.3,
-      cardHeight: 700,
-      ringSize: 160,
-      width: 320,
-    );
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    final ring = tester.getRect(find.byType(DonutChart));
-    final amount = tester.getRect(_inRing(_money(-7340600)));
-    final label = tester.getRect(_inRing('За сентябрь'));
-    // Дырка кольца: толщина кольца 16 % стороны, запас 2 dp на край.
-    final hole = ring.width * (1 - 2 * 0.16) - 4;
-    final centerPoint = ring.center;
-    for (final r in [amount, label]) {
-      expect(r.width, lessThanOrEqualTo(hole * 0.71 + 0.5));
-      // Все углы строки внутри дырки, не на секторах.
-      for (final corner in [
-        r.topLeft,
-        r.bottomRight,
-        r.topRight,
-        r.bottomLeft,
-      ]) {
-        expect((corner - centerPoint).distance, lessThan(hole / 2));
+  testWidgets(
+    'узкий экран 320 dp, шрифт 130 %: одно число в центре, без overflow',
+    (tester) async {
+      await _pump(
+        tester,
+        transactions: Stream.value([_expense('food', 7340600)]),
+        categories: Stream.value([_category('food', 'Еда')]),
+        textScale: 1.3,
+        cardHeight: 700,
+        ringSize: 160,
+        width: 320,
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      final ring = tester.getRect(find.byType(DonutChart));
+      final amount = tester.getRect(_inRing(_money(-7340600)));
+      // От 130 % в центре одно число: «За сентябрь» в центре нет (7.35).
+      expect(_inRing('За сентябрь'), findsNothing);
+      // Дырка кольца: толщина кольца 16 % стороны, запас 2 dp на край.
+      final hole = ring.width * (1 - 2 * 0.16) - 4;
+      final centerPoint = ring.center;
+      for (final r in [amount]) {
+        expect(r.width, lessThanOrEqualTo(hole * 0.71 + 0.5));
+        // Все углы строки внутри дырки, не на секторах.
+        for (final corner in [
+          r.topLeft,
+          r.bottomRight,
+          r.topRight,
+          r.bottomLeft,
+        ]) {
+          expect((corner - centerPoint).distance, lessThan(hole / 2));
+        }
       }
-    }
-  });
+    },
+  );
 
   group('строка «Ещё N категорий»', () {
     Future<void> check(
@@ -1290,10 +1293,71 @@ void main() {
       expect(_inRing('За сентябрь'), findsNothing);
     });
 
+    for (final (width, scale) in [(360.0, 2.0), (320.0, 2.0), (360.0, 1.3)]) {
+      testWidgets('ширина $width, шрифт $scale: строка под кольцом в полный '
+          'размер, в центре одно число (7.35)', (tester) async {
+        await loadRoboto();
+        await pumpWith(
+          tester,
+          Stream.value(rub(4530000)),
+          textScale: scale,
+          width: width,
+          ringSize: 160,
+        );
+
+        expect(tester.takeException(), isNull);
+        // В центре только баланс месяца.
+        expect(_inRing('+${_money(1199900)}'), findsOneWidget);
+        expect(_inRing('За сентябрь'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byType(DonutChart),
+            matching: find.textContaining('За всё время'),
+          ),
+          findsNothing,
+        );
+        // Строка под кольцом, в пределах карточки, без уменьшения.
+        final below = find.byKey(MonthChartCard.lineBelowKey);
+        final ring = tester.getRect(find.byType(DonutChart));
+        final rect = tester.getRect(below);
+        expect(rect.top, greaterThanOrEqualTo(ring.bottom));
+        expect(rect.left, greaterThanOrEqualTo(16));
+        expect(rect.right, lessThanOrEqualTo(width - 16));
+        final amount = find.descendant(
+          of: below,
+          matching: find.text('+${_money(4530000)}'),
+        );
+        expect(
+          tester.getRect(amount).width,
+          moreOrLessEquals(tester.getSize(amount).width),
+        );
+        // Второй раз скринридер её не читает: она уже в описании кольца.
+        expect(
+          find.ancestor(of: below, matching: find.byType(ExcludeSemantics)),
+          findsWidgets,
+        );
+      });
+    }
+
+    testWidgets('шрифт 200 %: огромная сумма под кольцом не рвётся', (
+      tester,
+    ) async {
+      await loadRoboto();
+      await pumpWith(
+        tester,
+        Stream.value(rub(123456789012)),
+        textScale: 2,
+        width: 320,
+        ringSize: 160,
+      );
+      expect(tester.takeException(), isNull);
+      final rect = tester.getRect(find.byKey(MonthChartCard.lineBelowKey));
+      expect(rect.right, lessThanOrEqualTo(320 - 16));
+    });
+
     for (final (width, scale, ring) in [
-      (360.0, 2.0, 160.0),
       (360.0, 1.0, 280.0),
-      (320.0, 2.0, 160.0),
+      (360.0, 1.29, 280.0),
     ]) {
       testWidgets('ширина $width, шрифт $scale: без переполнения, строка '
           'внутри дырки кольца', (tester) async {

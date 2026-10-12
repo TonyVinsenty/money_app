@@ -12,6 +12,7 @@ import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/color_dot.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -66,7 +67,9 @@ double chartRingSize({
       24 * textScale +
       12 +
       _legendGap +
-      legendRows * _legendRowHeight;
+      legendRows * _legendRowHeight +
+      // Крупный шрифт: вторая строка (Т1) — под кольцом.
+      (textScale >= twoLineRowScale ? AppSpacing.s + 20 * textScale : 0);
   final byWidth = viewportWidth - 2 * _cardPadding;
   final byHeight = viewportHeight - reserved;
   return (byWidth < byHeight ? byWidth : byHeight).clamp(_minRing, _maxRing);
@@ -101,6 +104,9 @@ class MonthChartCard extends StatefulWidget {
 
   /// Что считает [balanceLine]: «За всё время» или «На счетах».
   final HomeBalanceLine balanceLineKind;
+
+  /// Ключ второй строки под кольцом (крупный шрифт; для тестов раскладки).
+  static const lineBelowKey = ValueKey('month-chart-line-below');
 
   /// Код валюты кольца (основная валюта); операции других валют в поток не
   /// приходят.
@@ -315,6 +321,10 @@ class _MonthChartCardState extends State<MonthChartCard> {
     final highlighted = lit != null && lit < slices.length ? lit : null;
 
     final side = widget.ringSize;
+    final twoLine = useTwoLineRows(context);
+    final lineStyle = theme.textTheme.titleSmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
 
     // Квадрат с жёсткими сторонами: карточка на «Главной» тянется по
     // intrinsic-высоте содержимого, а при одной лишь ширине кольцо мерилось бы
@@ -349,7 +359,16 @@ class _MonthChartCardState extends State<MonthChartCard> {
           center: SizedBox(
             width: side * 0.66,
             child: highlighted == null
-                ? _totalCenter(context, theme, colors, month, balance, line)
+                ? _totalCenter(
+                    context,
+                    theme,
+                    colors,
+                    month,
+                    balance,
+                    // Крупный шрифт: в центре одно число, строка — под кольцом.
+                    twoLine ? null : line,
+                    compact: twoLine,
+                  )
                 : _sliceCenter(
                     theme,
                     slices[highlighted],
@@ -365,13 +384,45 @@ class _MonthChartCardState extends State<MonthChartCard> {
 
     // Строка «Баланс» приходит отдельным потоком: пока данных нет, при ошибке
     // и при null кольцо рисуется без неё.
+    // Крупный шрифт: строка — под кольцом в полный размер. Скринридер её уже
+    // слышит в описании кольца, второй раз не читает.
+    Widget ringBlock(Money? line) {
+      if (!twoLine || line == null) return ringWith(line);
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ringWith(line),
+          const SizedBox(height: AppSpacing.s),
+          // Подпись и сумма — отдельно: не влезают в строку — сумма уходит
+          // под подпись целиком; шире всей строки — уменьшается, но не рвётся.
+          ExcludeSemantics(
+            child: Wrap(
+              key: MonthChartCard.lineBelowKey,
+              alignment: WrapAlignment.center,
+              spacing: AppSpacing.xs,
+              children: [
+                Text('${_lineLabel()}:', style: lineStyle),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    maskedMoney(context, _lineText(line)),
+                    style: lineStyle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     final balanceStream = widget.balanceLine;
     final ring = balanceStream == null
-        ? ringWith(null)
+        ? ringBlock(null)
         : StreamBuilder<Money?>(
             stream: balanceStream,
             builder: (context, snapshot) =>
-                ringWith(snapshot.hasError ? null : snapshot.data),
+                ringBlock(snapshot.hasError ? null : snapshot.data),
           );
 
     final Widget legend = items.isEmpty
@@ -426,15 +477,17 @@ class _MonthChartCardState extends State<MonthChartCard> {
   /// нейтрально.
   ///
   /// Под ними - мельче - строка «За всё время: …» или «На счетах: …» ([line]),
-  /// если она есть.
+  /// если она есть. [compact] (крупный шрифт) — одно число, без «За октябрь»:
+  /// месяц виден в итогах над кольцом.
   Widget _totalCenter(
     BuildContext context,
     ThemeData theme,
     AppColors colors,
     DateOnly month,
     Money balance,
-    Money? line,
-  ) {
+    Money? line, {
+    bool compact = false,
+  }) {
     final color = balance.isZero
         ? null
         : balance.isNegative
@@ -444,14 +497,15 @@ class _MonthChartCardState extends State<MonthChartCard> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _fit(
-          Text(
-            _topLabel(month),
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+        if (!compact)
+          _fit(
+            Text(
+              _topLabel(month),
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-        ),
         _fit(
           MaskedAmount(
             text,
