@@ -41,7 +41,8 @@ const double _legendGap = 8;
 
 /// Размер кольца: как можно крупнее по ширине карточки ([viewportWidth] минус
 /// её отступы), но так, чтобы вместе с карточкой итогов, заголовком и легендой
-/// оно помещалось в [viewportHeight]. Границы 160 и 360 dp. Высоты итогов,
+/// оно помещалось в [viewportHeight] (при крупном шрифте — только по ширине:
+/// экран прокручивается). Границы 160 и 360 dp. Высоты итогов,
 /// заголовка и легенды прикидываем по масштабу шрифта [textScale]. Высота
 /// плашки над итогами ([bannerHeight], вместе с её отступом) известна из
 /// измерения и просто вычитается; без плашки она 0.
@@ -71,6 +72,11 @@ double chartRingSize({
       // Крупный шрифт: вторая строка (Т1) — под кольцом.
       (textScale >= twoLineRowScale ? AppSpacing.s + 20 * textScale : 0);
   final byWidth = viewportWidth - 2 * _cardPadding;
+  // Крупный шрифт: экран всё равно прокручивается, поэтому кольцо — по
+  // ширине, а не по высоте: иначе дырка мала и число в центре мелкое.
+  if (textScale >= twoLineRowScale) {
+    return byWidth.clamp(_minRing, _maxRing);
+  }
   final byHeight = viewportHeight - reserved;
   return (byWidth < byHeight ? byWidth : byHeight).clamp(_minRing, _maxRing);
 }

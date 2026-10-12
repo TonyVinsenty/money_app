@@ -180,6 +180,17 @@ void main() {
     expect(size, 236);
     expect(size, greaterThan(210));
   });
+
+  test('chartRingSize: крупный шрифт — по ширине, экран прокручивается', () {
+    final size = chartRingSize(
+      viewportWidth: 360,
+      viewportHeight: 640,
+      textScale: 2,
+    );
+    // Без правила 7.35 высота оставила бы минимум 160 dp.
+    expect(size, 360 - 2 * 16);
+  });
+
   testWidgets('пустой месяц: строка вместо серого кольца 0,00 (У4)', (
     tester,
   ) async {
