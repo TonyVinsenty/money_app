@@ -30,6 +30,7 @@ void main() {
   late ReminderPermission status;
   late ReminderPermission statusAfterRequest;
   late int requests;
+  late int settingsOpened;
 
   setUp(() {
     late final InMemoryRecurringRepository r;
@@ -43,6 +44,7 @@ void main() {
     status = ReminderPermission.notDetermined;
     statusAfterRequest = ReminderPermission.denied;
     requests = 0;
+    settingsOpened = 0;
   });
 
   Future<void> pumpForm(WidgetTester tester, {TargetPlatform? platform}) async {
@@ -68,6 +70,7 @@ void main() {
             status = statusAfterRequest;
             return status == ReminderPermission.granted;
           },
+          openReminderSettings: () async => settingsOpened++,
         ),
       ),
     );
@@ -124,6 +127,30 @@ void main() {
     await toggle(tester);
     expect(requests, 1);
     expect(find.byKey(RecurringFormScreen.remindDeniedKey), findsNothing);
+  });
+
+  testWidgets('отказ: «Открыть настройки» видна и открывает настройки', (
+    tester,
+  ) async {
+    status = ReminderPermission.denied;
+    await pumpForm(tester);
+    final button = find.byKey(RecurringFormScreen.openSettingsKey);
+    expect(find.text(recurringFormOpenSettings), findsOneWidget);
+    await tester.ensureVisible(button);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(settingsOpened, 1);
+    // Тап по кнопке не трогает переключатель.
+    expect(find.byKey(RecurringFormScreen.remindDeniedKey), findsOneWidget);
+    // Напоминание выключили: ни пояснения, ни кнопки.
+    await toggle(tester);
+    expect(button, findsNothing);
+  });
+
+  testWidgets('разрешено: кнопки нет', (tester) async {
+    status = ReminderPermission.granted;
+    await pumpForm(tester);
+    expect(find.byKey(RecurringFormScreen.openSettingsKey), findsNothing);
   });
 
   testWidgets('флаг сохраняется как выбран, даже при отказе', (tester) async {

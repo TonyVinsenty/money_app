@@ -58,6 +58,7 @@ class RecurringFormScreen extends StatefulWidget {
     this.onSaved,
     this.reminderStatus,
     this.reminderRequest,
+    this.openReminderSettings,
     super.key,
   });
 
@@ -65,6 +66,9 @@ class RecurringFormScreen extends StatefulWidget {
   /// системный запрос. Без них переключатель только сохраняет флаг.
   final Future<ReminderPermission> Function()? reminderStatus;
   final Future<bool> Function()? reminderRequest;
+
+  /// Открывает настройки уведомлений в системе; без него кнопки нет.
+  final Future<void> Function()? openReminderSettings;
 
   /// Вызывается после успешного «Сохранить» (приложение создаёт записи
   /// «К оплате» для платежа на сегодня). Ошибки здесь сохранение не роняют.
@@ -104,6 +108,7 @@ class RecurringFormScreen extends StatefulWidget {
   static const saveKey = ValueKey('recurring-form-save');
   static const remindKey = ValueKey('recurring-form-remind');
   static const remindDeniedKey = ValueKey('recurring-form-remind-denied');
+  static const openSettingsKey = ValueKey('recurring-form-open-settings');
   static const categoryKey = ValueKey('recurring-form-category');
   static const accountKey = ValueKey('recurring-form-account');
   static const saveErrorKey = ValueKey('recurring-form-save-error');
@@ -220,6 +225,15 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
       }
     } on Object catch (error) {
       debugPrint('Разрешение на уведомления: $error');
+    }
+  }
+
+  /// Статус перепроверится при возврате в приложение (`onResume`).
+  Future<void> _openReminderSettings() async {
+    try {
+      await widget.openReminderSettings!();
+    } on Object catch (error) {
+      debugPrint('Настройки уведомлений: $error');
     }
   }
 
@@ -702,6 +716,21 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                       value: _remind,
                       onChanged: _toggleRemind,
                     ),
+                    // Отдельно от строки-переключателя: внутри неё кнопка
+                    // слилась бы с переключателем для VoiceOver.
+                    if (_remind &&
+                        _remindDenied &&
+                        widget.openReminderSettings != null)
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: TextButton(
+                          key: RecurringFormScreen.openSettingsKey,
+                          // Текст кнопки - по левому краю пояснения.
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                          onPressed: _openReminderSettings,
+                          child: const Text(recurringFormOpenSettings),
+                        ),
+                      ),
                   ],
                 ),
               ),

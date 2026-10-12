@@ -90,6 +90,11 @@ void main() {
     },
   );
 
+  test('openSettings: вызывает метод без аргументов', () async {
+    await channel.openSettings();
+    expect(calls.single, ('openSettings', null));
+  });
+
   test('listenOpenDue: зовёт только на openDue; null снимает', () async {
     Future<void> Function(String method)? handler;
     final listening = RemindersChannel(

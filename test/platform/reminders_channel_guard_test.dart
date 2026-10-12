@@ -26,6 +26,7 @@ List<String> checkRemindersCommon(String source) {
     '"$remindersRequestPermissionMethod"',
     '"$remindersPermissionStatusMethod"',
     '"$remindersReplaceAllMethod"',
+    '"$remindersOpenSettingsMethod"',
     for (final key in keys) '"$key"',
     for (final status in ReminderPermission.values) '"${status.name}"',
   ]) {
@@ -53,6 +54,8 @@ List<String> checkRemindersSwift(String source) {
     'invokeMethod("$remindersOpenDueMethod"',
     'didReceive response: UNNotificationResponse',
     'UNNotificationDefaultActionIdentifier',
+    'openNotificationSettingsURLString',
+    'openSettingsURLString',
   ]) {
     if (!source.contains(needle)) errors.add('Не найдено $needle');
   }
@@ -83,7 +86,11 @@ List<String> checkRemindersKotlin(String kotlin, String manifest) {
     '"zuno.open"',
     '"due"',
     'override fun onNewIntent',
+    'ACTION_APP_NOTIFICATION_SETTINGS',
+    'ACTION_APPLICATION_DETAILS_SETTINGS',
     'putExtra(openExtra, openDueValue)',
+    'ACTION_APP_NOTIFICATION_SETTINGS',
+    'ACTION_APPLICATION_DETAILS_SETTINGS',
   ]) {
     if (!kotlin.contains(needle)) errors.add('Не найдено $needle');
   }

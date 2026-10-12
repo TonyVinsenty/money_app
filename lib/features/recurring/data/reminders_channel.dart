@@ -15,6 +15,9 @@ const remindersTakeOpenRequestMethod = 'takeOpenRequest';
 /// Обратный вызов от натива: тап случился, пока приложение открыто.
 const remindersOpenDueMethod = 'openDue';
 
+/// Открыть настройки уведомлений Zuno в системе.
+const remindersOpenSettingsMethod = 'openSettings';
+
 /// Вызов метода канала: имя и аргументы -> ответ. В приложении это
 /// [MethodChannel.invokeMethod], в тестах - фейк.
 typedef RemindersInvoke = Future<Object?> Function(
@@ -58,6 +61,12 @@ class RemindersChannel {
     } on MissingPluginException {
       return false;
     }
+  }
+
+  /// Открывает настройки уведомлений Zuno в системе (кнопка под пояснением
+  /// об отказе).
+  Future<void> openSettings() async {
+    await _invoke(remindersOpenSettingsMethod);
   }
 
   /// [onOpenDue] вызывается, когда натив сообщает о тапе при открытом

@@ -44,6 +44,7 @@ const String recurringFormRemindLabel = 'Напомнить в день плат
 const String recurringFormRemindDenied =
     'Уведомления для Zuno выключены. Включите их в настройках телефона, '
     'иначе напоминаний не будет.';
+const String recurringFormOpenSettings = 'Открыть настройки';
 const String recurringFormNoEnd = 'Без окончания';
 const String recurringFormEndClear = 'Убрать окончание';
 const String recurringFormSave = 'Сохранить';

@@ -113,6 +113,20 @@ import UserNotifications
         }
         DispatchQueue.main.async { result(status) }
       }
+    // Настройки уведомлений Zuno (ADR 0013, п. 11); до iOS 16 — общая
+    // страница приложения в «Настройках».
+    case "openSettings":
+      let name: String
+      if #available(iOS 16.0, *) {
+        name = UIApplication.openNotificationSettingsURLString
+      } else {
+        name = UIApplication.openSettingsURLString
+      }
+      guard let url = URL(string: name) else {
+        result(false)
+        return
+      }
+      UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
     // Ответ сбрасывает флаг: тап обрабатывается ровно один раз.
     case "takeOpenRequest":
       result(openRequested)

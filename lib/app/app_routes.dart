@@ -628,6 +628,7 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
           editing: arguments.editing,
           reminderStatus: arguments.remindersChannel.permissionStatus,
           reminderRequest: arguments.remindersChannel.requestPermission,
+          openReminderSettings: arguments.remindersChannel.openSettings,
           // Платёж с первым днём «сегодня» сразу попадает в «К оплате».
           onSaved: () async {
             await arguments.recurring.materializeDue(arguments.today);

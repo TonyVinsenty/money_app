@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -268,6 +269,7 @@ class MainActivity : FlutterActivity() {
                     result.error("schedule_failed", e.message, null)
                 }
             }
+            "openSettings" -> result.success(openNotificationSettings())
             // Ответ сбрасывает флаг: тап обрабатывается ровно один раз.
             "takeOpenRequest" -> {
                 result.success(openRequested)
@@ -275,6 +277,30 @@ class MainActivity : FlutterActivity() {
             }
             else -> result.notImplemented()
         }
+    }
+
+    // Настройки уведомлений Zuno (ADR 0013, п. 11); если их экрана нет
+    // (Android ниже 8 или чужая прошивка) — карточка приложения.
+    private fun openNotificationSettings(): Boolean {
+        val notifications = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        } else {
+            null
+        }
+        val details = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null),
+        )
+        for (intent in listOfNotNull(notifications, details)) {
+            try {
+                startActivity(intent)
+                return true
+            } catch (e: ActivityNotFoundException) {
+                // Пробуем следующий экран.
+            }
+        }
+        return false
     }
 
     @Deprecated("FlutterActivity наследует Activity, поэтому ответ окна приходит сюда")
