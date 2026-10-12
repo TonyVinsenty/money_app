@@ -237,13 +237,11 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('360 dp и шрифт 200 %: чипы переносятся, ничего не обрезано', (
-    tester,
-  ) async {
+  Future<void> pumpAtScale(WidgetTester tester, double scale) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    tester.platformDispatcher.textScaleFactorTestValue = scale;
     addTearDown(tester.platformDispatcher.clearAllTestValues);
     final repo = _Transactions([
       ..._history(_food, _shop, count: 5),
@@ -251,14 +249,58 @@ void main() {
     ]);
     await tester.pumpWidget(_app(repo));
     await _toPicker(tester);
+  }
+
+  Finder horizontalScroll() => find.descendant(
+    of: find.byType(SuggestionRow),
+    matching: find.byWidgetPredicate(
+      (w) => w is Scrollable && w.axisDirection == AxisDirection.right,
+    ),
+  );
+
+  testWidgets('360 dp и шрифт 200 %: чипы в одну строку с прокруткой вбок', (
+    tester,
+  ) async {
+    await pumpAtScale(tester, 2);
 
     expect(tester.takeException(), isNull);
     final chips = find.byType(ActionChip);
     expect(chips, findsNWidgets(2));
-    for (final e in chips.evaluate()) {
-      final box = e.renderObject! as RenderBox;
-      final right = box.localToGlobal(Offset(box.size.width, 0)).dx;
-      expect(right, lessThanOrEqualTo(360));
-    }
+    expect(horizontalScroll(), findsOneWidget);
+    // Одна строка: оба чипа на одной высоте, и ряд не выше одного чипа.
+    final tops = [
+      for (final e in chips.evaluate())
+        (e.renderObject! as RenderBox).localToGlobal(Offset.zero).dy,
+    ];
+    expect(tops[0], tops[1]);
+    expect(
+      tester.getSize(find.byType(SuggestionRow)).height,
+      lessThan(tester.getSize(chips.first).height + 24),
+    );
+
+    // Второй чип достаётся прокруткой и сохраняет операцию по тапу.
+    await tester.drag(horizontalScroll(), const Offset(-600, 0));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final right = tester.getTopRight(chips.last).dx;
+    expect(right, lessThanOrEqualTo(360));
+  });
+
+  testWidgets('130 % — уже одна строка с прокруткой', (tester) async {
+    await pumpAtScale(tester, 1.3);
+    expect(horizontalScroll(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('100 % — перенос в Wrap, без прокрутки', (tester) async {
+    await pumpAtScale(tester, 1);
+    expect(horizontalScroll(), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(SuggestionRow),
+        matching: find.byType(Wrap),
+      ),
+      findsOneWidget,
+    );
   });
 }
