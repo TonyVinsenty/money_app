@@ -4,6 +4,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/core/ui/async_view.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/section_card.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
@@ -68,6 +69,10 @@ class AccountsSection extends StatelessWidget {
       ValueKey('accounts-restore-$id');
   static ValueKey<String> deleteKey(String id) =>
       ValueKey('accounts-delete-$id');
+
+  /// Остаток в строке счёта (для тестов раскладки).
+  static ValueKey<String> rowBalanceKey(String id) =>
+      ValueKey('accounts-balance-$id');
 
   /// Id основного счёта из настроек; годен ли он, section решает сама
   /// (не в архиве, основная валюта).
@@ -541,6 +546,16 @@ class _AccountRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final twoLine = useTwoLineRows(context);
+    final amount = MaskedAmount(
+      formatMoney(balance, currency: account.currencyInfo),
+      textKey: AccountsSection.rowBalanceKey(account.id),
+      softWrap: false,
+      textAlign: TextAlign.end,
+      style: theme.textTheme.bodyLarge?.copyWith(
+        color: balance.isNegative ? context.appColors.expense : null,
+      ),
+    );
     return Semantics(
       container: true,
       label: accountRowSemantics(
@@ -573,6 +588,14 @@ class _AccountRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge,
                       ),
+                      // Крупный шрифт: остаток под названием в полный
+                      // размер; шире строки — уменьшается, а не рвётся.
+                      if (twoLine)
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: AlignmentDirectional.centerStart,
+                          child: amount,
+                        ),
                       if (isDefault)
                         Text(
                           accountDefaultLabel,
@@ -583,27 +606,17 @@ class _AccountRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                // Сумма не переносится: название уступает ей место, а
-                // совсем длинная сумма сжимается до 60 % ширины экрана.
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.sizeOf(context).width * 0.6,
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: MaskedAmount(
-                      formatMoney(balance, currency: account.currencyInfo),
-                      softWrap: false,
-                      textAlign: TextAlign.end,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: balance.isNegative
-                            ? context.appColors.expense
-                            : null,
-                      ),
+                if (!twoLine) ...[
+                  const SizedBox(width: 12),
+                  // Сумма не переносится: название уступает ей место, а
+                  // совсем длинная сумма сжимается до 60 % ширины экрана.
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * 0.6,
                     ),
+                    child: FittedBox(fit: BoxFit.scaleDown, child: amount),
                   ),
-                ),
+                ],
               ],
             ),
           ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app_scope.dart';
@@ -18,6 +19,7 @@ import 'package:money_app/features/accounts/presentation/accounts_section.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 
 import '../../../support/fakes.dart';
+import '../../../support/roboto_font.dart';
 
 Money rub(int minor) => Money.fromMinor(minor, 'RUB');
 
@@ -45,6 +47,7 @@ Future<void> pumpSection(
   required Stream<Map<String, Money>> balances,
   double scale = 1,
   VoidCallback? onAdd,
+  String? defaultId,
 }) async {
   tester.view.physicalSize = const Size(360, 800);
   tester.view.devicePixelRatio = 1;
@@ -66,6 +69,7 @@ Future<void> pumpSection(
               mainCurrency: 'RUB',
               onAddAccount: onAdd ?? () {},
               onOpenAccount: (_) {},
+              defaultAccountId: defaultId,
             ),
           ),
         ),
@@ -449,5 +453,59 @@ void main() {
     await tester.pump();
     expect(find.text('Карта'), findsOneWidget);
     expect(find.text(accountsTotalLabel), findsOneWidget);
+  });
+
+  group('крупный шрифт: остаток под названием (7.35b)', () {
+    setUpAll(loadRoboto);
+
+    Future<void> pumpAt(WidgetTester tester, double scale) => pumpSection(
+      tester,
+      accounts: Stream.value([acc('a', 'Cash')]),
+      balances: Stream.value({'a': rub(24900000)}),
+      scale: scale,
+      defaultId: 'a',
+    );
+
+    final balance = find.byKey(AccountsSection.rowBalanceKey('a'));
+
+    testWidgets('100 %: остаток справа от названия, как раньше', (
+      tester,
+    ) async {
+      await pumpAt(tester, 1);
+      expect(
+        tester.getTopLeft(balance).dx,
+        greaterThan(tester.getTopRight(find.text('Cash')).dx),
+      );
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('${scale * 100} %: остаток под названием, «Основной» '
+          'целиком', (tester) async {
+        await pumpAt(tester, scale);
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.getTopLeft(balance).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(find.text('Cash')).dy),
+        );
+        expect(
+          tester.getRect(balance).width,
+          moreOrLessEquals(tester.getSize(balance).width),
+        );
+        // «Основной» в одну строку, без разрыва посреди слова.
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(
+            of: find.text(accountDefaultLabel),
+            matching: find.byType(RichText),
+          ),
+        );
+        final oneLine = TextPainter(
+          text: paragraph.text,
+          textDirection: TextDirection.ltr,
+          textScaler: paragraph.textScaler,
+        )..layout();
+        expect(paragraph.size.height, moreOrLessEquals(oneLine.height));
+        oneLine.dispose();
+      });
+    }
   });
 }
