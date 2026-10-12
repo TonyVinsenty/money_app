@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 
-/// Сетка плиток «иконка + название» в три колонки.
+/// Сетка плиток «иконка + название» в три колонки, при крупном шрифте — в две.
 ///
 /// Это sliver (кусок прокручиваемого списка): кладётся внутрь `CustomScrollView`
 /// рядом с другими кусками. Общая для выбора категории и подкатегории в быстром
@@ -39,7 +40,8 @@ class CategoryGrid extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+          // Крупный шрифт (от 130 %): по две в ряд, чтобы названия влезали.
+          crossAxisCount: useTwoLineRows(context) ? 2 : 3,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
           // Высота плитки растёт с системным шрифтом: считаем её из
@@ -156,12 +158,26 @@ class _CategoryTile extends StatelessWidget {
                         ),
                 ),
                 const SizedBox(height: _gap),
-                Text(
-                  label,
-                  maxLines: _lines,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: _labelStyle(context),
+                // Перенос только по словам: если самое длинное слово не
+                // влезает в плитку, шрифт плитки чуть уменьшается, а слово
+                // остаётся целым («Развлечения» при 200 %).
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final style = _labelStyle(context);
+                    final fontSize = MediaQuery.textScalerOf(context)
+                        .scale(style?.fontSize ?? 14);
+                    final fitted =
+                        fontSize *
+                        _wordFit(label, style, fontSize, constraints.maxWidth);
+                    return Text(
+                      label,
+                      maxLines: _lines,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      textScaler: TextScaler.noScaling,
+                      style: style?.copyWith(fontSize: fitted),
+                    );
+                  },
                 ),
               ],
             ),
@@ -170,4 +186,28 @@ class _CategoryTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Во сколько раз уменьшить шрифт [fontSize], чтобы самое длинное слово
+/// [label] встало в [width] целиком; 1 — уменьшать не нужно.
+double _wordFit(String label, TextStyle? style, double fontSize, double width) {
+  var widest = 0.0;
+  for (final word in label.split(RegExp(r'\s+'))) {
+    if (word.isEmpty) continue;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: word,
+        style: style?.copyWith(fontSize: fontSize),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+      maxLines: 1,
+    )..layout();
+    if (painter.width > widest) widest = painter.width;
+    painter.dispose();
+  }
+  // Запас на округление: иначе слово впритык переносит последнюю букву.
+  const slack = 1.0;
+  if (widest + slack <= width) return 1;
+  return (width - slack) / widest;
 }

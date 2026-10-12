@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/presentation/category_grid.dart';
+
+import '../../../support/roboto_font.dart';
 
 Category _category(String id, String name) => Category.topLevel(
   id: id,
@@ -192,5 +195,120 @@ void main() {
       isNotNull,
     );
     expect(regularContainer.foregroundDecoration, isNull);
+  });
+
+  group('крупный шрифт: плитки по две, слова целиком (7.34)', () {
+    setUpAll(loadRoboto);
+
+    final names = ['Продукты', 'Развлечения', 'Кафе и рестораны', 'Дом'];
+
+    Future<void> pumpAt(WidgetTester tester, double scale) async {
+      tester.view.physicalSize = const Size(360, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: CustomScrollView(
+              slivers: [
+                CategoryGrid(
+                  categories: [
+                    for (final (i, name) in names.indexed)
+                      _category('c$i', name),
+                  ],
+                  onSelected: (_) {},
+                  onSkip: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    /// Сколько плиток в первом ряду: у скольких верх совпадает с первой.
+    int firstRow(WidgetTester tester) {
+      final tops = [
+        for (final label in [CategoryGrid.skipLabel, ...names])
+          tester.getTopLeft(find.text(label)).dy,
+      ];
+      return tops.where((top) => (top - tops.first).abs() < 40).length;
+    }
+
+    /// Строки абзаца [label] — каждая целиком из слов: ни одно слово не
+    /// разорвано между строками.
+    List<String> lines(WidgetTester tester, String label) {
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: find.text(label), matching: find.byType(RichText)),
+      );
+      // Та же раскладка заново: границы строк знает TextPainter.
+      final painter = TextPainter(
+        text: paragraph.text,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+        textScaler: paragraph.textScaler,
+        maxLines: 2,
+      )..layout(maxWidth: paragraph.constraints.maxWidth);
+      final result = <String>[];
+      var offset = 0;
+      while (offset < label.length) {
+        final line = painter.getLineBoundary(TextPosition(offset: offset));
+        if (line.end <= offset) break;
+        result.add(label.substring(line.start, line.end).trim());
+        offset = line.end;
+      }
+      painter.dispose();
+      expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+      return result;
+    }
+
+    testWidgets('100 %: три в ряд, как раньше', (tester) async {
+      await pumpAt(tester, 1);
+      expect(firstRow(tester), 3);
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('${scale * 100} %: две в ряд, слова не рвутся', (
+        tester,
+      ) async {
+        await pumpAt(tester, scale);
+        expect(tester.takeException(), isNull);
+        expect(firstRow(tester), 2);
+        expect(lines(tester, 'Развлечения'), ['Развлечения']);
+        expect(lines(tester, 'Продукты'), ['Продукты']);
+        for (final line in [
+          ...lines(tester, 'Кафе и рестораны'),
+          ...lines(tester, CategoryGrid.skipLabel),
+        ]) {
+          for (final word in line.split(' ')) {
+            expect(
+              ['Кафе', 'и', 'рестораны', 'Без', 'подкатегории'],
+              contains(word),
+              reason: 'слово «$word» разорвано',
+            );
+          }
+        }
+      });
+    }
+
+    testWidgets('200 %: «Развлечения» уменьшено, «Дом» — нет', (tester) async {
+      await pumpAt(tester, 2);
+      double size(String label) =>
+          tester.widget<Text>(find.text(label)).style!.fontSize!;
+      final full =
+          Theme.of(tester.element(find.text('Дом')))
+              .textTheme
+              .labelLarge!
+              .fontSize! *
+          2;
+      expect(size('Дом'), full);
+      expect(size('Развлечения'), lessThanOrEqualTo(full));
+    });
   });
 }
