@@ -9,6 +9,7 @@ import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
+import 'package:money_app/core/ui/saved_haptic.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -341,6 +342,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
         spokenText = '$spokenText. ${SavedSnackBar.accountsFailedText}';
       }
       await transactions.add(transaction);
+      savedHaptic();
       widget.onSaved?.call(occurrence.occurredOn);
 
       navigator.popUntil((route) => route.isFirst);

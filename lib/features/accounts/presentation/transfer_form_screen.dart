@@ -12,6 +12,7 @@ import 'package:money_app/core/ui/amount_input_formatter.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/runes_length_formatter.dart';
+import 'package:money_app/core/ui/saved_haptic.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
@@ -245,6 +246,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
       } else {
         await transfers.update(transfer);
       }
+      savedHaptic();
       // Пользователь мог уйти назад во время записи: закрывать нечего.
       if (mounted) navigator.pop();
       messenger.hideCurrentSnackBar();

@@ -4,6 +4,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/amount_switcher.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
@@ -233,20 +234,31 @@ class _SummaryColumn extends StatelessWidget {
       color: scheme.onSurfaceVariant,
     );
 
-    Widget lines(Widget value) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: muted),
-        const SizedBox(height: 4),
-        value,
-      ],
+    // У всех состояний одно и то же дерево: подпись остаётся на месте, а под
+    // ней плавно сменяется только значение (ключ [switchKey]). Скринридеру
+    // колонка с суммой читается одним узлом [label].
+    Widget lines(Object switchKey, Widget value, {String? label}) => Semantics(
+      // container: true нужен, чтобы колонки не склеивались в один узел с
+      // карточкой (Card сам собирает узел из потомков).
+      container: label != null,
+      label: label,
+      excludeSemantics: label != null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: muted),
+          const SizedBox(height: 4),
+          AmountSwitcher(switchKey: switchKey, child: value),
+        ],
+      ),
     );
 
     return AsyncView<Money>(
       stream: total,
       // Пока первого значения нет, видна только подпись: итог не мигает.
-      loadingBuilder: (context) => lines(const SizedBox.shrink()),
+      loadingBuilder: (context) => lines('loading', const SizedBox.shrink()),
       errorBuilder: (context, error) => lines(
+        'error',
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -264,6 +276,7 @@ class _SummaryColumn extends StatelessWidget {
       // «Пусто» значит «спросили базу, там ноль».
       isEmpty: (sum) => sum.minorUnits == 0,
       emptyBuilder: (context) => lines(
+        'empty',
         Text(
           'Пока нет',
           style: theme.textTheme.bodyLarge?.copyWith(
@@ -275,31 +288,26 @@ class _SummaryColumn extends StatelessWidget {
         // В ряду сумма всегда в одну строку: иначе IntrinsicHeight мерил бы её
         // как перенесённую, а FittedBox рисовал бы в одну, и ряд вышел бы
         // высоким с пустотой внутри.
+        final text = '$sign${formatMoney(sum)}';
         final amount = MaskedAmount(
-          '$sign${formatMoney(sum)}',
+          text,
           maxLines: fit ? 1 : null,
           softWrap: !fit,
           style: theme.textTheme.titleLarge?.copyWith(color: accent),
         );
-        // Скринридеру колонка читается одним узлом, сумма словами, без знака и
-        // символа валюты.
-        // container: true нужен, чтобы колонки не склеивались в один узел с
-        // карточкой (Card сам собирает узел из потомков).
-        return Semantics(
-          container: true,
+        // Скринридеру сумма читается словами, без знака и символа валюты.
+        return lines(
+          text,
+          fit
+              ? FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: amount,
+                )
+              : amount,
           label:
               '$title за $monthName: '
               '${maskedSpoken(context, spokenMoney(sum))}',
-          excludeSemantics: true,
-          child: lines(
-            fit
-                ? FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: amount,
-                  )
-                : amount,
-          ),
         );
       },
     );

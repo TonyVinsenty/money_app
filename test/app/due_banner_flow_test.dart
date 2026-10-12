@@ -26,6 +26,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../support/fake_id_generator.dart';
 import '../support/fixed_clock.dart';
+import '../support/haptics.dart';
 import '../support/in_memory_database.dart';
 import '../support/settle_database.dart';
 
@@ -45,6 +46,7 @@ void main() {
   testWidgets('наступил день: плашка -> «Оплачено» -> «История» и итоги', (
     tester,
   ) async {
+    final haptics = recordHaptics(tester);
     tester.view.physicalSize = const Size(393, 1800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -144,10 +146,12 @@ void main() {
       final key = w.key;
       return key is ValueKey<String> && key.value.startsWith('due-pay-');
     });
+    expect(haptics, isEmpty);
     await tester.tap(payButton);
     await settleDatabase(tester);
     expect(find.byKey(DueSection.titleKey), findsNothing);
     expect(find.byKey(DueTabBadge.badgeKey), findsNothing);
+    expect(haptics, ['HapticFeedbackType.lightImpact']);
 
     // В «Истории» появилась операция.
     await tester.tap(

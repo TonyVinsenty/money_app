@@ -21,6 +21,7 @@ import 'package:money_app/features/settings/presentation/app_settings_controller
 import '../../../support/fake_id_generator.dart';
 import '../../../support/fakes.dart';
 import '../../../support/fixed_clock.dart';
+import '../../../support/haptics.dart';
 
 Account acc(
   String id,
@@ -157,6 +158,7 @@ void main() {
   setUpAll(() => initializeDateFormatting('ru'));
 
   testWidgets('saves a transfer and shows SnackBar with undo', (tester) async {
+    final haptics = recordHaptics(tester);
     final transfers = InMemoryTransfersRepository();
     await pumpForm(tester, InMemoryAccountsRepository(threeRub()), transfers);
     expect(find.text(transferFormCreateTitle), findsOneWidget);
@@ -181,6 +183,7 @@ void main() {
     final text = 'Перевод ${formatMoney(t.amount)}: Карта → Наличные';
     expect(find.text(text), findsOneWidget);
     expect(find.text('open'), findsOneWidget);
+    expect(haptics, ['HapticFeedbackType.lightImpact']);
   });
 
   testWidgets('undo removes the saved transfer', (tester) async {
@@ -285,6 +288,7 @@ void main() {
   testWidgets('write failure shows the common message and stays open', (
     tester,
   ) async {
+    final haptics = recordHaptics(tester);
     final transfers = InMemoryTransfersRepository()..failWith = Exception('db');
     await pumpForm(tester, InMemoryAccountsRepository(threeRub()), transfers);
     await pick(tester, TransferFormScreen.toKey, 'Наличные');
@@ -292,6 +296,7 @@ void main() {
     await save(tester);
     expect(find.text(transferSaveFailedText), findsOneWidget);
     expect(find.text(transferFormCreateTitle), findsOneWidget);
+    expect(haptics, isEmpty);
   });
 
   testWidgets('edit mode fills the form and updates the transfer', (

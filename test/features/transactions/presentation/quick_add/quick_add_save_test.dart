@@ -22,6 +22,7 @@ import 'package:money_app/features/transactions/presentation/quick_add/quick_add
 import '../../../../support/fake_id_generator.dart';
 import '../../../../support/fakes.dart';
 import '../../../../support/fixed_clock.dart';
+import '../../../../support/haptics.dart';
 
 /// Репозиторий операций, который запоминает вызовы; поведение (задержка,
 /// ошибка) тест задаёт сам.
@@ -255,6 +256,36 @@ void main() {
     expect(repo.added, hasLength(1));
     expect(repo.added.single.categoryId, 'a');
     expect(find.byType(CategoryPickerScreen), findsNothing);
+  });
+
+  group('вибрация', () {
+    testWidgets('после сохранения — одна лёгкая', (tester) async {
+      final haptics = recordHaptics(tester);
+      final repo = _RecordingTransactions();
+      await tester.pumpWidget(_app(repo));
+      await _toPicker(tester);
+      expect(haptics, isEmpty);
+
+      await tester.tap(find.text('Продукты'));
+      await tester.pumpAndSettle();
+
+      expect(repo.added, hasLength(1));
+      expect(haptics, ['HapticFeedbackType.lightImpact']);
+    });
+
+    testWidgets('при ошибке записи — нет', (tester) async {
+      final haptics = recordHaptics(tester);
+      final repo = _RecordingTransactions()
+        ..beforeAdd = () => throw StateError('disk is full');
+      await tester.pumpWidget(_app(repo));
+      await _toPicker(tester);
+
+      await tester.tap(find.text('Продукты'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(transactionSaveFailedText), findsOneWidget);
+      expect(haptics, isEmpty);
+    });
   });
 
   group('ошибки сохранения', () {

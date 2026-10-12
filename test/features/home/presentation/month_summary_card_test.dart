@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/amount_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
@@ -17,14 +18,17 @@ Widget _app({
   Stream<Money>? income,
   ThemeMode mode = ThemeMode.light,
   double textScale = 1,
+  bool reduceMotion = false,
 }) {
   return MaterialApp(
     theme: AppTheme.light(),
     darkTheme: AppTheme.dark(),
     themeMode: mode,
     builder: (context, child) => MediaQuery(
-      data: MediaQuery.of(context)
-          .copyWith(textScaler: TextScaler.linear(textScale)),
+      data: MediaQuery.of(context).copyWith(
+        textScaler: TextScaler.linear(textScale),
+        disableAnimations: reduceMotion,
+      ),
       child: child!,
     ),
     // Как на «Главной»: боковой отступ 16 dp, карточка внутри прокрутки и
@@ -336,5 +340,73 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(_in(_incomeKey, find.text('Пока нет')), findsOneWidget);
+  });
+
+  group('смена суммы (другой месяц)', () {
+    final before = Money.fromMinor(100000, 'RUB');
+    final after = Money.fromMinor(250000, 'RUB');
+    final beforeText = '$_expenseSign${formatMoney(before)}';
+    final afterText = '$_expenseSign${formatMoney(after)}';
+
+    testWidgets('в середине перехода видны обе суммы, потом только новая', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(expenses: Stream.value(before)));
+      await tester.pumpAndSettle();
+      expect(_in(_expenseKey, find.text(beforeText)), findsOneWidget);
+
+      await tester.pumpWidget(_app(expenses: Stream.value(after)));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(amountSwitchDuration ~/ 2);
+      expect(_in(_expenseKey, find.text(beforeText)), findsOneWidget);
+      expect(_in(_expenseKey, find.text(afterText)), findsOneWidget);
+      // Подпись не участвует в переходе: она одна.
+      expect(_in(_expenseKey, find.text('Расходы')), findsOneWidget);
+
+      await tester.pumpAndSettle();
+      expect(_in(_expenseKey, find.text(beforeText)), findsNothing);
+      expect(_in(_expenseKey, find.text(afterText)), findsOneWidget);
+    });
+
+    testWidgets('из суммы в «Пока нет» — тоже плавно', (tester) async {
+      await tester.pumpWidget(_app(expenses: Stream.value(before)));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(_app(expenses: Stream.value(Money.zero('RUB'))));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(amountSwitchDuration ~/ 2);
+      expect(_in(_expenseKey, find.text(beforeText)), findsOneWidget);
+      expect(_in(_expenseKey, find.text('Пока нет')), findsOneWidget);
+    });
+
+    testWidgets('«Уменьшить движение»: сразу новая', (tester) async {
+      await tester.pumpWidget(
+        _app(expenses: Stream.value(before), reduceMotion: true),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpWidget(
+        _app(expenses: Stream.value(after), reduceMotion: true),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(_in(_expenseKey, find.text(beforeText)), findsNothing);
+      expect(_in(_expenseKey, find.text(afterText)), findsOneWidget);
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('скринридер по-прежнему читает колонку одним узлом', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_app(expenses: Stream.value(after)));
+      await tester.pumpAndSettle();
+      expect(
+        find.bySemanticsLabel(RegExp('^Расходы за октябрь: ')),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
   });
 }

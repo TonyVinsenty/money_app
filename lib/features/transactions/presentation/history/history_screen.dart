@@ -9,6 +9,7 @@ import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/amount_switcher.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/bottom_inset.dart';
 import 'package:money_app/core/ui/category_labels.dart';
@@ -1022,7 +1023,10 @@ class _FilteredTotal extends StatelessWidget {
       excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-        child: Text.rich(TextSpan(style: style, children: spans)),
+        child: AmountSwitcher(
+          switchKey: spoken.toString(),
+          child: Text.rich(TextSpan(style: style, children: spans)),
+        ),
       ),
     );
   }

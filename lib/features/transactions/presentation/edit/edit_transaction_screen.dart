@@ -12,6 +12,7 @@ import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/date_chip.dart';
+import 'package:money_app/core/ui/saved_haptic.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -490,6 +491,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         return;
       }
       await widget.transactions.update(edited);
+      savedHaptic();
       widget.onSaved?.call(edited.occurredOn);
       // Если человек успел нажать «Назад», закрывать уже нечего (иначе `pop`
       // закрыл бы «Историю»). Сообщение при этом всё равно показываем.

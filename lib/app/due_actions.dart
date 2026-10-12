@@ -5,6 +5,7 @@ import 'package:money_app/app/app_services.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/recurring_rule_text.dart';
+import 'package:money_app/core/ui/saved_haptic.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
@@ -46,6 +47,7 @@ class DueActions {
         day: day,
         accountId: accountId,
       );
+      savedHaptic();
       // Если запись уже была оплачена (двойное касание), вернулась id чужой
       // операции: сообщение строим по ней, а не по сумме из листа.
       Transaction? stored;

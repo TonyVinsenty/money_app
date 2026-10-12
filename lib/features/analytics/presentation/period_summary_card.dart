@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
+import 'package:money_app/core/ui/amount_switcher.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
@@ -124,12 +125,17 @@ class _Line extends StatelessWidget {
         color: theme.colorScheme.onSurfaceVariant,
       ),
     );
+    final alignment = stacked ? Alignment.centerLeft : Alignment.centerRight;
     final amount = Align(
-      alignment: stacked ? Alignment.centerLeft : Alignment.centerRight,
-      child: MaskedAmount(
-        text,
-        textAlign: stacked ? TextAlign.start : TextAlign.end,
-        style: theme.textTheme.titleLarge?.copyWith(color: color),
+      alignment: alignment,
+      child: AmountSwitcher(
+        switchKey: text,
+        alignment: alignment,
+        child: MaskedAmount(
+          text,
+          textAlign: stacked ? TextAlign.start : TextAlign.end,
+          style: theme.textTheme.titleLarge?.copyWith(color: color),
+        ),
       ),
     );
     return Semantics(
