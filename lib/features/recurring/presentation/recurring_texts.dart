@@ -233,7 +233,11 @@ String dueBannerHead(RecurringPayment p) => '$dueSectionTitleBase: ${p.title}';
 
 /// Хвост плашки с одним платежом: « — 650,00 ₽».
 String dueBannerTail(RecurringPayment p, {bool hidden = false}) =>
-    ' $_emDash ${hidden ? maskedMoneyText : formatMoney(p.amount)}';
+    ' $_emDash ${dueBannerAmount(p, hidden: hidden)}';
+
+/// Сумма плашки без тире: при крупном шрифте она стоит под названием.
+String dueBannerAmount(RecurringPayment p, {bool hidden = false}) =>
+    hidden ? maskedMoneyText : formatMoney(p.amount);
 
 String _dueCountText(int n) =>
     '$n ${pluralRu(n, 'платёж', 'платежа', 'платежей')}';

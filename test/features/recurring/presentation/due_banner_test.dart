@@ -10,6 +10,8 @@ import 'package:money_app/features/recurring/presentation/due_banner.dart';
 import 'package:money_app/features/recurring/presentation/recurring_texts.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
+import '../../../support/roboto_font.dart';
+
 RecurringDue _due(String id, String title, {int minor = 65000}) => RecurringDue(
   id: id,
   payment: RecurringPayment(
@@ -95,38 +97,103 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('360 dp и шрифт 200 %: длинное название без переполнения', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(360, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final dues = ValueNotifier([
-      _due('1', 'Очень длинное название платежа за связь'),
-    ]);
-    addTearDown(dues.dispose);
-    await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(
-          size: Size(360, 640),
-          textScaler: TextScaler.linear(2),
+  group('длинное название и большая сумма видны целиком (7.36)', () {
+    // Настоящий Roboto: тестовый шрифт рисует буквы квадратами, и ширину
+    // текста по нему не проверить.
+    setUpAll(loadRoboto);
+
+    const title = 'Квартплата и коммунальные услуги за дачу';
+    const minor = 99999999999;
+    final head = find.text('К оплате: $title');
+    final amount = find.byKey(DueBanner.amountKey);
+
+    Future<void> pumpAt(WidgetTester tester, double scale) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final dues = ValueNotifier([_due('1', title, minor: minor)]);
+      addTearDown(dues.dispose);
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(
+            size: const Size(360, 800),
+            textScaler: TextScaler.linear(scale),
+          ),
+          child: _host(dues, () {}),
         ),
-        child: _host(dues, () {}),
-      ),
-    );
-    expect(find.byKey(DueBanner.bannerKey), findsOneWidget);
-    expect(tester.takeException(), isNull);
-    // Сумма видна целиком, в правой части плашки; название сокращено.
-    final tail = find.text(
-      ' $dash ${formatMoney(Money.fromMinor(65000, 'RUB'))}',
-    );
-    expect(tail, findsOneWidget);
-    final banner = tester.getRect(find.byKey(DueBanner.bannerKey));
-    expect(tester.getRect(tail).right, lessThanOrEqualTo(banner.right));
-    final head = tester.renderObject<RenderParagraph>(
-      find.text('К оплате: Очень длинное название платежа за связь'),
-    );
-    expect(head.didExceedMaxLines, isTrue);
+      );
+    }
+
+    /// Текст выведен целиком: ни одна строка не отброшена.
+    void expectWhole(WidgetTester tester, Finder text) {
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: text, matching: find.byType(RichText)),
+      );
+      expect(paragraph.didExceedMaxLines, isFalse);
+      final banner = tester.getRect(find.byKey(DueBanner.bannerKey));
+      final rect = tester.getRect(text);
+      expect(rect.left, greaterThanOrEqualTo(banner.left));
+      expect(rect.right, lessThanOrEqualTo(banner.right));
+      expect(rect.bottom, lessThanOrEqualTo(banner.bottom));
+    }
+
+    test('название из 40 символов', () => expect(title.length, 40));
+
+    testWidgets('100 %: название переносится, сумма в той же строке', (
+      tester,
+    ) async {
+      await pumpAt(tester, 1);
+      expect(tester.takeException(), isNull);
+      expectWhole(tester, head);
+      expectWhole(tester, amount);
+      final money = formatMoney(Money.fromMinor(minor, 'RUB'));
+      expect(find.text(' $dash $money'), findsOneWidget);
+      expect(
+        tester.getTopLeft(amount).dx,
+        greaterThanOrEqualTo(tester.getTopRight(head).dx),
+      );
+    });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('${scale * 100} %: сумма под названием, без тире', (
+        tester,
+      ) async {
+        await pumpAt(tester, scale);
+        expect(tester.takeException(), isNull);
+        expectWhole(tester, head);
+        expectWhole(tester, amount);
+        expect(
+          find.text(formatMoney(Money.fromMinor(minor, 'RUB'))),
+          findsOneWidget,
+        );
+        expect(
+          tester.getTopLeft(amount).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(head).dy),
+        );
+        expect(tester.getTopLeft(amount).dx, tester.getTopLeft(head).dx);
+      });
+    }
+
+    testWidgets('200 %: несколько платежей - текст не обрезан', (tester) async {
+      tester.view.physicalSize = const Size(320, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final dues = ValueNotifier([
+        for (var i = 0; i < 124; i++) _due('$i', 'Платёж $i'),
+      ]);
+      addTearDown(dues.dispose);
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(
+            size: Size(320, 800),
+            textScaler: TextScaler.linear(2),
+          ),
+          child: _host(dues, () {}),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expectWhole(tester, find.text('К оплате: 124 платежа'));
+    });
   });
 
   testWidgets('озвучка одного платежа: «К оплате: Интернет, 650 рублей. '

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/presentation/recurring_texts.dart';
@@ -15,6 +16,9 @@ class DueBanner extends StatelessWidget {
   final VoidCallback onTap;
 
   static const bannerKey = ValueKey('due-banner');
+
+  /// Ключ текста суммы одного платежа (для тестов раскладки).
+  static const amountKey = ValueKey('due-banner-amount');
 
   @override
   Widget build(BuildContext context) {
@@ -71,8 +75,9 @@ class DueBanner extends StatelessWidget {
     );
   }
 
-  /// Один платёж: сокращается название, сумма в хвосте видна всегда. Несколько
-  /// платежей: короткий текст «К оплате: 3 платежа».
+  /// Текст плашки ничего не обрезает: название переносится на сколько угодно
+  /// строк. Один платёж: сумма в хвосте строки, при крупном шрифте - под
+  /// названием. Несколько платежей: короткий текст «К оплате: 3 платежа».
   Widget _text(
     BuildContext context,
     List<RecurringDue> list,
@@ -80,36 +85,43 @@ class DueBanner extends StatelessWidget {
   ) {
     final style = Theme.of(context).textTheme.bodyLarge
         ?.copyWith(color: scheme.onSecondaryContainer);
+    final hidden = AmountsVisibility.hiddenOf(context);
     if (list.length != 1) {
-      return Text(
-        dueBannerText(list, hidden: AmountsVisibility.hiddenOf(context)),
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-        style: style,
-      );
+      return Text(dueBannerText(list, hidden: hidden), style: style);
     }
     final payment = list.single.payment;
-    return LayoutBuilder(
-      builder: (context, constraints) => Row(
+    final head = Text(dueBannerHead(payment), style: style);
+    if (useTwoLineRows(context)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Flexible(
+          head,
+          // Сумма в полный размер; уменьшается только сумма шире строки
+          // (иначе число разорвалось бы).
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
-              dueBannerHead(payment),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+              dueBannerAmount(payment, hidden: hidden),
+              key: amountKey,
               style: style,
             ),
           ),
+        ],
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
+        children: [
+          Flexible(child: head),
           // Сумма не обрезается: в самом тесном случае она лишь уменьшается.
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                dueBannerTail(
-                  payment,
-                  hidden: AmountsVisibility.hiddenOf(context),
-                ),
+                dueBannerTail(payment, hidden: hidden),
+                key: amountKey,
                 style: style,
               ),
             ),
