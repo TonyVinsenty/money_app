@@ -180,11 +180,14 @@ void main() {
           );
           final barTop = tester.getRect(find.byType(HomeActionBar)).top;
           if (scrollable.position.maxScrollExtent > 0) {
-            // Не помещается даже с кольцом минимального размера (160 dp):
-            // тогда низ карточки достижим прокруткой.
+            // Не помещается: низ карточки достижим прокруткой. Кольцо не меньше
+            // 160 dp; при крупном шрифте — по ширине экрана (7.35c).
             scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
             await tester.pump();
-            expect(tester.getSize(find.byType(DonutChart)).width, 160);
+            expect(
+              tester.getSize(find.byType(DonutChart)).width,
+              greaterThanOrEqualTo(160),
+            );
           }
           final card = tester.getRect(find.byType(MonthChartCard));
           expect(card.bottom, lessThanOrEqualTo(barTop + 0.01));
