@@ -643,6 +643,9 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                     DropdownButtonFormField<int>(
                       key: RecurringFormScreen.repeatKey,
                       initialValue: _repeat,
+                      // По ширине поля, а не самого длинного варианта: при
+                      // крупном шрифте вариант переносится, а не вылезает.
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: recurringFormRepeatLabel,
                       ),
@@ -650,7 +653,11 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                         for (var i = 0; i < recurringRepeatOptions.length; i++)
                           DropdownMenuItem(
                             value: i,
-                            child: Text(recurringRepeatOptions[i].label),
+                            child: Text(
+                              recurringRepeatOptions[i].label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                       ],
                       onChanged: (v) => setState(() => _repeat = v ?? 0),

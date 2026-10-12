@@ -50,9 +50,14 @@ final extremeNote =
 String _categoryName(int i) =>
     i == 0 ? extremeUnbreakable : extreme40('$i Коммунальные платежи и дом');
 
-String _accountName(int i) => i == 1
+/// Название счёта [i] из набора: ровно 40 символов, у счёта 1 — без пробелов.
+String extremeAccountName(int i) => i == 1
     ? extreme40('Счётбезпробеловсамыйдлинныйизвозможных')
     : extreme40('$i Основная карта для ежедневных трат');
+
+/// Название платежа [id] из набора: ровно 40 символов.
+String extremePaymentTitle(String id) =>
+    extreme40('$id Ежемесячный платёж за длинную услугу');
 
 /// Валюты 10 счетов: рубль первым (основной), BTC с 8 знаками.
 const extremeCurrencies = [
@@ -126,7 +131,7 @@ Future<void> seedExtremeData(AppDatabase db) async {
     await accounts.create(
       Account(
         id: 'x-acc-$i',
-        name: _accountName(i),
+        name: extremeAccountName(i),
         iconKey: 'wallet',
         openingBalance: Money.fromMinor(_openingMinor(digits), code),
         sortOrder: i,
@@ -209,7 +214,7 @@ Future<void> seedExtremeData(AppDatabase db) async {
   }) => recurring.create(
     RecurringPayment(
       id: id,
-      title: extreme40('$id Ежемесячный платёж за длинную услугу'),
+      title: extremePaymentTitle(id),
       type: TransactionType.expense,
       amount: Money.fromMinor(extremeMaxRubMinor, 'RUB'),
       categoryId: 'x-cat-0',
