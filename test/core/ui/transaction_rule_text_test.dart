@@ -55,7 +55,7 @@ void main() {
   test('typeKindMismatch называет, что вводит человек', () {
     expect(
       transactionRuleMessage(TransactionRule.typeKindMismatch, type: expense),
-      'Эта категория из другого вида: она для доходов, а вы вводите расход. '
+      'Эта категория другого типа: она для доходов, а вы вводите расход. '
       'Выберите другую категорию',
     );
     expect(
@@ -63,7 +63,7 @@ void main() {
         TransactionRule.typeKindMismatch,
         type: TransactionType.income,
       ),
-      'Эта категория из другого вида: она для расходов, а вы вводите доход. '
+      'Эта категория другого типа: она для расходов, а вы вводите доход. '
       'Выберите другую категорию',
     );
   });

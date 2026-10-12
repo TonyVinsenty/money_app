@@ -171,9 +171,9 @@ String _accountNoun(int count) => pluralRu(count, 'счёт', 'счёта', 'с�
 final NumberFormat _countFormat = NumberFormat.decimalPattern('ru');
 
 /// Подпись под пунктом экспорта. Без года, если выгрузка в текущем году
-/// (год берётся из [today]); если выгрузки не было — «ещё не было».
+/// (год берётся из [today]); если выгрузки не было — «Экспорта ещё не было».
 String lastExportLabel(DateOnly? day, DateOnly today) {
-  if (day == null) return 'Последний экспорт: ещё не было';
+  if (day == null) return 'Экспорта ещё не было';
   final text = day.year == today.year ? formatDayMonth(day) : formatDate(day);
   return 'Последний экспорт: $text';
 }
@@ -195,7 +195,7 @@ bool isExportStale({
 
 /// Подпись под пунктом экспорта, когда нужна копия: слова, а не только цвет.
 String staleExportLabel(DateOnly? day, DateOnly today) => day == null
-    ? 'Последний экспорт: ещё не было — сделайте копию'
+    ? 'Экспорта ещё не было — сделайте копию'
     : '${lastExportLabel(day, today)} — давно, сделайте копию';
 
 /// Экран (вкладка) «Настройки»: выбор темы, переход к категориям и экспорт CSV.

@@ -481,14 +481,14 @@ void main() {
     await tester.ensureVisible(find.widgetWithText(Tab, 'Сравнение'));
     await _tap(tester, find.widgetWithText(Tab, 'Сравнение'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('1\u20134 сентября'), findsWidgets);
+    expect(find.textContaining('1\u2013\u20604 сентября'), findsWidgets);
 
     BrowseScope.of(tester.element(find.byType(AppShell)))
         .updateToday(DateOnly(2026, 10, 5));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('1\u20135 сентября'), findsWidgets);
-    expect(find.textContaining('1\u20134 сентября'), findsNothing);
+    expect(find.textContaining('1\u2013\u20605 сентября'), findsWidgets);
+    expect(find.textContaining('1\u2013\u20604 сентября'), findsNothing);
   });
 
   testWidgets('вкладка просит окно данных; прошлый месяц не попадает в итоги', (

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 /// [symbol] - знак основной валюты из каталога.
 String otherCurrenciesHintText(String symbol) =>
     'Здесь только операции в основной валюте ($symbol). Остальные появятся '
-    'снова, если вернуть их валюту в «Настройках».';
+    'снова, если вернуть их валюту в «Настройках»';
 
 /// Ключ подсказки (для тестов).
 const Key otherCurrenciesHintKey = ValueKey('other-currencies-hint');

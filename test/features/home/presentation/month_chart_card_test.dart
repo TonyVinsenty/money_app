@@ -208,11 +208,11 @@ void main() {
     expect(empty.style?.color, isNot(colors.income));
   });
 
-  testWidgets('пустой прошлый месяц: «В сентябре 2026 операций не было»', (
+  testWidgets('пустой прошлый месяц: «За сентябрь 2026 операций нет»', (
     tester,
   ) async {
     await _pump(tester, isCurrentMonth: false);
-    expect(find.text('В сентябре 2026 операций не было'), findsOneWidget);
+    expect(find.text('За сентябрь 2026 операций нет'), findsOneWidget);
   });
 
   testWidgets('пустой месяц: вторая строка «За всё время» остаётся', (

@@ -60,7 +60,7 @@ String _rangeLabel(DateRange range, {required bool withYear}) {
   }
   final year = withYear ? ' ${end.year}' : '';
   if (start.month == end.month) {
-    return '${start.day}\u2013${formatDayMonth(end)}$year';
+    return '${start.day}\u2013\u2060${formatDayMonth(end)}$year';
   }
   return '${formatDayMonth(start)} \u2013 ${formatDayMonth(end)}$year';
 }

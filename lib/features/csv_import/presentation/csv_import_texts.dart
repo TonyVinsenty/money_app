@@ -31,7 +31,7 @@ const csvImportWriteFailedMessage =
     'Не удалось загрузить. Ничего не добавлено, попробуйте ещё раз';
 const csvImportErrorsIntro =
     'В файле есть ошибки, поэтому ничего не загружено. '
-    'Исправьте их в файле и загрузите его снова.';
+    'Исправьте их в файле и загрузите его снова';
 const csvImportNoRowsMessage =
     'В файле нет операций: есть только строка с названиями колонок';
 const csvImportNothingToAddMessage =

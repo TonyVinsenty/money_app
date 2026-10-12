@@ -12,7 +12,7 @@ const categoriesRestoreAction = 'Вернуть из архива';
 const categoriesSubcategoriesAction = 'Подкатегории';
 
 /// Кнопка отмены в сообщении об архиве.
-const categoriesUndoAction = 'Вернуть';
+const categoriesUndoAction = 'Отменить';
 
 /// Сколько сообщение об архиве висит на экране: столько же, сколько сообщение
 /// об операции с «Отменить» (`SavedSnackBar.duration`). Само значение сюда

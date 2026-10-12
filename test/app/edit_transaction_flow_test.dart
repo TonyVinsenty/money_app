@@ -219,7 +219,7 @@ void main() {
     await _pumpApp(tester);
     await _openEdit(tester);
 
-    expect(find.text('Правка расхода'), findsOneWidget);
+    expect(find.text('Изменить расход'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AppBar),
@@ -431,7 +431,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Правка дохода'), findsOneWidget);
+    expect(find.text('Изменить доход'), findsOneWidget);
     expect(find.text('Продукты'), findsNothing);
 
     await tester.tap(find.text('Категория'));

@@ -25,6 +25,10 @@ final String _nbsp = String.fromCharCode(0x00A0);
 final String _minus = String.fromCharCode(0x2212);
 final String _dash = String.fromCharCode(0x2013);
 
+/// Тире диапазона внутри месяца со склейкой (WORD JOINER): строка не
+/// переносится сразу после тире.
+final String _rangeDash = String.fromCharCodes([0x2013, 0x2060]);
+
 /// Т1. Название раздела в строке разделов.
 String analyticsSectionTitle(AnalyticsSection section) => switch (section) {
   AnalyticsSection.categories => 'Категории',
@@ -57,7 +61,7 @@ String comparisonPhrase(DateRange range, DateOnly today) {
         '${formatDayMonth(end)} ${end.year}';
   }
   if (start.month == end.month) {
-    return '${start.day}$_dash${formatDayMonth(end)}$yearSuffix';
+    return '${start.day}$_rangeDash${formatDayMonth(end)}$yearSuffix';
   }
   return '${formatDayMonth(start)} $_dash ${formatDayMonth(end)}$yearSuffix';
 }

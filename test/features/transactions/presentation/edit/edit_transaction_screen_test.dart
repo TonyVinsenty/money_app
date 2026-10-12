@@ -195,7 +195,7 @@ void main() {
     await initializeDateFormatting('ru');
   });
 
-  testWidgets('доход: заголовок «Правка дохода» без знака и цвета', (
+  testWidgets('доход: заголовок «Изменить доход» без знака и цвета', (
     tester,
   ) async {
     final income = Transaction(
@@ -209,7 +209,7 @@ void main() {
     await tester.pumpWidget(_app(_Transactions(), transaction: income));
     await _open(tester);
 
-    final title = find.text('Правка дохода');
+    final title = find.text('Изменить доход');
     expect(title, findsOneWidget);
     expect(tester.widget<Text>(title).style?.color, isNull);
     expect(
@@ -561,9 +561,9 @@ void main() {
 
       await switchTo(tester, 'Доход');
 
-      final title = find.text('Правка дохода');
+      final title = find.text('Изменить доход');
       expect(title, findsOneWidget);
-      expect(find.text('Правка расхода'), findsNothing);
+      expect(find.text('Изменить расход'), findsNothing);
       expect(tester.widget<Text>(title).style?.color, isNull);
       expect(
         find.descendant(
@@ -645,7 +645,7 @@ void main() {
 
       await switchTo(tester, 'Расход');
 
-      expect(find.text('Правка расхода'), findsOneWidget);
+      expect(find.text('Изменить расход'), findsOneWidget);
       expect(find.text('Продукты'), findsOneWidget);
       expect(find.text('Зарплата'), findsNothing);
       // Сохранение идёт как обычная правка без смены типа.

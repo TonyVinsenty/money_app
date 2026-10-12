@@ -51,9 +51,9 @@ const String accountAdjustTitle = 'Поправить остаток';
 const String accountAdjustHelper =
     'Операции не изменятся — поменяется только стартовый остаток счёта';
 const String accountCancelLabel = 'Отмена';
-const String accountUndoAction = 'Вернуть';
+const String accountUndoAction = 'Отменить';
 const String accountRestoreDuplicateText =
-    'Счёт с таким именем уже есть. Переименуйте его или оставьте этот в архиве';
+    'Счёт с таким названием уже есть. Переименуйте его или оставьте этот в архиве';
 
 // Архив счетов (тексты утверждены).
 const String accountRestoreAction = 'Вернуть из архива';
@@ -135,7 +135,7 @@ String accountArchiveDialogText(
   bool hidden = false,
 }) =>
     'На счёте ${hidden ? maskedMoneyText : formatMoney(balance, currency: currency)}. '
-    'Счёт в архиве не входит во «Всего на счетах». Операции счёта сохранятся';
+    'Счёт в архиве не входит во «Всего на счетах». Операции счёта сохранятся.';
 
 String accountArchivedMessage(String name) => 'Счёт «$name» в архиве';
 
@@ -219,7 +219,7 @@ String customCurrencyInCatalog(String name, int digits) =>
 // Форма перевода (тексты 5.22 утверждены пользователем 2026-10-10).
 const String transferButtonLabel = 'Перевод';
 const String transferFormCreateTitle = 'Новый перевод';
-const String transferFormEditTitle = 'Правка перевода';
+const String transferFormEditTitle = 'Изменить перевод';
 const String transferFromLabel = 'Откуда';
 const String transferToLabel = 'Куда';
 const String transferAmountLabel = 'Сумма перевода';

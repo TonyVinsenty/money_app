@@ -34,7 +34,7 @@ String transactionRuleMessage(
       final categoryFor = type == TransactionType.income
           ? 'расходов'
           : 'доходов';
-      return 'Эта категория из другого вида: она для $categoryFor, '
+      return 'Эта категория другого типа: она для $categoryFor, '
           'а вы вводите $entered. Выберите другую категорию';
     case TransactionRule.subcategoryNotOfCategory:
       return 'Эта подкатегория относится к другой категории. '

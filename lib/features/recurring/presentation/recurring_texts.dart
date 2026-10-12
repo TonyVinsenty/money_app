@@ -6,6 +6,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
+import 'package:money_app/features/recurring/domain/recurring_rules.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 // Тексты раздела «Регулярные платежи» (ROADMAP, Р1 и Р2; утверждены
@@ -32,7 +33,7 @@ const String recurringFormNameLabel = 'Название';
 const String recurringFormNameHint = 'Например, Интернет';
 const String recurringFormExpense = 'Расход';
 const String recurringFormIncome = 'Доход';
-const String recurringFormTypeLabel = 'Вид платежа';
+const String recurringFormTypeLabel = 'Тип платежа';
 const String recurringFormCategoryLabel = 'Категория';
 const String recurringFormCategoryHint = 'Выберите категорию';
 const String recurringFormAccountLabel = 'Счёт';
@@ -43,15 +44,16 @@ const String recurringFormEndLabel = 'Окончание';
 const String recurringFormRemindLabel = 'Напомнить в день платежа';
 const String recurringFormRemindDenied =
     'Уведомления для Zuno выключены. Включите их в настройках телефона, '
-    'иначе напоминаний не будет.';
+    'иначе напоминаний не будет';
 const String recurringFormOpenSettings = 'Открыть настройки';
 const String recurringFormNoEnd = 'Без окончания';
 const String recurringFormEndClear = 'Убрать окончание';
 const String recurringFormSave = 'Сохранить';
 
 const String recurringErrorCategory = 'Выберите категорию';
-const String recurringErrorEmptyTitle = 'Введите название';
-const String recurringErrorTitleTooLong = 'Название — не длиннее 40 символов';
+const String recurringErrorEmptyTitle = 'Введите название платежа';
+const String recurringErrorTitleTooLong =
+    'Название слишком длинное: не больше $recurringTitleMaxLength символов';
 const String recurringErrorAmountZero = 'Сумма должна быть больше нуля';
 const String recurringErrorEndsBeforeStart =
     'Окончание не может быть раньше первого платежа';
@@ -154,7 +156,7 @@ String recurringRowSemantics(
 
 // Правка и удаление платежа (ROADMAP, Р3 и Р7; утверждены 2026-10-10).
 
-const String recurringFormTitleEdit = 'Платёж';
+const String recurringFormTitleEdit = 'Изменить платёж';
 const String recurringFormDelete = 'Удалить платёж';
 const String recurringDeleteNote =
     'Уже внесённые операции останутся в «Истории»';

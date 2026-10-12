@@ -21,11 +21,11 @@ Future<ScaffoldMessengerState> _pump(WidgetTester tester) async {
     SnackBar(
       content: const Text('Категория в архиве'),
       duration: const Duration(seconds: 6),
-      action: SnackBarAction(label: 'Вернуть', onPressed: () {}),
+      action: SnackBarAction(label: 'Отменить', onPressed: () {}),
     ),
   );
   await tester.pumpAndSettle();
-  expect(find.text('Вернуть'), findsOneWidget);
+  expect(find.text('Отменить'), findsOneWidget);
   return messenger;
 }
 
@@ -48,7 +48,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Вернуть'), findsNothing);
+    expect(find.text('Отменить'), findsNothing);
     // Кнопку внизу формы ничто не закрывает: касание доходит.
     await tester.tap(find.text('В архив'));
   });
@@ -68,7 +68,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Точно?'), findsOneWidget);
-    expect(find.text('Вернуть'), findsOneWidget);
+    expect(find.text('Отменить'), findsOneWidget);
   });
 
   testWidgets('без сообщения переход ничего не ломает', (tester) async {

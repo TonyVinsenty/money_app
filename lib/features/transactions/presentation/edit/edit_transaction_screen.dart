@@ -71,8 +71,8 @@ class EditTransactionScreen extends StatefulWidget {
   final CategoriesRepository categories;
   final TransactionsRepository transactions;
 
-  static const expenseTitle = 'Правка расхода';
-  static const incomeTitle = 'Правка дохода';
+  static const expenseTitle = 'Изменить расход';
+  static const incomeTitle = 'Изменить доход';
   static const saveLabel = 'Сохранить';
   static const savedText = 'Изменения сохранены';
   static const savedDuration = Duration(seconds: 4);

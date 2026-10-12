@@ -279,7 +279,7 @@ void main() {
     await tester.tap(_prev);
     await tester.pump();
     await tester.pump();
-    expect(find.text('В сентябре 2026 операций не было'), findsOneWidget);
+    expect(find.text('За сентябрь 2026 операций нет'), findsOneWidget);
     expect(find.byType(DonutChart), findsNothing);
   });
 

@@ -257,7 +257,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(_app());
-      expect(find.text('Последний экспорт: ещё не было'), findsOneWidget);
+      expect(find.text('Экспорта ещё не было'), findsOneWidget);
     });
 
     testWidgets('экспорта не было, операции есть: предупреждение', (
@@ -265,7 +265,7 @@ void main() {
     ) async {
       await tester.pumpWidget(_app(hasOperations: true));
       expect(
-        find.text('Последний экспорт: ещё не было — сделайте копию'),
+        find.text('Экспорта ещё не было — сделайте копию'),
         findsOneWidget,
       );
     });
@@ -1081,7 +1081,7 @@ void main() {
     testWidgets('подпись: выгрузки ещё не было', (tester) async {
       await tester.pumpWidget(_app());
 
-      expect(find.text('Последний экспорт: ещё не было'), findsOneWidget);
+      expect(find.text('Экспорта ещё не было'), findsOneWidget);
     });
 
     testWidgets('подпись: день этого года без года', (tester) async {

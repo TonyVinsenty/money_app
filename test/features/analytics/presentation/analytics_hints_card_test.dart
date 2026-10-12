@@ -19,7 +19,9 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 final _today = DateOnly(2026, 10, 12);
 final _nbsp = String.fromCharCode(0x00A0);
 final _dash = String.fromCharCode(0x2014);
-final _en = String.fromCharCode(0x2013);
+// Тире диапазона внутри месяца со склейкой (WORD JOINER), как в приложении.
+final _en = String.fromCharCodes([0x2013, 0x2060]);
+final _spacedEn = String.fromCharCode(0x2013);
 
 Category _category(String id, String name) => Category.topLevel(
   id: id,
@@ -193,7 +195,7 @@ void main() {
       );
       expect(
         text(18, currentPeriod(PeriodKind.year, _today)),
-        endsWith(', чем 1 января $_en 12 октября 2025'),
+        endsWith(', чем 1 января $_spacedEn 12 октября 2025'),
       );
     });
 

@@ -15,7 +15,7 @@ import 'package:money_app/features/transactions/presentation/history/history_scr
 final _today = DateOnly(2026, 9, 20);
 const _text =
     'Здесь только операции в основной валюте (\$). Остальные появятся снова, '
-    'если вернуть их валюту в «Настройках».';
+    'если вернуть их валюту в «Настройках»';
 
 Widget _history({Stream<bool>? other}) => MaterialApp(
   theme: AppTheme.light(),

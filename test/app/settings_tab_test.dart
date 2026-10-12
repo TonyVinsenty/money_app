@@ -163,7 +163,7 @@ void main() {
       tester,
       clock: FixedClock(DateTime(2027, 1, 2, 12)),
     );
-    expect(find.text('Последний экспорт: ещё не было'), findsOneWidget);
+    expect(find.text('Экспорта ещё не было'), findsOneWidget);
 
     // Как после успешного «Поделиться»: экран сообщает вкладке, вкладка
     // записывает сегодняшний день из часов приложения.
@@ -188,14 +188,14 @@ void main() {
       clock: FixedClock(DateTime(2027, 1, 2, 12)),
       transactions: repo,
     );
-    const warning = 'Последний экспорт: ещё не было — сделайте копию';
+    const warning = 'Экспорта ещё не было — сделайте копию';
     expect(find.text(warning), findsOneWidget);
 
     // Как после «Очистить всё»: операций больше нет.
     repo.setFirstDay(null);
     await tester.pumpAndSettle();
     expect(find.text(warning), findsNothing);
-    expect(find.text('Последний экспорт: ещё не было'), findsOneWidget);
+    expect(find.text('Экспорта ещё не было'), findsOneWidget);
 
     // Операции появились снова, затем экспорт: предупреждение пропадает.
     repo.setFirstDay(DateOnly(2026, 12, 1));

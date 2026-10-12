@@ -493,10 +493,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Категория «Кафе» в архиве'), findsOneWidget);
-    expect(find.text('Вернуть'), findsOneWidget);
+    expect(find.text('Отменить'), findsOneWidget);
     expect(find.text('Кафе'), findsNothing);
 
-    await tester.tap(find.text('Вернуть'));
+    await tester.tap(find.text('Отменить'));
     await tester.pumpAndSettle();
     expect(find.text('Кафе'), findsOneWidget);
     expect(find.text(categoriesArchiveTitle(1)), findsOneWidget);
@@ -549,9 +549,9 @@ void main() {
     Navigator.of(tester.element(find.byType(CategoriesScreen))).pop();
     await tester.pumpAndSettle();
     expect(find.byType(CategoriesScreen), findsNothing);
-    expect(find.text('Вернуть'), findsOneWidget);
+    expect(find.text('Отменить'), findsOneWidget);
 
-    await tester.tap(find.text('Вернуть'));
+    await tester.tap(find.text('Отменить'));
     await tester.pumpAndSettle();
 
     expect(
@@ -598,7 +598,7 @@ void main() {
     // Пока лежала в архиве, имя заняли.
     await repository.create(_c('cafe2', 'Кафе', 9));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Вернуть'));
+    await tester.tap(find.text('Отменить'));
     await tester.pumpAndSettle();
 
     expect(find.text(categoryRestoreDuplicateText), findsOneWidget);
@@ -656,7 +656,7 @@ void main() {
     expect(find.byType(CategoriesScreen), findsNothing);
     await repository.create(_c('cafe2', 'Кафе', 9));
 
-    await tester.tap(find.text('Вернуть'));
+    await tester.tap(find.text('Отменить'));
     await tester.pumpAndSettle();
 
     expect(find.text(categoryRestoreDuplicateText), findsOneWidget);
