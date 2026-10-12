@@ -376,41 +376,39 @@ void main() {
     expect(ring.contains(amount.bottomRight), isTrue);
   });
 
-  testWidgets(
-    'узкий экран 320 dp, шрифт 130 %: одно число в центре, без overflow',
-    (tester) async {
-      await _pump(
-        tester,
-        transactions: Stream.value([_expense('food', 7340600)]),
-        categories: Stream.value([_category('food', 'Еда')]),
-        textScale: 1.3,
-        cardHeight: 700,
-        ringSize: 160,
-        width: 320,
-      );
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      final ring = tester.getRect(find.byType(DonutChart));
-      final amount = tester.getRect(_inRing(_money(-7340600)));
-      // От 130 % в центре одно число: «За сентябрь» в центре нет (7.35).
-      expect(_inRing('За сентябрь'), findsNothing);
-      // Дырка кольца: толщина кольца 16 % стороны, запас 2 dp на край.
-      final hole = ring.width * (1 - 2 * 0.16) - 4;
-      final centerPoint = ring.center;
-      for (final r in [amount]) {
-        expect(r.width, lessThanOrEqualTo(hole * 0.71 + 0.5));
-        // Все углы строки внутри дырки, не на секторах.
-        for (final corner in [
-          r.topLeft,
-          r.bottomRight,
-          r.topRight,
-          r.bottomLeft,
-        ]) {
-          expect((corner - centerPoint).distance, lessThan(hole / 2));
-        }
+  testWidgets('узкий экран 320 dp, шрифт 130 %: центр без overflow', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      transactions: Stream.value([_expense('food', 7340600)]),
+      categories: Stream.value([_category('food', 'Еда')]),
+      textScale: 1.3,
+      cardHeight: 700,
+      ringSize: 160,
+      width: 320,
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    final ring = tester.getRect(find.byType(DonutChart));
+    final amount = tester.getRect(_inRing(_money(-7340600)));
+    final label = tester.getRect(_inRing('За сентябрь'));
+    // Дырка кольца: толщина кольца 16 % стороны, запас 2 dp на край.
+    final hole = ring.width * (1 - 2 * 0.16) - 4;
+    final centerPoint = ring.center;
+    for (final r in [amount, label]) {
+      expect(r.width, lessThanOrEqualTo(hole * 0.71 + 0.5));
+      // Все углы строки внутри дырки, не на секторах.
+      for (final corner in [
+        r.topLeft,
+        r.bottomRight,
+        r.topRight,
+        r.bottomLeft,
+      ]) {
+        expect((corner - centerPoint).distance, lessThan(hole / 2));
       }
-    },
-  );
+    }
+  });
 
   group('строка «Ещё N категорий»', () {
     Future<void> check(
@@ -1317,9 +1315,9 @@ void main() {
         );
 
         expect(tester.takeException(), isNull);
-        // В центре только баланс месяца.
+        // В центре одно число с подписью месяца.
         expect(_inRing('+${_money(1199900)}'), findsOneWidget);
-        expect(_inRing('За сентябрь'), findsNothing);
+        expect(_inRing('За сентябрь'), findsOneWidget);
         expect(
           find.descendant(
             of: find.byType(DonutChart),

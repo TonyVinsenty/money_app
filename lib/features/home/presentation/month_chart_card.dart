@@ -371,9 +371,10 @@ class _MonthChartCardState extends State<MonthChartCard> {
                     colors,
                     month,
                     balance,
-                    // Крупный шрифт: в центре одно число, строка — под кольцом.
+                    // Крупный шрифт: в центре одно число (с подписью
+                    // «За октябрь», иначе его легко принять за доход),
+                    // вторая строка — под кольцом.
                     twoLine ? null : line,
-                    compact: twoLine,
                   )
                 : _sliceCenter(
                     theme,
@@ -483,17 +484,15 @@ class _MonthChartCardState extends State<MonthChartCard> {
   /// нейтрально.
   ///
   /// Под ними - мельче - строка «За всё время: …» или «На счетах: …» ([line]),
-  /// если она есть. [compact] (крупный шрифт) — одно число, без «За октябрь»:
-  /// месяц виден в итогах над кольцом.
+  /// если она есть.
   Widget _totalCenter(
     BuildContext context,
     ThemeData theme,
     AppColors colors,
     DateOnly month,
     Money balance,
-    Money? line, {
-    bool compact = false,
-  }) {
+    Money? line,
+  ) {
     final color = balance.isZero
         ? null
         : balance.isNegative
@@ -503,15 +502,14 @@ class _MonthChartCardState extends State<MonthChartCard> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (!compact)
-          _fit(
-            Text(
-              _topLabel(month),
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+        _fit(
+          Text(
+            _topLabel(month),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+        ),
         _fit(
           MaskedAmount(
             text,
