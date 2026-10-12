@@ -61,6 +61,14 @@ List<String> checkRemindersKotlin(String kotlin, String manifest) {
     'FLAG_IMMUTABLE',
     'ReminderReceiver',
     'areNotificationsEnabled',
+    // Тап по уведомлению (ADR 0013, п. 11): метка в запуске, флаг в
+    // onCreate и onNewIntent, ответ и обратный вызов.
+    '"$remindersTakeOpenRequestMethod"',
+    'invokeMethod("$remindersOpenDueMethod"',
+    '"zuno.open"',
+    '"due"',
+    'override fun onNewIntent',
+    'putExtra(openExtra, openDueValue)',
   ]) {
     if (!kotlin.contains(needle)) errors.add('Не найдено $needle');
   }
@@ -111,6 +119,16 @@ void main() {
       ),
       isNotEmpty,
     );
+  });
+
+  test('сторож замечает потерю тапа по уведомлению в Kotlin', () {
+    for (final broken in [
+      kotlin.replaceAll('"takeOpenRequest"', '"takeOpen"'),
+      kotlin.replaceAll('"openDue"', '"open"'),
+      kotlin.replaceAll('override fun onNewIntent', 'fun onNewIntentOld'),
+    ]) {
+      expect(checkRemindersKotlin(broken, manifest), isNotEmpty);
+    }
   });
 
   test('AppDelegate.swift: канал, методы, ключи и планирование', () {

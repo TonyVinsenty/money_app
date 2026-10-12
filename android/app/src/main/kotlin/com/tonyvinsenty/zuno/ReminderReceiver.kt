@@ -30,20 +30,31 @@ class ReminderReceiver : BroadcastReceiver() {
             .setContentText(intent.getStringExtra("body") ?: "")
             .setAutoCancel(true)
 
-        // Тап открывает приложение.
-        context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { launch ->
-            builder.setContentIntent(
-                PendingIntent.getActivity(
-                    context,
-                    0,
-                    launch,
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                ),
-            )
+        // Тап открывает приложение на «К оплате» (ADR 0013, п. 11): метку
+        // читает MainActivity. Своё действие, а не запуск из списка
+        // приложений: тот при свёрнутом Zuno лишь поднял бы его, и
+        // onNewIntent не сработал бы.
+        val open = Intent(context, MainActivity::class.java).apply {
+            action = openDueAction
+            putExtra(openExtra, openDueValue)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
+        builder.setContentIntent(
+            PendingIntent.getActivity(
+                context,
+                0,
+                open,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            ),
+        )
         manager.notify(intent.getIntExtra("id", 0), builder.build())
     }
 }
+
+// Метка в запуске приложения из уведомления: открыть «К оплате».
+const val openExtra = "zuno.open"
+const val openDueValue = "due"
+const val openDueAction = "com.tonyvinsenty.zuno.OPEN_DUE"
 
 // Идентификатор канала уведомлений «Регулярные платежи».
 const val reminderChannelId = "recurring_payments"

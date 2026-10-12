@@ -7,6 +7,7 @@ import 'package:money_app/app/app_tabs.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/app/database_gate.dart';
 import 'package:money_app/app/keyboard_dismiss_observer.dart';
+import 'package:money_app/app/notification_open.dart';
 import 'package:money_app/app/reminder_sync.dart';
 import 'package:money_app/app/snack_bar_dismiss_observer.dart';
 import 'package:money_app/core/database/app_database.dart';
@@ -102,10 +103,13 @@ class MoneyApp extends StatelessWidget {
                 channel: remindersChannel,
                 child: BrowseHost(
                   // Builder: контекст ниже BrowseHost, где BrowseScope виден.
-                  child: Builder(
-                    builder: (context) => AppShell(
-                      tabs: defaultAppTabs,
-                      selectedTab: BrowseScope.selectedTabOf(context),
+                  child: NotificationOpenHost(
+                    channel: remindersChannel,
+                    child: Builder(
+                      builder: (context) => AppShell(
+                        tabs: defaultAppTabs,
+                        selectedTab: BrowseScope.selectedTabOf(context),
+                      ),
                     ),
                   ),
                 ),

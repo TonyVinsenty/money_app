@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/features/recurring/data/reminders_channel.dart';
 import 'package:money_app/features/recurring/domain/reminder_plan.dart';
@@ -68,5 +69,40 @@ void main() {
       },
     ]);
     expect(calls[1].$2, isEmpty);
+  });
+
+  test(
+    'takeOpenRequest: true только на true; без реализации - false',
+    () async {
+      answer = true;
+      expect(await channel.takeOpenRequest(), isTrue);
+      answer = false;
+      expect(await channel.takeOpenRequest(), isFalse);
+      answer = null;
+      expect(await channel.takeOpenRequest(), isFalse);
+      expect(calls.first, ('takeOpenRequest', null));
+
+      final missing = RemindersChannel(
+        invoke: (method, [arguments]) async =>
+            throw MissingPluginException(method),
+      );
+      expect(await missing.takeOpenRequest(), isFalse);
+    },
+  );
+
+  test('listenOpenDue: зовёт только на openDue; null снимает', () async {
+    Future<void> Function(String method)? handler;
+    final listening = RemindersChannel(
+      invoke: (method, [arguments]) async => null,
+      setHandler: (h) => handler = h,
+    );
+    var opened = 0;
+    listening.listenOpenDue(() => opened++);
+    await handler!('other');
+    expect(opened, 0);
+    await handler!('openDue');
+    expect(opened, 1);
+    listening.listenOpenDue(null);
+    expect(handler, isNull);
   });
 }

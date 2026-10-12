@@ -9,6 +9,12 @@ const remindersRequestPermissionMethod = 'requestPermission';
 const remindersPermissionStatusMethod = 'permissionStatus';
 const remindersReplaceAllMethod = 'replaceAll';
 
+/// Был ли тап по нашему уведомлению с прошлого вопроса (ADR 0013, п. 11).
+const remindersTakeOpenRequestMethod = 'takeOpenRequest';
+
+/// Обратный вызов от натива: тап случился, пока приложение открыто.
+const remindersOpenDueMethod = 'openDue';
+
 /// Вызов метода канала: имя и аргументы -> ответ. В приложении это
 /// [MethodChannel.invokeMethod], в тестах - фейк.
 typedef RemindersInvoke = Future<Object?> Function(
@@ -16,17 +22,53 @@ typedef RemindersInvoke = Future<Object?> Function(
   Object? arguments,
 ]);
 
+/// Ставит (или снимает при `null`) обработчик вызовов от натива: получает имя
+/// метода. В приложении это [MethodChannel.setMethodCallHandler], в тестах -
+/// фейк.
+typedef RemindersSetHandler = void Function(
+  Future<void> Function(String method)? handler,
+);
+
 Future<Object?> _platformInvoke(String method, [Object? arguments]) =>
     const MethodChannel(remindersChannelName)
         .invokeMethod<Object?>(method, arguments);
+
+void _platformSetHandler(Future<void> Function(String method)? handler) =>
+    const MethodChannel(remindersChannelName).setMethodCallHandler(
+      handler == null ? null : (call) => handler(call.method),
+    );
 
 /// Обёртка канала напоминаний. Ошибка нативной стороны приходит как
 /// [PlatformException]; `null` вместо ответа (платформа без реализации)
 /// считается отказом.
 class RemindersChannel {
-  const RemindersChannel({this._invoke = _platformInvoke});
+  const RemindersChannel({
+    this._invoke = _platformInvoke,
+    this._setHandler = _platformSetHandler,
+  });
 
   final RemindersInvoke _invoke;
+  final RemindersSetHandler _setHandler;
+
+  /// `true` один раз на каждый тап по уведомлению: натив сбрасывает флаг при
+  /// ответе. Платформа без реализации - `false`.
+  Future<bool> takeOpenRequest() async {
+    try {
+      return await _invoke(remindersTakeOpenRequestMethod) == true;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// [onOpenDue] вызывается, когда натив сообщает о тапе при открытом
+  /// приложении; `null` снимает обработчик.
+  void listenOpenDue(VoidCallback? onOpenDue) => _setHandler(
+    onOpenDue == null
+        ? null
+        : (method) async {
+            if (method == remindersOpenDueMethod) onOpenDue();
+          },
+  );
 
   /// Показывает системный запрос разрешения; `true`, если разрешено.
   Future<bool> requestPermission() async =>

@@ -63,11 +63,33 @@ class MainActivity : FlutterActivity() {
             IntentFilter(shareChosenAction),
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+        // Запуск тапом по уведомлению; после пересоздания окна метка в
+        // intent та же, второй раз её не считаем.
+        if (savedInstanceState == null && isOpenDue(intent)) openRequested = true
     }
+
+    // Тап по уведомлению, когда Zuno уже открыт или свёрнут (singleTop):
+    // запоминаем и подсказываем Dart спросить сейчас же.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!isOpenDue(intent)) return
+        openRequested = true
+        remindersChannel?.invokeMethod("openDue", null)
+    }
+
+    private fun isOpenDue(intent: Intent?) = intent?.getStringExtra(openExtra) == openDueValue
+
+    // Был ли тап по уведомлению с прошлого вопроса Dart (takeOpenRequest).
+    private var openRequested = false
+
+    // Канал напоминаний, пока движок работает: для вызова openDue.
+    private var remindersChannel: MethodChannel? = null
 
     override fun onDestroy() {
         unregisterReceiver(shareChosenReceiver)
         pendingShare = null
+        remindersChannel = null
         super.onDestroy()
     }
 
@@ -184,8 +206,8 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, remindersChannelName)
-            .setMethodCallHandler { call, result -> handleReminders(call, result) }
+        remindersChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, remindersChannelName)
+            .apply { setMethodCallHandler { call, result -> handleReminders(call, result) } }
     }
 
     // Канал напоминаний (ADR 0011, п. 11): имя, методы и ключи — как в
@@ -245,6 +267,11 @@ class MainActivity : FlutterActivity() {
                 } catch (e: Exception) {
                     result.error("schedule_failed", e.message, null)
                 }
+            }
+            // Ответ сбрасывает флаг: тап обрабатывается ровно один раз.
+            "takeOpenRequest" -> {
+                result.success(openRequested)
+                openRequested = false
             }
             else -> result.notImplemented()
         }

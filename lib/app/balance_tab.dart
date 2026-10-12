@@ -6,6 +6,7 @@ import 'package:money_app/app/app_scope.dart';
 import 'package:money_app/app/app_tab_indices.dart';
 import 'package:money_app/app/browse_scope.dart';
 import 'package:money_app/app/due_actions.dart';
+import 'package:money_app/app/notification_open.dart';
 import 'package:money_app/app/reminder_sync.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
@@ -67,11 +68,28 @@ class _BalanceTabState extends State<BalanceTab> {
   late Stream<List<Category>> _dueCategories;
   late Stream<List<Account>> _dueAccounts;
 
+  final _listKey = GlobalKey();
+  final _dueKey = GlobalKey();
+  ValueNotifier<bool>? _revealDue;
+
+  @override
+  void dispose() {
+    _revealDue?.removeListener(_onRevealDue);
+    super.dispose();
+  }
+
   // Потоки создаём один раз и заново только при смене репозитория: в build
   // каждая перерисовка начинала бы подписку заново.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final reveal = NotificationOpenHost.revealDueOf(context);
+    if (!identical(reveal, _revealDue)) {
+      _revealDue?.removeListener(_onRevealDue);
+      _revealDue = reveal?..addListener(_onRevealDue);
+      // Просьба могла прийти раньше, чем вкладку построили.
+      _onRevealDue();
+    }
     final repository = AppScope.of(context).accounts;
     if (!identical(repository, _repository)) {
       _repository = repository;
@@ -86,6 +104,69 @@ class _BalanceTabState extends State<BalanceTab> {
       _dueCategories = AppScope.of(context).categories.watchAll();
       _dueAccounts = AppScope.of(context).accounts.watchAll();
     }
+  }
+
+  void _onRevealDue() {
+    final reveal = _revealDue;
+    if (reveal == null || !reveal.value) return;
+    reveal.value = false;
+    unawaited(_scrollToDue());
+  }
+
+  /// Держать «К оплате» на экране: секции получают данные по очереди (счета,
+  /// потом их остатки), и раскладка над «К оплате» меняется уже после
+  /// прокрутки. Держим до первого касания списка.
+  bool _pinDue = false;
+
+  /// Прокрутка к «К оплате» после тапа по уведомлению (ADR 0013, п. 11).
+  /// «К оплате» пусто (уже оплачено) - просто вкладка.
+  Future<void> _scrollToDue() async {
+    final recurring = AppScope.of(context).recurring;
+    try {
+      if ((await recurring.watchDue().first).isEmpty) return;
+    } on Object catch (error) {
+      debugPrint('К оплате после уведомления: $error');
+      return;
+    }
+    if (!mounted) return;
+    _pinDue = true;
+    _keepDueVisible();
+  }
+
+  void _keepDueVisible() {
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) {
+        if (!_pinDue || !mounted) return;
+        final target = _dueKey.currentContext;
+        if (target != null) {
+          unawaited(Scrollable.ensureVisible(target));
+          return;
+        }
+        // Секция ниже построенной части списка: сначала в конец, на
+        // следующем кадре - точно.
+        final position = _listPosition();
+        if (position == null) return;
+        position.jumpTo(position.maxScrollExtent);
+        _keepDueVisible();
+      })
+      ..ensureVisualUpdate();
+  }
+
+  /// Позиция прокрутки списка вкладки. Своего контроллера у списка нет: так
+  /// он остаётся главным (на iOS тап по строке состояния - наверх).
+  ScrollPosition? _listPosition() {
+    ScrollableState? found;
+    void visit(Element element) {
+      if (found != null) return;
+      if (element is StatefulElement && element.state is ScrollableState) {
+        found = element.state as ScrollableState;
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    (_listKey.currentContext as Element?)?.visitChildren(visit);
+    return found?.position;
   }
 
   Future<void> _restore(Account account) async {
@@ -145,7 +226,22 @@ class _BalanceTabState extends State<BalanceTab> {
             ?.notifier
             ?.today ??
         AppScope.of(context).clock.today();
+    return Listener(
+      onPointerDown: (_) => _pinDue = false,
+      child: NotificationListener<ScrollMetricsNotification>(
+        // Размер содержимого изменился (пришли данные секции).
+        onNotification: (notification) {
+          if (_pinDue && notification.depth == 0) _keepDueVisible();
+          return false;
+        },
+        child: _buildList(context, today),
+      ),
+    );
+  }
+
+  Widget _buildList(BuildContext context, DateOnly today) {
     return ListView(
+      key: _listKey,
       padding: withBottomInset(context, const EdgeInsets.all(AppSpacing.l)),
       children: [
         AccountsSection(
@@ -237,6 +333,7 @@ class _BalanceTabState extends State<BalanceTab> {
         ),
         const SizedBox(height: 24),
         DueSection(
+          key: _dueKey,
           dues: _dues,
           categories: _dueCategories,
           accounts: _dueAccounts,
