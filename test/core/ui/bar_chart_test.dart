@@ -5,6 +5,7 @@ import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 
+import '../../support/bar_taps.dart';
 import '../../support/contrast.dart';
 
 // Область столбиков 100 dp плюс 16 dp под подпись.
@@ -627,5 +628,102 @@ void main() {
         });
       }
     }
+  });
+
+  group('рост столбиков', () {
+    test('growBar: низ и ширина на месте, высота — доля', () {
+      const bar = Rect.fromLTWH(10, 40, 8, 60);
+      expect(growBar(bar, 0), const Rect.fromLTWH(10, 100, 8, 0));
+      expect(growBar(bar, 0.5), const Rect.fromLTWH(10, 70, 8, 30));
+      expect(growBar(bar, 1), bar);
+      // За пределами 0..1 — как на краях.
+      expect(growBar(bar, -1).height, 0);
+      expect(growBar(bar, 2), bar);
+    });
+
+    double progressOf(WidgetTester t) =>
+        (t.state(find.byType(BarChart)) as dynamic).progress as double;
+
+    Widget chart(
+      List<int> weights, {
+      bool reduceMotion = false,
+      int? highlighted,
+      ValueChanged<int?>? onHighlight,
+    }) => MaterialApp(
+      home: MediaQuery(
+        data: MediaQueryData(disableAnimations: reduceMotion),
+        child: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 360,
+              child: BarChart(
+                weights: weights,
+                color: Colors.red,
+                topLabel: '5 000 ₽',
+                semanticsLabel: 'x',
+                highlightedIndex: highlighted,
+                onHighlight: onHighlight,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('первый показ: от 0 до полной высоты за время кольца', (
+      t,
+    ) async {
+      await t.pumpWidget(chart([100, 300, 200]));
+      expect(progressOf(t), 0);
+      await t.pump(const Duration(milliseconds: 300));
+      expect(progressOf(t), inExclusiveRange(0, 1));
+      await t.pumpAndSettle();
+      expect(progressOf(t), 1);
+    });
+
+    testWidgets('«Уменьшить движение»: сразу целиком', (t) async {
+      await t.pumpWidget(chart([100, 300, 200], reduceMotion: true));
+      expect(progressOf(t), 1);
+      expect(t.hasRunningAnimations, isFalse);
+      await t.pumpWidget(chart([50, 60], reduceMotion: true));
+      expect(progressOf(t), 1);
+      expect(t.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('другие значения (период, категория) — растут заново', (
+      t,
+    ) async {
+      await t.pumpWidget(chart([100, 300, 200]));
+      await t.pumpAndSettle();
+      await t.pumpWidget(chart([100, 300, 250]));
+      expect(progressOf(t), 0);
+      await t.pumpAndSettle();
+      expect(progressOf(t), 1);
+    });
+
+    testWidgets('подсветка и те же значения рост не перезапускают', (t) async {
+      await t.pumpWidget(chart([100, 300, 200]));
+      await t.pumpAndSettle();
+      await t.pumpWidget(chart([100, 300, 200], highlighted: 1));
+      expect(progressOf(t), 1);
+      expect(t.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('касание во время роста подсвечивает свой столбик', (t) async {
+      final picked = <int?>[];
+      await t.pumpWidget(chart([100, 300, 200], onHighlight: picked.add));
+      await t.pump(const Duration(milliseconds: 100));
+      expect(progressOf(t), inExclusiveRange(0, 1));
+
+      final finder = find.byType(BarChart);
+      // Верх графика: столбик ещё не дорос, но слот тот же.
+      final gesture = await t.startGesture(
+        barSlotPoint(t, finder, 2, 3, dy: 20),
+      );
+      expect(picked, [2]);
+      await gesture.up();
+      expect(picked, [2, null]);
+      await t.pumpAndSettle();
+    });
   });
 }

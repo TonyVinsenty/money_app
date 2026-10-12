@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart' show listEquals, mapEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/core/money/nice_ceiling.dart';
-import 'package:money_app/core/ui/donut_chart.dart' show donutHoldDelay;
+import 'package:money_app/core/ui/donut_chart.dart'
+    show donutBuildDuration, donutHoldDelay;
 import 'package:money_app/core/ui/font_scale.dart';
 
 /// Место сверху под подпись верха шкалы, dp.
@@ -86,6 +87,15 @@ List<Rect> barRects(
       }(),
   ];
 }
+
+/// Столбик [bar], выросший снизу на долю [progress] (0..1) своей высоты:
+/// низ и ширина на месте, верх опускается к низу.
+Rect growBar(Rect bar, double progress) => Rect.fromLTRB(
+  bar.left,
+  bar.bottom - bar.height * progress.clamp(0.0, 1.0),
+  bar.right,
+  bar.bottom,
+);
 
 /// Координата y линии среднего (ниже по экрану — больше).
 double barAverageY(
@@ -211,7 +221,52 @@ class BarChart extends StatefulWidget {
   State<BarChart> createState() => _BarChartState();
 }
 
-class _BarChartState extends State<BarChart> {
+class _BarChartState extends State<BarChart>
+    with SingleTickerProviderStateMixin {
+  /// Столбики вырастают снизу при первом показе и смене данных, за то же
+  /// время, что строится кольцо (ADR 0013, п. 7).
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: donutBuildDuration,
+  );
+  late final Animation<double> _progress = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+  );
+  bool _started = false;
+
+  /// Доля выросшей высоты (0..1) с учётом кривой; для тестов.
+  @visibleForTesting
+  double get progress => _progress.value;
+
+  /// Растим заново; при «Уменьшить движение» — сразу целиком.
+  void _restart() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+    } else {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_started) {
+      _started = true;
+      _restart();
+    } else if (MediaQuery.disableAnimationsOf(context) &&
+        _controller.isAnimating) {
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(BarChart old) {
+    super.didUpdateWidget(old);
+    // Подсветка и подписи рост не перезапускают — только сами значения.
+    if (!_BarPainter._sameWeights(old.weights, widget.weights)) _restart();
+  }
+
   int? _pointer;
   int? _lastHighlight;
   ScrollPosition? _position;
@@ -270,6 +325,7 @@ class _BarChartState extends State<BarChart> {
   @override
   void dispose() {
     _reset();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -321,6 +377,7 @@ class _BarChartState extends State<BarChart> {
             width: double.infinity,
             child: CustomPaint(
               painter: _BarPainter(
+                progress: _progress,
                 weights: widget.weights,
                 average: widget.average,
                 axisLabels: widget.axisLabels,
@@ -344,6 +401,7 @@ class _BarChartState extends State<BarChart> {
 
 class _BarPainter extends CustomPainter {
   _BarPainter({
+    required this.progress,
     required this.weights,
     required this.average,
     required this.axisLabels,
@@ -356,7 +414,10 @@ class _BarPainter extends CustomPainter {
     required this.textScaler,
     required this.labelStyle,
     required this.highlightedIndex,
-  });
+  }) : super(repaint: progress);
+
+  /// Доля выросшей высоты столбиков; перерисовка — по каждому её шагу.
+  final Animation<double> progress;
 
   /// Высота полосы подписей оси (0 — подписей нет) и масштаб их текста.
   final double axisHeight;
@@ -408,9 +469,10 @@ class _BarPainter extends CustomPainter {
     final rects = barRects(size, weights, average, axis, leftInset);
     final radius = Radius.circular(math.min(2, size.width / 4));
     for (var i = 0; i < rects.length; i++) {
-      if (rects[i].height <= 0) continue;
+      final bar = growBar(rects[i], progress.value);
+      if (bar.height <= 0) continue;
       canvas.drawRRect(
-        RRect.fromRectAndCorners(rects[i], topLeft: radius, topRight: radius),
+        RRect.fromRectAndCorners(bar, topLeft: radius, topRight: radius),
         Paint()..color = barColor(color, i, highlightedIndex),
       );
     }
@@ -464,6 +526,7 @@ class _BarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BarPainter old) =>
+      old.progress != progress ||
       old.average != average ||
       !mapEquals(old.axisLabels, axisLabels) ||
       old.color != color ||
