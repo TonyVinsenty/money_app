@@ -12,6 +12,7 @@ import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
+import 'package:money_app/features/settings/presentation/open_external_link.dart';
 import 'package:money_app/features/settings/presentation/reminder_time_wheel.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
@@ -21,6 +22,14 @@ const ringGroupTitle = 'Кольцо на «Главной»';
 const bookkeepingGroupTitle = 'Учёт';
 const dataGroupTitle = 'Данные';
 const resetGroupTitle = 'Сброс';
+const aboutGroupTitle = 'О приложении';
+
+/// Пункт «Информация о разработчике» (шаг 8.0): ведёт на страницу автора.
+/// Слов о донате и оплате нет (правила App Store 3.1.1).
+const developerInfoItemLabel = 'Информация о разработчике';
+const developerPageLabel = 'boosty.to/tony_vinsenty';
+const developerPageUrl = 'https://boosty.to/tony_vinsenty';
+const openLinkFailedMessage = 'Не удалось открыть страницу';
 
 /// Подписи вариантов темы («Как в системе» не помещается в одну строку).
 const themeSystemLabel = 'Системная';
@@ -221,6 +230,7 @@ class SettingsScreen extends StatefulWidget {
     required this.version,
     this.hasOperations = false,
     this.shareFile = shareCsvFile,
+    this.openLink = openExternalLink,
     this.reminderTime,
     this.onReminderTimeChanged,
     this.hideAmounts = false,
@@ -263,6 +273,9 @@ class SettingsScreen extends StatefulWidget {
 
   /// Отправляет готовый файл наружу.
   final ShareFile shareFile;
+
+  /// Открывает адрес во внешнем браузере.
+  final OpenLink openLink;
 
   /// Выбор файла и загрузка из него. Возвращает число добавленных операций
   /// или `null`, если ничего не загружено (отмена). Бросает исключение, если
@@ -452,6 +465,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _openDeveloperPage() async {
+    if (!await widget.openLink(developerPageUrl)) {
+      _showMessage(openLinkFailedMessage);
+    }
+  }
+
   void _showMessage(String text) {
     if (!mounted) return;
     // Прежнее сообщение могло остаться (persist ниже): новое его заменяет,
@@ -617,6 +636,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
           enabled: !_busy,
           onTap: _busy ? null : _clearAll,
+        ),
+        const _GroupHeader(aboutGroupTitle),
+        ListTile(
+          leading: const _ItemIcon(Icons.person_outline),
+          title: const Text(developerInfoItemLabel),
+          subtitle: const Text(developerPageLabel),
+          trailing: const ExcludeSemantics(child: Icon(Icons.open_in_new)),
+          onTap: _openDeveloperPage,
         ),
         // «Версия» — внизу, вне групп.
         Padding(

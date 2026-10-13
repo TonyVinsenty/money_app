@@ -209,6 +209,32 @@ class MainActivity : FlutterActivity() {
 
         remindersChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, remindersChannelName)
             .apply { setMethodCallHandler { call, result -> handleReminders(call, result) } }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, linksChannelName)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "openUrl") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                result.success(openUrl(call.argument<String>("url")))
+            }
+    }
+
+    // Канал ссылок (шаг 8.0): открыть страницу во внешнем браузере. Имя, метод
+    // и ключ — как в lib/features/settings/presentation/open_external_link.dart
+    // и в ios/Runner/AppDelegate.swift.
+    private val linksChannelName = "com.tonyvinsenty.zuno/links"
+
+    // Только https: другие схемы канал не открывает. Нет браузера — false.
+    private fun openUrl(text: String?): Boolean {
+        val uri = text?.let(Uri::parse) ?: return false
+        if (uri.scheme != "https") return false
+        return try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
+            true
+        } catch (e: ActivityNotFoundException) {
+            false
+        }
     }
 
     // Канал напоминаний (ADR 0011, п. 11): имя, методы и ключи — как в

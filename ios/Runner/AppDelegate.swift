@@ -17,6 +17,10 @@ import UserNotifications
   // lib/features/recurring/data/reminders_channel.dart и lib/features/recurring/domain/reminder_plan.dart.
   private let remindersChannelName = "com.tonyvinsenty.zuno/reminders"
 
+  // Канал ссылок (шаг 8.0): открыть страницу во внешнем браузере. Имя, метод
+  // и ключ — как в lib/features/settings/presentation/open_external_link.dart.
+  private let linksChannelName = "com.tonyvinsenty.zuno/links"
+
   // Ожидающий ответ Dart, пока открыто окно выбора (второй вызов получит "busy").
   // Делегат окна — сам AppDelegate: он живёт всё время работы приложения.
   private var pendingPick: FlutterResult?
@@ -68,6 +72,31 @@ import UserNotifications
       self.handleReminders(call, result: result)
     }
     remindersChannel = reminders
+
+    let links = FlutterMethodChannel(
+      name: linksChannelName,
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    links.setMethodCallHandler { call, result in
+      self.handleLinks(call, result: result)
+    }
+  }
+
+  // Только https: другие схемы канал не открывает.
+  private func handleLinks(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard call.method == "openUrl" else {
+      result(FlutterMethodNotImplemented)
+      return
+    }
+    guard let args = call.arguments as? [String: Any],
+      let text = args["url"] as? String,
+      let url = URL(string: text),
+      url.scheme == "https"
+    else {
+      result(false)
+      return
+    }
+    UIApplication.shared.open(url, options: [:]) { opened in result(opened) }
   }
 
   // Показ уведомления, когда приложение открыто.

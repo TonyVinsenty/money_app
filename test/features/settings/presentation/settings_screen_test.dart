@@ -10,6 +10,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
+import 'package:money_app/features/settings/presentation/open_external_link.dart';
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
@@ -23,6 +24,7 @@ Widget _app({
   VoidCallback? onCategories,
   Future<String> Function()? onExport,
   ShareFile? shareFile,
+  OpenLink? openLink,
   DateOnly? lastExportDay,
   bool hasOperations = false,
   VoidCallback? onExportShared,
@@ -58,6 +60,7 @@ Widget _app({
           },
           onExportCsv: onExport ?? () async => '/tmp/zuno-export.csv',
           shareFile: shareFile ?? (_) async => true,
+          openLink: openLink ?? (_) async => true,
           lastExportDay: lastExportDay,
           hasOperations: hasOperations,
           today: DateOnly(2026, 10, 7),
@@ -121,6 +124,8 @@ void main() {
         'Загрузить из CSV',
         'Сброс',
         'Очистить всё',
+        'О приложении',
+        'Информация о разработчике',
         'Версия 0.1.0 (19)',
       ];
       for (var i = 1; i < order.length; i++) {
@@ -143,6 +148,7 @@ void main() {
         'Учёт',
         'Данные',
         'Сброс',
+        'О приложении',
       ]) {
         expect(
           tester.getSemantics(find.text(title)).flagsCollection.isHeader,
@@ -165,6 +171,7 @@ void main() {
         Icons.file_upload_outlined,
         Icons.file_download_outlined,
         Icons.delete_forever_outlined,
+        Icons.person_outline,
       ]) {
         final found = find.byIcon(icon);
         expect(found, findsOneWidget, reason: '$icon');
@@ -1435,6 +1442,40 @@ void main() {
       await openClearAll(tester);
       expect(find.byType(CupertinoAlertDialog), findsNothing);
       expect(find.widgetWithText(TextButton, clearAllAccept), findsOneWidget);
+    });
+  });
+
+  group('«Информация о разработчике» (шаг 8.0)', () {
+    testWidgets('подпись — адрес страницы, слов о донате нет', (tester) async {
+      await tester.pumpWidget(_app());
+      expect(find.text(developerInfoItemLabel), findsOneWidget);
+      expect(find.text('boosty.to/tony_vinsenty'), findsOneWidget);
+      for (final word in ['донат', 'Поддерж', 'оплат', 'Оплат']) {
+        expect(find.textContaining(word), findsNothing, reason: word);
+      }
+    });
+
+    testWidgets('касание открывает https-адрес страницы', (tester) async {
+      final opened = <String>[];
+      await tester.pumpWidget(
+        _app(
+          openLink: (url) async {
+            opened.add(url);
+            return true;
+          },
+        ),
+      );
+      await tester.tap(find.text(developerInfoItemLabel));
+      await tester.pump();
+      expect(opened, ['https://boosty.to/tony_vinsenty']);
+      expect(find.text(openLinkFailedMessage), findsNothing);
+    });
+
+    testWidgets('не открылось — сообщение', (tester) async {
+      await tester.pumpWidget(_app(openLink: (_) async => false));
+      await tester.tap(find.text(developerInfoItemLabel));
+      await tester.pump();
+      expect(find.text(openLinkFailedMessage), findsOneWidget);
     });
   });
 }
