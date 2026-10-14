@@ -229,8 +229,8 @@ void main() {
     double shrink(WidgetTester tester) =>
         tester.getRect(amount).width / tester.getSize(amount).width;
 
-    testWidgets('100 %: сумма в той же строке справа', (tester) async {
-      await pumpAt(tester, 1);
+    testWidgets('100 %, 412 dp: сумма в той же строке справа', (tester) async {
+      await pumpAt(tester, 1, width: 412);
       expect(tester.takeException(), isNull);
       expect(
         tester.getTopLeft(amount).dx,
@@ -280,8 +280,36 @@ void main() {
       expect(tester.getTopRight(amount).dx, lessThanOrEqualTo(280 - 16));
     });
 
+    testWidgets('100 %, 360 dp, обычная сумма: всё ещё в строку', (
+      tester,
+    ) async {
+      await pumpAt(tester, 1, minor: 123456, width: 360);
+      expect(
+        tester.getTopLeft(amount).dx,
+        greaterThan(tester.getTopRight(title).dx),
+      );
+    });
+
+    testWidgets('100 %, 320 dp: сумма под названием, подпись целиком', (
+      tester,
+    ) async {
+      await pumpAt(tester, 1, minor: 123456, width: 320);
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getTopLeft(amount).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(title).dy),
+      );
+      expect(tester.getTopLeft(amount).dx, tester.getTopLeft(title).dx);
+      expect(shrink(tester), moreOrLessEquals(1));
+      // Подпись видна целиком, без многоточия.
+      final subtitle = tester.widget<Text>(find.text('12 октября'));
+      expect(subtitle.maxLines, 1);
+      final box = tester.renderObject<RenderParagraph>(find.text('12 октября'));
+      expect(box.didExceedMaxLines, isFalse);
+    });
+
     testWidgets('порог: 129 % — ещё в строку', (tester) async {
-      await pumpAt(tester, 1.29);
+      await pumpAt(tester, 1.29, width: 412);
       expect(
         tester.getTopLeft(amount).dx,
         greaterThan(tester.getTopRight(title).dx),

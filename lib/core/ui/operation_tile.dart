@@ -9,7 +9,8 @@ import 'package:money_app/core/ui/theme/app_spacing.dart';
 
 /// Строка операции: аватар категории, [title] («Категория · Подкатегория»),
 /// необязательная вторая строка [subtitle] и сумма справа со знаком и цветом
-/// дохода/расхода; при крупном шрифте (от 130 %) сумма встаёт под название.
+/// дохода/расхода; при крупном шрифте (от 130 %) или узкой колонке текста
+/// (меньше [minTextColumnWidth]) сумма встаёт под название.
 /// Скринридер читает строку одним узлом с подписью [semanticLabel]; без
 /// [onTap] строка не кнопка.
 class OperationTile extends StatelessWidget {
@@ -52,17 +53,75 @@ class OperationTile extends StatelessWidget {
         ? context.appColors.income
         : context.appColors.expense;
     final sign = isIncome ? '+' : String.fromCharCode(0x2212);
-    final subtitle = this.subtitle;
-    final twoLine = useTwoLineRows(context);
-
-    final amountText = MaskedAmount(
-      '$sign${formatMoney(amount)}',
-      textKey: amountKey,
-      style: theme.textTheme.titleMedium?.copyWith(
-        color: accent,
-        fontWeight: FontWeight.w600,
-      ),
+    final amountLabel = '$sign${formatMoney(amount)}';
+    final amountStyle = theme.textTheme.titleMedium?.copyWith(
+      color: accent,
+      fontWeight: FontWeight.w600,
     );
+    final amountText = MaskedAmount(
+      amountLabel,
+      textKey: amountKey,
+      style: amountStyle,
+    );
+    final scaler = MediaQuery.textScalerOf(context);
+    final scaleTwoLine = useTwoLineRows(context);
+    final maxAmountWidth = MediaQuery.sizeOf(context).width * 0.45;
+    final content = LayoutBuilder(
+      builder: (context, constraints) {
+        // Двухэтажный вид: от крупного шрифта или когда рядом с суммой на
+        // колонку текста остаётся меньше [minTextColumnWidth] (узкий экран).
+        var twoLine = scaleTwoLine;
+        if (!twoLine) {
+          final painter = TextPainter(
+            text: TextSpan(text: amountLabel, style: amountStyle),
+            textDirection: TextDirection.ltr,
+            textScaler: scaler,
+          )..layout();
+          final amountWidth = painter.width < maxAmountWidth
+              ? painter.width
+              : maxAmountWidth;
+          painter.dispose();
+          final textWidth =
+              constraints.maxWidth -
+              2 * horizontalPadding -
+              _avatarWidth -
+              2 * AppSpacing.m -
+              amountWidth;
+          twoLine = textWidth < minTextColumnWidth;
+        }
+        return _buildRow(context, twoLine, amountText, maxAmountWidth);
+      },
+    );
+    return Semantics(
+      container: true,
+      label: semanticLabel,
+      button: onTap != null,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: onTap == null
+          ? content
+          : InkWell(
+              onTap: onTap,
+              borderRadius: AppRadius.borderM,
+              child: content,
+            ),
+    );
+  }
+
+  /// Ширина аватара категории.
+  static const double _avatarWidth = 40;
+
+  /// Меньше такой ширины колонки текста строка становится двухэтажной.
+  static const double minTextColumnWidth = 160;
+
+  Widget _buildRow(
+    BuildContext context,
+    bool twoLine,
+    Widget amountText,
+    double maxAmountWidth,
+  ) {
+    final theme = Theme.of(context);
+    final subtitle = this.subtitle;
     final texts = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -93,7 +152,7 @@ class OperationTile extends StatelessWidget {
       ],
     );
 
-    final content = ConstrainedBox(
+    return ConstrainedBox(
       // Зона нажатия не ниже 48 dp; при крупном шрифте строка растёт сама.
       constraints: const BoxConstraints(minHeight: 56),
       child: Padding(
@@ -110,9 +169,7 @@ class OperationTile extends StatelessWidget {
               const SizedBox(width: AppSpacing.m),
               // Сумма не шире 45% экрана: длинная уменьшается.
               ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-                ),
+                constraints: BoxConstraints(maxWidth: maxAmountWidth),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
@@ -123,20 +180,6 @@ class OperationTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-    return Semantics(
-      container: true,
-      label: semanticLabel,
-      button: onTap != null,
-      onTap: onTap,
-      excludeSemantics: true,
-      child: onTap == null
-          ? content
-          : InkWell(
-              onTap: onTap,
-              borderRadius: AppRadius.borderM,
-              child: content,
-            ),
     );
   }
 }
