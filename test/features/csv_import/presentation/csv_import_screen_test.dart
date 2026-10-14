@@ -162,22 +162,25 @@ void main() {
     expect(find.text('Доходы'), findsOneWidget);
     expect(find.text('Кэшбэк (новая)'), findsOneWidget);
 
-    await tester.tap(find.text(csvImportLoadButton));
+    await tester.tap(find.textContaining(csvImportLoadButton));
     await tester.pumpAndSettle();
 
     expect(store.written.single.transactions, hasLength(2));
     expect(results, [const CsvImportResult(transactions: 2)]);
   });
 
-  testWidgets('«Отмена» закрывает экран без записи', (tester) async {
+  testWidgets('«Назад» закрывает экран без записи, «Отмены» нет', (
+    tester,
+  ) async {
     final store = _PlanningStore();
     final results = await _open(
       tester,
       store: store,
       csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
     );
+    expect(find.text('Отмена'), findsNothing);
 
-    await tester.tap(find.text(csvImportCancelButton));
+    await tester.pageBack();
     await tester.pumpAndSettle();
 
     expect(store.written, isEmpty);
@@ -202,7 +205,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Строка 3: тип «Покупка»'), findsOneWidget);
-    expect(find.text(csvImportLoadButton), findsNothing);
+    expect(find.textContaining(csvImportLoadButton), findsNothing);
     expect(find.text(csvImportCloseButton), findsOneWidget);
   });
 
@@ -228,7 +231,7 @@ void main() {
 
     expect(find.text(csvImportNothingToAddMessage), findsOneWidget);
     expect(find.text(csvImportSkippedExisting(1)), findsOneWidget);
-    expect(find.text(csvImportLoadButton), findsNothing);
+    expect(find.textContaining(csvImportLoadButton), findsNothing);
 
     await tester.tap(find.text(csvImportCloseButton));
     await tester.pumpAndSettle();
@@ -250,7 +253,7 @@ void main() {
     );
 
     expect(find.textContaining('не в той кодировке'), findsOneWidget);
-    expect(find.text(csvImportLoadButton), findsNothing);
+    expect(find.textContaining(csvImportLoadButton), findsNothing);
   });
 
   testWidgets('файл не прочитался — понятный текст', (tester) async {
@@ -280,14 +283,14 @@ void main() {
       csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
     );
 
-    await tester.tap(find.text(csvImportLoadButton));
+    await tester.tap(find.textContaining(csvImportLoadButton));
     await tester.pumpAndSettle();
 
     expect(find.text(csvImportWriteFailedMessage), findsOneWidget);
     expect(results, isEmpty);
 
     store.writeError = null;
-    await tester.tap(find.text(csvImportLoadButton));
+    await tester.tap(find.textContaining(csvImportLoadButton));
     await tester.pumpAndSettle();
     expect(results, [const CsvImportResult(transactions: 1)]);
   });
@@ -302,7 +305,7 @@ void main() {
         csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
       );
 
-      await tester.tap(find.text(csvImportLoadButton));
+      await tester.tap(find.textContaining(csvImportLoadButton));
       await tester.pumpAndSettle();
 
       expect(find.text(csvImportWriteFailedMessage), findsOneWidget);
@@ -326,9 +329,35 @@ void main() {
     expect(find.text(csvImportCheckingLabel), findsNothing);
   });
 
-  testWidgets('крупный текст: кнопки друг под другом, «Загрузить» сверху', (
+  testWidgets('кнопка загрузки во всю ширину, с числом операций', (
     tester,
   ) async {
+    await _open(
+      tester,
+      store: _PlanningStore(categories: [_food]),
+      csv:
+          '$_header\n'
+          '01.10.2026;Расход;350;Еда;;\n'
+          '02.10.2026;Расход;100;Еда;;\n',
+    );
+
+    expect(find.text('Загрузить 2 операции'), findsOneWidget);
+    final button = tester.getRect(find.byType(FilledButton));
+    final screen = tester.getRect(find.byType(Scaffold));
+    expect(button.left, 16);
+    expect(button.right, screen.right - 16);
+  });
+
+  test('подпись кнопки: винительный падеж', () {
+    expect(csvImportLoadButtonLabel(1), 'Загрузить 1 операцию');
+    expect(csvImportLoadButtonLabel(2), 'Загрузить 2 операции');
+    expect(csvImportLoadButtonLabel(5), 'Загрузить 5 операций');
+    expect(csvImportLoadButtonLabel(21), 'Загрузить 21 операцию');
+    expect(csvImportLoadButtonLabel(111), 'Загрузить 111 операций');
+    expect(csvImportLoadButtonLabel(0), 'Загрузить');
+  });
+
+  testWidgets('крупный текст: кнопка помещается в экран', (tester) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -352,11 +381,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    final load = tester.getRect(find.text(csvImportLoadButton));
-    final cancel = tester.getRect(find.text(csvImportCancelButton));
-    expect(load.bottom, lessThanOrEqualTo(cancel.top));
+    final load = tester.getRect(find.textContaining(csvImportLoadButton));
     expect(load.right, lessThanOrEqualTo(320));
-    expect(cancel.right, lessThanOrEqualTo(320));
+    expect(load.left, greaterThanOrEqualTo(0));
   });
 
   group('скринридер', () {
@@ -371,7 +398,7 @@ void main() {
       );
       expect(announcements, [csvImportWillAdd(1)]);
 
-      await tester.tap(find.text(csvImportLoadButton));
+      await tester.tap(find.textContaining(csvImportLoadButton));
       await tester.pump();
       expect(announcements, [csvImportWillAdd(1), csvImportWritingLabel]);
       // Кружок на кнопке спрятан: кнопка читается текстом «Загружаем…».
@@ -432,7 +459,7 @@ void main() {
         csv: '$_header\n01.10.2026;Расход;350;Еда;;\n',
       );
 
-      await tester.tap(find.text(csvImportLoadButton));
+      await tester.tap(find.textContaining(csvImportLoadButton));
       await tester.pumpAndSettle();
 
       expect(announcements, [
@@ -533,7 +560,7 @@ void main() {
       expect(find.text('Будут созданы 2 счёта'), findsOneWidget);
       expect(find.text(csvImportNothingToAddMessage), findsNothing);
 
-      await tester.tap(find.text(csvImportLoadButton));
+      await tester.tap(find.textContaining(csvImportLoadButton));
       await tester.pumpAndSettle();
       expect(results, [const CsvImportResult(transactions: 0, accounts: 2)]);
       expect(store.written.single.accountsToCreate, hasLength(2));
@@ -572,7 +599,7 @@ void main() {
         expect(find.text(csvImportNothingToAddMessage), findsOneWidget);
         // П6: пропущенный начальный остаток виден в счётчике.
         expect(find.text(csvImportSkippedExisting(1)), findsOneWidget);
-        expect(find.text(csvImportLoadButton), findsNothing);
+        expect(find.textContaining(csvImportLoadButton), findsNothing);
       },
     );
 
@@ -657,7 +684,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text(csvImportLoadButton), findsOneWidget);
+      expect(find.textContaining(csvImportLoadButton), findsOneWidget);
       expect(find.textContaining('Кошелёк'), findsOneWidget);
     });
   });
@@ -705,7 +732,7 @@ void main() {
       expect(find.text(csvImportNoRowsMessage), findsNothing);
       expect(announcements, ['Будет добавлен 1 перевод']);
 
-      await tester.tap(find.text(csvImportLoadButton));
+      await tester.tap(find.textContaining(csvImportLoadButton));
       await tester.pumpAndSettle();
 
       expect(store.written.single.transfers, hasLength(1));
@@ -763,7 +790,7 @@ void main() {
       expect(find.text(csvImportNothingToAddMessage), findsNothing);
       expect(announcements, ['Будут добавлены регулярные платежи: 1']);
 
-      await tester.tap(find.text(csvImportLoadButton));
+      await tester.tap(find.textContaining(csvImportLoadButton));
       await tester.pumpAndSettle();
 
       expect(store.written.single.recurring.single.trackedThrough, isNotNull);
@@ -797,7 +824,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text(csvImportLoadButton), findsNothing);
+      expect(find.textContaining(csvImportLoadButton), findsNothing);
       expect(store.written, isEmpty);
     });
   });

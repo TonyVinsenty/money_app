@@ -22,7 +22,6 @@ const csvImportTitle = 'Загрузка из CSV';
 const csvImportCheckingLabel = 'Проверяем файл…';
 const csvImportWritingLabel = 'Загружаем…';
 const csvImportLoadButton = 'Загрузить';
-const csvImportCancelButton = 'Отмена';
 const csvImportCloseButton = 'Закрыть';
 
 const csvImportReadFailedMessage =
@@ -52,6 +51,15 @@ final NumberFormat _countFormat = NumberFormat.decimalPattern('ru');
 
 /// Число с разделителем разрядов: «1 234».
 String formatCount(int n) => _countFormat.format(n);
+
+/// Подпись главной кнопки: «Загрузить 1 операцию», «Загрузить 2 операции»,
+/// «Загрузить 5 операций» (винительный падеж). Без операций (только счета,
+/// переводы или платежи) — просто «Загрузить».
+String csvImportLoadButtonLabel(int transactions) {
+  if (transactions <= 0) return csvImportLoadButton;
+  final noun = pluralRu(transactions, 'операцию', 'операции', 'операций');
+  return '$csvImportLoadButton ${formatCount(transactions)} $noun';
+}
 
 String csvImportMoreErrors(int count) => '… и ещё ${formatCount(count)}';
 

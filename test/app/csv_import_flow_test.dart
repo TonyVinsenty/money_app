@@ -97,7 +97,7 @@ void main() {
     expect(store.preparedRows, hasLength(1));
     expect(find.text('Будет добавлена 1 операция'), findsOneWidget);
 
-    await tester.tap(find.text(csvImportLoadButton));
+    await tester.tap(find.textContaining(csvImportLoadButton));
     await tester.pumpAndSettle();
 
     expect(find.byType(CsvImportScreen), findsNothing);
@@ -106,7 +106,7 @@ void main() {
     expect(copy.existsSync(), isFalse);
   });
 
-  testWidgets('«Отмена» на предпросмотре: без сообщения, копия удалена', (
+  testWidgets('«Назад» на предпросмотре: без сообщения, копия удалена', (
     tester,
   ) async {
     final store = PlannedCsvImportStore(_planFor(copy));
@@ -114,7 +114,7 @@ void main() {
 
     await tester.tap(find.text(importCsvItemLabel));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(csvImportCancelButton));
+    await tester.pageBack();
     await tester.pumpAndSettle();
 
     expect(store.written, isEmpty);

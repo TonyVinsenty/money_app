@@ -296,7 +296,9 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
             header: true,
             child: Text(
               csvImportNewCategoriesTitle,
-              style: textTheme.titleSmall,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           for (final group in view.categoryGroups) ...[
@@ -304,7 +306,13 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
               padding: const EdgeInsets.only(top: 16),
               child: Semantics(
                 header: true,
-                child: Text(group.title, style: textTheme.labelLarge),
+                child: Text(
+                  group.title,
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               ),
             ),
             for (final line in group.lines)
@@ -326,67 +334,50 @@ class _CsvImportScreenState extends State<CsvImportScreen> {
   }
 
   Widget _buttons(BuildContext context, CsvImportPlan plan) {
-    return _BottomBar(
-      children: [
-        TextButton(
-          onPressed: _writing ? null : () => Navigator.of(context).pop(),
-          child: const Text(csvImportCancelButton),
-        ),
-        FilledButton(
-          onPressed: _writing ? null : () => _write(plan),
-          // Кружок без подписи скринридер называет просто «индикатор»:
-          // прячем его, кнопка читается текстом «Загружаем…».
-          child: _writing
-              ? const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ExcludeSemantics(
-                      child: SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+    // Одна кнопка во всю ширину; выход без загрузки — «Назад» в шапке.
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _writing ? null : () => _write(plan),
+            // Кружок без подписи скринридер называет просто «индикатор»:
+            // прячем его, кнопка читается текстом «Загружаем…».
+            child: _writing
+                ? const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ExcludeSemantics(
+                        child: SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 8),
-                    Text(csvImportWritingLabel),
-                  ],
-                )
-              : const Text(csvImportLoadButton),
+                      SizedBox(width: 8),
+                      Text(csvImportWritingLabel),
+                    ],
+                  )
+                : Text(csvImportLoadButtonLabel(plan.transactions.length)),
+          ),
         ),
-      ],
+      ),
     );
   }
 
   Widget _closeButton(BuildContext context) {
-    return _BottomBar(
-      children: [
-        FilledButton.tonal(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text(csvImportCloseButton),
-        ),
-      ],
-    );
-  }
-}
-
-/// Кнопки внизу экрана, прижатые вправо. Если в строку не помещаются
-/// (крупный текст), встают друг под другом, главная — сверху.
-class _BottomBar extends StatelessWidget {
-  const _BottomBar({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: OverflowBar(
           alignment: MainAxisAlignment.end,
-          spacing: 8,
           overflowAlignment: OverflowBarAlignment.end,
-          overflowDirection: VerticalDirection.up,
-          overflowSpacing: 8,
-          children: children,
+          children: [
+            FilledButton.tonal(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(csvImportCloseButton),
+            ),
+          ],
         ),
       ),
     );
