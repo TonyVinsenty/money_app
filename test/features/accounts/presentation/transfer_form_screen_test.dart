@@ -98,24 +98,28 @@ Future<void> save(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-DropdownButtonFormField<String> dropdown(WidgetTester tester, Key field) =>
-    tester.widget(
-      find.descendant(
-        of: find.byKey(field),
-        matching: find.byType(DropdownButtonFormField<String>),
-      ),
-    );
+/// Показывает ли поле выбора [text] (выбранный счёт или подсказку).
+bool fieldShows(Key field, String text) => find
+    .descendant(of: find.byKey(field), matching: find.text(text))
+    .evaluate()
+    .isNotEmpty;
 
-List<String?> optionIds(WidgetTester tester, Key field) => tester
-    .widget<DropdownButton<String>>(
-      find.descendant(
-        of: find.byKey(field),
-        matching: find.byType(DropdownButton<String>),
-      ),
-    )
-    .items!
-    .map((i) => i.value)
-    .toList();
+/// Названия вариантов в листе поля: открывает лист, читает и закрывает.
+Future<List<String>> optionNames(WidgetTester tester, Key field) async {
+  await tester.tap(find.byKey(field));
+  await tester.pumpAndSettle();
+  final texts = find.descendant(
+    of: find.byType(BottomSheet),
+    matching: find.byType(Text),
+  );
+  // Первый Text - заголовок листа.
+  final names = [
+    for (final w in tester.widgetList<Text>(texts).skip(1)) w.data!,
+  ];
+  await tester.tapAt(const Offset(10, 10));
+  await tester.pumpAndSettle();
+  return names;
+}
 
 List<Account> threeRub() => [
   acc('a1', 'Карта'),
@@ -241,12 +245,15 @@ void main() {
       acc('a5', 'Доллары', currency: 'USD'),
     ]);
     await pumpForm(tester, accounts, InMemoryTransfersRepository());
-    expect(optionIds(tester, TransferFormScreen.toKey), ['a2', 'a3']);
-    expect(optionIds(tester, TransferFormScreen.fromKey), [
-      'a1',
-      'a2',
-      'a3',
-      'a5',
+    expect(await optionNames(tester, TransferFormScreen.toKey), [
+      'Наличные',
+      'Копилка',
+    ]);
+    expect(await optionNames(tester, TransferFormScreen.fromKey), [
+      'Карта',
+      'Наличные',
+      'Копилка',
+      'Доллары',
     ]);
   });
 
@@ -261,12 +268,18 @@ void main() {
     ]);
     await pumpForm(tester, accounts, InMemoryTransfersRepository());
     await pick(tester, TransferFormScreen.toKey, 'Наличные');
-    expect(dropdown(tester, TransferFormScreen.toKey).initialValue, 'a2');
+    expect(fieldShows(TransferFormScreen.toKey, 'Наличные'), isTrue);
     await tester.enterText(find.byKey(TransferFormScreen.amountKey), '5');
 
     await pick(tester, TransferFormScreen.fromKey, 'Доллары');
-    expect(dropdown(tester, TransferFormScreen.toKey).initialValue, isNull);
-    expect(optionIds(tester, TransferFormScreen.toKey), ['a6', 'a7']);
+    expect(
+      fieldShows(TransferFormScreen.toKey, transferPickAccountHint),
+      isTrue,
+    );
+    expect(await optionNames(tester, TransferFormScreen.toKey), [
+      'Копилка USD',
+      'Ещё USD',
+    ]);
     expect(find.text(r'$'), findsOneWidget);
   });
 
@@ -342,13 +355,16 @@ void main() {
     ]);
     await pumpForm(tester, accounts, InMemoryTransfersRepository());
     // RUB: один вариант - подставлен.
-    expect(dropdown(tester, TransferFormScreen.toKey).initialValue, 'a2');
+    expect(fieldShows(TransferFormScreen.toKey, 'Наличные'), isTrue);
     // USD: два варианта - не подставлен.
     await pick(tester, TransferFormScreen.fromKey, 'Доллары');
-    expect(dropdown(tester, TransferFormScreen.toKey).initialValue, isNull);
+    expect(
+      fieldShows(TransferFormScreen.toKey, transferPickAccountHint),
+      isTrue,
+    );
     // Обратно в RUB: снова ровно один вариант.
     await pick(tester, TransferFormScreen.fromKey, 'Карта');
-    expect(dropdown(tester, TransferFormScreen.toKey).initialValue, 'a2');
+    expect(fieldShows(TransferFormScreen.toKey, 'Наличные'), isTrue);
   });
 
   testWidgets('currency change hint goes away after picking or typing', (
@@ -502,7 +518,13 @@ void main() {
     ]);
     await pumpForm(tester, accounts, transfers, editing: old);
     expect(find.text(transferArchivedAccountName('Старая')), findsOneWidget);
-    expect(dropdown(tester, TransferFormScreen.fromKey).initialValue, 'a4');
+    expect(
+      fieldShows(
+        TransferFormScreen.fromKey,
+        transferArchivedAccountName('Старая'),
+      ),
+      isTrue,
+    );
     await tester.enterText(find.byKey(TransferFormScreen.amountKey), '7');
     await save(tester);
     expect(transfers.all.single.fromAccountId, 'a4');
@@ -652,7 +674,7 @@ void main() {
       await tester.tap(find.byKey(AccountsSection.transferKey));
       await tester.pumpAndSettle();
       expect(find.text(transferFormCreateTitle), findsOneWidget);
-      expect(dropdown(tester, TransferFormScreen.fromKey).initialValue, 'a1');
+      expect(fieldShows(TransferFormScreen.fromKey, 'Карта'), isTrue);
     });
 
     testWidgets('account screen button sets the source', (tester) async {
@@ -680,7 +702,7 @@ void main() {
       await tester.tap(find.byKey(AccountScreen.transferKey));
       await tester.pumpAndSettle();
       expect(find.text(transferFormCreateTitle), findsOneWidget);
-      expect(dropdown(tester, TransferFormScreen.fromKey).initialValue, 'a2');
+      expect(fieldShows(TransferFormScreen.fromKey, 'Наличные'), isTrue);
     });
   });
 }

@@ -7,13 +7,17 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/money/parse_amount.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/amount_failure_text.dart';
 import 'package:money_app/core/ui/amount_input_formatter.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/core/ui/option_sheet.dart';
+import 'package:money_app/core/ui/picker_field.dart';
 import 'package:money_app/core/ui/runes_length_formatter.dart';
 import 'package:money_app/core/ui/saved_haptic.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/accounts/domain/transfer_options.dart';
@@ -390,34 +394,56 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
     String? errorText,
     String? helperText,
   }) {
-    return KeyedSubtree(
-      key: key,
-      child: DropdownButtonFormField<String>(
-        // Новый ключ при смене значения: иначе поле держало бы старое
-        // (initialValue читается только при создании).
-        key: ValueKey('$label-${value ?? 'none'}'),
-        initialValue: options.any((a) => a.id == value) ? value : null,
-        isExpanded: true,
-        decoration: InputDecoration(
-          labelText: label,
-          errorText: errorText,
-          errorMaxLines: 3,
-          helperText: helperText,
-          helperMaxLines: 3,
-        ),
+    Account? current;
+    for (final a in options) {
+      if (a.id == value) current = a;
+    }
+    Future<void> open(BuildContext context) async {
+      final picked = await showOptionSheet<String>(
+        context,
+        title: label,
+        selected: current?.id,
         items: [
           for (final a in options)
-            DropdownMenuItem(
+            OptionSheetItem(
               value: a.id,
-              child: Text(
-                _name(a),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              title: _name(a),
+              leading: AccountAvatar(a.iconKey, name: a.name),
             ),
         ],
-        onChanged: onChanged,
-      ),
+      );
+      if (picked != null) onChanged(picked);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Builder(
+          builder: (context) => PickerField(
+            key: key,
+            label: label,
+            value: current == null ? transferPickAccountHint : _name(current),
+            leading: current == null
+                ? null
+                : AccountAvatar(current.iconKey, name: current.name),
+            errorText: errorText,
+            onTap: () => unawaited(open(context)),
+          ),
+        ),
+        if (helperText != null)
+          Padding(
+            padding: const EdgeInsets.only(
+              top: AppSpacing.xs,
+              left: AppSpacing.m,
+            ),
+            child: Text(
+              helperText,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
     );
   }
 

@@ -222,6 +222,7 @@ const String transferFormCreateTitle = 'Новый перевод';
 const String transferFormEditTitle = 'Изменить перевод';
 const String transferFromLabel = 'Откуда';
 const String transferToLabel = 'Куда';
+const String transferPickAccountHint = 'Выберите счёт';
 const String transferAmountLabel = 'Сумма перевода';
 const String transferNoteLabel = 'Комментарий (необязательно)';
 const String transferSaveLabel = 'Сохранить';

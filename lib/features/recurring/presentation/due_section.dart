@@ -5,10 +5,11 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
-import 'package:money_app/core/ui/account_icons.dart';
+import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
+import 'package:money_app/core/ui/picker_field.dart';
 import 'package:money_app/core/ui/section_card.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -461,28 +462,14 @@ class _PaySheetState extends State<_PaySheet> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(dueSheetAccountLabel, style: label),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
-                child: ActionChip(
-                  key: DueSection.sheetAccountKey,
-                  avatar: account == null
-                      ? const Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 18,
-                        )
-                      : AccountIconView(
-                          account.iconKey,
-                          name: account.name,
-                          size: 18,
-                        ),
-                  label: Text(account?.name ?? recurringFormAccountHint),
-                  onPressed: () => unawaited(_pickAccount()),
-                  materialTapTargetSize: MaterialTapTargetSize.padded,
-                ),
-              ),
+            PickerField(
+              key: DueSection.sheetAccountKey,
+              label: dueSheetAccountLabel,
+              value: account?.name ?? recurringFormAccountHint,
+              leading: account == null
+                  ? null
+                  : AccountAvatar(account.iconKey, name: account.name),
+              onTap: () => unawaited(_pickAccount()),
             ),
             if (_error != null)
               Padding(
