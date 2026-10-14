@@ -7,6 +7,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/home/presentation/home_compact.dart';
 import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/home/presentation/month_chart_card.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
@@ -43,6 +44,9 @@ class HomeScreen extends StatefulWidget {
     this.hasAnyTransactions,
     super.key,
   });
+
+  /// Затухание над кнопками на коротком экране, когда есть что прокручивать.
+  static const bottomFadeKey = ValueKey('home-bottom-fade');
 
   /// Есть ли в базе хоть одна операция; `false` — вместо итогов и кольца
   /// приветствие, `null` — пока неизвестно (экран как обычно).
@@ -133,8 +137,9 @@ class _HomeScreenState extends State<HomeScreen> {
             viewportHeight: constraints.maxHeight,
             textScale: fontScaleOf(context),
             bannerHeight: banner == null ? 0 : _bannerHeight,
+            compact: isCompactHome(context),
           );
-          return CustomScrollView(
+          final scroll = CustomScrollView(
             slivers: [
               // Плашка сообщает свою высоту (при крупном шрифте она в 2-3
               // строки): кольцо уступает ей место.
@@ -186,8 +191,70 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ],
           );
+          // Короткий экран: если низ карточки ещё прокручивается, над кнопками
+          // видно затухание — подсказка, что там есть продолжение (D3).
+          return isCompactHome(context) ? _FadeAtBottom(child: scroll) : scroll;
         },
       ),
+    );
+  }
+}
+
+/// Показывает затухание (градиент к фону) у нижней кромки [child], пока
+/// прокрутка не дошла до конца.
+class _FadeAtBottom extends StatefulWidget {
+  const _FadeAtBottom({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_FadeAtBottom> createState() => _FadeAtBottomState();
+}
+
+class _FadeAtBottomState extends State<_FadeAtBottom> {
+  /// Высота затухания, dp.
+  static const fadeHeight = 24.0;
+
+  bool _more = false;
+
+  bool _onMetrics(ScrollMetrics m) {
+    final more = m.extentAfter > 0.5;
+    if (more != _more) setState(() => _more = more);
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    return Stack(
+      children: [
+        NotificationListener<ScrollMetricsNotification>(
+          onNotification: (n) => _onMetrics(n.metrics),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) => _onMetrics(n.metrics),
+            child: widget.child,
+          ),
+        ),
+        if (_more)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: fadeHeight,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                key: HomeScreen.bottomFadeKey,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [bg.withValues(alpha: 0), bg],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

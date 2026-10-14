@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/ui/icon_scale.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/features/home/presentation/home_compact.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 /// Высота кнопок «Доход» и «Расход», dp (с запасом сверх минимума 48).
 const double _buttonHeight = 64;
+
+/// То же в компактном режиме (короткий экран), dp.
+const double _compactButtonHeight = 56;
 
 /// Панель с двумя крупными кнопками «Доход» и «Расход» в одном ряду.
 ///
@@ -91,7 +95,9 @@ class _TypeButton extends StatelessWidget {
           backgroundColor: background,
           foregroundColor: foreground,
           // Высота не меньше 64 dp, при крупном шрифте кнопка растёт сама.
-          minimumSize: const Size.fromHeight(_buttonHeight),
+          minimumSize: Size.fromHeight(
+            isCompactHome(context) ? _compactButtonHeight : _buttonHeight,
+          ),
           // Боковой отступ меньше обычного, чтобы две кнопки помещались в ряд.
           padding: const EdgeInsets.symmetric(horizontal: 12),
           shape: RoundedRectangleBorder(

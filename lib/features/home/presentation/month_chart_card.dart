@@ -21,6 +21,7 @@ import 'package:money_app/features/analytics/domain/category_totals.dart';
 import 'package:money_app/features/analytics/domain/period_summary.dart';
 import 'package:money_app/features/analytics/domain/shares.dart';
 import 'package:money_app/features/categories/domain/category.dart';
+import 'package:money_app/features/home/presentation/home_compact.dart';
 import 'package:money_app/features/home/presentation/home_welcome_card.dart';
 import 'package:money_app/features/home/presentation/month_summary_card.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
@@ -52,10 +53,13 @@ double chartRingSize({
   required double viewportHeight,
   required double textScale,
   double bannerHeight = 0,
+  bool compact = false,
+  bool fitHeightOnly = false,
 }) {
   // Отступы карточки сверху и снизу, заголовок, зазоры и строки легенды
-  // (до двух по 28 dp; при крупном шрифте элементы встают по одному).
-  final legendRows = textScale >= 1.5 ? 4 : 2;
+  // (до двух по 28 dp; при крупном шрифте элементы встают по одному;
+  // в компактном режиме легенда — одна строка).
+  final legendRows = compact ? 1 : (textScale >= 1.5 ? 4 : 2);
   final summary = estimateSummaryHeight(
     viewportWidth - 2 * _cardPadding,
     textScale,
@@ -75,7 +79,9 @@ double chartRingSize({
   final byWidth = viewportWidth - 2 * _cardPadding;
   // Крупный шрифт: экран всё равно прокручивается, поэтому кольцо — по
   // ширине, а не по высоте: иначе дырка мала и число в центре мелкое.
-  if (textScale >= twoLineRowScale) {
+  // [fitHeightOnly] — «какое кольцо влезло бы по высоте» (для компактного
+  // режима): правило крупного шрифта пропускаем.
+  if (textScale >= twoLineRowScale && !fitHeightOnly) {
     return byWidth.clamp(_minRing, _maxRing);
   }
   final byHeight = viewportHeight - reserved;
@@ -451,6 +457,8 @@ class _MonthChartCardState extends State<MonthChartCard> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           )
+        : isCompactHome(context)
+        ? _CompactLegend(items: items)
         : Wrap(
             alignment: WrapAlignment.center,
             spacing: 16,
@@ -592,9 +600,13 @@ class _LegendItem {
     this.share,
     this.color, [
     this.onTap,
+    this.compactLabel,
   ]);
 
   final String label;
+
+  /// Короткая подпись для компактной легенды («Ещё 8»); null — как [label].
+  final String? compactLabel;
   final Money amount;
   final PercentShare share;
   final Color color;
@@ -650,6 +662,7 @@ List<_LegendItem> _legendItems(
       ),
       colors.chartOther,
       onTapRest,
+      'Ещё $count',
     ),
   ];
 }
@@ -663,42 +676,82 @@ Set<String> legendRestCategoryIds(List<ChartSlice> slices) {
   return {for (final s in slices.skip(_legendRows - 1)) ...s.categoryIds};
 }
 
+/// Легенда компактного режима (D3): «Дом 43 % · Займы 31 % · Ещё 8». Строка
+/// переносится целыми элементами, а не уходит за край; точки между элементами
+/// скринридер не читает, сами элементы озвучены как в обычной легенде.
+class _CompactLegend extends StatelessWidget {
+  const _CompactLegend({required this.items});
+
+  final List<_LegendItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0)
+            ExcludeSemantics(
+              child: Text('·', style: TextStyle(color: muted)),
+            ),
+          _LegendItemView(item: items[i], compact: true),
+        ],
+      ],
+    );
+  }
+}
+
 class _LegendItemView extends StatelessWidget {
-  const _LegendItemView({required this.item});
+  const _LegendItemView({required this.item, this.compact = false});
 
   final _LegendItem item;
+
+  /// Компактный вид: без цветной метки, одной подписью «Дом 43 %».
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onTap = item.onTap;
+    final short = item.compactLabel;
     // Wrap даёт элементу не больше своей ширины: длинное название обрезается
     // многоточием, процент остаётся целым.
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ColorDot(color: item.color),
-          const SizedBox(width: 8),
-          Flexible(
+    final content = compact
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              short ?? '${item.label} ${_percentText(item.share)}',
+              textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium,
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            _percentText(item.share),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          )
+        : Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ColorDot(color: item.color),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _percentText(item.share),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
+          );
     // Строки очень компактные (28 dp): ниже рекомендованных 48 dp, зато легенда
     // не рыхлая; кольцо и сектора нажимаются тоже.
     final box = ConstrainedBox(
