@@ -4,6 +4,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/app_card.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
 import 'package:money_app/features/analytics/presentation/operations_section.dart';
@@ -116,6 +119,23 @@ void main() {
         tester.getTopLeft(find.byKey(OperationsSection.rowKey('t$i'))).dy,
     ];
     expect(ys, [...ys]..sort());
+  });
+
+  testWidgets('аватар строки вровень с краем карточки, как заголовок (8.9)', (
+    tester,
+  ) async {
+    await _pump(tester, [_tx('a', 540000), _tx('b', 100000)]);
+    final avatars = find.byType(CategoryAvatar);
+    expect(avatars, findsWidgets);
+    for (final avatar in avatars.evaluate().map(
+      (e) => find.byElementPredicate((x) => x == e),
+    )) {
+      final card = find.ancestor(of: avatar, matching: find.byType(AppCard));
+      expect(
+        tester.getTopLeft(avatar).dx,
+        tester.getTopLeft(card.first).dx + AppSpacing.l,
+      );
+    }
   });
 
   testWidgets('меньше десяти: столько строк, сколько операций; строка как в '

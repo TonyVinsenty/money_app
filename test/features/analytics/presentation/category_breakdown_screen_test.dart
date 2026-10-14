@@ -8,7 +8,9 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/category_stat_line.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
@@ -200,11 +202,17 @@ void main() {
     for (var i = 0; i < totals.length; i++) {
       // Имя стоит и в строке подкатегории, и в строках операций.
       expect(find.text(names[totals[i].subcategoryId]!), findsWidgets);
+      final line = find.byType(CategoryStatLine);
       expect(
-        find.text(
-          '$_minus${formatMoney(totals[i].amount)} · ${_pct(shares[i])}',
+        find.descendant(
+          of: line,
+          matching: find.text('$_minus${formatMoney(totals[i].amount)}'),
         ),
         findsOneWidget,
+      );
+      expect(
+        find.descendant(of: line, matching: find.text(_pct(shares[i]))),
+        findsWidgets,
       );
     }
     var sum = Money.zero('RUB');
@@ -243,9 +251,11 @@ void main() {
   });
 
   Color? amountColorOf(WidgetTester tester, String text) {
-    final rich = tester.widget<Text>(find.text(text));
-    final span = rich.textSpan! as TextSpan;
-    return (span.children!.first as TextSpan).style?.color;
+    final amount = find.descendant(
+      of: find.byType(CategoryStatLine),
+      matching: find.text(text),
+    );
+    return tester.widget<Text>(amount).style?.color;
   }
 
   testWidgets('сумма подкатегории: расход "-" красным, доход "+" зелёным', (
@@ -256,10 +266,7 @@ void main() {
       transactions: Stream.value([_tx('cat-food', null, 120000)]),
     );
     final colors = tester.element(find.byType(Scaffold)).appColors;
-    expect(
-      amountColorOf(tester, '$_minus${_money(120000)} · 100$_nbsp%'),
-      colors.expense,
-    );
+    expect(amountColorOf(tester, '$_minus${_money(120000)}'), colors.expense);
 
     final salary = _top('salary', 'Зарплата', kind: CategoryKind.income);
     await _pump(
@@ -269,10 +276,7 @@ void main() {
         _tx('salary', null, 5000000, type: TransactionType.income),
       ]),
     );
-    expect(
-      amountColorOf(tester, '+${_money(5000000)} · 100$_nbsp%'),
-      colors.income,
-    );
+    expect(amountColorOf(tester, '+${_money(5000000)}'), colors.income);
   });
 
   testWidgets('озвучка строки дохода со словом "доход"', (tester) async {
@@ -317,6 +321,24 @@ void main() {
     expect(title.hitTestable(), findsNothing);
   });
 
+  testWidgets('аватар операции вровень с заголовком «Операции» (8.9)', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      transactions: Stream.value([_tx('cat-food', null, 10000)]),
+    );
+    final tileAvatar = find.descendant(
+      of: find.byType(OperationTile),
+      matching: find.byType(CategoryAvatar),
+    );
+    expect(tileAvatar, findsOneWidget);
+    expect(
+      tester.getTopLeft(tileAvatar).dx,
+      tester.getTopLeft(find.byType(CardHeader)).dx,
+    );
+  });
+
   testWidgets('категория без подкатегорий: одна строка, кольца нет', (
     tester,
   ) async {
@@ -326,7 +348,7 @@ void main() {
     );
 
     expect(find.text('Без подкатегории'), findsOneWidget);
-    expect(find.text('$_minus${_money(10000)} · 100$_nbsp%'), findsOneWidget);
+    expect(find.text('100$_nbsp%'), findsOneWidget);
     expect(find.byType(DonutChart), findsNothing);
   });
 

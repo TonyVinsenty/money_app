@@ -10,9 +10,12 @@ import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/app_card.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/domain/category_totals.dart';
@@ -175,6 +178,26 @@ Color _dotColor(WidgetTester tester, String id) {
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
 
+  testWidgets('аватар строки вровень с краем карточки, как заголовок (8.9)', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      transactions: _data([_tx('a', 123456789), _tx('b', 50000000)]),
+    );
+    final avatars = find.byType(CategoryAvatar);
+    expect(avatars, findsWidgets);
+    for (final avatar in avatars.evaluate().map(
+      (e) => find.byElementPredicate((x) => x == e),
+    )) {
+      final card = find.ancestor(of: avatar, matching: find.byType(AppCard));
+      expect(
+        tester.getTopLeft(avatar).dx,
+        tester.getTopLeft(card.first).dx + AppSpacing.l,
+      );
+    }
+  });
+
   testWidgets('сентябрь тестового набора: все категории расходов, суммы и '
       'проценты', (tester) async {
     final all = loadFixtureTransactions();
@@ -205,7 +228,7 @@ void main() {
       );
       final percentText = tester
           .widget<Text>(
-            find.descendant(of: row, matching: find.byType(Text)).last,
+            find.descendant(of: row, matching: find.byType(Text)).at(1),
           )
           .data!;
       percentSum += percentText.startsWith('<')
@@ -503,12 +526,16 @@ void main() {
     };
 
     /// Тексты строки: название, сумма, процент.
-    List<String> rowTexts(WidgetTester tester, String id) => [
-      for (final t in tester.widgetList<Text>(
-        find.descendant(of: _row(id), matching: find.byType(Text)),
-      ))
-        t.data!,
-    ];
+    List<String> rowTexts(WidgetTester tester, String id) {
+      final t = [
+        for (final w in tester.widgetList<Text>(
+          find.descendant(of: _row(id), matching: find.byType(Text)),
+        ))
+          w.data!,
+      ];
+      // В строке порядок: название, процент (под названием), сумма (справа).
+      return [t[0], t[2], t[1]];
+    }
 
     int percentSum(WidgetTester tester) {
       var sum = 0;
@@ -624,7 +651,7 @@ void main() {
       await pumpSwitch(tester);
       Color colorOfRow(String id) => tester
           .widget<Text>(
-            find.descendant(of: _row(id), matching: find.byType(Text)).at(1),
+            find.descendant(of: _row(id), matching: find.byType(Text)).at(2),
           )
           .style!
           .color!;
@@ -744,12 +771,14 @@ void main() {
     final percent = find.byKey(CategoryBreakdownCard.rowPercentKey).first;
     final data = [_tx('a', 123456789), _tx('b', 50000000)];
 
-    testWidgets('100 %: процент справа от суммы, как раньше', (tester) async {
+    testWidgets('100 %: сумма справа, процент под названием слева', (
+      tester,
+    ) async {
       await _pump(tester, transactions: _data(data));
       expect(tester.takeException(), isNull);
       expect(
-        tester.getTopLeft(percent).dx,
-        greaterThan(tester.getTopRight(amount).dx),
+        tester.getTopLeft(amount).dx,
+        greaterThan(tester.getTopRight(percent).dx),
       );
     });
 
@@ -758,7 +787,12 @@ void main() {
         tester,
       ) async {
         await _pump(tester, transactions: _data(data), textScale: scale);
-        expect(tester.takeException(), isNull);
+        // Сумма покрупнее (titleMedium 600) целиком помещается при 200 %.
+        await _pump(
+          tester,
+          transactions: _data([_tx('a', 1234567), _tx('b', 500000)]),
+          textScale: scale,
+        );
         expect(
           tester.getTopLeft(percent).dy,
           greaterThanOrEqualTo(tester.getBottomLeft(amount).dy),

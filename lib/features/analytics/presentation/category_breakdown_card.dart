@@ -8,8 +8,8 @@ import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/category_stat_line.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
-import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -380,7 +380,6 @@ class _CategoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
     final isExpense = type == TransactionType.expense;
     final colors = context.appColors;
     // Знак и цвет по типу, как в карточке итогов; скринридеру — «минус»/«плюс».
@@ -391,53 +390,23 @@ class _CategoryRow extends StatelessWidget {
     final spokenAmount = isExpense
         ? 'минус ${spokenMoney(amount)}'
         : 'плюс ${spokenMoney(amount)}';
-    final twoLine = useTwoLineRows(context);
-    final percent = Text(
-      _percentText(share),
-      key: CategoryBreakdownCard.rowPercentKey,
-      style: theme.textTheme.bodyMedium?.copyWith(color: muted),
-    );
-    final content = ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          children: [
-            ExcludeSemantics(
-              child: CategoryAvatar(
-                category?.iconKey,
-                name: category?.name,
-                key: dotKey,
-                color: color,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(name, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  // Сумма шире строки уменьшается, а не рвётся посреди числа.
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: AlignmentDirectional.centerStart,
-                    child: MaskedAmount(
-                      amountText,
-                      textKey: CategoryBreakdownCard.rowAmountKey,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: amountColor,
-                      ),
-                    ),
-                  ),
-                  // Крупный шрифт: процент под суммой, вся ширина — сумме.
-                  if (twoLine) percent,
-                ],
-              ),
-            ),
-            if (!twoLine) ...[const SizedBox(width: 8), percent],
-          ],
-        ),
+    final content = CategoryStatLine(
+      leading: CategoryAvatar(
+        category?.iconKey,
+        name: category?.name,
+        key: dotKey,
+        color: color,
+      ),
+      name: name,
+      amount: MaskedAmount(
+        amountText,
+        textKey: CategoryBreakdownCard.rowAmountKey,
+        style: categoryAmountStyle(theme, color: amountColor),
+      ),
+      subtitle: Text(
+        _percentText(share),
+        key: CategoryBreakdownCard.rowPercentKey,
+        style: categorySubtitleStyle(theme),
       ),
     );
     return Semantics(

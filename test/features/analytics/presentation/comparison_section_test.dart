@@ -5,8 +5,10 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/presentation/comparison_section.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -119,6 +121,29 @@ void main() {
   final oct = DateOnly(2026, 10, 5);
   final sep = DateOnly(2026, 9, 5);
 
+  testWidgets('аватар строки вровень с краем карточки, как заголовок (8.9)', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      transactions: [
+        _tx('a', 'cafe', 800000, oct),
+        _tx('b', 'cafe', 570000, sep),
+      ],
+    );
+    final avatars = find.byType(CategoryAvatar);
+    expect(avatars, findsWidgets);
+    for (final avatar in avatars.evaluate().map(
+      (e) => find.byElementPredicate((x) => x == e),
+    )) {
+      final card = find.ancestor(of: avatar, matching: find.byType(AppCard));
+      expect(
+        tester.getTopLeft(avatar).dx,
+        tester.getTopLeft(card.first).dx + AppSpacing.l,
+      );
+    }
+  });
+
   testWidgets('больше: итог, процент и строка категории', (tester) async {
     await _pump(
       tester,
@@ -134,7 +159,14 @@ void main() {
       '8${_nbsp}000,00$_nbsp₽\n'
       'на 2${_nbsp}300,00$_nbsp₽ больше (+40$_nbsp%), чем 1\u2013\u206011 сентября',
     );
-    expect(find.text('Кафе · 8${_nbsp}000,00$_nbsp₽'), findsOneWidget);
+    expect(find.text('Кафе'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(ComparisonSection.rowKey('cafe')),
+        matching: find.text('8${_nbsp}000,00$_nbsp₽'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.text('↑ на 2${_nbsp}300,00$_nbsp₽ (+40$_nbsp%)'),
       findsOneWidget,
@@ -207,7 +239,7 @@ void main() {
     );
 
     expect(
-      find.text('Кино · 0,00$_nbsp₽ · было 3${_nbsp}000,00$_nbsp₽'),
+      find.text('0,00$_nbsp₽ · было 3${_nbsp}000,00$_nbsp₽'),
       findsOneWidget,
     );
     expect(
@@ -238,7 +270,8 @@ void main() {
       '50${_nbsp}000,00$_nbsp₽\n'
       '1\u2013\u206011 сентября доходов не было',
     );
-    expect(find.text('Зарплата · 50${_nbsp}000,00$_nbsp₽'), findsOneWidget);
+    expect(find.text('Зарплата'), findsOneWidget);
+    expect(find.byKey(ComparisonSection.rowAmountKey), findsOneWidget);
     expect(find.textContaining('Кафе'), findsNothing);
   });
 
@@ -382,13 +415,17 @@ void main() {
     ];
     final amount = find.byKey(ComparisonSection.rowAmountKey);
 
-    testWidgets('100 %: «Название · сумма» одной строкой, как раньше', (
+    testWidgets('100 %: название слева, сумма справа в той же строке', (
       tester,
     ) async {
       await _pump(tester, transactions: rows, onOpen: (_) {});
       expect(tester.takeException(), isNull);
-      expect(amount, findsNothing);
-      expect(find.textContaining('Кафе · '), findsOneWidget);
+      final name = find.text('Кафе');
+      expect(amount, findsOneWidget);
+      expect(
+        tester.getTopLeft(amount).dx,
+        greaterThan(tester.getTopRight(name).dx),
+      );
     });
 
     for (final scale in [1.3, 2.0]) {

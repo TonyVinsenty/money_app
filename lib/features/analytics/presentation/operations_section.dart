@@ -9,6 +9,7 @@ import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/category_stat_line.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
@@ -197,38 +198,15 @@ class _StatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
     final hidden = AmountsVisibility.hiddenOf(context);
     final name = category?.name ?? noCategoryLabel;
-    final content = ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          children: [
-            ExcludeSemantics(
-              child: CategoryAvatar(category?.iconKey, name: category?.name),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(name, maxLines: 3, overflow: TextOverflow.ellipsis),
-                  Text(
-                    operationsStatSubtitle(
-                      stat.count,
-                      stat.average,
-                      hidden: hidden,
-                    ),
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    final content = CategoryStatLine(
+      leading: CategoryAvatar(category?.iconKey, name: category?.name),
+      name: name,
+      nameMaxLines: 3,
+      subtitle: Text(
+        operationsStatSubtitle(stat.count, stat.average, hidden: hidden),
+        style: categorySubtitleStyle(theme),
       ),
     );
     return Semantics(
@@ -303,7 +281,7 @@ class _OperationRow extends StatelessWidget {
       categoryName: category?.name,
       semanticLabel: spoken.toString(),
       onTap: onTap,
-      horizontalPadding: AppSpacing.xs,
+      horizontalPadding: 0,
     );
   }
 }

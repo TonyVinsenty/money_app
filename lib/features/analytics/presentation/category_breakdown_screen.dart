@@ -11,6 +11,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/category_stat_line.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
@@ -328,7 +329,7 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
           : names[subId] ?? widget.category.name,
       semanticLabel: spoken.toString(),
       onTap: onOpen == null ? null : () => onOpen(t),
-      horizontalPadding: AppSpacing.xs,
+      horizontalPadding: 0,
     );
   }
 
@@ -418,13 +419,9 @@ class _RowTile extends StatelessWidget {
   const _RowTile({required this.row});
 
   final _Row row;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final small = theme.textTheme.bodySmall?.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
     return Semantics(
       container: true,
       label:
@@ -432,42 +429,18 @@ class _RowTile extends StatelessWidget {
           '${maskedSpoken(context, spokenMoney(row.amount))}, '
           '${row.percentSpoken}',
       excludeSemantics: true,
-      child: Row(
-        children: [
-          CategoryAvatar(row.iconKey, name: row.avatarName, color: row.color),
-          const SizedBox(width: AppSpacing.m),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(row.label, style: theme.textTheme.bodyMedium),
-                if (AmountsVisibility.hiddenOf(context))
-                  Row(
-                    children: [
-                      MaskedAmount(
-                        row.signedAmount,
-                        style: small?.copyWith(color: row.amountColor),
-                      ),
-                      Text(' · ${row.percentText}', style: small),
-                    ],
-                  )
-                else
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: row.signedAmount,
-                          style: TextStyle(color: row.amountColor),
-                        ),
-                        TextSpan(text: ' · ${row.percentText}'),
-                      ],
-                    ),
-                    style: small,
-                  ),
-              ],
-            ),
-          ),
-        ],
+      child: CategoryStatLine(
+        leading: CategoryAvatar(
+          row.iconKey,
+          name: row.avatarName,
+          color: row.color,
+        ),
+        name: row.label,
+        amount: MaskedAmount(
+          row.signedAmount,
+          style: categoryAmountStyle(theme, color: row.amountColor),
+        ),
+        subtitle: Text(row.percentText, style: categorySubtitleStyle(theme)),
       ),
     );
   }
