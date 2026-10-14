@@ -280,6 +280,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Widget content, {
               required bool showSort,
               List<Transaction>? total,
+              // В пустом результате своя крупная «Сбросить фильтр»: вторая
+              // кнопка в полоске лишняя.
+              bool stripReset = true,
             }) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -304,7 +307,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       all,
                       accountName: _filterAccountName,
                     ),
-                    onReset: widget.onResetFilter,
+                    onReset: stripReset ? widget.onResetFilter : null,
+                    showReset: stripReset,
                   ),
                 if ((widget.filter.isActive || _searching) && total != null)
                   _FilteredTotal(shown: total),
@@ -324,7 +328,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
               // Пустой месяц, пришедший до ответа «всех месяцев», при поиске
               // не должен говорить «За … операций нет».
               if (hasAny && _searching) {
-                return withBar(nothingFound, showSort: false);
+                return withBar(
+                  nothingFound,
+                  showSort: false,
+                  stripReset: false,
+                );
               }
               final empty = _EmptyState(
                 hasAnyTransactions: hasAny,
@@ -354,6 +362,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         onReset: widget.onResetFilter,
                       ),
                 showSort: false,
+                stripReset: false,
               );
             }
             return withBar(
@@ -594,10 +603,17 @@ class _EmptyState extends StatelessWidget {
 /// Полоска «Фильтр: Расходы · Продукты» с кнопкой «Сбросить». Подпись
 /// переносится на несколько строк, кнопка остаётся не ниже 48 dp.
 class _FilterStrip extends StatelessWidget {
-  const _FilterStrip({required this.label, required this.onReset});
+  const _FilterStrip({
+    required this.label,
+    required this.onReset,
+    this.showReset = true,
+  });
 
   final String label;
   final VoidCallback? onReset;
+
+  /// `false` — только подпись (кнопка сброса есть в пустом результате).
+  final bool showReset;
 
   @override
   Widget build(BuildContext context) {
@@ -619,17 +635,18 @@ class _FilterStrip extends StatelessWidget {
               ),
             ),
           ),
-          Semantics(
-            label: 'Сбросить фильтр',
-            button: true,
-            excludeSemantics: true,
-            onTap: onReset,
-            child: TextButton(
-              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-              onPressed: onReset,
-              child: const Text('Сбросить'),
+          if (showReset)
+            Semantics(
+              label: 'Сбросить фильтр',
+              button: true,
+              excludeSemantics: true,
+              onTap: onReset,
+              child: TextButton(
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: onReset,
+                child: const Text('Сбросить'),
+              ),
             ),
-          ),
         ],
       ),
     );

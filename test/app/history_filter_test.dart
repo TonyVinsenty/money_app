@@ -157,7 +157,9 @@ void main() {
     expect(find.text('Фильтр: Доходы'), findsOneWidget);
     expect(find.text('Ничего не найдено'), findsOneWidget);
 
-    await tester.tap(find.text('Сбросить'));
+    // Пустой результат: одна кнопка сброса, крупная; в полоске её нет.
+    expect(find.text('Сбросить'), findsNothing);
+    await tester.tap(find.text('Сбросить фильтр'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Фильтр:'), findsNothing);
     expect(find.text('большая'), findsOneWidget);

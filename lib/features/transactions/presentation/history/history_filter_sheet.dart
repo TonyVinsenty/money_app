@@ -36,6 +36,15 @@ Future<void> showHistoryFilterSheet(
   );
 }
 
+/// Подзаголовок раздела листа: titleSmall, жирность 600, цвет акцента.
+TextStyle? _sectionStyle(BuildContext context) {
+  final theme = Theme.of(context);
+  return theme.textTheme.titleSmall?.copyWith(
+    fontWeight: FontWeight.w600,
+    color: theme.colorScheme.primary,
+  );
+}
+
 /// Раздел «Счёт»: один выбор из «Все счета», счетов (уже отобранных по
 /// основной валюте, архивные с пометкой) и «Без счёта».
 class _AccountSection extends StatelessWidget {
@@ -94,7 +103,7 @@ class _AccountSection extends StatelessWidget {
         const SizedBox(height: 16),
         Semantics(
           header: true,
-          child: Text('Счёт', style: Theme.of(context).textTheme.titleMedium),
+          child: Text('Счёт', style: _sectionStyle(context)),
         ),
         option(
           'Все счета',
@@ -166,7 +175,7 @@ class _CategorySection extends StatelessWidget {
           builder: (context) {
             final header = Semantics(
               header: true,
-              child: Text(title, style: theme.textTheme.titleMedium),
+              child: Text(title, style: _sectionStyle(context)),
             );
             final buttons = [
               TextButton(
@@ -227,6 +236,99 @@ class _CategorySection extends StatelessWidget {
   }
 }
 
+/// Шапка листа: «Сбросить» слева, «Фильтр» по центру, «Готово» справа. Если
+/// по ширине не помещается (крупный шрифт, узкий экран), «Фильтр» уходит
+/// отдельной строкой под ряд кнопок; текст не сжимается.
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.onReset, required this.onDone});
+
+  final VoidCallback? onReset;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final titleStyle = theme.textTheme.titleLarge;
+    final buttonStyle = theme.textTheme.labelLarge;
+    double textWidth(String text, TextStyle? style) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+      )..layout();
+      return painter.width;
+    }
+
+    // Кнопка: текст + поля (по 12 dp с каждой стороны) + запас.
+    final side =
+        [
+          textWidth('Сбросить', buttonStyle),
+          textWidth('Готово', buttonStyle),
+        ].reduce((a, b) => a > b ? a : b) +
+        32;
+    final title = Semantics(
+      header: true,
+      child: Text('Фильтр', style: titleStyle, textAlign: TextAlign.center),
+    );
+    final reset = TextButton(
+      style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+      onPressed: onReset,
+      child: const Text('Сбросить'),
+    );
+    final done = TextButton(
+      style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+      onPressed: onDone,
+      child: const Text('Готово'),
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final fits =
+              2 * side + textWidth('Фильтр', titleStyle) + 16 <=
+              constraints.maxWidth;
+          if (fits) {
+            return SizedBox(
+              height: 56,
+              child: NavigationToolbar(
+                centerMiddle: true,
+                leading: reset,
+                middle: title,
+                trailing: done,
+              ),
+            );
+          }
+          // Две кнопки в ряд, а если и они не помещаются — друг под другом.
+          final twoInRow =
+              textWidth('Сбросить', buttonStyle) +
+                  textWidth('Готово', buttonStyle) +
+                  64 <=
+              constraints.maxWidth;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (twoInRow)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [reset, done],
+                )
+              else ...[
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: reset,
+                ),
+                Align(alignment: AlignmentDirectional.centerEnd, child: done),
+              ],
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: title),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Содержимое листа фильтра: заголовок, «Сбросить», тип, разделы категорий,
 /// «Готово». [categories] и [monthTransactions] (операции показанного месяца)
 /// нужны, чтобы решить, какие категории показать.
@@ -250,103 +352,97 @@ class HistoryFilterSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // Прокрутка: при крупном шрифте содержимое не помещается в лист.
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: ValueListenableBuilder<HistoryFilter>(
-        valueListenable: filter,
-        builder: (context, current, _) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Semantics(
-                    header: true,
-                    child: Text('Фильтр', style: theme.textTheme.titleLarge),
+    return ValueListenableBuilder<HistoryFilter>(
+      valueListenable: filter,
+      builder: (context, current, _) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Шапка закреплена: «Сбросить» слева, «Фильтр» по центру, «Готово»
+          // справа; не уезжает вместе с прокруткой.
+          _SheetHeader(
+            onReset: current.isActive
+                ? () => onChanged(HistoryFilter.off)
+                : null,
+            onDone: () => Navigator.of(context).pop(),
+          ),
+          // Прокрутка: при крупном шрифте содержимое не помещается в лист.
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SegmentedButton<HistoryTypeFilter>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: HistoryTypeFilter.all,
+                        label: Text('Все'),
+                      ),
+                      ButtonSegment(
+                        value: HistoryTypeFilter.expense,
+                        label: Text('Расходы'),
+                      ),
+                      ButtonSegment(
+                        value: HistoryTypeFilter.income,
+                        label: Text('Доходы'),
+                      ),
+                    ],
+                    selected: {current.type},
+                    // Наборы категорий сохраняются: меняется только тип.
+                    onSelectionChanged: (selection) => onChanged(
+                      HistoryFilter(
+                        type: selection.first,
+                        expenseCategoryIds: current.expenseCategoryIds,
+                        incomeCategoryIds: current.incomeCategoryIds,
+                        accountFilter: current.accountFilter,
+                      ),
+                    ),
                   ),
-                ),
-                TextButton(
-                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                  onPressed: current.isActive
-                      ? () => onChanged(HistoryFilter.off)
-                      : null,
-                  child: const Text('Сбросить'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SegmentedButton<HistoryTypeFilter>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: HistoryTypeFilter.all, label: Text('Все')),
-                ButtonSegment(
-                  value: HistoryTypeFilter.income,
-                  label: Text('Доходы'),
-                ),
-                ButtonSegment(
-                  value: HistoryTypeFilter.expense,
-                  label: Text('Расходы'),
-                ),
-              ],
-              selected: {current.type},
-              // Наборы категорий сохраняются: меняется только тип.
-              onSelectionChanged: (selection) => onChanged(
-                HistoryFilter(
-                  type: selection.first,
-                  expenseCategoryIds: current.expenseCategoryIds,
-                  incomeCategoryIds: current.incomeCategoryIds,
-                  accountFilter: current.accountFilter,
-                ),
+                  if (accounts.isNotEmpty)
+                    _AccountSection(
+                      accounts: accounts,
+                      current: current,
+                      onChanged: onChanged,
+                    ),
+                  if (current.type != HistoryTypeFilter.income)
+                    _CategorySection(
+                      title: 'Категории расходов',
+                      kind: CategoryKind.expense,
+                      categories: categories,
+                      monthTransactions: monthTransactions,
+                      selected: current.expenseCategoryIds,
+                      onSelected: (ids) => onChanged(
+                        HistoryFilter(
+                          type: current.type,
+                          expenseCategoryIds: ids,
+                          incomeCategoryIds: current.incomeCategoryIds,
+                          accountFilter: current.accountFilter,
+                        ),
+                      ),
+                    ),
+                  if (current.type != HistoryTypeFilter.expense)
+                    _CategorySection(
+                      title: 'Категории доходов',
+                      kind: CategoryKind.income,
+                      categories: categories,
+                      monthTransactions: monthTransactions,
+                      selected: current.incomeCategoryIds,
+                      onSelected: (ids) => onChanged(
+                        HistoryFilter(
+                          type: current.type,
+                          expenseCategoryIds: current.expenseCategoryIds,
+                          incomeCategoryIds: ids,
+                          accountFilter: current.accountFilter,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            if (accounts.isNotEmpty)
-              _AccountSection(
-                accounts: accounts,
-                current: current,
-                onChanged: onChanged,
-              ),
-            if (current.type != HistoryTypeFilter.income)
-              _CategorySection(
-                title: 'Категории расходов',
-                kind: CategoryKind.expense,
-                categories: categories,
-                monthTransactions: monthTransactions,
-                selected: current.expenseCategoryIds,
-                onSelected: (ids) => onChanged(
-                  HistoryFilter(
-                    type: current.type,
-                    expenseCategoryIds: ids,
-                    incomeCategoryIds: current.incomeCategoryIds,
-                    accountFilter: current.accountFilter,
-                  ),
-                ),
-              ),
-            if (current.type != HistoryTypeFilter.expense)
-              _CategorySection(
-                title: 'Категории доходов',
-                kind: CategoryKind.income,
-                categories: categories,
-                monthTransactions: monthTransactions,
-                selected: current.incomeCategoryIds,
-                onSelected: (ids) => onChanged(
-                  HistoryFilter(
-                    type: current.type,
-                    expenseCategoryIds: current.expenseCategoryIds,
-                    incomeCategoryIds: ids,
-                    accountFilter: current.accountFilter,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 16),
-            FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Готово'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

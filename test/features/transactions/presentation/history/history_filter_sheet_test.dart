@@ -10,6 +10,7 @@ import 'package:money_app/features/transactions/domain/history_view.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/history/history_filter_label.dart';
+import 'package:money_app/features/transactions/presentation/history/history_filter_sheet.dart';
 import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 
 final _today = DateOnly(2026, 9, 30);
@@ -250,6 +251,111 @@ void main() {
     expect(find.text('Сначала крупные'), findsOneWidget);
     // Фильтр выключен: «Сбросить» в листе недоступна.
     expect(tester.widget<TextButton>(reset).onPressed, isNull);
+  });
+
+  testWidgets('шапка листа закреплена, сегменты: Все · Расходы · Доходы', (
+    tester,
+  ) async {
+    final many = [
+      for (var i = 0; i < 30; i++)
+        Category(
+          id: 'c$i',
+          kind: CategoryKind.expense,
+          name: 'Категория $i',
+          iconKey: 'shopping_cart',
+          parentId: null,
+          sortOrder: i,
+        ),
+    ];
+    final notifier = ValueNotifier(HistoryFilter.off);
+    await tester.pumpWidget(
+      _app(
+        HistoryFilterSheet(
+          filter: notifier,
+          onChanged: (f) => notifier.value = f,
+          categories: many,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final reset = tester.getCenter(find.text('Сбросить')).dx;
+    final title = tester.getCenter(find.text('Фильтр')).dx;
+    final done = tester.getCenter(find.text('Готово')).dx;
+    expect(reset, lessThan(title));
+    expect(title, lessThan(done));
+    expect(title, closeTo(400, 1));
+
+    final all = tester.getCenter(find.text('Все')).dx;
+    final expenses = tester.getCenter(find.text('Расходы')).dx;
+    final incomes = tester.getCenter(find.text('Доходы')).dx;
+    expect(all, lessThan(expenses));
+    expect(expenses, lessThan(incomes));
+
+    // «Готово» видна сразу и остаётся на месте после прокрутки.
+    final before = tester.getTopLeft(find.text('Готово'));
+    expect(before.dy, lessThan(100));
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -600),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.text('Готово')), before);
+  });
+
+  testWidgets('шапка листа 320 dp и 200 %: три элемента не пересекаются', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final notifier = ValueNotifier(_income);
+    await tester.pumpWidget(
+      _app(
+        HistoryFilterSheet(
+          filter: notifier,
+          onChanged: (f) => notifier.value = f,
+          categories: _categories,
+        ),
+        textScale: 2,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    final r = tester.getRect(find.text('Сбросить'));
+    final t = tester.getRect(find.text('Фильтр'));
+    final d = tester.getRect(find.text('Готово'));
+    expect(r.overlaps(t), isFalse);
+    expect(t.overlaps(d), isFalse);
+    expect(r.overlaps(d), isFalse);
+    // «Фильтр» ушёл под кнопки.
+    expect(t.top, greaterThanOrEqualTo(r.bottom));
+  });
+
+  testWidgets('шапка листа 480 dp и 100 %: одна строка, «Фильтр» по центру', (
+    tester,
+  ) async {
+    // В тестах шрифт Ahem вдвое шире настоящего, поэтому 480, а не 412 dp.
+    tester.view.physicalSize = const Size(480, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final notifier = ValueNotifier(_income);
+    await tester.pumpWidget(
+      _app(
+        HistoryFilterSheet(
+          filter: notifier,
+          onChanged: (f) => notifier.value = f,
+          categories: _categories,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final r = tester.getCenter(find.text('Сбросить'));
+    final t = tester.getCenter(find.text('Фильтр'));
+    final d = tester.getCenter(find.text('Готово'));
+    expect((r.dy - t.dy).abs(), lessThan(2));
+    expect((d.dy - t.dy).abs(), lessThan(2));
+    expect(t.dx, closeTo(240, 1));
   });
 
   testWidgets('выбранный сегмент озвучивается «выбрано»', (tester) async {

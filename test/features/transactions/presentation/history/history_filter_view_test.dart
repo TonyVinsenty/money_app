@@ -110,8 +110,24 @@ void main() {
     expect(find.text('Фильтр: Расходы · Продукты'), findsOneWidget);
     expect(find.text('Кафе'), findsNothing);
     expect(find.bySemanticsLabel('Сбросить фильтр'), findsOneWidget);
+    expect(find.text('Сбросить'), findsOneWidget);
     await tester.tap(find.text('Сбросить'));
     expect(resets, 1);
+  });
+
+  testWidgets('пустой результат фильтра: одна кнопка сброса, без «Сбросить»', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        filter: HistoryFilter.expenseCategories({'nothing'}),
+        onReset: () {},
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Сбросить фильтр'), findsOneWidget);
+    expect(find.text('Сбросить'), findsNothing);
+    expect(find.textContaining('Фильтр:'), findsOneWidget);
   });
 
   testWidgets('порядок: кнопка «Фильтр» выше полоски, полоска выше списка', (
