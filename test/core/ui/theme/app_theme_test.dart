@@ -190,4 +190,35 @@ void main() {
       });
     }
   });
+
+  group('сообщения и меню (8.1)', () {
+    for (final entry in themes.entries) {
+      test('${entry.key} тема: сообщение плавающее, радиус 12, зазор 8', () {
+        final snack = entry.value.snackBarTheme;
+        expect(snack.behavior, SnackBarBehavior.floating);
+        expect(
+          (snack.shape! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(12),
+        );
+        expect(snack.insetPadding, const EdgeInsets.fromLTRB(16, 0, 16, 8));
+      });
+
+      test('${entry.key} тема: меню — радиус 12, фон surfaceContainerHigh', () {
+        final theme = entry.value;
+        final high = theme.colorScheme.surfaceContainerHigh;
+        final popup = theme.popupMenuTheme;
+        expect(
+          (popup.shape! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(12),
+        );
+        expect(popup.color, high);
+        final style = theme.menuTheme.style!;
+        expect(
+          (style.shape!.resolve({})! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(12),
+        );
+        expect(style.backgroundColor!.resolve({}), high);
+      });
+    }
+  });
 }

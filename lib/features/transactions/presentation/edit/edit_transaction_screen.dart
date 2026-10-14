@@ -536,6 +536,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     final messenger = ScaffoldMessenger.of(context);
     // Масштаб шрифта берём до `await`: после него контекст трогать нельзя.
     final textScaler = MediaQuery.textScalerOf(context);
+    final persist = MediaQuery.accessibleNavigationOf(context);
     final navigator = Navigator.of(context);
     final transactions = widget.transactions;
     final t = widget.transaction;
@@ -588,6 +589,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
             '${spokenMoney(t.amount)}'
             '${categoryName == null ? '' : ', $categoryName'}',
         textScaler: textScaler,
+        persist: persist,
         onUndo: () => unawaited(_undoDelete(messenger, transactions, t.id)),
       ),
     );

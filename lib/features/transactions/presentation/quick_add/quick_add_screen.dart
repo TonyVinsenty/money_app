@@ -297,6 +297,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
     final messenger = ScaffoldMessenger.of(context);
     // Масштаб шрифта берём до `await`: после него контекст трогать нельзя.
     final textScaler = MediaQuery.textScalerOf(context);
+    final persist = MediaQuery.accessibleNavigationOf(context);
     final navigator = Navigator.of(context);
     final transactions = widget.transactions;
     final type = widget.type;
@@ -355,6 +356,7 @@ class _QuickAddScreenState extends State<QuickAddScreen> {
             text: text,
             spokenText: spokenText,
             textScaler: textScaler,
+            persist: persist,
             onUndo: () =>
                 unawaited(_undo(messenger, transactions, transaction.id)),
           ),

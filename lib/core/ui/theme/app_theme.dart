@@ -39,6 +39,21 @@ abstract final class AppTheme {
     borderRadius: AppRadius.borderL,
   );
 
+  static const RoundedRectangleBorder _menuShape = RoundedRectangleBorder(
+    borderRadius: AppRadius.borderM,
+  );
+
+  /// Нижнее сообщение: плавающая плашка со скруглением 12, поля 16 по бокам
+  /// и зазор 8 снизу. Scaffold приложения ставит сообщение над всей нижней
+  /// панелью (кнопки «Главной» и капсула вкладок лежат в её слоте), поэтому
+  /// зазор 8 отсчитывается от верха этой панели; высоту капсулы считать не
+  /// нужно. Цвета — по умолчанию.
+  static const SnackBarThemeData snackBarTheme = SnackBarThemeData(
+    behavior: SnackBarBehavior.floating,
+    shape: _menuShape,
+    insetPadding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+  );
+
   /// [platform] — для тестов; по умолчанию платформа устройства.
   static ThemeData light({TargetPlatform? platform}) =>
       _build(Brightness.light, AppColors.light, platform);
@@ -67,6 +82,19 @@ abstract final class AppTheme {
       // почти не видна).
       cardTheme: const CardThemeData(elevation: 0, shape: _cardShape),
       inputDecorationTheme: _inputTheme(base.colorScheme),
+      snackBarTheme: snackBarTheme,
+      popupMenuTheme: PopupMenuThemeData(
+        shape: _menuShape,
+        color: base.colorScheme.surfaceContainerHigh,
+      ),
+      menuTheme: MenuThemeData(
+        style: MenuStyle(
+          shape: const WidgetStatePropertyAll(_menuShape),
+          backgroundColor: WidgetStatePropertyAll(
+            base.colorScheme.surfaceContainerHigh,
+          ),
+        ),
+      ),
       extensions: <ThemeExtension<dynamic>>[colors],
     );
   }

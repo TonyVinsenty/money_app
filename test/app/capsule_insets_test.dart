@@ -204,8 +204,17 @@ void main() {
     messenger.showSnackBar(const SnackBar(content: Text('Сохранено')));
     await tester.pumpAndSettle();
     expect(
-      tester.getRect(find.byType(SnackBar)).bottom,
-      lessThanOrEqualTo(_capsuleTop(tester)),
+      tester
+          .getRect(
+            find
+                .descendant(
+                  of: find.byType(SnackBar),
+                  matching: find.byType(Material),
+                )
+                .first,
+          )
+          .bottom,
+      moreOrLessEquals(_capsuleTop(tester) - 8),
     );
   });
 

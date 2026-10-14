@@ -39,6 +39,7 @@ class DueActions {
   }) async {
     final messenger = ScaffoldMessenger.of(context);
     final scaler = MediaQuery.textScalerOf(context);
+    final persist = MediaQuery.accessibleNavigationOf(context);
     final payment = due.payment;
     try {
       final transactionId = await _services.recurring.markPaid(
@@ -89,6 +90,7 @@ class DueActions {
             text: text,
             spokenText: spoken,
             textScaler: scaler,
+            persist: persist,
             onUndo: () => unawaited(_undoPay(messenger, transactionId)),
           ),
         );
@@ -115,6 +117,7 @@ class DueActions {
   Future<String?> skip(BuildContext context, RecurringDue due) async {
     final messenger = ScaffoldMessenger.of(context);
     final scaler = MediaQuery.textScalerOf(context);
+    final persist = MediaQuery.accessibleNavigationOf(context);
     try {
       await _services.recurring.skip(due.id);
     } on Object {
@@ -128,6 +131,7 @@ class DueActions {
           text: text,
           spokenText: text,
           textScaler: scaler,
+          persist: persist,
           onUndo: () => unawaited(_undoSkip(messenger, due.id)),
         ),
       );

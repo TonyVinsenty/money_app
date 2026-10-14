@@ -51,12 +51,14 @@ abstract final class SavedSnackBar {
   /// Сообщение с кнопкой «Отменить». [textScaler] — масштаб шрифта экрана
   /// (MediaQuery.textScalerOf). Автоматически исчезает через [duration]:
   /// `persist: false` нужно явно, иначе у сообщения с кнопкой время не
-  /// отсчитывается.
+  /// отсчитывается. [persist] — только для скринридера: сообщение не исчезает
+  /// само (`MediaQuery.accessibleNavigationOf`), закрывается касанием.
   static SnackBar build({
     required String text,
     required String spokenText,
     required VoidCallback onUndo,
     TextScaler textScaler = TextScaler.noScaling,
+    bool persist = false,
   }) {
     return SnackBar(
       content: TapToDismissSnackContent(
@@ -67,7 +69,7 @@ abstract final class SavedSnackBar {
         ),
       ),
       duration: duration,
-      persist: false,
+      persist: persist,
       // По умолчанию «Отменить» уходит на отдельную строку, если оно шире
       // четверти экрана; тогда сообщение при обычном шрифте лишний раз
       // вырастает, поэтому держим кнопку в одной строке с текстом. Но при
