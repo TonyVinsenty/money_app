@@ -1130,7 +1130,17 @@ void main() {
           .colorScheme
           .error;
       expect(button.style?.foregroundColor?.resolve({}), error);
+      // Лежит в прокручиваемой части, а не в закреплённом низу (D12, D45).
+      expect(
+        find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.text(categoriesArchiveAction),
+        ),
+        findsOneWidget,
+      );
 
+      await tester.ensureVisible(archive);
+      await tester.pumpAndSettle();
       await tester.tap(archive);
       await tester.pumpAndSettle();
 
@@ -1152,6 +1162,8 @@ void main() {
         'ошибке', (tester) async {
       await _openForm(tester, repository, renaming: cafe);
       repository.failWith = Exception('disk');
+      await tester.ensureVisible(find.text(categoriesArchiveAction));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(categoriesArchiveAction));
       await tester.pumpAndSettle();
 
@@ -1189,6 +1201,8 @@ void main() {
       );
       expect(find.text(categoriesSubcategoriesAction), findsNothing);
       expect(find.text(categoriesArchiveAction), findsOneWidget);
+      await tester.ensureVisible(find.text(categoriesArchiveAction));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(categoriesArchiveAction));
       await tester.pumpAndSettle();
       expect(find.text('Подкатегория «Молоко» в архиве'), findsOneWidget);

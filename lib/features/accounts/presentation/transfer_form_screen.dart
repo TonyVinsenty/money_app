@@ -553,6 +553,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
                 message: transferDeleteTooltip,
                 excludeFromSemantics: true,
                 child: IconButton(
+                  color: Theme.of(context).colorScheme.error,
                   onPressed: _saving ? null : () => unawaited(_delete()),
                   icon: const Icon(Icons.delete_outline),
                 ),

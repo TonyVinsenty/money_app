@@ -250,6 +250,8 @@ void main() {
       // «В архив» лежит в правке: касание строки открывает форму.
       await tester.tap(find.text('Кафе'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text(categoriesArchiveAction));
+      await tester.pumpAndSettle();
       await tester.tap(find.text(categoriesArchiveAction));
       await tester.pumpAndSettle();
       expect(find.text('Кафе'), findsNothing);

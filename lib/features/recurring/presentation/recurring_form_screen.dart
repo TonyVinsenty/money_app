@@ -364,7 +364,9 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
       ..showSnackBar(
         SnackBar(
           content: TapToDismissSnackContent(
-            child: Text(recurringDeletedMessage(old.title)),
+            child: Text(
+              '${recurringDeletedMessage(old.title)}\n$recurringDeleteNote',
+            ),
           ),
           duration: const Duration(seconds: 6),
           persist: false,
@@ -548,6 +550,22 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
         title: Text(
           widget.editing == null ? recurringFormTitle : recurringFormTitleEdit,
         ),
+        // «Удалить» в шапке, как у операции и перевода (D12). Пояснение
+        // про «Историю» читает скринридер как подсказку.
+        actions: [
+          if (widget.editing != null)
+            Semantics(
+              hint: recurringDeleteNote,
+              child: IconButton(
+                key: RecurringFormScreen.deleteKey,
+                tooltip: recurringFormDelete,
+                color: theme.colorScheme.error,
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                onPressed: _saving ? null : () => unawaited(_delete()),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -752,6 +770,11 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                 ),
               ),
             ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: theme.colorScheme.outlineVariant,
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Column(
@@ -771,27 +794,6 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                     onPressed: _save,
                     child: const Text(recurringFormSave),
                   ),
-                  if (widget.editing != null) ...[
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      key: RecurringFormScreen.deleteKey,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: theme.colorScheme.error,
-                      ),
-                      onPressed: _delete,
-                      child: const Text(recurringFormDelete),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        recurringDeleteNote,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

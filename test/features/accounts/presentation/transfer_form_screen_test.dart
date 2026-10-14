@@ -448,6 +448,32 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('delete icon in the app bar has the error color (D12)', (
+    tester,
+  ) async {
+    final old = Transfer(
+      id: 'old',
+      fromAccountId: 'a1',
+      toAccountId: 'a2',
+      amount: Money.fromMinor(100, 'RUB'),
+      occurredOn: DateOnly(2026, 9, 10),
+      occurredAt: DateTime.utc(2026, 9, 10, 9),
+    );
+    await pumpForm(
+      tester,
+      InMemoryAccountsRepository(threeRub()),
+      InMemoryTransfersRepository([old]),
+      editing: old,
+    );
+    final icon = find
+        .descendant(of: find.byType(AppBar), matching: find.byType(IconButton))
+        .last;
+    expect(
+      tester.widget<IconButton>(icon).color,
+      Theme.of(tester.element(icon)).colorScheme.error,
+    );
+  });
+
   testWidgets('double tap on Delete deletes once', (tester) async {
     final old = Transfer(
       id: 'old',

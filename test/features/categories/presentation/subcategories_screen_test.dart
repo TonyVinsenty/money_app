@@ -160,6 +160,8 @@ Future<void> _archive(WidgetTester tester, String id) async {
   await tester.pumpAndSettle();
   openRealForm = false;
   await _dismissSnackBar(tester);
+  await tester.ensureVisible(find.text(categoriesArchiveAction));
+  await tester.pumpAndSettle();
   await tester.tap(find.text(categoriesArchiveAction));
   await tester.pumpAndSettle();
 }

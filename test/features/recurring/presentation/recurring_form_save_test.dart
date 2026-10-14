@@ -265,15 +265,53 @@ void main() {
   ) async {
     await seed();
     await pumpApp(tester, openRow: 'p1');
-    expect(find.text(recurringDeleteNote), findsOneWidget);
+    // Корзина в шапке цветом ошибки (D12), внизу закреплена только «Сохранить».
+    final trash = tester.widget<IconButton>(
+      find.byKey(RecurringFormScreen.deleteKey),
+    );
+    expect(trash.tooltip, recurringFormDelete);
+    expect(
+      trash.color,
+      Theme.of(tester.element(find.byType(RecurringFormScreen)))
+          .colorScheme
+          .error,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byKey(RecurringFormScreen.deleteKey),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text(recurringDeleteNote), findsNothing);
     await tester.tap(find.byKey(RecurringFormScreen.deleteKey));
     await tester.pumpAndSettle();
     expect(find.byType(RecurringFormScreen), findsNothing);
     expect(find.byKey(RecurringSection.emptyKey), findsOneWidget);
-    expect(find.text('Платёж «Интернет» удалён'), findsOneWidget);
+    // Пояснение для зрячих теперь в сообщении рядом с «Отменить».
+    expect(
+      find.text('Платёж «Интернет» удалён\n$recurringDeleteNote'),
+      findsOneWidget,
+    );
     await tester.tap(find.text(recurringUndo));
     await tester.pumpAndSettle();
     expect(find.byKey(RecurringSection.rowKey('p1')), findsOneWidget);
+  });
+
+  testWidgets('edit at 200 %: one pinned button, nothing else below', (
+    tester,
+  ) async {
+    await seed();
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpApp(tester, openRow: 'p1');
+    expect(find.byType(FilledButton), findsOneWidget);
+    expect(find.byType(OutlinedButton), findsNothing);
+    expect(find.text(recurringDeleteNote), findsNothing);
+    // Блок под прокруткой: «Сохранить» + отступы 8 и 16 dp, без кнопки удаления.
+    final save = tester.getRect(find.byKey(RecurringFormScreen.saveKey));
+    final scroll = tester.getRect(find.byType(SingleChildScrollView));
+    expect(save.top - scroll.bottom, lessThanOrEqualTo(9));
   });
 
   testWidgets('archived category: note is shown until a new one is picked', (

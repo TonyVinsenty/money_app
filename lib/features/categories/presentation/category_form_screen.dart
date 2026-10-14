@@ -7,6 +7,7 @@ import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/runes_length_formatter.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/categories/domain/categories_repository.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -449,9 +450,29 @@ class _CategoryFormScreenState extends State<CategoryFormScreen>
                         },
                       ),
                     ],
+                    // В конце прокрутки, не в закреплённом низу (D12, D45).
+                    if (canArchive)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.l),
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            foregroundColor: theme.colorScheme.error,
+                            minimumSize: const Size(48, 48),
+                          ),
+                          onPressed: _saving
+                              ? null
+                              : () => unawaited(openOnce(_archive)),
+                          child: const Text(categoriesArchiveAction),
+                        ),
+                      ),
                   ],
                 ),
               ),
+            ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: theme.colorScheme.outlineVariant,
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -475,17 +496,6 @@ class _CategoryFormScreenState extends State<CategoryFormScreen>
                     onPressed: _saving ? null : () => unawaited(_save()),
                     child: const Text(categoryFormSaveLabel),
                   ),
-                  if (canArchive)
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.error,
-                        minimumSize: const Size(48, 48),
-                      ),
-                      onPressed: _saving
-                          ? null
-                          : () => unawaited(openOnce(_archive)),
-                      child: const Text(categoriesArchiveAction),
-                    ),
                 ],
               ),
             ),
