@@ -3,6 +3,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
@@ -84,88 +85,80 @@ class ComparisonSection extends StatelessWidget {
     final title = formatMoney(total.current);
     final summary = comparisonSummaryText(total, type, phrase, hidden: hidden);
 
-    return Card.outlined(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: SegmentedButton<TransactionType>(
-                key: typeKey,
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: TransactionType.expense,
-                    label: Text('Расходы'),
-                  ),
-                  ButtonSegment(
-                    value: TransactionType.income,
-                    label: Text('Доходы'),
-                  ),
-                ],
-                selected: {type},
-                onSelectionChanged: onTypeSelected == null
-                    ? null
-                    : (selected) => onTypeSelected(selected.first),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Semantics(
-              container: true,
-              excludeSemantics: true,
-              label:
-                  '${comparisonTotalTitle(type, total.current, spoken: true, hidden: hidden)}. '
-                  '${comparisonSummaryText(total, type, phrase, spoken: true, hidden: hidden)}',
-              child: Column(
-                key: totalKey,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CardHeader(comparisonTotalHeading(type)),
-                  MaskedAmount(title, style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 4),
-                  Text(
-                    summary,
-                    style: theme.textTheme.bodyMedium?.copyWith(color: muted),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (rows.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  comparisonNothingText(type),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(color: muted),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: SegmentedButton<TransactionType>(
+              key: typeKey,
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: TransactionType.expense,
+                  label: Text('Расходы'),
                 ),
-              )
-            else
-              Column(
-                key: listKey,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final row in rows)
-                    _ComparisonRow(
-                      key: rowKey(row.categoryId),
-                      category: byId[row.categoryId],
-                      name: byId[row.categoryId]?.name ?? noCategoryLabel,
-                      change: row,
-                      onTap:
-                          onOpenCategory == null || byId[row.categoryId] == null
-                          ? null
-                          : () => onOpenCategory!(byId[row.categoryId]!),
-                    ),
-                ],
+                ButtonSegment(
+                  value: TransactionType.income,
+                  label: Text('Доходы'),
+                ),
+              ],
+              selected: {type},
+              onSelectionChanged: onTypeSelected == null
+                  ? null
+                  : (selected) => onTypeSelected(selected.first),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Semantics(
+            container: true,
+            excludeSemantics: true,
+            label:
+                '${comparisonTotalTitle(type, total.current, spoken: true, hidden: hidden)}. '
+                '${comparisonSummaryText(total, type, phrase, spoken: true, hidden: hidden)}',
+            child: Column(
+              key: totalKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CardHeader(comparisonTotalHeading(type)),
+                MaskedAmount(title, style: theme.textTheme.titleLarge),
+                const SizedBox(height: 4),
+                Text(
+                  summary,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                comparisonNothingText(type),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(color: muted),
               ),
-          ],
-        ),
+            )
+          else
+            Column(
+              key: listKey,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final row in rows)
+                  _ComparisonRow(
+                    key: rowKey(row.categoryId),
+                    category: byId[row.categoryId],
+                    name: byId[row.categoryId]?.name ?? noCategoryLabel,
+                    change: row,
+                    onTap:
+                        onOpenCategory == null || byId[row.categoryId] == null
+                        ? null
+                        : () => onOpenCategory!(byId[row.categoryId]!),
+                  ),
+              ],
+            ),
+        ],
       ),
     );
   }

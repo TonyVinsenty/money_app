@@ -5,6 +5,7 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_switcher.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
@@ -177,25 +178,10 @@ class MonthSummaryCard extends StatelessWidget {
             ],
           );
 
-    // Внешний отступ у Card по умолчанию 4 dp: обнуляем, чтобы карточка
-    // совпала с отступом экрана. Скругление 16 dp задаём явно (у Card — 12).
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: BorderSide(color: scheme.outlineVariant),
-    );
-    return Card.outlined(
-      margin: EdgeInsets.zero,
-      shape: shape,
-      child: Padding(
-        padding: const EdgeInsets.all(_cardPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _header(title, scheme),
-            const SizedBox(height: 4),
-            columns,
-          ],
-        ),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [_header(title, scheme), const SizedBox(height: 4), columns],
       ),
     );
   }

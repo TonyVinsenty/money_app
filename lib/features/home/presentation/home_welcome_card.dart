@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 
@@ -28,28 +29,20 @@ class HomeWelcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card.outlined(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.borderL,
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.l),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CardHeader(homeWelcomeTitle),
-            Text(homeWelcomeText, style: theme.textTheme.bodyLarge),
-            const SizedBox(height: AppSpacing.m),
-            Text(
-              homeWelcomeImportHint,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const CardHeader(homeWelcomeTitle),
+          Text(homeWelcomeText, style: theme.textTheme.bodyLarge),
+          const SizedBox(height: AppSpacing.m),
+          Text(
+            homeWelcomeImportHint,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

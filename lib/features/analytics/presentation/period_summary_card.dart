@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/ui/amount_switcher.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
@@ -45,54 +46,45 @@ class PeriodSummaryCard extends StatelessWidget {
         ? spokenMoney(balance)
         : 'плюс ${spokenMoney(balance)}';
 
-    // Рамка и скругление 16 dp, как у карточек «Главной» и кольца.
-    return Card.outlined(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Line(
-              key: expenseKey,
-              title: 'Расходы',
-              text: '\u2212${formatMoney(summary.expense)}',
-              spoken: 'минус ${spokenMoney(summary.expense)}',
-              color: colors.expense,
-              stacked: stacked,
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _Line(
+            key: expenseKey,
+            title: 'Расходы',
+            text: '\u2212${formatMoney(summary.expense)}',
+            spoken: 'минус ${spokenMoney(summary.expense)}',
+            color: colors.expense,
+            stacked: stacked,
+          ),
+          const SizedBox(height: 12),
+          _Line(
+            key: incomeKey,
+            title: 'Доходы',
+            text: '+${formatMoney(summary.income)}',
+            spoken: 'плюс ${spokenMoney(summary.income)}',
+            color: colors.income,
+            stacked: stacked,
+          ),
+          const SizedBox(height: 12),
+          _Line(
+            key: balanceKey,
+            title: 'Баланс',
+            text: balanceText,
+            spoken: balanceSpoken,
+            color: balanceColor,
+            stacked: stacked,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Операций: ${summary.count}',
+            key: countKey,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 12),
-            _Line(
-              key: incomeKey,
-              title: 'Доходы',
-              text: '+${formatMoney(summary.income)}',
-              spoken: 'плюс ${spokenMoney(summary.income)}',
-              color: colors.income,
-              stacked: stacked,
-            ),
-            const SizedBox(height: 12),
-            _Line(
-              key: balanceKey,
-              title: 'Баланс',
-              text: balanceText,
-              spoken: balanceSpoken,
-              color: balanceColor,
-              stacked: stacked,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Операций: ${summary.count}',
-              key: countKey,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

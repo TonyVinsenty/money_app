@@ -7,6 +7,7 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_labels.dart';
@@ -183,7 +184,6 @@ class _MonthChartCardState extends State<MonthChartCard> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final body = AsyncView<_MonthData>(
       stream: _data,
       errorBuilder: _error,
@@ -194,22 +194,14 @@ class _MonthChartCardState extends State<MonthChartCard> {
             _content(context, data, categories),
       ),
     );
-    return Card.outlined(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: scheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(_cardPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const CardHeader('Расходы по категориям', centered: true),
-            // Кольцо по центру оставшейся высоты, легенда прижата к низу.
-            Expanded(child: body),
-          ],
-        ),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const CardHeader('Расходы по категориям', centered: true),
+          // Кольцо по центру оставшейся высоты, легенда прижата к низу.
+          Expanded(child: body),
+        ],
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
@@ -18,8 +19,7 @@ import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
-/// Внутренний отступ карточки и границы размера кольца, dp.
-const double _cardPadding = 16;
+/// Границы размера кольца, dp.
 const double _minRing = 160;
 const double _maxRing = 320;
 
@@ -111,61 +111,53 @@ class _CategoryBreakdownCardState extends State<CategoryBreakdownCard> {
     final open = widget.onOpenCategory;
     final onTypeSelected = widget.onTypeSelected;
 
-    return Card.outlined(
+    return AppCard(
       key: CategoryBreakdownCard.cardKey,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(_cardPadding),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final side = constraints.maxWidth.clamp(_minRing, _maxRing);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: SegmentedButton<TransactionType>(
-                    key: CategoryBreakdownCard.typeKey,
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(
-                        value: TransactionType.expense,
-                        label: Text('Расходы'),
-                      ),
-                      ButtonSegment(
-                        value: TransactionType.income,
-                        label: Text('Доходы'),
-                      ),
-                    ],
-                    selected: {type},
-                    onSelectionChanged: onTypeSelected == null
-                        ? null
-                        : (selected) => onTypeSelected(selected.first),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (totals.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      isExpense
-                          ? 'За этот период расходов нет'
-                          : 'За этот период доходов нет',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final side = constraints.maxWidth.clamp(_minRing, _maxRing);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: SegmentedButton<TransactionType>(
+                  key: CategoryBreakdownCard.typeKey,
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: TransactionType.expense,
+                      label: Text('Расходы'),
                     ),
-                  )
-                else
-                  ..._chart(context, totals, byId, side, open),
-              ],
-            );
-          },
-        ),
+                    ButtonSegment(
+                      value: TransactionType.income,
+                      label: Text('Доходы'),
+                    ),
+                  ],
+                  selected: {type},
+                  onSelectionChanged: onTypeSelected == null
+                      ? null
+                      : (selected) => onTypeSelected(selected.first),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (totals.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    isExpense
+                        ? 'За этот период расходов нет'
+                        : 'За этот период доходов нет',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              else
+                ..._chart(context, totals, byId, side, open),
+            ],
+          );
+        },
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
@@ -79,68 +80,60 @@ class OperationsSection extends StatelessWidget {
     final best = mostFrequentCategory(known.isEmpty ? stats : known);
     final onOpenCategory = this.onOpenCategory;
 
-    final topCard = Card.outlined(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: SegmentedButton<TransactionType>(
-                key: typeKey,
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: TransactionType.expense,
-                    label: Text('Расходы'),
-                  ),
-                  ButtonSegment(
-                    value: TransactionType.income,
-                    label: Text('Доходы'),
-                  ),
-                ],
-                selected: {type},
-                onSelectionChanged: onTypeSelected == null
-                    ? null
-                    : (selected) => onTypeSelected(selected.first),
-              ),
-            ),
-            const SizedBox(height: 12),
-            CardHeader(operationsTopTitle(type)),
-            if (top.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  comparisonNothingText(type),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(color: muted),
+    final topCard = AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: SegmentedButton<TransactionType>(
+              key: typeKey,
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: TransactionType.expense,
+                  label: Text('Расходы'),
                 ),
-              )
-            else
-              Column(
-                key: listKey,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final t in top)
-                    _OperationRow(
-                      key: rowKey(t.id),
-                      transaction: t,
-                      category: byId[t.categoryId],
-                      subcategory: t.subcategoryId == null
-                          ? null
-                          : byId[t.subcategoryId],
-                      today: today,
-                      onTap: onOpen == null ? null : () => onOpen(t),
-                    ),
-                ],
+                ButtonSegment(
+                  value: TransactionType.income,
+                  label: Text('Доходы'),
+                ),
+              ],
+              selected: {type},
+              onSelectionChanged: onTypeSelected == null
+                  ? null
+                  : (selected) => onTypeSelected(selected.first),
+            ),
+          ),
+          const SizedBox(height: 12),
+          CardHeader(operationsTopTitle(type)),
+          if (top.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text(
+                comparisonNothingText(type),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(color: muted),
               ),
-          ],
-        ),
+            )
+          else
+            Column(
+              key: listKey,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final t in top)
+                  _OperationRow(
+                    key: rowKey(t.id),
+                    transaction: t,
+                    category: byId[t.categoryId],
+                    subcategory: t.subcategoryId == null
+                        ? null
+                        : byId[t.subcategoryId],
+                    today: today,
+                    onTap: onOpen == null ? null : () => onOpen(t),
+                  ),
+              ],
+            ),
+        ],
       ),
     );
     // Нет «крупных» (все суммы нулевые) - второй карточки нет.
@@ -156,37 +149,29 @@ class OperationsSection extends StatelessWidget {
       children: [
         topCard,
         const SizedBox(height: 16),
-        Card.outlined(
+        AppCard(
           key: frequencyKey,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CardHeader(operationsFrequencyTitle(type)),
-                Text(
-                  operationsMostFrequentText(
-                    byId[best.categoryId]?.name ?? noCategoryLabel,
-                    best.count,
-                  ),
-                  key: mostFrequentKey,
-                  style: theme.textTheme.bodyLarge,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              CardHeader(operationsFrequencyTitle(type)),
+              Text(
+                operationsMostFrequentText(
+                  byId[best.categoryId]?.name ?? noCategoryLabel,
+                  best.count,
                 ),
-                const SizedBox(height: 8),
-                for (final s in stats)
-                  _StatRow(
-                    key: statKey(s.categoryId),
-                    category: byId[s.categoryId],
-                    stat: s,
-                    onTap: openOf(s.categoryId),
-                  ),
-              ],
-            ),
+                key: mostFrequentKey,
+                style: theme.textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 8),
+              for (final s in stats)
+                _StatRow(
+                  key: statKey(s.categoryId),
+                  category: byId[s.categoryId],
+                  stat: s,
+                  onTap: openOf(s.categoryId),
+                ),
+            ],
           ),
         ),
       ],

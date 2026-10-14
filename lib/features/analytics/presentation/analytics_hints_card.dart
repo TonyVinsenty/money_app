@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
@@ -65,47 +66,39 @@ class AnalyticsHintsCard extends StatelessWidget {
       child: Semantics(
         container: true,
         label: analyticsHintsTitle,
-        child: Card.outlined(
+        child: AppCard(
           key: cardKey,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ExcludeSemantics(
-                  child: Icon(
-                    Icons.lightbulb_outline,
-                    color: theme.colorScheme.primary,
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ExcludeSemantics(
+                child: Icon(
+                  Icons.lightbulb_outline,
+                  color: theme.colorScheme.primary,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var i = 0; i < hints.length; i++) ...[
-                        if (i > 0) const SizedBox(height: 8),
-                        Semantics(
-                          container: true,
-                          label: text(hints[i], true),
-                          excludeSemantics: true,
-                          child: Text(
-                            text(hints[i], false),
-                            key: lineKey(i),
-                            style: theme.textTheme.bodyMedium,
-                          ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < hints.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      Semantics(
+                        container: true,
+                        label: text(hints[i], true),
+                        excludeSemantics: true,
+                        child: Text(
+                          text(hints[i], false),
+                          key: lineKey(i),
+                          style: theme.textTheme.bodyMedium,
                         ),
-                      ],
+                      ),
                     ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

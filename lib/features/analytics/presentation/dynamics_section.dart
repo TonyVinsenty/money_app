@@ -5,6 +5,7 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/bar_chart.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
@@ -351,56 +352,47 @@ class _DynamicsSectionState extends State<DynamicsSection> {
       );
     }
 
-    return Card.outlined(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: SegmentedButton<TransactionType>(
-                key: DynamicsSection.typeKey,
-                showSelectedIcon: false,
-                segments: const [
-                  ButtonSegment(
-                    value: TransactionType.expense,
-                    label: Text('Расходы'),
-                  ),
-                  ButtonSegment(
-                    value: TransactionType.income,
-                    label: Text('Доходы'),
-                  ),
-                ],
-                selected: {type},
-                onSelectionChanged: onTypeSelected == null
-                    ? null
-                    : (selected) => onTypeSelected(selected.first),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: SegmentedButton<TransactionType>(
+              key: DynamicsSection.typeKey,
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(
+                  value: TransactionType.expense,
+                  label: Text('Расходы'),
+                ),
+                ButtonSegment(
+                  value: TransactionType.income,
+                  label: Text('Доходы'),
+                ),
+              ],
+              selected: {type},
+              onSelectionChanged: onTypeSelected == null
+                  ? null
+                  : (selected) => onTypeSelected(selected.first),
+            ),
+          ),
+          if (step != BucketStep.none && widget.onCategorySelected != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _CategoryChip(
+                selected: selected,
+                onPressed: () => _pickCategory(options, selected),
               ),
             ),
-            if (step != BucketStep.none &&
-                widget.onCategorySelected != null) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _CategoryChip(
-                  selected: selected,
-                  onPressed: () => _pickCategory(options, selected),
-                ),
-              ),
-            ],
-            if (step != BucketStep.none) ...[
-              const SizedBox(height: 12),
-              CardHeader(dynamicsTitle(type, step)),
-            ] else
-              const SizedBox(height: 8),
-            body,
           ],
-        ),
+          if (step != BucketStep.none) ...[
+            const SizedBox(height: 12),
+            CardHeader(dynamicsTitle(type, step)),
+          ] else
+            const SizedBox(height: 8),
+          body,
+        ],
       ),
     );
   }
