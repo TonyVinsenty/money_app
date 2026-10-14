@@ -97,7 +97,7 @@ void main() {
       find.byKey(DynamicsSection.chartKey),
     );
     expect(widget.zeroLabel, isNotNull);
-    expect(widget.midLabel, '5${_nbsp}000,00$_nbsp₽');
+    expect(widget.midLabel, '5${_nbsp}000');
   });
 
   testWidgets('высокий экран: график 280 dp', (tester) async {
@@ -114,7 +114,7 @@ void main() {
     // Верх шкалы: «круглое» число не меньше 5400 рублей (5400 > 5000, значит 10 000).
     expect(
       tester.widget<BarChart>(find.byType(BarChart)).topLabel,
-      '10${_nbsp}000,00$_nbsp₽',
+      '10$_nbspтыс.',
     );
   });
 

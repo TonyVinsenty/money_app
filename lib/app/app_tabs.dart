@@ -620,6 +620,7 @@ class _AnalyticsTabState extends State<AnalyticsTab> {
         currency: _currency!,
         hasOtherCurrencies: _hasOther,
         currencySymbol: AppScope.of(context).settings.mainCurrency.symbol,
+        onAddExpense: () => openQuickAdd(context, TransactionType.expense),
       ),
     );
   }

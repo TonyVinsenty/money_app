@@ -42,6 +42,7 @@ Future<void> _pump(
   ValueChanged<AnalyticsSection>? onSection,
   double width = 360,
   double? tabFontSize,
+  VoidCallback? onAddExpense,
 }) async {
   tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1;
@@ -68,6 +69,7 @@ Future<void> _pump(
           onCustomRangeSelected: onCustom,
           section: section,
           onSectionSelected: onSection,
+          onAddExpense: onAddExpense,
           today: _today,
           onKindSelected: onKindSelected ?? (_) {},
           onPrevious: onPrevious,
@@ -585,6 +587,33 @@ void main() {
       expect(find.text('За этот период операций нет'), findsOneWidget);
       expect(find.textContaining('Операций пока нет'), findsNothing);
       expect(find.byType(PeriodSummaryCard), findsNothing);
+      expect(
+        find.text('Выберите другой период стрелками вверху'),
+        findsOneWidget,
+      );
+      expect(find.text('Добавить расход'), findsNothing);
+      final icon = tester.widget<Icon>(find.byIcon(Icons.bar_chart_rounded));
+      expect(icon.size, 48);
+    });
+
+    testWidgets('пустая база: кнопка «Добавить расход» зовёт быстрый ввод', (
+      tester,
+    ) async {
+      var taps = 0;
+      await _pump(
+        tester,
+        firstDayKnown: true,
+        transactions: data(const []),
+        onAddExpense: () => taps++,
+      );
+      await tester.pump();
+
+      expect(
+        find.text('Выберите другой период стрелками вверху'),
+        findsNothing,
+      );
+      await tester.tap(find.text('Добавить расход'));
+      expect(taps, 1);
     });
 
     testWidgets('операции периода сравнения не попадают в итоги и кольцо', (

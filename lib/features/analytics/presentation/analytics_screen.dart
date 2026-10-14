@@ -97,8 +97,13 @@ class AnalyticsScreen extends StatelessWidget {
     this.currency = rubCurrencyCode,
     this.hasOtherCurrencies,
     this.currencySymbol = '₽',
+    this.onAddExpense,
     super.key,
   });
+
+  /// «Добавить расход» в пустой «Аналитике»: куда ведёт, решает приложение
+  /// (быстрый ввод); без колбэка кнопки нет.
+  final VoidCallback? onAddExpense;
 
   /// Есть ли операции в других валютах (подсказка в пустом периоде);
   /// `null` — подсказки нет.
@@ -223,6 +228,7 @@ class AnalyticsScreen extends StatelessWidget {
             noOperationsAtAll: firstDayKnown && firstDay == null,
             hasOtherCurrencies: hasOtherCurrencies,
             symbol: currencySymbol,
+            onAddExpense: onAddExpense,
           ),
           dataBuilder: (context, data) => section == AnalyticsSection.dynamics
               ? AsyncView<List<Category>>(
@@ -421,7 +427,11 @@ class _EmptyPeriod extends StatelessWidget {
     required this.noOperationsAtAll,
     required this.hasOtherCurrencies,
     required this.symbol,
+    required this.onAddExpense,
   });
+
+  /// Кнопка «Добавить расход» при пустой базе; `null` — кнопки нет.
+  final VoidCallback? onAddExpense;
 
   /// Операций нет вообще (а не только в этом периоде).
   final bool noOperationsAtAll;
@@ -431,19 +441,36 @@ class _EmptyPeriod extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final add = onAddExpense;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
       child: Column(
         children: [
+          Icon(Icons.bar_chart_rounded, size: 48, color: muted),
+          const SizedBox(height: AppSpacing.m),
           Text(
             noOperationsAtAll
                 ? 'Операций пока нет. Добавьте первую — и здесь появится статистика'
                 : 'За этот период операций нет',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: theme.textTheme.bodyLarge?.copyWith(color: muted),
           ),
+          if (!noOperationsAtAll) ...[
+            const SizedBox(height: AppSpacing.s),
+            Text(
+              'Выберите другой период стрелками вверху',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+            ),
+          ] else if (add != null) ...[
+            const SizedBox(height: AppSpacing.l),
+            FilledButton.icon(
+              onPressed: add,
+              icon: const Icon(Icons.add),
+              label: const Text('Добавить расход'),
+            ),
+          ],
           OtherCurrenciesHint(hasOther: hasOtherCurrencies, symbol: symbol),
         ],
       ),

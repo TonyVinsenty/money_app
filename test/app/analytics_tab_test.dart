@@ -31,6 +31,7 @@ import 'package:money_app/features/settings/presentation/app_settings_controller
 import 'package:money_app/features/transactions/domain/history_view.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
 import '../support/fake_id_generator.dart';
 import '../support/fakes.dart';
@@ -179,6 +180,17 @@ void main() {
 
     expect(find.text('Октябрь 2026'), findsOneWidget);
     expect(find.text(tabInDevelopmentLabel), findsNothing);
+  });
+
+  testWidgets('пустая база: «Добавить расход» открывает ввод расхода', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    await tester.tap(find.text('Добавить расход'));
+    await tester.pumpAndSettle();
+    final quickAdd = tester.widget<QuickAddScreen>(find.byType(QuickAddScreen));
+    expect(quickAdd.type, TransactionType.expense);
   });
 
   testWidgets('«Неделя» показывает подпись недели', (tester) async {

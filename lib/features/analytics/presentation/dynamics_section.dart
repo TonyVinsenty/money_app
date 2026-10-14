@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:money_app/core/format/axis_tick.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/money/money.dart';
@@ -259,10 +260,10 @@ class _DynamicsSectionState extends State<DynamicsSection> {
             height: math.min(280, MediaQuery.sizeOf(context).height * 0.4),
             zeroLabel: hidden
                 ? maskedMoneyText
-                : formatMoney(Money.fromMinor(0, widget.currency)),
+                : formatAxisTick(Money.fromMinor(0, widget.currency)),
             midLabel: hidden
                 ? maskedMoneyText
-                : formatMoney(
+                : formatAxisTick(
                     Money.fromMinor(
                       barScaleValues(weights, average?.minorUnits)[1],
                       widget.currency,
@@ -270,7 +271,7 @@ class _DynamicsSectionState extends State<DynamicsSection> {
                   ),
             topLabel: hidden
                 ? maskedMoneyText
-                : formatMoney(
+                : formatAxisTick(
                     Money.fromMinor(
                       barChartCeiling(weights, average?.minorUnits),
                       widget.currency,
