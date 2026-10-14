@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 
@@ -54,6 +55,18 @@ abstract final class AppTheme {
     insetPadding: EdgeInsets.fromLTRB(16, 0, 16, 8),
   );
 
+  /// Строка состояния для темы: тёмные значки на светлой теме, светлые на
+  /// тёмной. Android читает `statusBarIconBrightness`, iOS — `statusBarBrightness`
+  /// (там он означает яркость самого фона, поэтому совпадает с темой).
+  static SystemUiOverlayStyle overlayStyle(Brightness brightness) {
+    final isLight = brightness == Brightness.light;
+    return SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: isLight ? Brightness.dark : Brightness.light,
+      statusBarBrightness: brightness,
+    );
+  }
+
   /// [platform] — для тестов; по умолчанию платформа устройства.
   static ThemeData light({TargetPlatform? platform}) =>
       _build(Brightness.light, AppColors.light, platform);
@@ -82,6 +95,17 @@ abstract final class AppTheme {
       // почти не видна).
       cardTheme: const CardThemeData(elevation: 0, shape: _cardShape),
       inputDecorationTheme: _inputTheme(base.colorScheme),
+      // Шапка не голубеет при прокрутке (без оттенка и подъёма), значки
+      // строки состояния — по теме.
+      appBarTheme: AppBarTheme(
+        backgroundColor: base.colorScheme.surface,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: overlayStyle(brightness),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        rangePickerHeaderBackgroundColor: base.colorScheme.surface,
+      ),
       snackBarTheme: snackBarTheme,
       popupMenuTheme: PopupMenuThemeData(
         shape: _menuShape,

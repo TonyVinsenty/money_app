@@ -191,6 +191,30 @@ void main() {
     }
   });
 
+  group('шапки и строка состояния (8.2)', () {
+    for (final entry in themes.entries) {
+      test('${entry.key} тема: шапка без оттенка и подъёма, фон surface', () {
+        final bar = entry.value.appBarTheme;
+        expect(bar.surfaceTintColor, Colors.transparent);
+        expect(bar.scrolledUnderElevation, 0);
+        expect(bar.backgroundColor, entry.value.colorScheme.surface);
+        expect(
+          entry.value.datePickerTheme.rangePickerHeaderBackgroundColor,
+          entry.value.colorScheme.surface,
+        );
+      });
+    }
+
+    test('светлая тема: тёмные значки; тёмная: светлые', () {
+      final light = AppTheme.light().appBarTheme.systemOverlayStyle!;
+      expect(light.statusBarIconBrightness, Brightness.dark);
+      expect(light.statusBarBrightness, Brightness.light);
+      final dark = AppTheme.dark().appBarTheme.systemOverlayStyle!;
+      expect(dark.statusBarIconBrightness, Brightness.light);
+      expect(dark.statusBarBrightness, Brightness.dark);
+    });
+  });
+
   group('сообщения и меню (8.1)', () {
     for (final entry in themes.entries) {
       test('${entry.key} тема: сообщение плавающее, радиус 12, зазор 8', () {

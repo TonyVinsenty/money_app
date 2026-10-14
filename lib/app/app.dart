@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:money_app/app/app_routes.dart';
 import 'package:money_app/app/app_scope.dart';
@@ -86,9 +87,13 @@ class MoneyApp extends StatelessWidget {
             SnackBarDismissObserver(),
           ],
           // «Скрыть суммы» — над навигатором, то есть над всеми экранами.
-          builder: (context, child) => AmountsVisibility(
-            hidden: settings.hideAmounts,
-            child: child ?? const SizedBox.shrink(),
+          // Строка состояния по теме: «Баланс» и «Настройки» без AppBar.
+          builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+            value: AppTheme.overlayStyle(Theme.of(context).brightness),
+            child: AmountsVisibility(
+              hidden: settings.hideAmounts,
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
           home: DatabaseGate(
             open: _openAndLoadSettings,
