@@ -3,6 +3,7 @@ import 'package:money_app/core/format/date_format.dart';
 import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
@@ -138,13 +139,7 @@ class AccountTransfersList extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 24),
-            Semantics(
-              header: true,
-              child: Text(
-                transfersSectionTitle,
-                style: theme.textTheme.titleMedium,
-              ),
-            ),
+            const CardHeader(transfersSectionTitle),
             ...children,
           ],
         );

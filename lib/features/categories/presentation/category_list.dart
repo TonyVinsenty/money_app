@@ -286,16 +286,14 @@ class _CategoryRow extends StatelessWidget {
                     child: Row(
                       children: [
                         CategoryAvatar(category.iconKey, name: category.name),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 category.name,
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: theme.textTheme.bodyLarge,
                               ),
                               if (count != null && count > 0)
                                 Text(
@@ -328,13 +326,6 @@ class _CategoryRow extends StatelessWidget {
                 ),
             ],
           ),
-        ),
-        // Разделитель: отступ 40 dp плюс 16 dp полей даёт линию от начала имени.
-        Divider(
-          height: 1,
-          indent: 56,
-          endIndent: 16,
-          color: theme.colorScheme.outlineVariant,
         ),
       ],
     );

@@ -4,9 +4,11 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
+import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/account_transfers_list.dart';
 
 Account _acc(String id, String name, {int digits = 2}) => Account(
@@ -74,6 +76,16 @@ void main() {
       amount.style!.fontFeatures,
       contains(const FontFeature.tabularFigures()),
     );
+  });
+
+  testWidgets('section title is a CardHeader with weight 600', (tester) async {
+    await _pump(tester, 500000, 1);
+    final header = find.byType(CardHeader);
+    expect(header, findsOneWidget);
+    final title = tester.widget<Text>(
+      find.descendant(of: header, matching: find.text(transfersSectionTitle)),
+    );
+    expect(title.style?.fontWeight, FontWeight.w600);
   });
 
   testWidgets('long amount at 200% on 360 dp: no overflow', (tester) async {

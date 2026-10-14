@@ -6,6 +6,7 @@ import 'package:flutter/semantics.dart'
 import 'package:flutter/services.dart' show SystemChannels;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/app/app.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -297,30 +298,23 @@ void main() {
     expect(renamed.map((c) => c.id), ['cafe']);
   });
 
-  testWidgets('между строками категорий виден разделитель, отступ 56 dp и цвет '
-      'outlineVariant', (tester) async {
+  testWidgets('в списке категорий нет разделителей, зазор аватар-текст 12 dp, '
+      'название обычного веса', (tester) async {
     await _pump(tester, _fixture());
 
-    final divider = find.descendant(
-      of: find.byKey(const ValueKey<String>('cafe')),
-      matching: find.byType(Divider),
-    );
-    expect(divider, findsOneWidget);
-    final widget = tester.widget<Divider>(divider);
-    expect(widget.indent, 56);
-    final outline = Theme.of(tester.element(find.byType(CategoriesScreen)))
-        .colorScheme
-        .outlineVariant;
-    expect(widget.color, outline);
-    // Разделитель стоит под названием «Кафе» и над следующей строкой.
+    final row = find.byKey(const ValueKey<String>('cafe'));
     expect(
-      tester.getCenter(divider).dy,
-      greaterThan(tester.getCenter(inCafe(find.text('Кафе'))).dy),
+      find.descendant(of: row, matching: find.byType(Divider)),
+      findsNothing,
     );
-    expect(
-      tester.getCenter(divider).dy,
-      lessThan(tester.getCenter(find.text('Транспорт')).dy),
+    final avatar = find.descendant(
+      of: row,
+      matching: find.byType(CategoryAvatar),
     );
+    final name = inCafe(find.text('Кафе'));
+    expect(tester.getTopLeft(name).dx - tester.getTopRight(avatar).dx, 12);
+    final style = tester.widget<Text>(name).style;
+    expect(style?.fontWeight, isNot(FontWeight.w500));
   });
 
   group('подкатегории в строке', () {
