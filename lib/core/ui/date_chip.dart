@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/date_wheel_sheet.dart';
 
 /// Самый ранний день, который можно выбрать в календаре.
 final DateOnly dateChipFirstDay = DateOnly(2000, 1, 1);
@@ -25,15 +26,14 @@ class DateChip extends StatelessWidget {
   final ValueChanged<DateOnly> onChanged;
 
   Future<void> _pick(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: value.toDateTime(),
-      firstDate: dateChipFirstDay.toDateTime(),
-      lastDate: today.toDateTime(),
+    final picked = await pickDate(
+      context,
+      initial: value,
+      first: dateChipFirstDay,
+      last: today,
+      today: today,
     );
-    if (picked != null) {
-      onChanged(DateOnly.fromDateTime(picked));
-    }
+    if (picked != null) onChanged(picked);
   }
 
   @override

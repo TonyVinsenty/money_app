@@ -9,6 +9,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/amount_field.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/date_wheel_sheet.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/option_sheet.dart';
 import 'package:money_app/core/ui/picker_field.dart';
@@ -251,13 +252,13 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
   }
 
   Future<DateOnly?> _pickDate(DateOnly initial, DateOnly first) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial.toDateTime(),
-      firstDate: first.toDateTime(),
-      lastDate: DateTime(9999, 12, 31),
+    return pickDate(
+      context,
+      initial: initial,
+      first: first,
+      last: DateOnly(9999, 12, 31),
+      today: widget.today,
     );
-    return picked == null ? null : DateOnly.fromDateTime(picked);
   }
 
   Future<void> _pickFirst() async {
