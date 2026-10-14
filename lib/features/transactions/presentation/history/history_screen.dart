@@ -35,6 +35,9 @@ final String _minusSign = String.fromCharCode(0x2212);
 const historyEmptyTitle = 'Здесь будут все ваши доходы и расходы';
 const historyAddExpenseLabel = 'Добавить расход';
 
+/// Ключ линии под полосой «Фильтр» (есть, только когда список прокручен).
+const Key historyScrolledDividerKey = ValueKey('history-scrolled-divider');
+
 /// Ключ заглушки-скелетона: по нему тесты отличают «ещё грузится» от «пусто».
 const Key historySkeletonKey = ValueKey('history-skeleton');
 
@@ -159,6 +162,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     text: widget.searchQuery,
   );
 
+  /// Список прокручен вниз от начала: под полосой «Фильтр» тогда видна линия.
+  final ValueNotifier<bool> _scrolled = ValueNotifier(false);
+
   bool get _searching => normalizeHistorySearch(widget.searchQuery).isNotEmpty;
 
   void _clearSearch() {
@@ -203,6 +209,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void dispose() {
     unawaited(_accountsSub?.cancel());
     _filter.dispose();
+    _scrolled.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -283,6 +290,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               // В пустом результате своя крупная «Сбросить фильтр»: вторая
               // кнопка в полоске лишняя.
               bool stripReset = true,
+              // Под полосой линия, когда список прокручен (D34).
+              bool scrolledDivider = false,
             }) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -312,6 +321,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 if ((widget.filter.isActive || _searching) && total != null)
                   _FilteredTotal(shown: total),
+                if (scrolledDivider) _ScrolledDivider(scrolled: _scrolled),
                 Expanded(child: content),
               ],
             );
@@ -372,9 +382,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 today: widget.today,
                 byAmount: _byAmount(widget.sort),
                 onTransactionTap: widget.onTransactionTap,
+                scrolled: _scrolled,
               ),
               showSort: true,
               total: shown,
+              scrolledDivider: true,
             );
           },
         );
@@ -422,14 +434,42 @@ String _shortDayLabel(DateOnly day, DateOnly today) {
   return day.year == today.year ? formatDayMonth(day) : formatDate(day);
 }
 
-class _HistoryList extends StatelessWidget {
+/// Линия 1 dp `outlineVariant` под полосой «Фильтр»: видна, только когда
+/// список прокручен. Место под неё занято всегда, чтобы список не прыгал.
+class _ScrolledDivider extends StatelessWidget {
+  const _ScrolledDivider({required this.scrolled});
+
+  final ValueNotifier<bool> scrolled;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: scrolled,
+      builder: (context, on, _) => SizedBox(
+        height: 1,
+        child: on
+            ? ColoredBox(
+                key: historyScrolledDividerKey,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              )
+            : null,
+      ),
+    );
+  }
+}
+
+class _HistoryList extends StatefulWidget {
   const _HistoryList({
     required this.transactions,
     required this.categoriesById,
     required this.today,
     required this.byAmount,
     required this.onTransactionTap,
+    required this.scrolled,
   });
+
+  /// Сюда список сообщает, прокручен ли он от начала.
+  final ValueNotifier<bool> scrolled;
 
   final List<Transaction> transactions;
   final Map<String, Category> categoriesById;
@@ -440,7 +480,26 @@ class _HistoryList extends StatelessWidget {
   final ValueChanged<Transaction> onTransactionTap;
 
   @override
+  State<_HistoryList> createState() => _HistoryListState();
+}
+
+class _HistoryListState extends State<_HistoryList> {
+  @override
+  void initState() {
+    super.initState();
+    // Новый список начинается сверху: линии нет (после кадра, не в build).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.scrolled.value = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final transactions = widget.transactions;
+    final categoriesById = widget.categoriesById;
+    final today = widget.today;
+    final byAmount = widget.byAmount;
+    final onTransactionTap = widget.onTransactionTap;
     // Плоский список: заголовок дня (DateOnly) и строки операций (Transaction).
     // Заголовки идут в порядке списка (при «Сначала старые» — по возрастанию).
     final items = <Object>[];
@@ -453,49 +512,58 @@ class _HistoryList extends StatelessWidget {
       items.add(t);
     }
 
-    return ListView.builder(
-      padding: withBottomInset(
-        context,
-        const EdgeInsets.only(bottom: AppSpacing.l),
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        if (item is DateOnly) {
-          return _DayHeader(label: historyDayLabel(item, today: today));
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+          final on = n.metrics.pixels > 0;
+          if (widget.scrolled.value != on) widget.scrolled.value = on;
         }
-        final t = item as Transaction;
-        final category = categoriesById[t.categoryId];
-        final subcategory = t.subcategoryId == null
-            ? null
-            : categoriesById[t.subcategoryId];
-        final title = _title(category, subcategory);
-        final dayText = byAmount
-            ? _shortDayLabel(t.occurredOn, today)
-            : historyDayLabel(t.occurredOn, today: today);
-        final isIncome = t.type == TransactionType.income;
-        final note = t.note;
-        // Сводная подпись для скринридера: тип, сумма словами, категория, день
-        // и комментарий одной фразой.
-        final label = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
-          ..write(maskedSpoken(context, spokenMoney(t.amount)))
-          ..write(', $title, $dayText');
-        if (note != null) label.write(', комментарий: $note');
-        // Вторая строка: при сортировке по сумме - «день · комментарий».
-        final subtitle = byAmount
-            ? (note == null ? dayText : '$dayText · $note')
-            : note;
-        return OperationTile(
-          title: title,
-          subtitle: subtitle,
-          amount: t.amount,
-          isIncome: isIncome,
-          iconKey: category?.iconKey,
-          categoryName: category?.name,
-          semanticLabel: label.toString(),
-          onTap: () => onTransactionTap(t),
-        );
+        return false;
       },
+      child: ListView.builder(
+        padding: withBottomInset(
+          context,
+          const EdgeInsets.only(bottom: AppSpacing.l),
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          if (item is DateOnly) {
+            return _DayHeader(label: historyDayLabel(item, today: today));
+          }
+          final t = item as Transaction;
+          final category = categoriesById[t.categoryId];
+          final subcategory = t.subcategoryId == null
+              ? null
+              : categoriesById[t.subcategoryId];
+          final title = _title(category, subcategory);
+          final dayText = byAmount
+              ? _shortDayLabel(t.occurredOn, today)
+              : historyDayLabel(t.occurredOn, today: today);
+          final isIncome = t.type == TransactionType.income;
+          final note = t.note;
+          // Сводная подпись для скринридера: тип, сумма словами, категория, день
+          // и комментарий одной фразой.
+          final label = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
+            ..write(maskedSpoken(context, spokenMoney(t.amount)))
+            ..write(', $title, $dayText');
+          if (note != null) label.write(', комментарий: $note');
+          // Вторая строка: при сортировке по сумме - «день · комментарий».
+          final subtitle = byAmount
+              ? (note == null ? dayText : '$dayText · $note')
+              : note;
+          return OperationTile(
+            title: title,
+            subtitle: subtitle,
+            amount: t.amount,
+            isIncome: isIncome,
+            iconKey: category?.iconKey,
+            categoryName: category?.name,
+            semanticLabel: label.toString(),
+            onTap: () => onTransactionTap(t),
+          );
+        },
+      ),
     );
   }
 

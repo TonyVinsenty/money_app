@@ -163,7 +163,8 @@ void main() {
   testWidgets('заголовок карточки - CardHeader: по центру, titleMedium, 600', (
     tester,
   ) async {
-    await _pump(tester);
+    // В пустом месяце заголовка нет (D15), поэтому месяц с операцией.
+    await _pump(tester, transactions: Stream.value([_income(5000)]));
     expect(find.byType(CardHeader), findsOneWidget);
     final title = tester.widget<Text>(find.text('Расходы по категориям'));
     expect(title.textAlign, TextAlign.center);
@@ -196,8 +197,15 @@ void main() {
   ) async {
     await _pump(tester);
 
-    expect(find.text('Расходы по категориям'), findsOneWidget);
+    // D15: без заголовка, «пока нет» один раз, карточка по высоте текста.
+    expect(find.text('Расходы по категориям'), findsNothing);
+    expect(find.byType(CardHeader), findsNothing);
+    expect(find.textContaining('пока нет'), findsOneWidget);
     expect(find.text('В сентябре операций пока нет'), findsOneWidget);
+    final cardHeight = tester.getSize(find.byType(Card)).height;
+    expect(cardHeight, lessThan(100));
+    final text = tester.getCenter(find.text('В сентябре операций пока нет'));
+    expect(text.dx, closeTo(tester.getCenter(find.byType(Card)).dx, 0.5));
     expect(find.byType(DonutChart), findsNothing);
     expect(find.text(_money(0)), findsNothing);
     final colors = tester.element(find.byType(MonthChartCard)).appColors;

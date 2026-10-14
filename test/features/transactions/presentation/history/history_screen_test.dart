@@ -476,4 +476,33 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('линия под «Фильтр»: нет вверху списка, есть после прокрутки', (
+    tester,
+  ) async {
+    final list = [
+      for (var i = 0; i < 40; i++) _tx('t$i', _today, minor: 100 + i),
+    ];
+    await tester.pumpWidget(_app(transactions: Stream.value(list)));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(historyScrolledDividerKey), findsNothing);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.pump();
+    expect(find.byKey(historyScrolledDividerKey), findsOneWidget);
+    final line = tester.getSize(find.byKey(historyScrolledDividerKey));
+    expect(line.height, 1);
+    final scheme = Theme.of(tester.element(find.byType(ListView))).colorScheme;
+    expect(
+      tester.widget<ColoredBox>(find.byKey(historyScrolledDividerKey)).color,
+      scheme.outlineVariant,
+    );
+
+    // Вернулись к началу: линия снова скрыта.
+    await tester.drag(find.byType(ListView), const Offset(0, 2000));
+    await tester.pumpAndSettle();
+    expect(find.byKey(historyScrolledDividerKey), findsNothing);
+  });
 }

@@ -184,24 +184,28 @@ class _MonthChartCardState extends State<MonthChartCard> {
 
   @override
   Widget build(BuildContext context) {
-    final body = AsyncView<_MonthData>(
-      stream: _data,
-      errorBuilder: _error,
-      dataBuilder: (context, data) => AsyncView<List<Category>>(
-        stream: widget.categories,
-        errorBuilder: _error,
-        dataBuilder: (context, categories) =>
-            _content(context, data, categories),
-      ),
-    );
-    return AppCard(
+    // Заголовок и карточка нужны всем состояниям, кроме пустого месяца (D15):
+    // тот рисует свою карточку по высоте содержимого.
+    Widget shell(Widget child) => AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const CardHeader('Расходы по категориям', centered: true),
           // Кольцо по центру оставшейся высоты, легенда прижата к низу.
-          Expanded(child: body),
+          Expanded(child: child),
         ],
+      ),
+    );
+    return AsyncView<_MonthData>(
+      stream: _data,
+      loadingBuilder: (_) => shell(const SizedBox.shrink()),
+      errorBuilder: (context, error) => shell(_error(context, error)),
+      dataBuilder: (context, data) => AsyncView<List<Category>>(
+        stream: widget.categories,
+        loadingBuilder: (_) => shell(const SizedBox.shrink()),
+        errorBuilder: (context, error) => shell(_error(context, error)),
+        dataBuilder: (context, categories) =>
+            _content(context, data, categories, shell),
       ),
     );
   }
@@ -230,6 +234,7 @@ class _MonthChartCardState extends State<MonthChartCard> {
     BuildContext context,
     _MonthData data,
     List<Category> categories,
+    Widget Function(Widget child) shell,
   ) {
     final transactions = data.transactions;
     final month = data.month;
@@ -243,29 +248,40 @@ class _MonthChartCardState extends State<MonthChartCard> {
       (t) => range.contains(t.occurredOn) && t.amount.currency == data.currency,
     )) {
       final muted = theme.colorScheme.onSurfaceVariant;
-      Widget emptyWith(Money? line) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              homeEmptyMonthText(month, isCurrentMonth: data.isCurrentMonth),
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyLarge?.copyWith(color: muted),
-            ),
-            if (line != null) ...[
-              const SizedBox(height: AppSpacing.s),
-              MergeSemantics(
-                child: Text(
-                  '${_lineLabel()}: ${maskedMoney(context, _lineText(line))}',
+      // Без заголовка и растягивания: карточка ровно по тексту, вверху места.
+      Widget emptyWith(Money? line) => Align(
+        alignment: Alignment.topCenter,
+        child: SizedBox(
+          width: double.infinity,
+          child: AppCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  homeEmptyMonthText(
+                    month,
+                    isCurrentMonth: data.isCurrentMonth,
+                  ),
                   textAlign: TextAlign.center,
-                  semanticsLabel:
-                      '${_lineLabel()}: '
-                      '${maskedSpoken(context, _spokenLine(line))}',
-                  style: theme.textTheme.titleSmall?.copyWith(color: muted),
+                  style: theme.textTheme.bodyLarge?.copyWith(color: muted),
                 ),
-              ),
-            ],
-          ],
+                if (line != null) ...[
+                  const SizedBox(height: AppSpacing.s),
+                  MergeSemantics(
+                    child: Text(
+                      '${_lineLabel()}: ${maskedMoney(context, _lineText(line))}',
+                      textAlign: TextAlign.center,
+                      semanticsLabel:
+                          '${_lineLabel()}: '
+                          '${maskedSpoken(context, _spokenLine(line))}',
+                      style: theme.textTheme.titleSmall?.copyWith(color: muted),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       );
       final lineStream = widget.balanceLine;
@@ -441,13 +457,15 @@ class _MonthChartCardState extends State<MonthChartCard> {
             children: [for (final item in items) _LegendItemView(item: item)],
           );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(child: Center(child: ring)),
-        const SizedBox(height: _legendGap),
-        legend,
-      ],
+    return shell(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: Center(child: ring)),
+          const SizedBox(height: _legendGap),
+          legend,
+        ],
+      ),
     );
   }
 
