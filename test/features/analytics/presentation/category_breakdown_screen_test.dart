@@ -90,9 +90,10 @@ Future<void> _pump(
   Stream<List<Category>>? categories,
   double textScale = 1,
   double height = 1600,
+  double width = 360,
   ValueChanged<Transaction>? onOpenTransaction,
 }) async {
-  tester.view.physicalSize = Size(360, height);
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -219,10 +220,11 @@ void main() {
     for (final t in totals) {
       sum += t.amount;
     }
-    // Итог: в шапке со знаком расхода и в центре кольца.
-    expect(find.text('$_minus${formatMoney(sum)}'), findsNWidgets(2));
+    // Итог: только в шапке; в центре кольца - название категории.
+    expect(find.text('$_minus${formatMoney(sum)}'), findsOneWidget);
     expect(find.byType(DonutChart), findsOneWidget);
-    expect(_inRing('Всего'), findsOneWidget);
+    expect(_inRing('Продукты'), findsOneWidget);
+    expect(_inRing('Всего'), findsNothing);
   });
 
   testWidgets('итог расхода цветом расхода, дохода - цветом дохода со знаком '
@@ -485,7 +487,7 @@ void main() {
         _sub(_food, 'b', 'Вторая'),
       ]),
     );
-    expect(_inRing('Всего'), findsOneWidget);
+    expect(_inRing('Продукты'), findsOneWidget);
 
     // Точка на кольце сразу правее «12 часов»: там начинается первый сектор.
     final rect = tester.getRect(find.byType(DonutChart));
@@ -498,11 +500,38 @@ void main() {
     expect(_inRing('Первая'), findsOneWidget);
     expect(_inRing(_money(7500)), findsOneWidget);
     expect(_inRing('75$_nbsp%'), findsOneWidget);
-    expect(_inRing('Всего'), findsNothing);
+    expect(_inRing('Продукты'), findsNothing);
 
     await gesture.up();
     await tester.pump();
-    expect(_inRing('Всего'), findsOneWidget);
+    expect(_inRing('Продукты'), findsOneWidget);
+    expect(_inRing(_money(7500)), findsNothing);
+  });
+
+  testWidgets('кольцо до 320 dp на 412 dp, в центре название без суммы '
+      'и не мельче bodyMedium', (tester) async {
+    await _pump(
+      tester,
+      width: 412,
+      transactions: Stream.value([
+        _tx('cat-food', 'a', 7500),
+        _tx('cat-food', 'b', 2500),
+      ]),
+      categories: Stream.value([
+        _food,
+        _sub(_food, 'a', 'Первая'),
+        _sub(_food, 'b', 'Вторая'),
+      ]),
+    );
+    expect(tester.getSize(find.byType(DonutChart)).width, 320);
+    final name = _inRing('Продукты');
+    expect(name, findsOneWidget);
+    expect(_inRing(_money(10000)), findsNothing);
+    final style = tester.widget<Text>(name).style!;
+    expect(
+      style.fontSize,
+      Theme.of(tester.element(name)).textTheme.bodyMedium!.fontSize,
+    );
   });
 
   group('скринридер', () {

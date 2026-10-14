@@ -37,7 +37,7 @@ String _operationDay(DateOnly day, DateOnly today) {
 }
 
 /// Верхняя граница стороны кольца, dp.
-const double _maxRing = 220;
+const double _maxRing = 320;
 
 /// Экран «Категория за период»: итог категории и её подкатегории (кольцо при
 /// двух строках и больше, список со суммой и процентом).
@@ -246,15 +246,16 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
                     '${maskedSpoken(context, spokenMoney(total))}',
                 center: SizedBox(
                   width: ringCenterWidth,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: SizedBox(
-                      width: ringCenterWidth,
-                      child: highlighted == null
-                          ? _totalCenter(theme, totalText, totalColor)
-                          : _rowCenter(theme, rows[highlighted]),
-                    ),
-                  ),
+                  child: highlighted == null
+                      // Название не ужимается: длинное переносится на 2 строки.
+                      ? _nameCenter(theme)
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: SizedBox(
+                            width: ringCenterWidth,
+                            child: _rowCenter(theme, rows[highlighted]),
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -333,22 +334,16 @@ class _CategoryBreakdownScreenState extends State<CategoryBreakdownScreen> {
     );
   }
 
-  Widget _totalCenter(ThemeData theme, String text, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Всего',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        MaskedAmount(
-          text,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium?.copyWith(color: color),
-        ),
-      ],
+  /// Центр по умолчанию: только название категории (сумма стоит строкой выше).
+  Widget _nameCenter(ThemeData theme) {
+    return Text(
+      widget.category.name,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
+      style: theme.textTheme.bodyMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
     );
   }
 
