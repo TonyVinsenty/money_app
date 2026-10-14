@@ -13,8 +13,13 @@ class PeriodSwitcher extends StatelessWidget {
     required this.onNext,
     required this.previousTooltip,
     required this.nextTooltip,
+    this.wrapLabel = false,
     super.key,
   });
+
+  /// `true`: подпись не уменьшается, а при нехватке места переносится на
+  /// вторую строку. `false` (по умолчанию): уменьшается до одной строки.
+  final bool wrapLabel;
 
   /// Ключи стрелок: на них опираются тесты.
   static const previousKey = ValueKey('period-switcher-previous');
@@ -53,6 +58,10 @@ class PeriodSwitcher extends StatelessWidget {
       );
     }
 
+    final style = theme.textTheme.titleSmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
+
     return Row(
       children: [
         arrow(previousKey, Icons.chevron_left, previousTooltip, onPrevious),
@@ -60,18 +69,24 @@ class PeriodSwitcher extends StatelessWidget {
           // liveRegion: скринридер объявляет смену подписи.
           child: Semantics(
             liveRegion: true,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                label,
-                maxLines: 1,
-                softWrap: false,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
+            child: wrapLabel
+                ? Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: style,
+                  )
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      style: style,
+                    ),
+                  ),
           ),
         ),
         arrow(nextKey, Icons.chevron_right, nextTooltip, onNext),

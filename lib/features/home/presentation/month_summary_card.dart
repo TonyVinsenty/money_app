@@ -18,6 +18,13 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 const double _screenInset = 16;
 const double _cardPadding = 16;
 
+/// Пустое поле вокруг значка 24 dp в кнопке 48 dp, dp.
+const double _iconGap = 12;
+
+/// Ширина содержимого карточки, меньше которой шапка без пустого места слева
+/// (на 360 dp содержимое 296 dp: прежний вид), dp.
+const double _narrowContentWidth = 290;
+
 /// Минимальная ширина содержимого карточки при шрифте 100 %, при которой
 /// «Расходы» и «Доходы» стоят в ряд, dp. На телефоне 360 dp содержимое имеет
 /// 360 - 2 * 16 - 2 * 16 = 296 dp: в ряд.
@@ -98,36 +105,62 @@ class MonthSummaryCard extends StatelessWidget {
 
   /// Переключатель месяца; со значком «глаз» справа (и пустым местом слева,
   /// чтобы подпись месяца осталась по центру), если есть обработчик.
-  Widget _header(String title, ColorScheme scheme) {
+  Widget _header(BuildContext context, String title, ColorScheme scheme) {
     final switcher = PeriodSwitcher(
+      wrapLabel: true,
       label: title,
       onPrevious: onPreviousMonth,
       onNext: onNextMonth,
       previousTooltip: 'Предыдущий месяц',
       nextTooltip: 'Следующий месяц',
     );
+    // Шапка выходит на 12 dp в поле карточки: у кнопки 48 dp значок 24, по
+    // 12 пустых с краёв, и значки встают по линии текста колонок ниже.
+    final bleedWidth =
+        MediaQuery.sizeOf(context).width -
+        2 * _screenInset -
+        2 * _cardPadding +
+        2 * _iconGap;
+    Widget bleed(Widget child) => SizedBox(
+      height: _eyeSize,
+      child: OverflowBox(
+        minWidth: bleedWidth,
+        maxWidth: bleedWidth,
+        child: child,
+      ),
+    );
     final onChanged = onHideAmountsChanged;
-    if (onChanged == null) return switcher;
-    return Row(
-      children: [
-        const SizedBox(width: _eyeSize),
-        Expanded(child: switcher),
-        IconButton(
-          key: hideAmountsKey,
-          icon: Icon(
-            hideAmounts
-                ? Icons.visibility_off_outlined
-                : Icons.visibility_outlined,
+    if (onChanged == null) {
+      // Без стрелок и «глаза» значков нет, шапка низкая: выносить нечего.
+      final noIcons = onPreviousMonth == null && onNextMonth == null;
+      return noIcons ? switcher : bleed(switcher);
+    }
+    // На узком экране пустое место слева не нужно: подписи важнее центровки.
+    final narrow =
+        MediaQuery.sizeOf(context).width - 2 * _screenInset - 2 * _cardPadding <
+        _narrowContentWidth;
+    return bleed(
+      Row(
+        children: [
+          if (!narrow) const SizedBox(width: _eyeSize),
+          Expanded(child: switcher),
+          IconButton(
+            key: hideAmountsKey,
+            icon: Icon(
+              hideAmounts
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+            tooltip: hideAmounts ? 'Показать суммы' : 'Скрыть суммы',
+            color: scheme.onSurfaceVariant,
+            onPressed: () => onChanged(!hideAmounts),
+            constraints: const BoxConstraints.tightFor(
+              width: _eyeSize,
+              height: _eyeSize,
+            ),
           ),
-          tooltip: hideAmounts ? 'Показать суммы' : 'Скрыть суммы',
-          color: scheme.onSurfaceVariant,
-          onPressed: () => onChanged(!hideAmounts),
-          constraints: const BoxConstraints.tightFor(
-            width: _eyeSize,
-            height: _eyeSize,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -181,7 +214,11 @@ class MonthSummaryCard extends StatelessWidget {
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [_header(title, scheme), const SizedBox(height: 4), columns],
+        children: [
+          _header(context, title, scheme),
+          const SizedBox(height: 4),
+          columns,
+        ],
       ),
     );
   }
