@@ -28,6 +28,10 @@ const subcategoriesEmptyText =
     'Подкатегорий пока нет. Нажмите «$subcategoriesAddAction» внизу, '
     'чтобы создать первую';
 
+/// То же на iOS: кнопка «+» в шапке, а не внизу.
+const subcategoriesEmptyTextIos =
+    'Подкатегорий пока нет. Нажмите «+» вверху, чтобы создать первую';
+
 /// Экран «Подкатегории» одной категории [parent] (открывается со строки
 /// категории на экране «Категории»).
 ///
@@ -77,13 +81,27 @@ class _SubcategoriesScreenState extends State<SubcategoriesScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isIos = theme.platform == TargetPlatform.iOS;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.parent.name)),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => unawaited(openOnce(widget.onCreate)),
-        icon: const Icon(Icons.add),
-        label: const Text(subcategoriesAddAction),
+      appBar: AppBar(
+        title: Text(widget.parent.name),
+        actions: isIos
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: subcategoriesAddAction,
+                  onPressed: () => unawaited(openOnce(widget.onCreate)),
+                ),
+              ]
+            : null,
       ),
+      floatingActionButton: isIos
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => unawaited(openOnce(widget.onCreate)),
+              icon: const Icon(Icons.add),
+              label: const Text(subcategoriesAddAction),
+            ),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +133,9 @@ class _SubcategoriesScreenState extends State<SubcategoriesScreen>
                   belongs: (c) => c.parentId == widget.parent.id,
                   archiveKey: 'archive-subcategories',
                   archiveNote: subcategoriesArchiveNote,
-                  emptyText: subcategoriesEmptyText,
+                  emptyText: isIos
+                      ? subcategoriesEmptyTextIos
+                      : subcategoriesEmptyText,
                   onRestore: (c) => unawaited(restoreCategory(c)),
                   onRename: (c) =>
                       unawaited(openOnce(() => widget.onRename(c))),

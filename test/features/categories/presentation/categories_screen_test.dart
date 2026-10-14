@@ -409,6 +409,39 @@ void main() {
     expect(created, [CategoryKind.expense, CategoryKind.income]);
   });
 
+  testWidgets('Android: «Добавить категорию» — плавающая кнопка, «+» в шапке '
+      'нет', (tester) async {
+    await _pump(tester, _fixture());
+
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.add),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('iOS: нет плавающей кнопки, «+» в шапке с подписью открывает '
+      'форму нужного вида', (tester) async {
+    await _pump(tester, _fixture());
+
+    expect(find.byType(FloatingActionButton), findsNothing);
+    final plus = find.widgetWithIcon(IconButton, Icons.add);
+    expect(plus, findsOneWidget);
+    expect(find.byTooltip(categoriesAddAction), findsOneWidget);
+
+    await tester.tap(plus);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(categoriesIncomeTab));
+    await tester.pumpAndSettle();
+    await tester.tap(plus);
+    await tester.pumpAndSettle();
+
+    expect(created, [CategoryKind.expense, CategoryKind.income]);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets('касание строки открывает правку у живых и у архивных', (
     tester,
   ) async {

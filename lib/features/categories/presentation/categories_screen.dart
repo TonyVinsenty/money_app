@@ -117,13 +117,38 @@ class _CategoriesScreenState extends State<CategoriesScreen>
     );
   }
 
+  void _create(BuildContext context) {
+    final index = DefaultTabController.of(context).index;
+    unawaited(
+      openOnce(
+        () => widget.onCreate(
+          index == 0 ? CategoryKind.expense : CategoryKind.income,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isIos = Theme.of(context).platform == TargetPlatform.iOS;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: const Text(categoriesScreenTitle),
+          // На iOS «+» в шапке; Builder: вид открытой вкладки читаем из
+          // DefaultTabController, а он виден только ниже по дереву.
+          actions: isIos
+              ? [
+                  Builder(
+                    builder: (context) => IconButton(
+                      icon: const Icon(Icons.add),
+                      tooltip: categoriesAddAction,
+                      onPressed: () => _create(context),
+                    ),
+                  ),
+                ]
+              : null,
           bottom: const TabBar(
             tabs: [
               Tab(text: categoriesExpenseTab),
@@ -131,24 +156,15 @@ class _CategoriesScreenState extends State<CategoriesScreen>
             ],
           ),
         ),
-        // Builder: вид открытой вкладки читаем из DefaultTabController, а он
-        // виден только ниже по дереву.
-        floatingActionButton: Builder(
-          builder: (context) => FloatingActionButton.extended(
-            onPressed: () {
-              final index = DefaultTabController.of(context).index;
-              unawaited(
-                openOnce(
-                  () => widget.onCreate(
-                    index == 0 ? CategoryKind.expense : CategoryKind.income,
-                  ),
+        floatingActionButton: isIos
+            ? null
+            : Builder(
+                builder: (context) => FloatingActionButton.extended(
+                  onPressed: () => _create(context),
+                  icon: const Icon(Icons.add),
+                  label: const Text(categoriesAddAction),
                 ),
-              );
-            },
-            icon: const Icon(Icons.add),
-            label: const Text(categoriesAddAction),
-          ),
-        ),
+              ),
         body: SafeArea(
           child: AsyncView<List<Category>>(
             stream: _stream,

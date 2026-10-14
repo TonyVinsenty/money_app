@@ -185,7 +185,12 @@ class _CategoryListState extends State<CategoryList> {
       // нажатием по всей строке, а ручки не было бы видно.
       buildDefaultDragHandles: false,
       // Снизу запас под кнопку «Добавить…»: она не закрывает последнюю строку.
-      padding: const EdgeInsets.only(bottom: AppSpacing.fabClearance),
+      // На iOS кнопка живёт в шапке, запас не нужен.
+      padding: EdgeInsets.only(
+        bottom: Theme.of(context).platform == TargetPlatform.iOS
+            ? 0
+            : AppSpacing.fabClearance,
+      ),
       onReorderItem: (oldIndex, newIndex) =>
           unawaited(_handleReorder(oldIndex, newIndex)),
       header: live.isEmpty

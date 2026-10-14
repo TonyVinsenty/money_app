@@ -278,6 +278,32 @@ void main() {
     expect(find.text(subcategoriesAddAction), findsOneWidget);
   });
 
+  testWidgets('Android: плавающая кнопка, «+» в шапке нет', (tester) async {
+    await _pump(tester, _fixture());
+
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.add),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('iOS: нет плавающей кнопки, «+» в шапке с подписью открывает '
+      'форму', (tester) async {
+    await _pump(tester, [_parent]);
+
+    expect(find.byType(FloatingActionButton), findsNothing);
+    expect(find.text(subcategoriesEmptyTextIos), findsOneWidget);
+    expect(find.byTooltip(subcategoriesAddAction), findsOneWidget);
+
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.add));
+    await tester.pumpAndSettle();
+    expect(createCalls, 1);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets('только архивные: подсказка и раздел архива', (tester) async {
     await _pump(tester, [_parent, _s('old', 'Старое', 0, archived: true)]);
 
