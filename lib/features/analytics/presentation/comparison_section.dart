@@ -9,6 +9,7 @@ import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/category_stat_line.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
+import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/period_comparison.dart';
 import 'package:money_app/features/analytics/presentation/analytics_texts.dart';
@@ -82,7 +83,12 @@ class ComparisonSection extends StatelessWidget {
     final phrase = comparisonPhrase(previousRange, today);
     final onTypeSelected = this.onTypeSelected;
     final hidden = AmountsVisibility.hiddenOf(context);
-    final title = formatMoney(total.current);
+    final isExpense = type == TransactionType.expense;
+    final sign = total.current.isZero ? '' : (isExpense ? '−' : '+');
+    final title = '$sign${formatMoney(total.current)}';
+    final totalColor = isExpense
+        ? context.appColors.expense
+        : context.appColors.income;
     final summary = comparisonSummaryText(total, type, phrase, hidden: hidden);
 
     return AppCard(
@@ -121,7 +127,12 @@ class ComparisonSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 CardHeader(comparisonTotalHeading(type)),
-                MaskedAmount(title, style: theme.textTheme.titleLarge),
+                MaskedAmount(
+                  title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: totalColor,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   summary,
@@ -189,9 +200,9 @@ class _ComparisonRow extends StatelessWidget {
     final content = CategoryStatLine(
       leading: CategoryAvatar(category?.iconKey, name: category?.name),
       name: name,
-      amount: Text(
-        comparisonRowAmount(change, hidden: hidden),
-        key: ComparisonSection.rowAmountKey,
+      amount: MaskedAmount(
+        comparisonRowAmount(change),
+        textKey: ComparisonSection.rowAmountKey,
         style: categoryAmountStyle(theme),
       ),
       subtitle: Text(

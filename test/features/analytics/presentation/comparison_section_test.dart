@@ -7,6 +7,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -156,7 +157,7 @@ void main() {
     expect(
       _textOf(tester, ComparisonSection.totalKey),
       'Расходы\n'
-      '8${_nbsp}000,00$_nbsp₽\n'
+      '${_minus}8${_nbsp}000,00$_nbsp₽\n'
       'на 2${_nbsp}300,00$_nbsp₽ больше (+40$_nbsp%), чем 1\u2013\u206011$_nbspсентября',
     );
     expect(find.text('Кафе'), findsOneWidget);
@@ -171,6 +172,92 @@ void main() {
       find.text('↑ на 2${_nbsp}300,00$_nbsp₽ (+40$_nbsp%)'),
       findsOneWidget,
     );
+  });
+
+  Text totalText(WidgetTester tester) => tester.widget<Text>(
+    find.descendant(
+      of: find.byKey(ComparisonSection.totalKey),
+      matching: find.textContaining('000,00'),
+    ),
+  );
+
+  testWidgets('итог расходов: знак «−», headlineSmall, цвет error', (
+    tester,
+  ) async {
+    await _pump(tester, transactions: [_tx('a', 'cafe', 800000, oct)]);
+
+    final text = totalText(tester);
+    expect(text.data, startsWith(_minus));
+    final context = tester.element(find.byKey(ComparisonSection.totalKey));
+    expect(text.style?.color, context.appColors.expense);
+    expect(
+      text.style?.fontSize,
+      Theme.of(context).textTheme.headlineSmall?.fontSize,
+    );
+  });
+
+  testWidgets('итог доходов: знак «+», зелёный цвет дохода', (tester) async {
+    await _pump(
+      tester,
+      type: TransactionType.income,
+      transactions: [
+        _tx('a', 'pay', 5000000, oct, type: TransactionType.income),
+      ],
+    );
+
+    final text = totalText(tester);
+    expect(text.data, startsWith('+'));
+    final context = tester.element(find.byKey(ComparisonSection.totalKey));
+    expect(text.style?.color, context.appColors.income);
+  });
+
+  testWidgets('в строке название без суммы, сумма справа', (tester) async {
+    await _pump(tester, transactions: [_tx('a', 'cafe', 800000, oct)]);
+
+    expect(find.text('Кафе'), findsOneWidget);
+    expect(find.textContaining('Кафе ·'), findsNothing);
+    expect(
+      tester.getTopLeft(find.byKey(ComparisonSection.rowAmountKey)).dx,
+      greaterThan(tester.getTopRight(find.text('Кафе')).dx),
+    );
+  });
+
+  testWidgets('«Скрыть суммы»: итог и строка — облачко, озвучка прежняя', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    tester.view.physicalSize = const Size(360, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: AmountsVisibility(
+            hidden: true,
+            child: ListView(
+              children: [
+                ComparisonSection(
+                  transactions: [_tx('a', 'cafe', 800000, oct)],
+                  range: _october,
+                  previousRange: _sept11,
+                  categories: _categories,
+                  today: _today,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('masked-amount-cloud')), findsNWidgets(2));
+    expect(find.textContaining('000,00'), findsNothing);
+    expect(
+      find.bySemanticsLabel(RegExp('^Расходы: сумма скрыта')),
+      findsOneWidget,
+    );
+    handle.dispose();
   });
 
   testWidgets('строка категории с нейтральным аватаром', (tester) async {
@@ -267,7 +354,7 @@ void main() {
     expect(
       _textOf(tester, ComparisonSection.totalKey),
       'Доходы\n'
-      '50${_nbsp}000,00$_nbsp₽\n'
+      '+50${_nbsp}000,00$_nbsp₽\n'
       '1\u2013\u206011$_nbspсентября доходов не было',
     );
     expect(find.text('Зарплата'), findsOneWidget);

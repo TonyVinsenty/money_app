@@ -184,7 +184,8 @@ void main() {
       ),
     );
     expect(_allText(tester), isNot(contains(_anyMoney)));
-    expect(find.byKey(_cloud), findsOneWidget);
+    // Облачко у итога и у суммы строки категории.
+    expect(find.byKey(_cloud), findsNWidgets(2));
     expect(_allText(tester), contains(maskedMoneyText));
   });
 }
