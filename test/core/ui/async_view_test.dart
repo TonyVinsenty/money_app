@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/async_view.dart';
@@ -20,6 +21,22 @@ AsyncView<List<int>> _view(
 }
 
 void main() {
+  testWidgets('AsyncLoading: Cupertino-индикатор на iOS, Material на Android', (
+    tester,
+  ) async {
+    Widget host(TargetPlatform p) => MaterialApp(
+      theme: ThemeData(platform: p),
+      home: const Scaffold(body: AsyncLoading()),
+    );
+    await tester.pumpWidget(host(TargetPlatform.iOS));
+    expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
+    await tester.pumpWidget(host(TargetPlatform.android));
+    // Тема меняется с анимацией: ждём её конца.
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(CupertinoActivityIndicator), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
   testWidgets('before the first value shows nothing at all', (tester) async {
     final controller = StreamController<List<int>>();
     addTearDown(controller.close);

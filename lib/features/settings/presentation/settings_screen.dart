@@ -599,7 +599,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           trailing: _exporting
               ? const SizedBox.square(
                   dimension: 24,
-                  child: CircularProgressIndicator(
+                  child: CircularProgressIndicator.adaptive(
                     strokeWidth: 2,
                     semanticsLabel: exportPreparingLabel,
                   ),
@@ -635,7 +635,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           trailing: _erasing
               ? const SizedBox.square(
                   dimension: 24,
-                  child: CircularProgressIndicator(
+                  child: CircularProgressIndicator.adaptive(
                     strokeWidth: 2,
                     semanticsLabel: clearAllErasingLabel,
                   ),
@@ -649,7 +649,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           leading: const _ItemIcon(Icons.person_outline),
           title: const Text(developerInfoItemLabel),
           subtitle: const Text(developerPageLabel),
-          trailing: const ExcludeSemantics(child: Icon(Icons.open_in_new)),
+          trailing: ExcludeSemantics(
+            child: Icon(
+              Theme.of(context).platform == TargetPlatform.iOS
+                  ? Icons.north_east
+                  : Icons.open_in_new,
+            ),
+          ),
           onTap: _openDeveloperPage,
         ),
         // «Версия» — внизу, вне групп.

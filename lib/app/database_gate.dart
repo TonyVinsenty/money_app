@@ -296,7 +296,7 @@ class _DatabaseLoadingView extends StatelessWidget {
     return Scaffold(
       body: showSpinner
           ? const Center(
-              child: CircularProgressIndicator(
+              child: CircularProgressIndicator.adaptive(
                 semanticsLabel: databaseLoadingLabel,
               ),
             )

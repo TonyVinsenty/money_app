@@ -79,10 +79,11 @@ Future<void> _open(
   HistoryFilter initial = HistoryFilter.off,
   double textScale = 1,
   List<Transaction>? list,
+  TargetPlatform? platform,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light(),
+      theme: AppTheme.light().copyWith(platform: platform),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -176,6 +177,48 @@ void main() {
     expect(checked('Продукты'), isTrue);
     expect(checked('Кафе'), isFalse);
     handle.dispose();
+  });
+
+  testWidgets('iOS: галочка справа вместо чекбоксов, выбор работает', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await _open(
+      tester,
+      initial: HistoryFilter.expenseCategories({'food'}),
+      platform: TargetPlatform.iOS,
+    );
+    expect(find.byType(CheckboxListTile), findsNothing);
+    expect(_inSheet(find.byIcon(Icons.check)), findsOneWidget);
+
+    bool checked(String name) =>
+        tester
+            .getSemantics(_inSheet(find.text(name)).first)
+            .getSemanticsData()
+            .flagsCollection
+            .isChecked
+            .name ==
+        'isTrue';
+    expect(checked('Продукты'), isTrue);
+    expect(checked('Кафе'), isFalse);
+
+    await tester.tap(_inSheet(find.text('Кафе')));
+    await tester.pumpAndSettle();
+    expect(find.text('Фильтр: Расходы'), findsOneWidget);
+    expect(find.textContaining('кафе-раз'), findsOneWidget);
+
+    await tester.tap(_inSheet(find.text('Снять все')));
+    await tester.pumpAndSettle();
+    expect(find.text('Не выбрана ни одна категория'), findsOneWidget);
+    await tester.tap(_inSheet(find.text('Выбрать все')));
+    await tester.pumpAndSettle();
+    expect(find.text('Не выбрана ни одна категория'), findsNothing);
+    handle.dispose();
+  });
+
+  testWidgets('Android: остаются чекбоксы', (tester) async {
+    await _open(tester, platform: TargetPlatform.android);
+    expect(find.byType(CheckboxListTile), findsNWidgets(3));
   });
 
   testWidgets('заголовок раздела и кнопки в одной строке', (tester) async {

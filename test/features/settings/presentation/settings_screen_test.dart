@@ -1511,6 +1511,18 @@ void main() {
       expect(find.text(openLinkFailedMessage), findsNothing);
     });
 
+    testWidgets('значок ссылки: iOS — north_east, Android — open_in_new', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(platform: TargetPlatform.iOS));
+      expect(find.byIcon(Icons.north_east), findsOneWidget);
+      expect(find.byIcon(Icons.open_in_new), findsNothing);
+      await tester.pumpWidget(_app(platform: TargetPlatform.android));
+      await tester.pump(const Duration(seconds: 1)); // тема меняется плавно
+      expect(find.byIcon(Icons.open_in_new), findsOneWidget);
+      expect(find.byIcon(Icons.north_east), findsNothing);
+    });
+
     testWidgets('не открылось — сообщение', (tester) async {
       await tester.pumpWidget(_app(openLink: (_) async => false));
       await tester.tap(find.text(developerInfoItemLabel));

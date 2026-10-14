@@ -459,7 +459,7 @@ class _TransferFormScreenState extends State<TransferFormScreen> {
     if (_failedToLoad) {
       body = const Text(accountsLoadError);
     } else if (all == null || from == null) {
-      body = const Center(child: CircularProgressIndicator());
+      body = const Center(child: CircularProgressIndicator.adaptive());
     } else {
       final info = from.currencyInfo;
       final fromOptions = _selectable(all, _editing?.fromAccountId);

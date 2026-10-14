@@ -224,13 +224,37 @@ class _CategorySection extends StatelessWidget {
             ),
           ),
         for (final c in visible)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            title: Text(c.name),
-            value: selected == null || selected!.contains(c.id),
-            onChanged: (v) => toggle(c.id, v ?? false),
-          ),
+          if (theme.platform == TargetPlatform.iOS)
+            // iPhone: галочка справа, как в разделе «Счёт». Читалка слышит
+            // «выбрано» так же, как у чекбокса.
+            Builder(
+              builder: (context) {
+                final checked = selected == null || selected!.contains(c.id);
+                return Semantics(
+                  checked: checked,
+                  button: true,
+                  label: c.name,
+                  onTap: () => toggle(c.id, !checked),
+                  excludeSemantics: true,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    minVerticalPadding: 12,
+                    title: Text(c.name),
+                    selected: checked,
+                    trailing: checked ? const Icon(Icons.check) : null,
+                    onTap: () => toggle(c.id, !checked),
+                  ),
+                );
+              },
+            )
+          else
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(c.name),
+              value: selected == null || selected!.contains(c.id),
+              onChanged: (v) => toggle(c.id, v ?? false),
+            ),
       ],
     );
   }

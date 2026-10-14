@@ -396,7 +396,7 @@ class _Progress extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Подпись — текст ниже; кружок скринридеру не нужен.
-          const ExcludeSemantics(child: CircularProgressIndicator()),
+          const ExcludeSemantics(child: CircularProgressIndicator.adaptive()),
           const SizedBox(height: 16),
           Text(label),
         ],
