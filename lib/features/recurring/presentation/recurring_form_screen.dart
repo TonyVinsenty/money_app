@@ -6,11 +6,16 @@ import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/id/id_generator.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/font_scale.dart';
+import 'package:money_app/core/ui/option_sheet.dart';
+import 'package:money_app/core/ui/picker_field.dart';
 import 'package:money_app/core/ui/recurring_rule_text.dart';
 import 'package:money_app/core/ui/runes_length_formatter.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
+import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/core/ui/undo_texts.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/default_account.dart';
@@ -397,6 +402,27 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
     return recurringFormAccountHint;
   }
 
+  Widget? _accountAvatar() {
+    for (final a in _allAccounts) {
+      if (a.id == _accountId) return AccountAvatar(a.iconKey, name: a.name);
+    }
+    return null;
+  }
+
+  Future<void> _pickRepeat() async {
+    final picked = await showOptionSheet<int>(
+      context,
+      title: recurringFormRepeatLabel,
+      selected: _repeat,
+      items: [
+        for (var i = 0; i < recurringRepeatOptions.length; i++)
+          OptionSheetItem(value: i, title: recurringRepeatOptions[i].label),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _repeat = picked);
+  }
+
   Future<void> _pickCategory() async {
     final picked = await widget.onPickCategory(context, _type);
     if (picked == null || !mounted) return;
@@ -594,73 +620,57 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                         ),
                       ),
                     const SizedBox(height: 16),
-                    ListTile(
+                    PickerField(
                       key: RecurringFormScreen.categoryKey,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(recurringFormCategoryLabel),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _categoryError
-                                ? recurringErrorCategory
-                                : (_categoryTitle ?? recurringFormCategoryHint),
-                            style: _categoryError
-                                ? TextStyle(color: theme.colorScheme.error)
-                                : null,
-                          ),
-                          if (_categoryNote != null)
-                            Text(
-                              _categoryNote!,
-                              key: RecurringFormScreen.archivedNoteKey,
-                              style: TextStyle(color: theme.colorScheme.error),
+                      label: recurringFormCategoryLabel,
+                      // Текст ошибки совпадает с подсказкой: показываем его
+                      // как значение красным, без второй строки под полем.
+                      value: _categoryError
+                          ? recurringErrorCategory
+                          : (_categoryTitle ?? recurringFormCategoryHint),
+                      hasError: _categoryError,
+                      leading: _categoryTitle == null
+                          ? null
+                          : CategoryAvatar(
+                              _categoryById(_subcategoryId ?? _categoryId)
+                                  ?.iconKey,
+                              name: _categoryById(_subcategoryId ?? _categoryId)
+                                  ?.name,
                             ),
-                        ],
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _pickCategory,
+                      onTap: () => unawaited(_pickCategory()),
                     ),
-                    ListTile(
+                    if (_categoryNote != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.xs),
+                        child: Text(
+                          _categoryNote!,
+                          key: RecurringFormScreen.archivedNoteKey,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      ),
+                    const SizedBox(height: AppSpacing.l),
+                    PickerField(
                       key: RecurringFormScreen.accountKey,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(recurringFormAccountLabel),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(_accountTitle),
-                          if (_accountNote != null)
-                            Text(
-                              _accountNote!,
-                              key: RecurringFormScreen.accountArchivedNoteKey,
-                              style: TextStyle(color: theme.colorScheme.error),
-                            ),
-                        ],
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _pickAccount,
+                      label: recurringFormAccountLabel,
+                      value: _accountTitle,
+                      leading: _accountAvatar(),
+                      onTap: () => unawaited(_pickAccount()),
                     ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int>(
-                      key: RecurringFormScreen.repeatKey,
-                      initialValue: _repeat,
-                      // По ширине поля, а не самого длинного варианта: при
-                      // крупном шрифте вариант переносится, а не вылезает.
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: recurringFormRepeatLabel,
+                    if (_accountNote != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.xs),
+                        child: Text(
+                          _accountNote!,
+                          key: RecurringFormScreen.accountArchivedNoteKey,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
                       ),
-                      items: [
-                        for (var i = 0; i < recurringRepeatOptions.length; i++)
-                          DropdownMenuItem(
-                            value: i,
-                            child: Text(
-                              recurringRepeatOptions[i].label,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (v) => setState(() => _repeat = v ?? 0),
+                    const SizedBox(height: AppSpacing.l),
+                    PickerField(
+                      key: RecurringFormScreen.repeatKey,
+                      label: recurringFormRepeatLabel,
+                      value: recurringRepeatOptions[_repeat].label,
+                      onTap: () => unawaited(_pickRepeat()),
                     ),
                     ListTile(
                       key: RecurringFormScreen.firstKey,

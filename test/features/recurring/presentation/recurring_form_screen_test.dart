@@ -142,6 +142,26 @@ void main() {
     expect(recurringRepeatOptions, hasLength(6));
   });
 
+  testWidgets('repeat choice is made in a sheet and shown in the field', (
+    tester,
+  ) async {
+    await pumpForm(tester, today);
+    await tester.tap(find.byKey(RecurringFormScreen.repeatKey));
+    await tester.pumpAndSettle();
+    // Выбранный сейчас вариант отмечен галочкой справа.
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    await tester.tap(find.text(recurringRepeatOptions[5].label));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.check), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(RecurringFormScreen.repeatKey),
+        matching: find.text(recurringRepeatOptions[5].label),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('"Add payment" on Balance opens the form', (tester) async {
     tester.view.physicalSize = const Size(400, 1000);
     tester.view.devicePixelRatio = 1;
