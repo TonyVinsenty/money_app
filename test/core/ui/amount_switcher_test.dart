@@ -45,6 +45,18 @@ void main() {
     expect(_opacityOf(tester, '250 ₽'), 1);
   });
 
+  testWidgets('кривая — easeOutCubic (середина перехода)', (tester) async {
+    expect(amountSwitchCurve, Curves.easeOutCubic);
+    await tester.pumpWidget(_app('100 ₽'));
+    await tester.pumpWidget(_app('250 ₽'));
+    await tester.pump(amountSwitchDuration ~/ 2);
+    expect(
+      _opacityOf(tester, '250 ₽'),
+      closeTo(Curves.easeOutCubic.transform(0.5), 0.01),
+    );
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('тот же ключ — без перехода', (tester) async {
     await tester.pumpWidget(_app('100 ₽'));
     await tester.pumpWidget(_app('100 ₽'));

@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 /// Сколько длится смена суммы (ADR 0013, п. 7).
 const Duration amountSwitchDuration = Duration(milliseconds: 250);
 
+/// Кривая смены суммы (правило анимаций: easeOutCubic).
+const Curve amountSwitchCurve = Curves.easeOutCubic;
+
 /// Плавная смена суммы: когда меняется [switchKey] (текст суммы, «пусто»,
 /// «ошибка»), прежнее содержимое растворяется, а новое проявляется на его
 /// месте. Первый показ — без анимации. При «Уменьшить движение»
@@ -27,8 +30,8 @@ class AmountSwitcher extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     return AnimatedSwitcher(
       duration: reduceMotion ? Duration.zero : amountSwitchDuration,
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
+      switchInCurve: amountSwitchCurve,
+      switchOutCurve: amountSwitchCurve,
       layoutBuilder: (current, previous) =>
           Stack(alignment: alignment, children: [...previous, ?current]),
       child: KeyedSubtree(key: ValueKey(switchKey), child: child),

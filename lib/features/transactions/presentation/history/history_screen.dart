@@ -681,6 +681,8 @@ class _ListBar extends StatelessWidget {
               onPressed: onFilterPressed,
               icon: Badge(
                 isLabelVisible: filterActive,
+                // Акцент, а не красный: красный значит «расход/ошибка».
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 smallSize: 8,
                 child: const Icon(Icons.filter_list, size: 20),
               ),

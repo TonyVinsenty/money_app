@@ -162,6 +162,11 @@ void main() {
       findsOneWidget,
     );
     expect(tester.widget<Badge>(find.byType(Badge)).isLabelVisible, isTrue);
+    // Точка — акцентом, а не красным (D9).
+    expect(
+      tester.widget<Badge>(find.byType(Badge)).backgroundColor,
+      Theme.of(tester.element(find.byType(Badge))).colorScheme.primary,
+    );
     handle.dispose();
   });
 

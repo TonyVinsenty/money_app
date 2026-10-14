@@ -3,6 +3,26 @@ import 'package:flutter/services.dart' show SystemUiOverlayStyle;
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 
+/// Цвет только для выбранного состояния. Сравнивается по значению: тема,
+/// собранная заново, остаётся равной прежней, и `AnimatedTheme` не запускает
+/// лишний переход (иначе в тестах и при пересборке тема «анимируется»).
+class _SelectedColor extends WidgetStateProperty<Color?> {
+  _SelectedColor(this.color);
+
+  final Color color;
+
+  @override
+  Color? resolve(Set<WidgetState> states) =>
+      states.contains(WidgetState.selected) ? color : null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _SelectedColor && other.color == color;
+
+  @override
+  int get hashCode => color.hashCode;
+}
+
 /// Светлая и тёмная темы приложения (Material 3).
 abstract final class AppTheme {
   // Спокойный сине-серый: не красный и не зелёный, чтобы не путаться
@@ -107,6 +127,13 @@ abstract final class AppTheme {
         rangePickerHeaderBackgroundColor: base.colorScheme.surface,
       ),
       snackBarTheme: snackBarTheme,
+      // Выбранный сегмент — акцентом, невыбранный — как обычный текст.
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: _SelectedColor(base.colorScheme.primaryContainer),
+          foregroundColor: _SelectedColor(base.colorScheme.onPrimaryContainer),
+        ),
+      ),
       popupMenuTheme: PopupMenuThemeData(
         shape: _menuShape,
         color: base.colorScheme.surfaceContainerHigh,

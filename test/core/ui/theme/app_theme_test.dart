@@ -215,6 +215,26 @@ void main() {
     });
   });
 
+  group('сегменты (8.3)', () {
+    for (final entry in themes.entries) {
+      final scheme = entry.value.colorScheme;
+      final style = entry.value.segmentedButtonTheme.style!;
+
+      test('${entry.key} тема: выбранный — primaryContainer', () {
+        final bg = style.backgroundColor!.resolve({WidgetState.selected});
+        final fg = style.foregroundColor!.resolve({WidgetState.selected});
+        expect(bg, scheme.primaryContainer);
+        expect(fg, scheme.onPrimaryContainer);
+        expect(contrastRatio(fg!, bg!), greaterThanOrEqualTo(4.5));
+      });
+
+      test('${entry.key} тема: невыбранный — цвета по умолчанию', () {
+        expect(style.backgroundColor!.resolve({}), isNull);
+        expect(style.foregroundColor!.resolve({}), isNull);
+      });
+    }
+  });
+
   group('сообщения и меню (8.1)', () {
     for (final entry in themes.entries) {
       test('${entry.key} тема: сообщение плавающее, радиус 12, зазор 8', () {
