@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/icon_scale.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
@@ -82,7 +83,7 @@ class _TypeButton extends StatelessWidget {
       excludeSemantics: true,
       child: FilledButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon),
+        icon: Icon(icon, size: 24 * iconScaleOf(context)),
         // Подпись уменьшается, только если не влезает в половину ряда (очень
         // узкий экран): при обычном шрифте и на 360 dp она не меняется.
         label: FittedBox(fit: BoxFit.scaleDown, child: Text(label)),

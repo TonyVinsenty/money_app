@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/money/money.dart';
-import 'package:money_app/core/ui/account_icons.dart';
+import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
@@ -355,34 +355,6 @@ class AccountsSection extends StatelessWidget {
 /// Пункты меню «⋮» в заголовке карточки «Счета».
 enum _MenuEntry { journal, order }
 
-/// Значок счёта в нейтральном кружке 40 dp: строки счетов выглядят как строки
-/// операций (design-style.md, 8.5). От скринридера скрыт: подпись даёт строка.
-class _AccountAvatar extends StatelessWidget {
-  const _AccountAvatar(this.account);
-
-  final Account account;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 40,
-      height: 40,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        shape: BoxShape.circle,
-      ),
-      child: AccountIconView(
-        account.iconKey,
-        name: account.name,
-        size: 24,
-        color: scheme.onSurfaceVariant,
-      ),
-    );
-  }
-}
-
 /// Свёрнутый раздел «Архив (N)» внизу списка, как у категорий: каждый счёт —
 /// одна строка (аватар, название, кнопки-значки «Вернуть из архива» и
 /// «Удалить»).
@@ -405,7 +377,7 @@ class _ArchiveTile extends StatelessWidget {
           // справа поле дают сами кнопки (значок 24 в зоне 48).
           Row(
             children: [
-              _AccountAvatar(a),
+              AccountAvatar(a.iconKey, name: a.name),
               const SizedBox(width: AppSpacing.m),
               // Длинное название переносится, кнопки остаются на месте.
               Expanded(child: Text(a.name, style: theme.textTheme.bodyLarge)),
@@ -576,7 +548,7 @@ class _AccountRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
-                _AccountAvatar(account),
+                AccountAvatar(account.iconKey, name: account.name),
                 const SizedBox(width: AppSpacing.m),
                 Expanded(
                   child: Column(

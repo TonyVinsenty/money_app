@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/account_icons.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 
@@ -55,7 +56,7 @@ Future<({String? id})?> showAccountSheet(
                 context,
                 a.id,
                 a.name,
-                AccountIconView(a.iconKey, name: a.name),
+                AccountAvatar(a.iconKey, name: a.name),
               ),
             option(context, null, accountChipNone, const Icon(Icons.block)),
           ],

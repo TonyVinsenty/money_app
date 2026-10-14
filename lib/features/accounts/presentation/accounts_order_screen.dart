@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:money_app/core/ui/account_icons.dart';
+import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
@@ -136,10 +136,9 @@ class _AccountsOrderScreenState extends State<AccountsOrderScreen> {
                             padding: const EdgeInsets.only(left: 16),
                             child: Row(
                               children: [
-                                AccountIconView(
+                                AccountAvatar(
                                   live[i].iconKey,
                                   name: live[i].name,
-                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(

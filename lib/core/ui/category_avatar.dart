@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/icon_scale.dart';
 
 /// Значок категории в кружке 40 dp. Без [color] кружок нейтральный (как в
 /// «Истории»); цвет заливки нужен, например, для цветной категории.
@@ -19,9 +20,10 @@ class CategoryAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fill = color;
+    final k = iconScaleOf(context);
     return Container(
-      width: 40,
-      height: 40,
+      width: 40 * k,
+      height: 40 * k,
       decoration: BoxDecoration(
         color: fill ?? Theme.of(context).colorScheme.surfaceContainerHighest,
         shape: BoxShape.circle,
@@ -29,7 +31,7 @@ class CategoryAvatar extends StatelessWidget {
       child: CategoryIconView(
         iconKey,
         name: name,
-        size: 24,
+        size: 24 * k,
         color: fill == null ? null : categoryAvatarForeground(fill),
       ),
     );

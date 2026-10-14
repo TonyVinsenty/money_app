@@ -4,7 +4,7 @@ import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
-import 'package:money_app/core/ui/account_icons.dart';
+import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
@@ -175,7 +175,7 @@ class _JournalList extends StatelessWidget {
       // Экран счёта показывает только не архивные счета, поэтому строки
       // архивного счёта не нажимаются.
       AccountCreatedEntry(:final account) => (
-        AccountIconView(account.iconKey, name: account.name),
+        AccountAvatar(account.iconKey, name: account.name),
         journalCreatedTitle(account.name),
         journalCreatedSpoken(account.name, day),
         onOpenAccount == null || account.isArchived
