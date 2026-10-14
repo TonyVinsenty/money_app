@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoDatePicker;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -8,6 +9,7 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/date_wheel_sheet.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
@@ -43,19 +45,22 @@ Future<void> _pump(
   double width = 360,
   double? tabFontSize,
   VoidCallback? onAddExpense,
+  TargetPlatform? platform,
 }) async {
   tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: tabFontSize == null
-          ? AppTheme.light()
-          : AppTheme.light().copyWith(
-              tabBarTheme: TabBarThemeData(
-                labelStyle: TextStyle(fontSize: tabFontSize),
-              ),
-            ),
+      theme:
+          (tabFontSize == null
+                  ? AppTheme.light()
+                  : AppTheme.light().copyWith(
+                      tabBarTheme: TabBarThemeData(
+                        labelStyle: TextStyle(fontSize: tabFontSize),
+                      ),
+                    ))
+              .copyWith(platform: platform),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -891,6 +896,125 @@ void main() {
         );
       },
     );
+
+    group('iOS: колесо в два шага', () {
+      final wheel = find.byType(CupertinoDatePicker);
+
+      testWidgets('«С», затем «По»: период собирается из двух дат', (
+        tester,
+      ) async {
+        final calls = <(DateOnly, DateOnly)>[];
+        await _pump(
+          tester,
+          platform: TargetPlatform.iOS,
+          firstDay: DateOnly(2026, 9, 1),
+          onCustom: (s, e) => calls.add((s, e)),
+        );
+        await _pickItem(tester, customItem);
+
+        expect(find.byType(DateRangePickerDialog), findsNothing);
+        expect(find.text('С какого дня'), findsOneWidget);
+        expect(wheel, findsOneWidget);
+        await tester.tap(find.text(dateWheelDone));
+        await tester.pumpAndSettle();
+
+        expect(find.text('По какой день'), findsOneWidget);
+        expect(find.text('to'), findsNothing);
+        expect(find.text('С какого дня'), findsNothing);
+        await tester.tap(find.text(dateWheelDone));
+        await tester.pumpAndSettle();
+
+        expect(calls, [(DateOnly(2026, 10, 1), DateOnly(2026, 10, 4))]);
+      });
+
+      testWidgets('колесо «По» ограничено снизу датой «С»', (tester) async {
+        await _pump(
+          tester,
+          platform: TargetPlatform.iOS,
+          firstDay: DateOnly(2026, 9, 1),
+          onCustom: (_, _) {},
+        );
+        await _pickItem(tester, customItem);
+        await tester.tap(find.text(dateWheelDone));
+        await tester.pumpAndSettle();
+
+        final second = tester.widget<CupertinoDatePicker>(wheel);
+        expect(second.minimumDate, DateTime(2026, 10, 1));
+        expect(second.maximumDate, DateTime(2026, 10, 4));
+        // «Вчера» (3 октября) допустимо, а раньше «С» уйти нельзя.
+        expect(
+          tester
+              .widget<ActionChip>(
+                find.widgetWithText(ActionChip, dateWheelYesterday),
+              )
+              .onPressed,
+          isNotNull,
+        );
+      });
+
+      testWidgets('«По» раньше «С» нельзя: чип «Вчера» недоступен', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          platform: TargetPlatform.iOS,
+          firstDay: DateOnly(2026, 9, 1),
+          period: currentPeriod(PeriodKind.day, _today),
+          onCustom: (_, _) {},
+        );
+        await _pickItem(tester, customItem);
+        await tester.tap(find.text(dateWheelDone));
+        await tester.pumpAndSettle();
+
+        expect(
+          tester
+              .widget<ActionChip>(
+                find.widgetWithText(ActionChip, dateWheelYesterday),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester.widget<CupertinoDatePicker>(wheel).minimumDate,
+          DateTime(2026, 10, 4),
+        );
+      });
+
+      testWidgets('«Отмена» на любом шаге не меняет период', (tester) async {
+        final calls = <(DateOnly, DateOnly)>[];
+        await _pump(
+          tester,
+          platform: TargetPlatform.iOS,
+          onCustom: (s, e) => calls.add((s, e)),
+        );
+        await _pickItem(tester, customItem);
+        await tester.tap(find.text(dateWheelCancel));
+        await tester.pumpAndSettle();
+        expect(wheel, findsNothing);
+
+        await _pickItem(tester, customItem);
+        await tester.tap(find.text(dateWheelDone));
+        await tester.pumpAndSettle();
+        expect(find.text('По какой день'), findsOneWidget);
+        await tester.tap(find.text(dateWheelCancel));
+        await tester.pumpAndSettle();
+
+        expect(wheel, findsNothing);
+        expect(calls, isEmpty);
+      });
+    });
+
+    testWidgets('Android: диапазонный календарь, не колесо', (tester) async {
+      await _pump(
+        tester,
+        platform: TargetPlatform.android,
+        onCustom: (_, _) {},
+      );
+      await _pickItem(tester, customItem);
+
+      expect(find.byType(DateRangePickerDialog), findsOneWidget);
+      expect(find.byType(CupertinoDatePicker), findsNothing);
+    });
 
     testWidgets('отмена не зовёт колбэк', (tester) async {
       final calls = <(DateOnly, DateOnly)>[];

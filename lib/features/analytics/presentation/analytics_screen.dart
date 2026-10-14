@@ -5,6 +5,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/bottom_inset.dart';
+import 'package:money_app/core/ui/date_wheel_sheet.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
@@ -178,6 +179,31 @@ class AnalyticsScreen extends StatelessWidget {
         : day > today
         ? today
         : day;
+    if (Theme.of(context).platform == TargetPlatform.iOS) {
+      // iPhone: два шага с колесом «С…» / «По…»; «По» не раньше «С».
+      final start = await pickDate(
+        context,
+        initial: clamp(period.range.start),
+        first: first,
+        last: today,
+        today: today,
+        title: 'С какого дня',
+      );
+      if (start == null || !context.mounted) return;
+      final end = await pickDate(
+        context,
+        initial: clamp(period.range.end) < start
+            ? start
+            : clamp(period.range.end),
+        first: start,
+        last: today,
+        today: today,
+        title: 'По какой день',
+      );
+      if (end == null) return;
+      onCustomRangeSelected?.call(start, end);
+      return;
+    }
     final picked = await showDateRangePicker(
       context: context,
       firstDate: first.toDateTime(),
