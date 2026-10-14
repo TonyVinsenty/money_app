@@ -7,11 +7,13 @@ import 'package:money_app/core/format/money_spoken.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/amount_field.dart';
-import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
 import 'package:money_app/core/ui/date_chip.dart';
+import 'package:money_app/core/ui/picker_field.dart';
 import 'package:money_app/core/ui/saved_haptic.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/transaction_rule_text.dart';
@@ -186,6 +188,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     return _allAccounts != null || _accountsFailed
         ? EditTransactionScreen.accountUnknownText
         : EditTransactionScreen.categoryLoadingLabel;
+  }
+
+  /// Аватар выбранного счёта; без счёта - нейтральный «кошелёк».
+  Widget _accountAvatar() {
+    for (final a in _allAccounts ?? const <Account>[]) {
+      if (a.id == _accountId) return AccountAvatar(a.iconKey, name: a.name);
+    }
+    return const AccountAvatar('wallet');
   }
 
   Future<void> _pickAccount() async {
@@ -722,49 +732,55 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         horizontal: 16,
                         vertical: 8,
                       ),
-                      child: Material(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: _categoryError
-                              ? BorderSide(
-                                  color: theme.colorScheme.error,
-                                  width: 2,
-                                )
-                              : BorderSide.none,
+                      child: PickerField(
+                        label: EditTransactionScreen.categoryLabel,
+                        value: _categoryTitle,
+                        hasError: _categoryError,
+                        leading: CategoryAvatar(
+                          category?.iconKey,
+                          name: category?.name,
                         ),
-                        clipBehavior: Clip.antiAlias,
-                        child: ListTile(
-                          leading: CategoryIconView(
-                            category?.iconKey,
-                            color: theme.colorScheme.primary,
-                          ),
-                          title: Text(
-                            _categoryTitle,
-                            style: _categoryError
-                                ? TextStyle(color: theme.colorScheme.error)
-                                : null,
-                          ),
-                          subtitle: const Text(
-                            EditTransactionScreen.categoryLabel,
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => unawaited(_pickCategory()),
-                        ),
+                        onTap: () => unawaited(_pickCategory()),
                       ),
                     ),
                     if (category != null &&
                         (_hasSubcategories[category.id] == true ||
                             subcategory != null))
-                      _SubcategoryRow(
-                        subcategory: subcategory,
-                        onTap: () => unawaited(_pickSubcategory()),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: PickerField(
+                          label: EditTransactionScreen.subcategoryLabel,
+                          value:
+                              subcategory?.name ??
+                              EditTransactionScreen.subcategoryNoneText,
+                          // Без выбора скринридер читает «Без подкатегории».
+                          semanticsLabel: subcategory == null
+                              ? EditTransactionScreen.subcategoryNoneText
+                              : null,
+                          leading: CategoryAvatar(
+                            subcategory?.iconKey,
+                            name: subcategory?.name,
+                          ),
+                          onTap: () => unawaited(_pickSubcategory()),
+                        ),
                       ),
                     // Есть счета этой валюты или у операции уже есть счёт.
                     if (_accountOptions.isNotEmpty || _accountId != null)
-                      _AccountRow(
-                        title: _accountTitle(),
-                        onTap: () => unawaited(_pickAccount()),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: PickerField(
+                          key: EditTransactionScreen.accountRowKey,
+                          label: EditTransactionScreen.accountLabel,
+                          value: _accountTitle(),
+                          leading: _accountAvatar(),
+                          onTap: () => unawaited(_pickAccount()),
+                        ),
                       ),
                     NoteField(controller: _note, focusNode: _noteFocus),
                   ],
@@ -797,87 +813,6 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
             ),
             const SizedBox(height: 8),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Строка «Счёт» под категорией: «Карта», «Без счёта» или «Карта (в
-/// архиве)». Скринридер читает «Счёт: Карта» как кнопку.
-class _AccountRow extends StatelessWidget {
-  const _AccountRow({required this.title, required this.onTap});
-
-  final String title;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Semantics(
-        button: true,
-        label: '${EditTransactionScreen.accountLabel}: $title',
-        onTap: onTap,
-        excludeSemantics: true,
-        child: Material(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.antiAlias,
-          child: ListTile(
-            key: EditTransactionScreen.accountRowKey,
-            leading: Icon(
-              Icons.account_balance_wallet_outlined,
-              color: theme.colorScheme.primary,
-            ),
-            title: Text(title),
-            subtitle: const Text(EditTransactionScreen.accountLabel),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: onTap,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Строка «Подкатегория» под полем категории: в том же стиле. Скринридер
-/// читает «Подкатегория: Овощи» или «Без подкатегории» как кнопку.
-class _SubcategoryRow extends StatelessWidget {
-  const _SubcategoryRow({required this.subcategory, required this.onTap});
-
-  final Category? subcategory;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final sub = subcategory;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Semantics(
-        button: true,
-        label: sub == null
-            ? EditTransactionScreen.subcategoryNoneText
-            : '${EditTransactionScreen.subcategoryLabel}: ${sub.name}',
-        onTap: onTap,
-        excludeSemantics: true,
-        child: Material(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.antiAlias,
-          child: ListTile(
-            leading: CategoryIconView(
-              sub?.iconKey,
-              name: sub?.name,
-              color: theme.colorScheme.primary,
-            ),
-            title: Text(sub?.name ?? EditTransactionScreen.subcategoryNoneText),
-            subtitle: const Text(EditTransactionScreen.subcategoryLabel),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: onTap,
-          ),
         ),
       ),
     );

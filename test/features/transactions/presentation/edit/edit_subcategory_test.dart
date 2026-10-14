@@ -6,6 +6,8 @@ import 'package:money_app/app/app.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/picker_field.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
@@ -276,10 +278,24 @@ void main() {
       ]);
       await _open(tester, _tx(subcategoryId: 'meat'), categories: categories);
       final leading = find.descendant(
-        of: find.byType(ListTile),
+        of: find.byType(PickerField),
         matching: find.text('М'),
       );
       expect(leading, findsOneWidget);
+    });
+
+    testWidgets('строки правки - PickerField, подкатегория с аватаром', (
+      tester,
+    ) async {
+      await _open(tester, _tx(subcategoryId: 'veg'));
+      expect(find.byType(PickerField), findsNWidgets(2));
+      expect(
+        find.descendant(
+          of: find.byType(PickerField),
+          matching: find.byType(CategoryAvatar),
+        ),
+        findsNWidgets(2),
+      );
     });
 
     testWidgets('нет у категории без подкатегорий', (tester) async {
