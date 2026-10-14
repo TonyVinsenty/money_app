@@ -327,9 +327,6 @@ String journalCreatedSpoken(String name, String day) =>
 String journalArchivedSpoken(String name, String day) =>
     'Счёт $name отправлен в архив, $day';
 
-/// Заголовок перевода: «Карта → Наличные».
-String journalTransferTitle(String from, String to) => '$from → $to';
-
 /// Озвучка перевода: «Перевод со счёта Карта на счёт Наличные, 5000 рублей,
 /// 7 октября» (+ «, комментарий: ...»).
 String journalTransferSpoken(

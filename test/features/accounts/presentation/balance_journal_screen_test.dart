@@ -88,6 +88,11 @@ Future<void> pump(
   await tester.pump();
 }
 
+/// Текст заголовка перевода: стрелка-значок в `Text.rich` даёт символ-заменитель
+/// U+FFFC.
+String _transferTitle(String from, String to) =>
+    '$from ${String.fromCharCode(0xFFFC)} $to';
+
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
 
@@ -121,7 +126,16 @@ void main() {
     expect(find.text(journalArchivedTitle('Карта')), findsOneWidget);
     expect(find.text(journalCreatedTitle('Карта')), findsOneWidget);
     expect(find.text(journalCreatedTitle('Наличные')), findsOneWidget);
-    expect(find.text('Карта (в архиве) → Наличные'), findsOneWidget);
+    expect(
+      find.text(_transferTitle('Карта (в архиве)', 'Наличные')),
+      findsOneWidget,
+    );
+    final arrow = tester.widget<Icon>(
+      find.byKey(BalanceJournalScreen.transferArrowKey),
+    );
+    expect(arrow.icon, Icons.east);
+    expect(arrow.size, 18);
+    expect(find.textContaining('→'), findsNothing);
     expect(
       find.text(formatMoney(Money.fromMinor(500000, 'RUB'))),
       findsOneWidget,
@@ -176,7 +190,7 @@ void main() {
       onOpenTransfer: (v) => openedTransfer = v,
       onOpenAccount: (v) => openedAccount = v,
     );
-    await tester.tap(find.text('Карта (в архиве) → Наличные'));
+    await tester.tap(find.text(_transferTitle('Карта (в архиве)', 'Наличные')));
     expect(openedTransfer, t);
     await tester.tap(find.text(journalCreatedTitle('Наличные')));
     expect(openedAccount, cash);
@@ -231,7 +245,10 @@ void main() {
       accounts: Stream.value([cash]),
       transfers: Stream.value([transfer('t1', 'gone', 'a2', 100, 9)]),
     );
-    expect(find.text('$transferUnknownPartner → Наличные'), findsOneWidget);
+    expect(
+      find.text(_transferTitle(transferUnknownPartner, 'Наличные')),
+      findsOneWidget,
+    );
     expect(
       find.bySemanticsLabel(
         'Перевод со счёта $transferUnknownPartner на счёт Наличные, '

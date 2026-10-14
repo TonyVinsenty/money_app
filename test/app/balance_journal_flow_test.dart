@@ -116,7 +116,7 @@ List<String> _titles(WidgetTester tester) => [
       matching: find.byType(ListTile),
     ),
   ))
-    (t.title! as Text).data!,
+    (t.title! as Text).data ?? (t.title! as Text).textSpan!.toPlainText(),
 ];
 
 void main() {
@@ -129,7 +129,8 @@ void main() {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = false;
   });
 
-  const transferTitle = 'Карта → Наличные (в архиве)';
+  final transferTitle =
+      'Карта ${String.fromCharCode(0xFFFC)} Наличные (в архиве)';
 
   testWidgets('journal shows four rows in order; transfer opens the form, '
       'delete and undo work', (tester) async {

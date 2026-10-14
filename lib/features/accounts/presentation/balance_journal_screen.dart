@@ -38,6 +38,9 @@ class BalanceJournalScreen extends StatelessWidget {
   /// Перевод момента в день; `null` - местный день (для тестов).
   final DateOnly Function(DateTime moment)? dayOf;
 
+  /// Значок-стрелка в заголовке перевода «Карта → Наличные».
+  static const transferArrowKey = ValueKey('journal-transfer-arrow');
+
   static ValueKey<String> rowKey(BalanceJournalEntry e) =>
       ValueKey('journal-${e.runtimeType}-${e.id}');
 
@@ -168,7 +171,7 @@ class _JournalList extends StatelessWidget {
     final day = _spokenDay(e.day);
     final (
       Widget leading,
-      String title,
+      Widget title,
       String spoken,
       VoidCallback? onTap,
     ) = switch (e) {
@@ -176,7 +179,7 @@ class _JournalList extends StatelessWidget {
       // архивного счёта не нажимаются.
       AccountCreatedEntry(:final account) => (
         AccountAvatar(account.iconKey, name: account.name),
-        journalCreatedTitle(account.name),
+        _title(journalCreatedTitle(account.name)),
         journalCreatedSpoken(account.name, day),
         onOpenAccount == null || account.isArchived
             ? null
@@ -184,13 +187,14 @@ class _JournalList extends StatelessWidget {
       ),
       AccountArchivedEntry(:final account) => (
         const Icon(Icons.archive_outlined),
-        journalArchivedTitle(account.name),
+        _title(journalArchivedTitle(account.name)),
         journalArchivedSpoken(account.name, day),
         null,
       ),
       TransferEntry(:final transfer) => (
         const Icon(Icons.swap_horiz),
-        journalTransferTitle(
+        _transferTitle(
+          context,
           _name(transfer.fromAccountId),
           _name(transfer.toAccountId),
         ),
@@ -217,7 +221,7 @@ class _JournalList extends StatelessWidget {
         contentPadding: EdgeInsets.zero,
         minTileHeight: 48,
         leading: leading,
-        title: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
+        title: title,
         subtitle: transfer?.note == null
             ? null
             : Text(
@@ -245,6 +249,31 @@ class _JournalList extends StatelessWidget {
       ),
     );
   }
+
+  static Widget _title(String text) =>
+      Text(text, maxLines: 2, overflow: TextOverflow.ellipsis);
+
+  /// «Карта → Наличные»: стрелка — значок, как в переводах счёта (D48).
+  static Widget _transferTitle(BuildContext context, String from, String to) =>
+      Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: '$from '),
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Icon(
+                Icons.east,
+                key: BalanceJournalScreen.transferArrowKey,
+                size: 18,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            TextSpan(text: ' $to'),
+          ],
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      );
 
   /// Валюта перевода - валюта счёта «Откуда» (знаки после запятой из него);
   /// если его нет - счёта «Куда» (валюта у них общая).
