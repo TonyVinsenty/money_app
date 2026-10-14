@@ -29,6 +29,7 @@ const categoryFormKindTitle = 'Тип';
 const categoryFormKindExpense = 'Расход';
 const categoryFormKindIncome = 'Доход';
 const categoryFormIconTitle = 'Иконка';
+const categoryFormIconTitleKey = ValueKey<String>('category-form-icon-title');
 const categoryFormSaveLabel = 'Сохранить';
 
 /// Строка только для чтения при переименовании: «Тип: Расход».
@@ -389,9 +390,16 @@ class _CategoryFormScreenState extends State<CategoryFormScreen>
                     // Значок выбирается и у категории, и у подкатегории.
                     ...[
                       const SizedBox(height: 16),
-                      Text(
-                        categoryFormIconTitle,
-                        style: theme.textTheme.titleSmall,
+                      Semantics(
+                        header: true,
+                        child: Text(
+                          categoryFormIconTitle,
+                          key: categoryFormIconTitleKey,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       // Ровная сетка: столбцов сколько влезает по 56 dp (не меньше
@@ -417,7 +425,12 @@ class _CategoryFormScreenState extends State<CategoryFormScreen>
                                     ),
                                     child: Text(
                                       group.title,
-                                      style: theme.textTheme.labelLarge,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
                                     ),
                                   ),
                                 ),

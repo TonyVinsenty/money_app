@@ -9,7 +9,8 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/bar_chart.dart';
 import 'package:money_app/core/ui/card_header.dart';
-import 'package:money_app/core/ui/category_icon_view.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
+import 'package:money_app/core/ui/icon_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/theme/app_colors.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
@@ -154,8 +155,8 @@ class _DynamicsSectionState extends State<DynamicsSection> {
     return ListTile(
       key: DynamicsSection.categoryOptionKey(id),
       leading: category == null
-          ? const Icon(Icons.category_outlined)
-          : CategoryIconView(category.iconKey),
+          ? const _AllCategoriesAvatar()
+          : CategoryAvatar(category.iconKey, name: category.name),
       title: Text(name),
       subtitle: category != null && category.isArchived
           ? const Text(dynamicsArchivedNote)
@@ -429,6 +430,26 @@ class _CategoryChip extends StatelessWidget {
           materialTapTargetSize: MaterialTapTargetSize.padded,
         ),
       ),
+    );
+  }
+}
+
+/// Кружок «Все категории» в листе выбора: тот же размер и заливка, что у
+/// `CategoryAvatar`, значок `category_outlined`.
+class _AllCategoriesAvatar extends StatelessWidget {
+  const _AllCategoriesAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    final k = iconScaleOf(context);
+    return Container(
+      width: 40 * k,
+      height: 40 * k,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(Icons.category_outlined, size: 24 * k),
     );
   }
 }

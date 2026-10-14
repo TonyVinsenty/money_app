@@ -58,6 +58,7 @@ class AccountFormScreen extends StatefulWidget {
   static const minusSwitchKey = ValueKey('account-form-minus');
   static const saveButtonKey = ValueKey('account-form-save');
   static const currencyRowKey = ValueKey('account-form-currency');
+  static const iconTitleKey = ValueKey('account-form-icon-title');
 
   @override
   State<AccountFormScreen> createState() => _AccountFormScreenState();
@@ -253,9 +254,16 @@ class _AccountFormScreenState extends State<AccountFormScreen> {
                       onChanged: (_) => setState(() => _nameError = null),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      accountFormIconTitle,
-                      style: theme.textTheme.titleSmall,
+                    Semantics(
+                      header: true,
+                      child: Text(
+                        accountFormIconTitle,
+                        key: AccountFormScreen.iconTitleKey,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     // Ровная сетка 4 в ряд: ширина ячейки считается из доступной

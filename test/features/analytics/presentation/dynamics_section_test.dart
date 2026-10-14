@@ -5,6 +5,7 @@ import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/bar_chart.dart';
+import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/analytics/domain/analytics_period.dart';
 import 'package:money_app/features/analytics/presentation/analytics_controller.dart';
@@ -277,7 +278,7 @@ void main() {
         id: id,
         kind: income ? CategoryKind.income : CategoryKind.expense,
         name: name,
-        iconKey: 'icon',
+        iconKey: id == 'loans' ? 'more_horiz' : 'icon',
         sortOrder: 0,
       );
       return archived ? c.archived(DateTime.utc(2026, 9, 1)) : c;
@@ -311,10 +312,12 @@ void main() {
       ),
       // Архивная, операции только в прошлом периоде (сентябрь).
       tx('e', 20000, DateOnly(2026, 9, 10), 'past'),
+      tx('f', 10000, DateOnly(2026, 10, 7), 'loans'),
     ];
     final cats = [
       cat('cafe', 'Кафе'),
       cat('taxi', 'Такси'),
+      cat('loans', 'Займы'),
       cat('free', 'Бесплатно'),
       cat('old', 'Старое', archived: true),
       cat('dead', 'Мёртвое', archived: true),
@@ -409,6 +412,47 @@ void main() {
             matching: find.byIcon(Icons.check),
           ),
           findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'лист: «Займы» — буква «З» в кружке, без «•••»; «Все» — кружок',
+      (tester) async {
+        await pumpFilter(tester);
+        await openSheet(tester);
+
+        final loans = find.byKey(DynamicsSection.categoryOptionKey('loans'));
+        expect(
+          find.descendant(of: loans, matching: find.byType(CategoryAvatar)),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: loans, matching: find.text('З')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: loans, matching: find.byIcon(Icons.more_horiz)),
+          findsNothing,
+        );
+        final all = find.byKey(DynamicsSection.categoryOptionKey(null));
+        expect(
+          find.descendant(
+            of: all,
+            matching: find.byIcon(Icons.category_outlined),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester.getSize(
+            find.descendant(
+              of: all,
+              matching: find.byWidgetPredicate(
+                (w) => w is Container && w.decoration is BoxDecoration,
+              ),
+            ),
+          ),
+          const Size(40, 40),
         );
       },
     );

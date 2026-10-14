@@ -177,6 +177,19 @@ void main() {
       expect(shown.contains('\u2212'), isFalse);
     });
 
+    testWidgets('«Иконка» — подзаголовок акцентом, жирность 600', (
+      tester,
+    ) async {
+      await pumpTab(tester, InMemoryAccountsRepository());
+      await openForm(tester);
+      final theme = Theme.of(tester.element(find.byType(AccountFormScreen)));
+      final title = tester.widget<Text>(
+        find.byKey(AccountFormScreen.iconTitleKey),
+      );
+      expect(title.style?.fontWeight, FontWeight.w600);
+      expect(title.style?.color, theme.colorScheme.primary);
+    });
+
     testWidgets('символ валюты виден при пустом поле; значки 4 x 2, подписи', (
       tester,
     ) async {

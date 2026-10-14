@@ -151,6 +151,21 @@ void main() {
     expect(nameHasFocus(tester), isTrue);
   });
 
+  testWidgets('«Иконка» — подзаголовок акцентом, названия групп приглушены', (
+    tester,
+  ) async {
+    await _openForm(tester, repository);
+    final theme = Theme.of(tester.element(find.byType(CategoryFormScreen)));
+    final title = tester.widget<Text>(find.byKey(categoryFormIconTitleKey));
+    expect(title.style?.fontWeight, FontWeight.w600);
+    expect(title.style?.color, theme.colorScheme.primary);
+    final group = tester.widget<Text>(
+      find.text(categoryIconGroups.first.title),
+    );
+    expect(group.style?.fontSize, theme.textTheme.bodySmall?.fontSize);
+    expect(group.style?.color, theme.colorScheme.onSurfaceVariant);
+  });
+
   testWidgets('при правке категории клавиатура сама не открывается', (
     tester,
   ) async {
