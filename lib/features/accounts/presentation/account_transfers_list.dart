@@ -103,8 +103,17 @@ class AccountTransfersList extends StatelessWidget {
                 key: rowKey(t.id),
                 contentPadding: EdgeInsets.zero,
                 minTileHeight: 48,
+                // Стрелка-значок по центру строки (озвучка уже словами).
+                leading: Icon(
+                  outgoing ? Icons.east : Icons.west,
+                  key: ValueKey(outgoing ? 'transfer-out' : 'transfer-in'),
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                horizontalTitleGap: 8,
+                minLeadingWidth: 18,
                 title: Text(
-                  transferRowTitle(outgoing, partner),
+                  transferRowTitle(partner),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),

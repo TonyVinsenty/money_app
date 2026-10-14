@@ -452,15 +452,10 @@ class _Totals extends StatelessWidget {
     final colors = context.appColors;
     final lines = <Widget>[];
     for (final (index, (total, info)) in totals.indexed) {
-      // Как «Всего» на «Главной»: плюс цветом дохода, минус цветом расхода,
-      // ноль нейтрально. Минус ставит formatMoney (U+2212).
-      final color = total.isZero
-          ? null
-          : total.isNegative
-          ? colors.expense
-          : colors.income;
-      final shown = formatMoney(total, currency: info);
-      final text = total.isZero || total.isNegative ? shown : '+$shown';
+      // Остаток - не доход: без «+» и нейтральным цветом (как в кольце);
+      // отрицательный - цветом расхода. Минус ставит formatMoney (U+2212).
+      final color = total.isNegative ? colors.expense : null;
+      final text = formatMoney(total, currency: info);
       lines.add(
         // Длинная сумма (BTC) при крупном шрифте уменьшается, а не обрезается.
         FittedBox(
@@ -560,6 +555,14 @@ class _AccountRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge,
                       ),
+                      // «Основной» относится к счёту, поэтому стоит до суммы.
+                      if (isDefault)
+                        Text(
+                          accountDefaultLabel,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       // Крупный шрифт: остаток под названием в полный
                       // размер; шире строки — уменьшается, а не рвётся.
                       if (twoLine)
@@ -567,13 +570,6 @@ class _AccountRow extends StatelessWidget {
                           fit: BoxFit.scaleDown,
                           alignment: AlignmentDirectional.centerStart,
                           child: amount,
-                        ),
-                      if (isDefault)
-                        Text(
-                          accountDefaultLabel,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
                         ),
                     ],
                   ),

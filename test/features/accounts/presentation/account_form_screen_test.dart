@@ -103,7 +103,7 @@ void main() {
       expect(find.text('Карта'), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data,
-        '+${formatMoney(rub(15050))}',
+        formatMoney(rub(15050)),
       );
     });
 

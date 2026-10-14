@@ -221,7 +221,7 @@ void main() {
       expect(repo.net['a'], rub(-30000));
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(totalText(tester), '+${formatMoney(rub(150050))}');
+      expect(totalText(tester), formatMoney(rub(150050)));
     });
 
     testWidgets('сбой записи: сообщение, экран остаётся', (tester) async {
@@ -284,7 +284,7 @@ void main() {
         acc('b', 'Наличные', opening: 5000),
       ]);
       await pumpTab(tester, repo);
-      expect(totalText(tester), '+${formatMoney(rub(1205000))}');
+      expect(totalText(tester), formatMoney(rub(1205000)));
       await openAccount(tester, 'Карта');
       await tapKey(tester, AccountScreen.archiveKey);
       expect(find.text(accountArchiveDialogTitle('Карта')), findsOneWidget);
@@ -304,7 +304,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(AccountScreen), findsNothing);
       expect(find.text('Карта'), findsNothing);
-      expect(totalText(tester), '+${formatMoney(rub(5000))}'); // без «Карты»
+      expect(totalText(tester), formatMoney(rub(5000))); // без «Карты»
       expect(find.text(accountArchivedMessage('Карта')), findsOneWidget);
     });
 

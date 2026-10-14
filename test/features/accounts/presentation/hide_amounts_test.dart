@@ -66,7 +66,8 @@ void main() {
 
   testWidgets('«Баланс» видно: суммы счёта и «Всего» на месте', (tester) async {
     await _pumpTab(tester, hidden: false);
-    expect(find.text(shown), findsOneWidget);
+    // Остаток счёта и «Всего» - один текст без «+».
+    expect(find.text(shown), findsNWidgets(2));
     expect(find.byKey(_cloud), findsNothing);
   });
 

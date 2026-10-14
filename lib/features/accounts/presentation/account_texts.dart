@@ -175,20 +175,16 @@ String accountRowSemantics(
     '$name, ${isDefault ? 'основной, ' : ''}'
     'остаток ${hidden ? hiddenAmountLabel : spokenMoney(balance, currency: currency)}';
 
-/// Одна сумма «Всего» для скринридера; для плюса приставку ставим тут, как в
-/// центре кольца «Главной».
+/// Одна сумма «Всего» для скринридера: остаток без «плюс» (как на экране),
+/// минус говорит сама spokenMoney.
 String accountsTotalSpoken(
   Money total,
   CurrencyInfo currency, {
   bool hidden = false,
-}) {
-  if (hidden) return hiddenAmountLabel;
-  final spoken = spokenMoney(total, currency: currency);
-  return total.isNegative || total.isZero ? spoken : 'плюс $spoken';
-}
+}) => hidden ? hiddenAmountLabel : spokenMoney(total, currency: currency);
 
 /// «Всего на счетах» для скринридера, по валютам через запятую:
-/// «Всего на счетах: плюс 12000 рублей, плюс 150 долларов».
+/// «Всего на счетах: 12000 рублей, 150 долларов».
 String accountsTotalSemantics(
   List<(Money, CurrencyInfo)> totals, {
   bool hidden = false,
@@ -267,9 +263,9 @@ const String transferDeleteFailedText =
 /// Запасное имя партнёра, если счёта не нашли (утверждено 2026-10-10).
 const String transferUnknownPartner = 'другой счёт';
 
-/// Имя в строке списка: «→ Наличные» (исходящий) или «← Карта».
-String transferRowTitle(bool outgoing, String partner) =>
-    '${outgoing ? '→' : '←'} ${partner.isEmpty ? transferUnknownPartner : partner}';
+/// Имя в строке списка: «Наличные»; направление показывает значок стрелки.
+String transferRowTitle(String partner) =>
+    partner.isEmpty ? transferUnknownPartner : partner;
 
 /// Сумма справа: со знаком минус для исходящего и плюс для входящего.
 String transferRowAmount(

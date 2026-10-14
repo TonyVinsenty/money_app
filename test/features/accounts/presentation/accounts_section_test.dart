@@ -100,7 +100,7 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets('один счёт: имя, остаток, «Всего» со знаком плюс', (
+  testWidgets('один счёт: имя, остаток, «Всего» без плюса и нейтральное', (
     tester,
   ) async {
     await pumpSection(
@@ -109,11 +109,12 @@ void main() {
       balances: Stream.value({'a': rub(1200000)}),
     );
     expect(find.text('Карта'), findsOneWidget);
-    expect(find.text(formatMoney(rub(1200000))), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data,
-      '+${formatMoney(rub(1200000))}',
-    );
+    // Остаток и «Всего» - одна и та же строка без «+».
+    expect(find.text(formatMoney(rub(1200000))), findsNWidgets(2));
+    final total = tester.widget<Text>(find.byKey(AccountsSection.totalKey));
+    expect(total.data, formatMoney(rub(1200000)));
+    expect(total.style?.color, isNot(AppColors.light.income));
+    expect(total.style?.color, isNot(AppColors.light.expense));
     expect(find.text(accountsEmptyText), findsNothing);
     expect(find.byIcon(Icons.credit_card), findsOneWidget);
   });
@@ -135,8 +136,21 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data,
-      '+${formatMoney(rub(1550))}',
+      formatMoney(rub(1550)),
     );
+  });
+
+  testWidgets('«Всего» ноль: без знака и нейтральное', (tester) async {
+    await pumpSection(
+      tester,
+      accounts: Stream.value([acc('a', 'Карта')]),
+      balances: Stream.value({'a': rub(0)}),
+    );
+    final total = tester.widget<Text>(find.byKey(AccountsSection.totalKey));
+    expect(total.data, formatMoney(rub(0)));
+    expect(total.data, isNot(contains('+')));
+    expect(total.style?.color, isNot(AppColors.light.income));
+    expect(total.style?.color, isNot(AppColors.light.expense));
   });
 
   testWidgets('минус: знак U+2212 и цвет расхода у счёта и у «Всего»', (
@@ -182,7 +196,7 @@ void main() {
     expect(find.text('Старый вклад'), findsNothing);
     expect(
       tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data,
-      '+${formatMoney(rub(100))}',
+      formatMoney(rub(100)),
     );
   });
 
@@ -239,7 +253,9 @@ void main() {
     expect(text.maxLines, 2);
     expect(text.overflow, TextOverflow.ellipsis);
     expect(
-      tester.widget<Text>(find.text(formatMoney(rub(123456789012)))).softWrap,
+      tester
+          .widget<Text>(find.byKey(AccountsSection.rowBalanceKey('a')))
+          .softWrap,
       isFalse,
     );
   });
@@ -289,7 +305,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.bySemanticsLabel('Всего на счетах: плюс 11950 рублей'),
+      find.bySemanticsLabel('Всего на счетах: 11950 рублей'),
       findsOneWidget,
     );
     handle.dispose();
@@ -344,16 +360,15 @@ void main() {
       tester,
     ) async {
       await pumpMixed(tester);
-      expect(find.text('+${formatMoney(rub(1200000))}'), findsOneWidget);
-      expect(find.text('+${formatMoney(usd(15000))}'), findsOneWidget);
-      expect(find.text('+${formatMoney(btc(150000))}'), findsOneWidget);
+      // Строка счёта и строка «Всего» - один и тот же текст без «+».
+      expect(find.text(formatMoney(rub(1200000))), findsNWidgets(2));
+      expect(find.textContaining('+'), findsNothing);
       // Своя валюта с 4 знаками: 15000 минорных = 1,5 (два знака минимум).
       final abcShown = formatMoney(abc(15000), currency: abcInfo);
       expect(abcShown, isNot(formatMoney(rub(15000))));
-      expect(find.text('+$abcShown'), findsOneWidget);
-      expect(find.text(abcShown), findsOneWidget);
-      expect(find.text(formatMoney(usd(15000))), findsOneWidget);
-      expect(find.text(formatMoney(btc(150000))), findsOneWidget);
+      expect(find.text(abcShown), findsNWidgets(2));
+      expect(find.text(formatMoney(usd(15000))), findsNWidgets(2));
+      expect(find.text(formatMoney(btc(150000))), findsNWidgets(2));
       // Порядок: основная первой, остальные по коду.
       final firstTop = tester.getTopLeft(find.byKey(AccountsSection.totalKey));
       final order = ['ABC', 'BTC', 'USD']
@@ -373,10 +388,10 @@ void main() {
       final handle = tester.ensureSemantics();
       await pumpMixed(tester);
       final label =
-          '$accountsTotalLabel: плюс ${spokenMoney(rub(1200000))}, '
-          'плюс ${spokenMoney(abc(15000), currency: abcInfo)}, '
-          'плюс ${spokenMoney(btc(150000))}, '
-          'плюс ${spokenMoney(usd(15000))}';
+          '$accountsTotalLabel: ${spokenMoney(rub(1200000))}, '
+          '${spokenMoney(abc(15000), currency: abcInfo)}, '
+          '${spokenMoney(btc(150000))}, '
+          '${spokenMoney(usd(15000))}';
       expect(find.bySemanticsLabel(label), findsOneWidget);
       expect(
         find.bySemanticsLabel(
@@ -405,8 +420,9 @@ void main() {
       );
       expect(rubText.data, formatMoney(rub(-5000)));
       expect(rubText.style?.color, colors.expense);
-      expect(usdText.data, '+${formatMoney(usd(100))}');
-      expect(usdText.style?.color, colors.income);
+      expect(usdText.data, formatMoney(usd(100)));
+      expect(usdText.style?.color, isNot(colors.income));
+      expect(usdText.style?.color, isNot(colors.expense));
     });
 
     testWidgets('360 dp и шрифт 200 %: огромный остаток BTC без переполнения', (
@@ -490,6 +506,11 @@ void main() {
         expect(
           tester.getRect(balance).width,
           moreOrLessEquals(tester.getSize(balance).width),
+        );
+        // «Основной» стоит между названием и суммой.
+        expect(
+          tester.getTopLeft(find.text(accountDefaultLabel)).dy,
+          lessThan(tester.getTopLeft(balance).dy),
         );
         // «Основной» в одну строку, без разрыва посреди слова.
         final paragraph = tester.renderObject<RenderParagraph>(

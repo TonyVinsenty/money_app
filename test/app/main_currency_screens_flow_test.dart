@@ -333,14 +333,14 @@ void main() {
     // Основная RUB: первая строка - рубли, доллары - второй строкой.
     expect(
       tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data,
-      '+${_money(100000, 'RUB')}',
+      _money(100000, 'RUB'),
     );
 
     await _settings.setMainCurrency(_usd);
     await tester.pumpAndSettle();
     expect(
       tester.widget<Text>(find.byKey(AccountsSection.totalKey)).data,
-      '+${_money(5000, 'USD')}',
+      _money(5000, 'USD'),
     );
     expect(find.byKey(const ValueKey('accounts-total-RUB')), findsOneWidget);
 

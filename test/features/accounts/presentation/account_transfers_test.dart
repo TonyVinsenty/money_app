@@ -104,9 +104,11 @@ void main() {
     await openAccount(tester, cardAndCash, transfers);
 
     expect(find.text(transfersSectionTitle), findsOneWidget);
-    expect(find.text('→ Наличные'), findsOneWidget);
+    // Направление - значок стрелки, имя счёта - отдельным текстом.
+    expect(find.text('Наличные'), findsNWidgets(2));
+    expect(find.byIcon(Icons.east), findsOneWidget);
+    expect(find.byIcon(Icons.west), findsOneWidget);
     expect(find.text(formatMoney(-rub(500000))), findsOneWidget);
-    expect(find.text('← Наличные'), findsOneWidget);
     expect(find.text('+${formatMoney(rub(30000))}'), findsOneWidget);
     expect(find.text('Аренда'), findsOneWidget);
     expect(find.text('7$dateNbspсентября'), findsNothing);
@@ -141,7 +143,8 @@ void main() {
       acc('a1', 'Карта'),
       acc('a2', 'Старая', archived: true),
     ], transfers);
-    expect(find.text('→ Старая (в архиве)'), findsOneWidget);
+    expect(find.text('Старая (в архиве)'), findsOneWidget);
+    expect(find.byIcon(Icons.east), findsOneWidget);
     expect(find.text(formatMoney(-rub(100))), findsOneWidget);
   });
 
@@ -153,7 +156,7 @@ void main() {
       transfer('t1', 'a1', 'gone', 100, 7),
     ]);
     await openAccount(tester, cardAndCash, transfers);
-    expect(find.text('→ $transferUnknownPartner'), findsOneWidget);
+    expect(find.text(transferUnknownPartner), findsOneWidget);
     expect(
       find.bySemanticsLabel(
         RegExp(
