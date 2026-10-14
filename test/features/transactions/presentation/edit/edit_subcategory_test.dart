@@ -361,6 +361,29 @@ void main() {
       expect(saved.note, 'молоко');
     });
 
+    testWidgets('в сетках правки отмечены текущие категория и подкатегория, '
+        'у остальных галочки нет', (tester) async {
+      await _open(tester, _tx(subcategoryId: 'veg'));
+      Finder check(String label) => find.descendant(
+        of: find.ancestor(of: find.text(label), matching: find.byType(InkWell)),
+        matching: find.byIcon(Icons.check_circle),
+      );
+
+      await tester.tap(find.text('Категория'));
+      await tester.pumpAndSettle();
+      expect(check('Продукты'), findsOneWidget);
+      expect(check('Кафе'), findsNothing);
+      expect(check('Одежда'), findsNothing);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      await tester.tap(_subRow);
+      await tester.pumpAndSettle();
+      expect(check('Овощи'), findsOneWidget);
+      expect(check('Фрукты'), findsNothing);
+      // «Без подкатегории» не выглядит выбранной.
+      expect(check('Без подкатегории'), findsNothing);
+    });
     testWidgets('двойной тап по строке открывает одну сетку', (tester) async {
       await _open(tester, _tx());
 

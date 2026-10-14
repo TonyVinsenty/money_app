@@ -13,11 +13,15 @@ class EditCategoryPickerScreen extends StatefulWidget {
   const EditCategoryPickerScreen({
     required this.type,
     required this.categories,
+    this.selectedId,
     super.key,
   });
 
   final TransactionType type;
   final CategoriesRepository categories;
+
+  /// Id категории, которая выбрана сейчас: её плитка выделяется.
+  final String? selectedId;
 
   static const expenseTitle = 'Категория расхода';
   static const incomeTitle = 'Категория дохода';
@@ -71,6 +75,7 @@ class _EditCategoryPickerScreenState extends State<EditCategoryPickerScreen> {
               const SliverPadding(padding: EdgeInsets.only(top: 16)),
               CategoryGrid(
                 categories: _visible(data),
+                selectedId: widget.selectedId,
                 onSelected: (category) => Navigator.of(context).pop(category),
               ),
             ],

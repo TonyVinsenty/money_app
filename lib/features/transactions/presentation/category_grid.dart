@@ -17,6 +17,7 @@ class CategoryGrid extends StatelessWidget {
     required this.categories,
     required this.onSelected,
     this.onSkip,
+    this.selectedId,
     this.skipText = skipLabel,
     super.key,
   });
@@ -26,6 +27,9 @@ class CategoryGrid extends StatelessWidget {
 
   /// Тап по плитке «Без подкатегории»; без него такой плитки нет.
   final VoidCallback? onSkip;
+
+  /// Id выбранной сейчас категории (в правке): её плитка выделяется.
+  final String? selectedId;
 
   /// Подпись плитки пропуска; по умолчанию — [skipLabel].
   final String skipText;
@@ -61,6 +65,7 @@ class CategoryGrid extends StatelessWidget {
           return _CategoryTile(
             label: category.name,
             iconKey: category.iconKey,
+            selected: category.id == selectedId,
             onTap: () => onSelected(category),
           );
         }, childCount: categories.length + offset),
@@ -76,6 +81,7 @@ class _CategoryTile extends StatelessWidget {
     this.iconKey,
     this.skipIcon,
     this.isSkip = false,
+    this.selected = false,
   });
 
   final String label;
@@ -88,6 +94,9 @@ class _CategoryTile extends StatelessWidget {
   /// Плитка «Без подкатегории»: контурная, а не залитая, чтобы не выглядеть
   /// как обычная подкатегория.
   final bool isSkip;
+
+  /// Плитка выбрана: заливка primaryContainer, рамка primary, галочка.
+  final bool selected;
 
   static const _iconSize = 32.0;
   static const _verticalPadding = 12.0;
@@ -116,11 +125,16 @@ class _CategoryTile extends StatelessWidget {
     return Semantics(
       button: true,
       label: label,
+      selected: selected ? true : null,
       excludeSemantics: true,
       // Тап задан явно: excludeSemantics убирает и действия InkWell внутри.
       onTap: onTap,
       child: Material(
-        color: isSkip ? Colors.transparent : scheme.surfaceContainerHighest,
+        color: isSkip
+            ? Colors.transparent
+            : (selected
+                  ? scheme.primaryContainer
+                  : scheme.surfaceContainerHighest),
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -130,9 +144,14 @@ class _CategoryTile extends StatelessWidget {
             // содержимого и не отнимает у него места (в отличие от
             // decoration, где Container сам добавляет ширину рамки к
             // отступам — тогда двум строкам названия не хватало бы высоты).
-            foregroundDecoration: isSkip
+            foregroundDecoration: isSkip || selected
                 ? BoxDecoration(
-                    border: Border.all(color: scheme.outline),
+                    // «Без подкатегории» - тонкая серая рамка, чтобы её не
+                    // приняли за «выбрано».
+                    border: Border.all(
+                      color: selected ? scheme.primary : scheme.outlineVariant,
+                      width: selected ? 2 : 1,
+                    ),
                     borderRadius: BorderRadius.circular(16),
                   )
                 : null,
@@ -140,44 +159,66 @@ class _CategoryTile extends StatelessWidget {
               horizontal: 4,
               vertical: _verticalPadding,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                ExcludeSemantics(
-                  child: skipIcon != null
-                      ? Icon(
-                          skipIcon,
-                          size: _iconSize,
-                          color: scheme.onSurfaceVariant,
-                        )
-                      : CategoryIconView(
-                          iconKey,
-                          name: label,
-                          size: _iconSize,
-                          color: scheme.primary,
-                        ),
-                ),
-                const SizedBox(height: _gap),
-                // Перенос только по словам: если самое длинное слово не
-                // влезает в плитку, шрифт плитки чуть уменьшается, а слово
-                // остаётся целым («Развлечения» при 200 %).
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final style = _labelStyle(context);
-                    final fontSize = MediaQuery.textScalerOf(context)
-                        .scale(style?.fontSize ?? 14);
-                    final fitted =
-                        fontSize *
-                        _wordFit(label, style, fontSize, constraints.maxWidth);
-                    return Text(
-                      label,
-                      maxLines: _lines,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      textScaler: TextScaler.noScaling,
-                      style: style?.copyWith(fontSize: fitted),
-                    );
-                  },
+                if (selected)
+                  Positioned(
+                    top: -_verticalPadding + 4,
+                    right: 0,
+                    child: ExcludeSemantics(
+                      child: Icon(
+                        Icons.check_circle,
+                        size: 18,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ExcludeSemantics(
+                      child: skipIcon != null
+                          ? Icon(
+                              skipIcon,
+                              size: _iconSize,
+                              color: scheme.onSurfaceVariant,
+                            )
+                          : CategoryIconView(
+                              iconKey,
+                              name: label,
+                              size: _iconSize,
+                              color: scheme.primary,
+                            ),
+                    ),
+                    const SizedBox(height: _gap),
+                    // Перенос только по словам: если самое длинное слово не
+                    // влезает в плитку, шрифт плитки чуть уменьшается, а слово
+                    // остаётся целым («Развлечения» при 200 %).
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final style = _labelStyle(context);
+                        final fontSize = MediaQuery.textScalerOf(context)
+                            .scale(style?.fontSize ?? 14);
+                        final fitted =
+                            fontSize *
+                            _wordFit(
+                              label,
+                              style,
+                              fontSize,
+                              constraints.maxWidth,
+                            );
+                        return Text(
+                          label,
+                          maxLines: _lines,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          textScaler: TextScaler.noScaling,
+                          style: style?.copyWith(fontSize: fitted),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),

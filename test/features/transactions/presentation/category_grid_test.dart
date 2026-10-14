@@ -311,4 +311,74 @@ void main() {
       expect(size('Развлечения'), lessThanOrEqualTo(full));
     });
   });
+
+  group('выбранная плитка', () {
+    Finder tileOf(String label) =>
+        find.ancestor(of: find.text(label), matching: find.byType(InkWell));
+
+    testWidgets('выбрана только плитка с selectedId: галочка, рамка primary, '
+        'озвучка', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _app(
+          CategoryGrid(
+            categories: [_category('a', 'Дом'), _category('b', 'Еда')],
+            selectedId: 'a',
+            onSelected: (_) {},
+            onSkip: () {},
+          ),
+        ),
+      );
+
+      expect(
+        find.descendant(
+          of: tileOf('Дом'),
+          matching: find.byIcon(Icons.check_circle),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Дом')),
+        matchesSemantics(
+          label: 'Дом',
+          isButton: true,
+          hasTapAction: true,
+          isSelected: true,
+          hasSelectedState: true,
+        ),
+      );
+      handle.dispose();
+    });
+
+    testWidgets('«Без подкатегории» рамка outlineVariant, а не primary', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          CategoryGrid(
+            categories: [_category('a', 'Дом')],
+            selectedId: 'a',
+            onSelected: (_) {},
+            onSkip: () {},
+          ),
+        ),
+      );
+
+      final scheme = Theme.of(tester.element(find.byType(CategoryGrid)))
+          .colorScheme;
+      Border borderOf(String label) {
+        final container = tester.widget<Container>(
+          find
+              .descendant(of: tileOf(label), matching: find.byType(Container))
+              .first,
+        );
+        return (container.foregroundDecoration! as BoxDecoration).border!
+            as Border;
+      }
+
+      expect(borderOf(CategoryGrid.skipLabel).top.color, scheme.outlineVariant);
+      expect(borderOf('Дом').top.color, scheme.primary);
+    });
+  });
 }

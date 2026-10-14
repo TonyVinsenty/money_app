@@ -12,7 +12,7 @@ import 'package:money_app/features/transactions/domain/transaction_rules.dart';
 /// Поведение:
 /// - подпись «Комментарий (необязательно)» видна всегда, а не только пока поле
 ///   пусто (`floatingLabelBehavior.always`);
-/// - счётчик «N/200» считает кодовые точки, как `domain`, поэтому встроенный
+/// - счётчик «N/200» виден с 150 символов и считает кодовые точки, как `domain`, поэтому встроенный
 ///   `maxLength` не используется;
 /// - поле не забирает фокус само (`autofocus: false`): клавиатура открывается
 ///   только по тапу; кнопка «Готово» на клавиатуре убирает фокус.
@@ -27,6 +27,9 @@ class NoteField extends StatelessWidget {
 
   static const label = 'Комментарий (необязательно)';
 
+  /// Счётчик виден только у границы лимита, чтобы не шуметь на пустом поле.
+  static const counterThreshold = 150;
+
   static String counterText(int length) => '$length/$transactionNoteMaxLength';
 
   static String counterSemantics(int length) =>
@@ -35,7 +38,7 @@ class NoteField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: ValueListenableBuilder<TextEditingValue>(
         valueListenable: controller,
         builder: (context, value, _) {
@@ -54,10 +57,12 @@ class NoteField extends StatelessWidget {
             decoration: InputDecoration(
               labelText: label,
               floatingLabelBehavior: FloatingLabelBehavior.always,
-              counter: Text(
-                counterText(length),
-                semanticsLabel: counterSemantics(length),
-              ),
+              counter: length >= counterThreshold
+                  ? Text(
+                      counterText(length),
+                      semanticsLabel: counterSemantics(length),
+                    )
+                  : null,
             ),
           );
         },

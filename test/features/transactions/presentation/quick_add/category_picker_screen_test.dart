@@ -376,14 +376,39 @@ void main() {
       await pump(tester);
       expect(find.text(NoteField.label), findsOneWidget);
       expect(find.text('Комментарий (необязательно)'), findsOneWidget);
-      expect(find.text('0/200'), findsOneWidget);
+      expect(find.text('0/200'), findsNothing);
 
       await tester.enterText(field, 'Молоко');
       await tester.pump();
 
       expect(find.text('Комментарий (необязательно)'), findsOneWidget);
-      expect(find.text('6/200'), findsOneWidget);
+      expect(find.text('6/200'), findsNothing);
     });
+
+    testWidgets('счётчик появляется с 150 символов, на 149 его нет', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      await tester.enterText(field, List.filled(149, 'я').join());
+      await tester.pump();
+      expect(find.text('149/200'), findsNothing);
+
+      await tester.enterText(field, List.filled(150, 'я').join());
+      await tester.pump();
+      expect(find.text('150/200'), findsOneWidget);
+    });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('зазор «Сегодня» → поле комментария не меньше 16 при '
+          '${(scale * 100).round()} %', (tester) async {
+        await pump(tester, textScale: scale);
+
+        final dayBottom = tester.getBottomLeft(find.text('Сегодня')).dy;
+        final fieldTop = tester.getTopLeft(field).dy;
+        expect(fieldTop - dayBottom, greaterThanOrEqualTo(16));
+      });
+    }
 
     testWidgets('клавиатура сама не открывается, открывается по тапу, '
         '«Готово» её закрывает', (tester) async {
@@ -425,7 +450,7 @@ void main() {
 
       await tester.enterText(field, family);
       await tester.pump();
-      expect(find.text('5/200'), findsOneWidget);
+      expect(find.text('5/200'), findsNothing);
 
       // 40 «семей» = ровно 200 кодовых точек; 41-я не помещается.
       final forty = List.filled(40, family).join();

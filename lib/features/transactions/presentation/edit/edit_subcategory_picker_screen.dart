@@ -22,11 +22,15 @@ class EditSubcategoryPickerScreen extends StatelessWidget {
   const EditSubcategoryPickerScreen({
     required this.parent,
     required this.subcategories,
+    this.selectedId,
     super.key,
   });
 
   final Category parent;
   final List<Category> subcategories;
+
+  /// Id подкатегории, выбранной сейчас; без неё выделенной плитки нет.
+  final String? selectedId;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +49,7 @@ class EditSubcategoryPickerScreen extends StatelessWidget {
                   if (!c.isArchived) c,
               ],
               onSelected: choose,
+              selectedId: selectedId,
               onSkip: () => choose(null),
             ),
           ],

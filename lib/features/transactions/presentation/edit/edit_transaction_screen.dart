@@ -391,6 +391,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
         builder: (_) => EditCategoryPickerScreen(
           type: _type,
           categories: widget.categories,
+          selectedId: _shownCategory?.id,
         ),
       ),
     );
@@ -440,6 +441,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
           builder: (_) => EditSubcategoryPickerScreen(
             parent: parent,
             subcategories: subcategories,
+            selectedId: _shownSubcategory?.id,
           ),
         ),
       );
