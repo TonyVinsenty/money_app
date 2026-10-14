@@ -36,7 +36,7 @@ void main() {
           DateRange(DateOnly(2026, 9, 1), DateOnly(2026, 9, 11)),
           _today,
         ),
-        '1\u2013\u206011 сентября',
+        '1\u2013\u206011$_nbspсентября',
       );
     });
 
@@ -61,7 +61,7 @@ void main() {
           DateRange(DateOnly(2025, 1, 1), DateOnly(2025, 10, 11)),
           _today,
         ),
-        '1 января \u2013 11 октября 2025',
+        '1$_nbspянваря \u2013 11$_nbspоктября 2025',
       );
     });
 
@@ -72,11 +72,11 @@ void main() {
       );
       expect(
         comparisonPhrase(dayRange(DateOnly(2026, 10, 3)), _today),
-        '3 октября',
+        '3$_nbspоктября',
       );
       expect(
         comparisonPhrase(dayRange(DateOnly(2025, 10, 3)), _today),
-        '3 октября 2025',
+        '3$_nbspоктября 2025',
       );
     });
 
@@ -86,14 +86,14 @@ void main() {
           DateRange(DateOnly(2026, 9, 28), DateOnly(2026, 10, 4)),
           _today,
         ),
-        '28 сентября \u2013 4 октября',
+        '28$_nbspсентября \u2013 4$_nbspоктября',
       );
       expect(
         comparisonPhrase(
           DateRange(DateOnly(2025, 12, 29), DateOnly(2026, 1, 4)),
           _today,
         ),
-        '29 декабря 2025 \u2013 4 января 2026',
+        '29$_nbspдекабря 2025 \u2013 4$_nbspянваря 2026',
       );
     });
   });
@@ -185,9 +185,9 @@ void main() {
         comparisonSummaryText(
           _change(5000, 0),
           TransactionType.income,
-          '1\u2013\u206011 сентября',
+          '1\u2013\u206011$_nbspсентября',
         ),
-        '1\u2013\u206011 сентября доходов не было',
+        '1\u2013\u206011$_nbspсентября доходов не было',
       );
     });
   });
@@ -206,7 +206,7 @@ void main() {
     test('неделя и свой интервал: «с ... по ...»', () {
       expect(
         spoken(currentPeriod(PeriodKind.week, _today)),
-        'Расходы по дням с 5 по 11 октября',
+        'Расходы по дням с 5 по 11$_nbspоктября',
       );
       expect(
         spoken(
@@ -216,7 +216,7 @@ void main() {
             today: _today,
           ),
         ),
-        'Расходы по дням с 28 сентября по 4 октября 2026',
+        'Расходы по дням с 28$_nbspсентября по 4$_nbspоктября 2026',
       );
       expect(
         spoken(
@@ -226,15 +226,15 @@ void main() {
             today: _today,
           ),
         ),
-        'Расходы по дням с 15 декабря 2025 по 20 февраля 2026',
+        'Расходы по дням с 15$_nbspдекабря 2025 по 20$_nbspфевраля 2026',
       );
       expect(
         spoken(currentPeriod(PeriodKind.week, DateOnly(2025, 11, 26))),
-        'Расходы по дням с 24 по 30 ноября 2025',
+        'Расходы по дням с 24 по 30$_nbspноября 2025',
       );
       expect(
         spoken(currentPeriod(PeriodKind.week, DateOnly(2026, 1, 1))),
-        'Расходы по дням с 29 декабря 2025 по 4 января 2026',
+        'Расходы по дням с 29$_nbspдекабря 2025 по 4$_nbspянваря 2026',
       );
     });
 
@@ -249,7 +249,7 @@ void main() {
       );
       expect(
         spoken(customPeriod(_today, _today, today: _today)),
-        'Расходы по дням за 11 октября 2026',
+        'Расходы по дням за 11$_nbspоктября 2026',
       );
     });
 

@@ -22,6 +22,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../../../support/fixture_transactions.dart';
+import '../../../support/nbsp.dart';
 
 final _today = DateOnly(2026, 10, 4);
 
@@ -358,7 +359,10 @@ void main() {
   testWidgets('подпись недели в стиле «Главной»', (tester) async {
     await _pump(tester, kind: PeriodKind.week);
 
-    expect(find.text('28 сентября \u2013 4 октября'), findsOneWidget);
+    expect(
+      find.text('28$dateNbspсентября \u2013 4$dateNbspоктября'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('стрелки не меньше 48 dp', (tester) async {

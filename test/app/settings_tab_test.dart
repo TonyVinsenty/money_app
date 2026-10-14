@@ -20,6 +20,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
 import '../support/fakes.dart';
 import '../support/fixed_clock.dart';
+import '../support/nbsp.dart';
 
 /// Репозиторий операций для "Главной": ей нужны только итоги месяца.
 class _TotalsOnlyRepository extends FakeTransactionsRepository {
@@ -170,12 +171,12 @@ void main() {
     tester.widget<SettingsScreen>(find.byType(SettingsScreen)).onExportShared();
     await tester.pump();
     expect(settings.lastExportDay, DateOnly(2027, 1, 2));
-    expect(find.text('Последний экспорт: 2 января'), findsOneWidget);
+    expect(find.text('Последний экспорт: 2$dateNbspянваря'), findsOneWidget);
 
     settings.setLastExportDay(DateOnly(2026, 12, 31));
     await tester.pump();
     expect(
-      find.textContaining('Последний экспорт: 31 декабря 2026'),
+      find.textContaining('Последний экспорт: 31$dateNbspдекабря 2026'),
       findsOneWidget,
     );
   });

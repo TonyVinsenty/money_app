@@ -13,6 +13,8 @@ import 'package:money_app/features/accounts/domain/transfer.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/balance_journal_screen.dart';
 
+import '../../../support/nbsp.dart';
+
 final today = DateOnly(2026, 10, 10);
 
 DateOnly utcDay(DateTime m) => DateOnly(m.year, m.month, m.day);
@@ -142,7 +144,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.bySemanticsLabel('Создан счёт Наличные, 7 октября'),
+      find.bySemanticsLabel('Создан счёт Наличные, 7$dateNbspоктября'),
       findsOneWidget,
     );
     expect(
@@ -154,7 +156,7 @@ void main() {
     );
     expect(
       find.bySemanticsLabel(
-        'Перевод со счёта Наличные на счёт Карта (в архиве), 1 рубль, 8 октября',
+        'Перевод со счёта Наличные на счёт Карта (в архиве), 1 рубль, 8$dateNbspоктября',
       ),
       findsOneWidget,
     );

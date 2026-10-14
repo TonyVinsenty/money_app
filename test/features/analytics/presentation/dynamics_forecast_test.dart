@@ -102,7 +102,7 @@ void main() {
     await _pump(tester, today: DateOnly(2026, 10, 7));
     expect(
       _forecast(tester),
-      'Если тратить так же, к 31 октября будет ≈ 81${_nbsp}200,00$_nbsp₽',
+      'Если тратить так же, к 31$_nbspоктября будет ≈ 81${_nbsp}200,00$_nbsp₽',
     );
   });
 
@@ -153,7 +153,7 @@ void main() {
     await _pump(tester, today: DateOnly(2026, 10, 7), categoryId: 'cafe');
     expect(
       _forecast(tester),
-      'Если тратить так же, к 31 октября будет ≈ 40${_nbsp}600,00$_nbsp₽',
+      'Если тратить так же, к 31$_nbspоктября будет ≈ 40${_nbsp}600,00$_nbsp₽',
     );
   });
 
@@ -168,7 +168,7 @@ void main() {
 
     expect(
       tester.widget<Text>(find.byKey(DynamicsSection.infoKey)).data,
-      startsWith('3 октября'),
+      startsWith('3$_nbspоктября'),
     );
     expect(tester.getTopLeft(find.byKey(DynamicsSection.forecastKey)), before);
     expect(find.byKey(DynamicsSection.forecastKey), findsOneWidget);
@@ -180,7 +180,7 @@ void main() {
     await _pump(tester, today: DateOnly(2026, 10, 7));
     expect(
       find.bySemanticsLabel(
-        'Если тратить так же, к 31 октября будет примерно 81200 рублей',
+        'Если тратить так же, к 31$_nbspоктября будет примерно 81200 рублей',
       ),
       findsOneWidget,
     );

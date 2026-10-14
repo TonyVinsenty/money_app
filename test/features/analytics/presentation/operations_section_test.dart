@@ -15,6 +15,8 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
+import '../../../support/nbsp.dart';
+
 final _today = DateOnly(2026, 10, 12);
 final _range = monthRange(DateOnly(2026, 10, 1));
 
@@ -155,7 +157,7 @@ void main() {
     expect(find.byKey(OperationsSection.rowKey('b')), findsOneWidget);
     expect(find.text('Продукты · Молочка'), findsOneWidget);
     expect(find.text('Сегодня · ремонт'), findsOneWidget);
-    expect(find.text('2 октября'), findsOneWidget);
+    expect(find.text('2$dateNbspоктября'), findsOneWidget);
     expect(find.textContaining('5 400,00'), findsOneWidget);
   });
 
@@ -204,7 +206,7 @@ void main() {
         .label;
     expect(label, startsWith('Расход '));
     expect(label, contains('Продукты'));
-    expect(label, contains('3 октября'));
+    expect(label, contains('3$dateNbspоктября'));
     expect(label, contains('комментарий: хлеб'));
     handle.dispose();
   });

@@ -36,6 +36,7 @@ import '../support/fake_id_generator.dart';
 import '../support/fakes.dart';
 import '../support/fixed_clock.dart';
 import '../support/fixture_transactions.dart';
+import '../support/nbsp.dart';
 
 /// Репозиторий «в памяти»: отдаёт операции [data] периода и запоминает, какие
 /// периоды у него спрашивали ([requests]).
@@ -185,7 +186,10 @@ void main() {
 
     await _pickKind(tester, find.byKey(PeriodHeader.itemKey(PeriodKind.week)));
 
-    expect(find.text('28 сентября \u2013 4 октября'), findsOneWidget);
+    expect(
+      find.text('28$dateNbspсентября \u2013 4$dateNbspоктября'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('первая операция в сентябре: «‹» ведёт в сентябрь, дальше нет', (
@@ -481,14 +485,23 @@ void main() {
     await tester.ensureVisible(find.widgetWithText(Tab, 'Сравнение'));
     await _tap(tester, find.widgetWithText(Tab, 'Сравнение'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('1\u2013\u20604 сентября'), findsWidgets);
+    expect(
+      find.textContaining('1\u2013\u20604$dateNbspсентября'),
+      findsWidgets,
+    );
 
     BrowseScope.of(tester.element(find.byType(AppShell)))
         .updateToday(DateOnly(2026, 10, 5));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('1\u2013\u20605 сентября'), findsWidgets);
-    expect(find.textContaining('1\u2013\u20604 сентября'), findsNothing);
+    expect(
+      find.textContaining('1\u2013\u20605$dateNbspсентября'),
+      findsWidgets,
+    );
+    expect(
+      find.textContaining('1\u2013\u20604$dateNbspсентября'),
+      findsNothing,
+    );
   });
 
   testWidgets('вкладка просит окно данных; прошлый месяц не попадает в итоги', (

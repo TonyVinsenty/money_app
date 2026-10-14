@@ -157,7 +157,7 @@ void main() {
       _textOf(tester, ComparisonSection.totalKey),
       'Расходы\n'
       '8${_nbsp}000,00$_nbsp₽\n'
-      'на 2${_nbsp}300,00$_nbsp₽ больше (+40$_nbsp%), чем 1\u2013\u206011 сентября',
+      'на 2${_nbsp}300,00$_nbsp₽ больше (+40$_nbsp%), чем 1\u2013\u206011$_nbspсентября',
     );
     expect(find.text('Кафе'), findsOneWidget);
     expect(
@@ -210,7 +210,7 @@ void main() {
 
     expect(
       _textOf(tester, ComparisonSection.totalKey),
-      contains('столько же, сколько 1\u2013\u206011 сентября'),
+      contains('столько же, сколько 1\u2013\u206011$_nbspсентября'),
     );
     expect(find.text('= столько же'), findsOneWidget);
   });
@@ -222,7 +222,7 @@ void main() {
 
     expect(
       _textOf(tester, ComparisonSection.totalKey),
-      contains('1\u2013\u206011 сентября расходов не было'),
+      contains('1\u2013\u206011$_nbspсентября расходов не было'),
     );
     expect(find.text('раньше не было'), findsOneWidget);
   });
@@ -268,7 +268,7 @@ void main() {
       _textOf(tester, ComparisonSection.totalKey),
       'Доходы\n'
       '50${_nbsp}000,00$_nbsp₽\n'
-      '1\u2013\u206011 сентября доходов не было',
+      '1\u2013\u206011$_nbspсентября доходов не было',
     );
     expect(find.text('Зарплата'), findsOneWidget);
     expect(find.byKey(ComparisonSection.rowAmountKey), findsOneWidget);
@@ -328,7 +328,7 @@ void main() {
     expect(
       find.bySemanticsLabel(
         'Расходы: 8000 рублей. '
-        'на 2300 рублей больше, плюс 40 процентов, чем 1\u2013\u206011 сентября',
+        'на 2300 рублей больше, плюс 40 процентов, чем 1\u2013\u206011$_nbspсентября',
       ),
       findsOneWidget,
     );

@@ -143,7 +143,7 @@ void main() {
       barSlotPoint(tester, find.byKey(DynamicsSection.chartKey), 4, 31),
     );
     await tester.pump();
-    expect(_info(tester), '5 октября: 5${_nbsp}400,00$_nbsp₽');
+    expect(_info(tester), '5$_nbspоктября: 5${_nbsp}400,00$_nbsp₽');
 
     await gesture.up();
     await tester.pump();
@@ -158,7 +158,7 @@ void main() {
 
     expect(
       tester.getSemantics(find.byKey(DynamicsSection.chartKey)).label,
-      'Расходы по дням за октябрь. Больше всего 5 октября: 5400 рублей. '
+      'Расходы по дням за октябрь. Больше всего 5$_nbspоктября: 5400 рублей. '
       'В среднем 522 рубля 22 копейки в день',
     );
     handle.dispose();
@@ -232,15 +232,18 @@ void main() {
     final handle = tester.ensureSemantics();
     await _pump(tester, transactions: _october);
 
-    expect(find.text('3 октября'), findsNothing);
+    expect(find.text('3$_nbspоктября'), findsNothing);
     await tester.tap(find.text('По дням'));
     await tester.pumpAndSettle();
 
-    expect(find.text('3 октября'), findsOneWidget);
-    expect(find.text('5 октября'), findsOneWidget);
-    expect(find.text('12 октября'), findsOneWidget);
-    expect(find.text('4 октября'), findsNothing);
-    expect(find.bySemanticsLabel('12 октября, 3000 рублей'), findsOneWidget);
+    expect(find.text('3$_nbspоктября'), findsOneWidget);
+    expect(find.text('5$_nbspоктября'), findsOneWidget);
+    expect(find.text('12$_nbspоктября'), findsOneWidget);
+    expect(find.text('4$_nbspоктября'), findsNothing);
+    expect(
+      find.bySemanticsLabel('12$_nbspоктября, 3000 рублей'),
+      findsOneWidget,
+    );
     handle.dispose();
   });
 
@@ -260,7 +263,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('12 октября'), findsOneWidget);
+    expect(find.text('12$_nbspоктября'), findsOneWidget);
   });
 
   group('фильтр категории', () {
@@ -490,7 +493,7 @@ void main() {
       expect(
         spoken(),
         'Расходы по дням, категория Кафе, за октябрь. '
-        'Больше всего 3 октября: 1000 рублей. В среднем 55 рублей 56 копеек в день',
+        'Больше всего 3$_nbspоктября: 1000 рублей. В среднем 55 рублей 56 копеек в день',
       );
       handle.dispose();
     });
@@ -605,7 +608,7 @@ void main() {
           barSlotPoint(tester, find.byKey(DynamicsSection.chartKey), 4, 31),
         );
         await tester.pump();
-        expect(_info(tester), startsWith('5 октября'));
+        expect(_info(tester), startsWith('5$_nbspоктября'));
 
         current.value = const [];
         await tester.pump();

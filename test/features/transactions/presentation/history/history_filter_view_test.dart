@@ -11,6 +11,8 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 
+import '../../../../support/nbsp.dart';
+
 final _today = DateOnly(2026, 9, 30);
 
 final _categories = <Category>[
@@ -154,13 +156,16 @@ void main() {
     await tester.pumpWidget(_app(sort: HistorySort.largestFirst));
     await tester.pumpAndSettle();
     expect(find.text('Сегодня · молоко'), findsOneWidget);
-    expect(find.text('12 сентября'), findsOneWidget);
-    expect(find.text('5 сентября'), findsOneWidget);
+    expect(find.text('12$dateNbspсентября'), findsOneWidget);
+    expect(find.text('5$dateNbspсентября'), findsOneWidget);
     expect(find.textContaining('суббота'), findsNothing);
-    expect(find.bySemanticsLabel(RegExp(r'Кафе, 12 сентября')), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('Кафе, 12$dateNbspсентября')),
+      findsOneWidget,
+    );
     double y(String t) => tester.getTopLeft(find.text(t)).dy;
-    expect(y('12 сентября'), lessThan(y('5 сентября')));
-    expect(y('5 сентября'), lessThan(y('Сегодня · молоко')));
+    expect(y('12$dateNbspсентября'), lessThan(y('5$dateNbspсентября')));
+    expect(y('5$dateNbspсентября'), lessThan(y('Сегодня · молоко')));
     handle.dispose();
   });
 
@@ -170,8 +175,8 @@ void main() {
     await tester.pumpWidget(_app(sort: HistorySort.oldestFirst));
     await tester.pumpAndSettle();
     double y(String t) => tester.getTopLeft(find.text(t)).dy;
-    final five = y('суббота, 5 сентября');
-    final twelve = y('суббота, 12 сентября');
+    final five = y('Суббота, 5$dateNbspсентября');
+    final twelve = y('Суббота, 12$dateNbspсентября');
     expect(five, lessThan(twelve));
     expect(twelve, lessThan(y('Сегодня')));
   });

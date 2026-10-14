@@ -18,6 +18,7 @@ import 'package:money_app/features/settings/presentation/app_settings_controller
 
 import '../../../support/fakes.dart';
 import '../../../support/fixed_clock.dart';
+import '../../../support/nbsp.dart';
 
 Account acc(String id, String name, {bool archived = false}) => Account(
   id: id,
@@ -108,18 +109,18 @@ void main() {
     expect(find.text('← Наличные'), findsOneWidget);
     expect(find.text('+${formatMoney(rub(30000))}'), findsOneWidget);
     expect(find.text('Аренда'), findsOneWidget);
-    expect(find.text('7 сентября'), findsNothing);
+    expect(find.text('7$dateNbspсентября'), findsNothing);
     // С комментарием озвучка заканчивается комментарием.
     expect(
       find.bySemanticsLabel(
-        'Перевод на счёт Наличные, минус 5000 рублей, 7 сентября, '
+        'Перевод на счёт Наличные, минус 5000 рублей, 7$dateNbspсентября, '
         'комментарий: Аренда',
       ),
       findsOneWidget,
     );
     expect(
       find.bySemanticsLabel(
-        'Перевод со счёта Наличные, плюс 300 рублей, 8 сентября',
+        'Перевод со счёта Наличные, плюс 300 рублей, 8$dateNbspсентября',
       ),
       findsOneWidget,
     );
@@ -156,7 +157,7 @@ void main() {
     expect(
       find.bySemanticsLabel(
         RegExp(
-          'Перевод на счёт $transferUnknownPartner, минус 1 рубль, 7 сентября',
+          'Перевод на счёт $transferUnknownPartner, минус 1 рубль, 7$dateNbspсентября',
         ),
       ),
       findsOneWidget,

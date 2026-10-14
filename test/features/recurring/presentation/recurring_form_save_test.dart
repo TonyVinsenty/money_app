@@ -19,6 +19,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import '../../../support/fake_id_generator.dart';
 import '../../../support/fixed_clock.dart';
 import '../../../support/in_memory_recurring_repository.dart';
+import '../../../support/nbsp.dart';
 
 final _food = Category.topLevel(
   id: 'food',
@@ -165,7 +166,7 @@ void main() {
     await save(tester);
     expect(find.byType(RecurringFormScreen), findsNothing);
     expect(find.text('Интернет'), findsOneWidget);
-    expect(find.textContaining('следующий 10 октября'), findsOneWidget);
+    expect(find.textContaining('следующий 10$dateNbspоктября'), findsOneWidget);
     final items = await tester.runAsync(() => repo.watchAll().first);
     final saved = items!.single.payment;
     expect(saved.categoryId, 'food');

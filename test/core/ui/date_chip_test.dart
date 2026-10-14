@@ -6,6 +6,8 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 
+import '../../support/nbsp.dart';
+
 final _today = DateOnly(2026, 9, 20);
 
 /// Плашка внутри приложения с русской локалью. Выбор запоминается в [picked].
@@ -48,7 +50,7 @@ void main() {
 
   testWidgets('другой день показан датой словами', (tester) async {
     await tester.pumpWidget(_host(initial: DateOnly(2026, 9, 15), picked: []));
-    expect(find.textContaining('15 сентября 2026'), findsOneWidget);
+    expect(find.textContaining('15$dateNbspсентября'), findsOneWidget);
   });
 
   testWidgets('зона нажатия не меньше 48 dp', (tester) async {
@@ -70,7 +72,7 @@ void main() {
 
     await tester.pumpWidget(_host(initial: DateOnly(2026, 9, 15), picked: []));
     expect(
-      find.bySemanticsLabel(RegExp('Дата операции: 15 сентября 2026')),
+      find.bySemanticsLabel(RegExp('Дата операции: 15$dateNbspсентября')),
       findsOneWidget,
     );
     semantics.dispose();

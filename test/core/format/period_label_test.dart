@@ -4,6 +4,9 @@ import 'package:money_app/core/format/period_label.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 
+/// Неразрывный пробел (U+00A0) между числом и месяцем.
+final String nbsp = String.fromCharCode(0x00A0);
+
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('ru');
@@ -26,11 +29,11 @@ void main() {
     test('вчера', () => expect(day(DateOnly(2026, 10, 3)), 'Вчера'));
     test(
       'другой день этого года: день недели с заглавной',
-      () => expect(day(DateOnly(2026, 10, 2)), 'Пятница, 2 октября'),
+      () => expect(day(DateOnly(2026, 10, 2)), 'Пятница, 2$nbspоктября'),
     );
     test(
       'не этот год: без дня недели, с годом',
-      () => expect(day(DateOnly(2025, 10, 2)), '2 октября 2025'),
+      () => expect(day(DateOnly(2025, 10, 2)), '2$nbspоктября 2025'),
     );
     test('вчера через Новый год: 31 декабря прошлого года с годом', () {
       final label = formatPeriodLabel(
@@ -38,28 +41,34 @@ void main() {
         dayRange(DateOnly(2025, 12, 31)),
         today: DateOnly(2026, 1, 1),
       );
-      expect(label, '31 декабря 2025');
+      expect(label, '31$nbspдекабря 2025');
     });
   });
 
   group('formatPeriodLabel: неделя', () {
     test('в одном месяце', () {
-      expect(week(DateOnly(2026, 10, 7)), '5\u2013\u206011 октября');
+      expect(week(DateOnly(2026, 10, 7)), '5\u2013\u206011$nbspоктября');
     });
     test('через месяц', () {
-      expect(week(DateOnly(2026, 10, 4)), '28 сентября \u2013 4 октября');
+      expect(
+        week(DateOnly(2026, 10, 4)),
+        '28$nbspсентября \u2013 4$nbspоктября',
+      );
     });
     test('через Новый год', () {
       expect(
         week(DateOnly(2026, 1, 1)),
-        '29 декабря 2025 \u2013 4 января 2026',
+        '29$nbspдекабря 2025 \u2013 4$nbspянваря 2026',
       );
     });
     test('прошлый год, один месяц: год в конце', () {
-      expect(week(DateOnly(2025, 11, 26)), '24\u2013\u206030 ноября 2025');
+      expect(week(DateOnly(2025, 11, 26)), '24\u2013\u206030$nbspноября 2025');
     });
     test('прошлый год, два месяца: год в конце', () {
-      expect(week(DateOnly(2025, 10, 30)), '27 октября \u2013 2 ноября 2025');
+      expect(
+        week(DateOnly(2025, 10, 30)),
+        '27$nbspоктября \u2013 2$nbspноября 2025',
+      );
     });
   });
 
@@ -79,25 +88,25 @@ void main() {
     test('внутри месяца', () {
       expect(
         custom(DateOnly(2026, 9, 1), DateOnly(2026, 9, 15)),
-        '1\u2013\u206015 сентября 2026',
+        '1\u2013\u206015$nbspсентября 2026',
       );
     });
     test('через месяц', () {
       expect(
         custom(DateOnly(2026, 9, 28), DateOnly(2026, 10, 4)),
-        '28 сентября \u2013 4 октября 2026',
+        '28$nbspсентября \u2013 4$nbspоктября 2026',
       );
     });
     test('через год', () {
       expect(
         custom(DateOnly(2025, 12, 29), DateOnly(2026, 1, 4)),
-        '29 декабря 2025 \u2013 4 января 2026',
+        '29$nbspдекабря 2025 \u2013 4$nbspянваря 2026',
       );
     });
     test('один день', () {
       expect(
         custom(DateOnly(2026, 9, 15), DateOnly(2026, 9, 15)),
-        '15 сентября 2026',
+        '15$nbspсентября 2026',
       );
     });
   });

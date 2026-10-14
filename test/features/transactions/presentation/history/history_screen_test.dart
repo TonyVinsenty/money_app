@@ -14,6 +14,8 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 
+import '../../../../support/nbsp.dart';
+
 final _today = DateOnly(2026, 9, 20);
 final _minus = String.fromCharCode(0x2212);
 
@@ -155,7 +157,7 @@ void main() {
 
     expect(find.text('Сегодня'), findsOneWidget); // два дела в одном дне
     expect(find.text('Вчера'), findsOneWidget);
-    expect(find.text('вторник, 15 сентября'), findsOneWidget);
+    expect(find.text('Вторник, 15$dateNbspсентября'), findsOneWidget);
 
     // Порядок сверху вниз: заголовок, строки, следующий заголовок...
     double y(Finder f) => tester.getTopLeft(f).dy;
@@ -165,7 +167,7 @@ void main() {
       y(find.text('Старая категория')),
       y(find.text('Вчера')),
       y(find.text('Зарплата')),
-      y(find.text('вторник, 15 сентября')),
+      y(find.text('Вторник, 15$dateNbspсентября')),
       y(find.text('Без категории')),
     ];
     expect(order, orderedEquals([...order]..sort()));

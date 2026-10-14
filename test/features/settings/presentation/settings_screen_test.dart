@@ -14,6 +14,7 @@ import 'package:money_app/features/settings/presentation/open_external_link.dart
 import 'package:money_app/features/settings/presentation/settings_screen.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
 
+import '../../../support/nbsp.dart';
 import '../../../support/roboto_font.dart';
 
 Widget _app({
@@ -238,7 +239,10 @@ void main() {
       await tester.pumpWidget(
         _app(lastExportDay: DateOnly(2026, 9, 23), hasOperations: true),
       );
-      expect(find.text('Последний экспорт: 23 сентября'), findsOneWidget);
+      expect(
+        find.text('Последний экспорт: 23$dateNbspсентября'),
+        findsOneWidget,
+      );
       expect(find.textContaining('сделайте копию'), findsNothing);
     });
 
@@ -246,7 +250,8 @@ void main() {
       await tester.pumpWidget(
         _app(lastExportDay: DateOnly(2026, 9, 22), hasOperations: true),
       );
-      const text = 'Последний экспорт: 22 сентября — давно, сделайте копию';
+      final text =
+          'Последний экспорт: 22$dateNbspсентября — давно, сделайте копию';
       final widget = await subtitle(tester, text);
       final context = tester.element(find.text(text));
       expect(widget.style?.color, Theme.of(context).colorScheme.tertiary);
@@ -1094,7 +1099,7 @@ void main() {
     testWidgets('подпись: день этого года без года', (tester) async {
       await tester.pumpWidget(_app(lastExportDay: DateOnly(2026, 10, 7)));
 
-      expect(find.text('Последний экспорт: 7 октября'), findsOneWidget);
+      expect(find.text('Последний экспорт: 7$dateNbspоктября'), findsOneWidget);
     });
 
     testWidgets('подпись: день прошлого года с годом', (tester) async {
@@ -1103,7 +1108,7 @@ void main() {
       // Перед «г.» intl ставит узкий неразрывный пробел, поэтому не точное
       // совпадение, а начало строки.
       expect(
-        find.textContaining('Последний экспорт: 5 октября 2025'),
+        find.textContaining('Последний экспорт: 5$dateNbspоктября 2025'),
         findsOneWidget,
       );
     });

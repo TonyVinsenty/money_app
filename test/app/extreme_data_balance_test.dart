@@ -10,6 +10,7 @@ import 'package:money_app/features/settings/presentation/settings_screen.dart'
 import '../support/extreme_app.dart';
 import '../support/extreme_data.dart';
 import '../support/fixed_clock.dart';
+import '../support/nbsp.dart';
 import '../support/settle_database.dart';
 
 /// Шаг 7.44 (К2): «Баланс», экран счёта, перевод, список и форма платежа,
@@ -119,9 +120,9 @@ void main() {
       await openExtremeTab(tester, 'Баланс');
       await _reveal(tester, find.byKey(RecurringSection.rowKey('p29')));
       await tester.pumpAndSettle();
-      expect(_nextOf('p31', 'следующий 31 октября'), findsOneWidget);
+      expect(_nextOf('p31', 'следующий 31$dateNbspоктября'), findsOneWidget);
       // 2027 год невисокосный.
-      expect(_nextOf('p29', 'следующий 28 февраля'), findsOneWidget);
+      expect(_nextOf('p29', 'следующий 28$dateNbspфевраля'), findsOneWidget);
     });
 
     testWidgets('февраль 2027: оба — 28 февраля', (tester) async {
@@ -133,8 +134,8 @@ void main() {
       await openExtremeTab(tester, 'Баланс');
       await _reveal(tester, find.byKey(RecurringSection.rowKey('p29')));
       await tester.pumpAndSettle();
-      expect(_nextOf('p31', 'следующий 28 февраля'), findsOneWidget);
-      expect(_nextOf('p29', 'следующий 28 февраля'), findsOneWidget);
+      expect(_nextOf('p31', 'следующий 28$dateNbspфевраля'), findsOneWidget);
+      expect(_nextOf('p29', 'следующий 28$dateNbspфевраля'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

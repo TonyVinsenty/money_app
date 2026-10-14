@@ -6,6 +6,9 @@ import 'package:money_app/core/time/date_only.dart';
 /// Узкий неразрывный пробел (U+202F): intl ставит его перед «г.».
 final String narrowNbsp = String.fromCharCode(0x202F);
 
+/// Неразрывный пробел (U+00A0) между числом и месяцем.
+final String nbsp = String.fromCharCode(0x00A0);
+
 void main() {
   setUpAll(() async {
     await initializeDateFormatting('ru');
@@ -13,26 +16,54 @@ void main() {
 
   group('formatDate', () {
     test('19 сентября 2026', () {
-      expect(formatDate(DateOnly(2026, 9, 19)), contains('19 сентября 2026'));
+      expect(
+        formatDate(DateOnly(2026, 9, 19)),
+        contains('19$nbspсентября 2026'),
+      );
     });
 
     test('точная строка intl: год, узкий неразрывный пробел, «г.»', () {
       expect(
         formatDate(DateOnly(2026, 9, 19)),
-        '19 сентября 2026$narrowNbspг.',
+        '19$nbspсентября 2026$narrowNbspг.',
+      );
+    });
+
+    test('9 ноября: между числом и месяцем неразрывный пробел U+00A0', () {
+      final text = formatDate(DateOnly(2026, 11, 9));
+      expect(text.codeUnitAt(1), 0x00A0);
+      expect(text, startsWith('9$nbspноября'));
+      expect(text.contains('9 ноября'), isFalse);
+    });
+
+    test('formatDayMonth и formatWeekdayDayMonth: тоже неразрывный пробел', () {
+      expect(formatDayMonth(DateOnly(2026, 11, 9)), '9$nbspноября');
+      expect(
+        formatWeekdayDayMonth(DateOnly(2026, 11, 9)),
+        'понедельник, 9$nbspноября',
+      );
+      expect(
+        formatWeekdayFullDate(DateOnly(2025, 11, 9)),
+        'воскресенье, 9$nbspноября 2025$narrowNbspг.',
       );
     });
 
     test('1 января', () {
-      expect(formatDate(DateOnly(2026, 1, 1)), contains('1 января 2026'));
+      expect(formatDate(DateOnly(2026, 1, 1)), contains('1$nbspянваря 2026'));
     });
 
     test('29 февраля високосного года', () {
-      expect(formatDate(DateOnly(2024, 2, 29)), contains('29 февраля 2024'));
+      expect(
+        formatDate(DateOnly(2024, 2, 29)),
+        contains('29$nbspфевраля 2024'),
+      );
     });
 
     test('31 декабря', () {
-      expect(formatDate(DateOnly(2026, 12, 31)), contains('31 декабря 2026'));
+      expect(
+        formatDate(DateOnly(2026, 12, 31)),
+        contains('31$nbspдекабря 2026'),
+      );
     });
 
     test('все 12 месяцев в родительном падеже', () {
@@ -53,7 +84,7 @@ void main() {
       for (var month = 1; month <= 12; month++) {
         expect(
           formatDate(DateOnly(2026, month, 1)),
-          contains('1 ${genitive[month - 1]} 2026'),
+          contains('1$nbsp${genitive[month - 1]} 2026'),
           reason: 'месяц $month',
         );
       }

@@ -24,6 +24,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import '../support/fake_id_generator.dart';
 import '../support/fakes.dart';
 import '../support/fixed_clock.dart';
+import '../support/nbsp.dart';
 
 /// Репозиторий «в памяти»: операции периода из списка [data]; ответ можно
 /// придержать ([hold]), а список изменить ([add]) с уведомлением потоков.
@@ -170,7 +171,7 @@ void main() {
 
     await _tap(tester, _prev);
     expect(find.text('Август 2026'), findsOneWidget);
-    expect(find.textContaining('10 августа'), findsOneWidget);
+    expect(find.textContaining('10$dateNbspавгуста'), findsOneWidget);
 
     await _openTab(tester, 'Главная');
     expect(find.text('Август 2026'), findsOneWidget);

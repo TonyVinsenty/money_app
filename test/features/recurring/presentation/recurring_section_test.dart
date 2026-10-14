@@ -113,15 +113,15 @@ void main() {
       ), // -> 12 марта
     ]);
     expect(
-      find.text('Каждый месяц, 5-го · следующий 5 ноября'),
+      find.text('Каждый месяц, 5-го · следующий 5$_nbspноября'),
       findsOneWidget,
     );
     expect(
-      find.text('Каждую неделю, по пятницам · следующий 16 октября'),
+      find.text('Каждую неделю, по пятницам · следующий 16$_nbspоктября'),
       findsOneWidget,
     );
     expect(
-      find.text('Каждый год, 12 марта · следующий 12 марта'),
+      find.text('Каждый год, 12$_nbspмарта · следующий 12$_nbspмарта'),
       findsOneWidget,
     );
     double y(String id) =>
@@ -146,14 +146,14 @@ void main() {
     expect(find.text('+85${_nbsp}000,00$_nbsp₽'), findsOneWidget);
     expect(
       find.bySemanticsLabel(
-        'Интернет, расход 650 рублей, каждый месяц 5-го, следующий 5 ноября',
+        'Интернет, расход 650 рублей, каждый месяц 5-го, следующий 5$_nbspноября',
       ),
       findsOneWidget,
     );
     expect(
       find.bySemanticsLabel(
         'Зарплата, доход 85000 рублей, каждый месяц 25-го, '
-        'следующий 25 октября',
+        'следующий 25$_nbspоктября',
       ),
       findsOneWidget,
     );
@@ -221,7 +221,7 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(
-      find.text('Каждый месяц, 5-го · следующий 5 ноября'),
+      find.text('Каждый месяц, 5-го · следующий 5$_nbspноября'),
       findsOneWidget,
     );
 
@@ -229,14 +229,14 @@ void main() {
     BrowseScope.controllerOf(element).updateToday(DateOnly(2026, 11, 5));
     await tester.pump();
     expect(
-      find.text('Каждый месяц, 5-го · следующий 5 ноября'),
+      find.text('Каждый месяц, 5-го · следующий 5$_nbspноября'),
       findsOneWidget,
     );
 
     BrowseScope.controllerOf(element).updateToday(DateOnly(2026, 11, 6));
     await tester.pump();
     expect(
-      find.text('Каждый месяц, 5-го · следующий 5 декабря'),
+      find.text('Каждый месяц, 5-го · следующий 5$_nbspдекабря'),
       findsOneWidget,
     );
   });

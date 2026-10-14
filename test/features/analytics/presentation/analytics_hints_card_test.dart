@@ -183,11 +183,11 @@ void main() {
       );
       expect(
         text(18, _october),
-        'Продукты: средний чек на 18$_nbsp% больше, чем 1${_en}12 сентября',
+        'Продукты: средний чек на 18$_nbsp% больше, чем 1${_en}12$_nbspсентября',
       );
       expect(
         text(-20, _october),
-        'Продукты: средний чек на 20$_nbsp% меньше, чем 1${_en}12 сентября',
+        'Продукты: средний чек на 20$_nbsp% меньше, чем 1${_en}12$_nbspсентября',
       );
       expect(
         text(18, currentPeriod(PeriodKind.day, _today)),
@@ -195,7 +195,7 @@ void main() {
       );
       expect(
         text(18, currentPeriod(PeriodKind.year, _today)),
-        endsWith(', чем 1 января $_spacedEn 12 октября 2025'),
+        endsWith(', чем 1$_nbspянваря $_spacedEn 12$_nbspоктября 2025'),
       );
     });
 
@@ -285,7 +285,7 @@ void main() {
       );
       expect(
         tester.widget<Text>(find.byKey(AnalyticsHintsCard.lineKey(1))).data,
-        'Продукты: средний чек на 18$_nbsp% больше, чем 1${_en}12 сентября',
+        'Продукты: средний чек на 18$_nbsp% больше, чем 1${_en}12$_nbspсентября',
       );
       expect(
         tester.widget<Text>(find.byKey(AnalyticsHintsCard.lineKey(2))).data,

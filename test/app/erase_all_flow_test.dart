@@ -33,6 +33,7 @@ import 'package:money_app/features/transactions/presentation/quick_add/account_c
 import '../support/fake_id_generator.dart';
 import '../support/fixed_clock.dart';
 import '../support/in_memory_database.dart';
+import '../support/nbsp.dart';
 
 /// «Очистить всё» целиком (шаг 5.O3): настоящая база в памяти, все вкладки.
 late AppDatabase _db;
@@ -203,7 +204,7 @@ void main() {
     expect(_settings.mainCurrencyCode, 'RUB');
     expect(_settings.lastExportDay, DateOnly(2026, 10, 5));
     expect(_settings.defaultAccountId, 'acc-card');
-    expect(find.text('Последний экспорт: 5 октября'), findsOneWidget);
+    expect(find.text('Последний экспорт: 5$dateNbspоктября'), findsOneWidget);
 
     // «История»: пусто, без полоски фильтра.
     await _openTab(tester, 'История');

@@ -21,6 +21,7 @@ import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import '../../../support/fakes.dart';
 import '../../../support/fixed_clock.dart';
 import '../../../support/in_memory_recurring_repository.dart';
+import '../../../support/nbsp.dart';
 
 final _food = Category.topLevel(
   id: 'food',
@@ -188,7 +189,7 @@ void main() {
     expect(find.text('Интернет · ${money(65000)}'), findsOneWidget);
     expect(find.text('Сегодня'), findsOneWidget);
     expect(find.text('Вчера'), findsOneWidget);
-    expect(find.text('5 октября'), findsOneWidget);
+    expect(find.text('5$dateNbspоктября'), findsOneWidget);
     expect(find.text('Оплачено'), findsNWidgets(3));
     expect(find.text('Пропустить'), findsNWidgets(3));
   });
@@ -237,7 +238,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(DueSection.titleKey), findsNothing);
     expect(
-      find.text('Платёж «Интернет» за 10 октября пропущен'),
+      find.text('Платёж «Интернет» за 10$dateNbspоктября пропущен'),
       findsOneWidget,
     );
 

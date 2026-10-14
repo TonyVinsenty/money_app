@@ -1,28 +1,37 @@
 import 'package:intl/intl.dart';
 import 'package:money_app/core/time/date_only.dart';
 
-/// Полная дата по-русски, например «19 сентября 2026 г.».
+/// Неразрывный пробел (U+00A0) между числом и месяцем: «9 ноября» не
+/// разрывают на две строки.
+final String _nbsp = String.fromCharCode(0x00A0);
+
+/// Заменяет обычный пробел после первого числа на неразрывный.
+String _glueDay(String text) =>
+    text.replaceFirstMapped(RegExp(r'(\d+) '), (m) => '${m[1]}$_nbsp');
+
+/// Полная дата по-русски, например «19 сентября 2026 г.» (между числом и
+/// месяцем неразрывный пробел).
 ///
 /// Перед первым вызовом нужно один раз выполнить
 /// `initializeDateFormatting('ru')` (обычно в `main`), иначе `intl` бросит
 /// `LocaleDataException`: данные русской локали не загружены.
 String formatDate(DateOnly date) =>
-    DateFormat.yMMMMd('ru').format(date.toDateTime());
+    _glueDay(DateFormat.yMMMMd('ru').format(date.toDateTime()));
 
 /// День недели, число и месяц без года: «пятница, 19 сентября». Требует
 /// `initializeDateFormatting('ru')`.
 String formatWeekdayDayMonth(DateOnly date) =>
-    DateFormat('EEEE, d MMMM', 'ru').format(date.toDateTime());
+    _glueDay(DateFormat('EEEE, d MMMM', 'ru').format(date.toDateTime()));
 
 /// То же с годом: «пятница, 19 сентября 2025 г.». Требует
 /// `initializeDateFormatting('ru')`.
 String formatWeekdayFullDate(DateOnly date) =>
-    DateFormat.yMMMMEEEEd('ru').format(date.toDateTime());
+    _glueDay(DateFormat.yMMMMEEEEd('ru').format(date.toDateTime()));
 
 /// Число и месяц без года и дня недели: «30 сентября». Требует
 /// `initializeDateFormatting('ru')`.
 String formatDayMonth(DateOnly date) =>
-    DateFormat('d MMMM', 'ru').format(date.toDateTime());
+    _glueDay(DateFormat('d MMMM', 'ru').format(date.toDateTime()));
 
 /// Месяц и год по-русски, например «сентябрь 2026 г.» (месяц в именительном
 /// падеже). Требует того же `initializeDateFormatting('ru')`, что и
