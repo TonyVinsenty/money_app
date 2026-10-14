@@ -228,6 +228,41 @@ void main() {
       );
       expect(IconTheme.of(context).color, Theme.of(context).colorScheme.error);
     });
+
+    testWidgets('«Очистить всё»: подпись и шеврон не красные', (tester) async {
+      await tester.pumpWidget(_app());
+      final scheme = Theme.of(tester.element(find.byType(SettingsScreen)))
+          .colorScheme;
+      final tile = find.ancestor(
+        of: find.text('Очистить всё'),
+        matching: find.byType(ListTile),
+      );
+      final subtitle = tester
+          .renderObject<RenderParagraph>(
+            find.text('Стереть операции, категории и счета'),
+          )
+          .text
+          .style
+          ?.color;
+      expect(subtitle, isNot(scheme.error));
+      expect(subtitle, scheme.onSurfaceVariant);
+      final chevron = find.descendant(
+        of: tile,
+        matching: find.byIcon(Icons.chevron_right),
+      );
+      expect(IconTheme.of(tester.element(chevron)).color, isNot(scheme.error));
+    });
+
+    testWidgets('«Версия» приглушённого цвета', (tester) async {
+      await tester.pumpWidget(_app());
+      final text = tester.widget<Text>(find.text('Версия 0.1.0 (19)'));
+      expect(
+        text.style?.color,
+        Theme.of(tester.element(find.byType(SettingsScreen)))
+            .colorScheme
+            .onSurfaceVariant,
+      );
+    });
   });
 
   group('предупреждение о давнем экспорте', () {

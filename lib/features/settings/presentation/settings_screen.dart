@@ -491,6 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final errorColor = Theme.of(context).colorScheme.error;
+    final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return ListView(
       children: [
         const _GroupHeader(appearanceGroupTitle),
@@ -618,12 +619,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const _GroupHeader(resetGroupTitle),
         ListTile(
-          leading: const _ItemIcon(Icons.delete_forever_outlined),
-          title: const Text(clearAllItemLabel),
-          // Цвет ошибки только у доступного пункта; у недоступного ListTile
-          // сам берёт цвет неактивного.
-          textColor: _busy ? null : errorColor,
-          iconColor: _busy ? null : errorColor,
+          // Красные только значок и название, и только у доступного пункта;
+          // подпись и шеврон обычные, у недоступного ListTile сам берёт цвет
+          // неактивного.
+          leading: _busy
+              ? const _ItemIcon(Icons.delete_forever_outlined)
+              : IconTheme.merge(
+                  data: IconThemeData(color: errorColor),
+                  child: const _ItemIcon(Icons.delete_forever_outlined),
+                ),
+          title: _busy
+              ? const Text(clearAllItemLabel)
+              : Text(clearAllItemLabel, style: TextStyle(color: errorColor)),
           subtitle: const Text(clearAllItemSubtitle),
           trailing: _erasing
               ? const SizedBox.square(
@@ -655,7 +662,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: Text(
             versionLabel(widget.version),
-            style: textTheme.bodySmall,
+            style: textTheme.bodySmall?.copyWith(color: mutedColor),
             textAlign: TextAlign.center,
           ),
         ),
