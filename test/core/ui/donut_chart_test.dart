@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_app/core/ui/donut_chart.dart';
 
+import '../../support/haptics.dart';
+
 const _size = Size(200, 200);
 
 /// Удержание пальца в тестах: чуть дольше [donutHoldDelay] и заметно короче
@@ -233,6 +235,75 @@ void main() {
     setUp(() {
       log.clear();
       shown = null;
+    });
+
+    group('вибрация между секторами (И4, шаг 8.44)', () {
+      testWidgets('A → B — один щелчок выбора', (tester) async {
+        final haptics = recordHaptics(tester);
+        await tester.pumpWidget(chart());
+        await tester.pump(const Duration(milliseconds: 800));
+        final g = await tester.startGesture(global(tester, _at(0.1)));
+        await tester.pump();
+        expect(haptics, isEmpty, reason: 'первое нажатие — без вибрации');
+        await g.moveTo(global(tester, _at(0.35)));
+        await tester.pump();
+        expect(haptics, ['HapticFeedbackType.selectionClick']);
+        await g.up();
+        await tester.pump();
+        expect(haptics, hasLength(1), reason: 'отпускание — без вибрации');
+      });
+
+      testWidgets('A → A — ни одного', (tester) async {
+        final haptics = recordHaptics(tester);
+        await tester.pumpWidget(chart());
+        await tester.pump(const Duration(milliseconds: 800));
+        final g = await tester.startGesture(global(tester, _at(0.05)));
+        await tester.pump();
+        await g.moveTo(global(tester, _at(0.15)));
+        await tester.pump();
+        await g.moveTo(global(tester, _at(0.2)));
+        await tester.pump();
+        await g.up();
+        await tester.pump();
+        expect(haptics, isEmpty);
+      });
+
+      testWidgets('A → дырка → A — ни одного, A → дырка → B — один', (
+        tester,
+      ) async {
+        final haptics = recordHaptics(tester);
+        await tester.pumpWidget(chart());
+        await tester.pump(const Duration(milliseconds: 800));
+        final g = await tester.startGesture(global(tester, _at(0.1)));
+        await tester.pump();
+        await g.moveTo(global(tester, const Offset(100, 100)));
+        await tester.pump();
+        await g.moveTo(global(tester, _at(0.12)));
+        await tester.pump();
+        expect(haptics, isEmpty);
+        await g.moveTo(global(tester, const Offset(100, 100)));
+        await tester.pump();
+        await g.moveTo(global(tester, _at(0.8)));
+        await tester.pump();
+        expect(haptics, ['HapticFeedbackType.selectionClick']);
+        await g.up();
+        await tester.pump();
+      });
+
+      testWidgets('A → B → C — два щелчка', (tester) async {
+        final haptics = recordHaptics(tester);
+        await tester.pumpWidget(chart());
+        await tester.pump(const Duration(milliseconds: 800));
+        final g = await tester.startGesture(global(tester, _at(0.1)));
+        await tester.pump();
+        await g.moveTo(global(tester, _at(0.35)));
+        await tester.pump();
+        await g.moveTo(global(tester, _at(0.8)));
+        await tester.pump();
+        await g.up();
+        await tester.pump();
+        expect(haptics, hasLength(2));
+      });
     });
 
     testWidgets('короткое нажатие выбирает сектор', (tester) async {

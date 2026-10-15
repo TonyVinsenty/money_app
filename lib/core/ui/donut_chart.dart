@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 
 /// Один сектор кольца: целый вес (доля считается от суммы весов) и цвет.
@@ -177,6 +179,10 @@ class _DonutChartState extends State<DonutChart>
   /// Что мы последним сообщили родителю через onHighlight.
   int? _lastHighlight;
 
+  /// Сектор, над которым палец был последним (дырка и края не в счёт):
+  /// при переходе на другой — «щелчок» выбора (И4, шаг 8.44).
+  int? _lastSector;
+
   /// Прокрутка родителя, в которой палец лежит с момента касания.
   ScrollPosition? _position;
   double _startPixels = 0;
@@ -222,12 +228,23 @@ class _DonutChartState extends State<DonutChart>
     _pointer = e.pointer;
     _lastHighlight = widget.highlightedIndex;
     _watchScroll();
-    _highlight(_hit(e.localPosition));
+    final hit = _hit(e.localPosition);
+    _lastSector = hit;
+    _highlight(hit);
   }
 
   void _move(PointerMoveEvent e) {
     if (e.pointer != _pointer || _scrolled) return;
-    _highlight(_hit(e.localPosition));
+    final hit = _hit(e.localPosition);
+    if (hit != null) {
+      // Первое касание и тот же сектор — без вибрации. Выключенный отклик
+      // («Уменьшить движение», настройки звука) система учитывает сама.
+      if (_lastSector != null && hit != _lastSector) {
+        unawaited(HapticFeedback.selectionClick().catchError((Object _) {}));
+      }
+      _lastSector = hit;
+    }
+    _highlight(hit);
   }
 
   void _up(PointerUpEvent e) {
@@ -247,6 +264,7 @@ class _DonutChartState extends State<DonutChart>
   void _reset() {
     _unwatchScroll();
     _pointer = null;
+    _lastSector = null;
   }
 
   @override
