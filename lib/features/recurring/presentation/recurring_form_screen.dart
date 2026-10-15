@@ -110,7 +110,6 @@ class RecurringFormScreen extends StatefulWidget {
   static const firstKey = ValueKey('recurring-form-first');
   static const hintKey = ValueKey('recurring-form-hint');
   static const endKey = ValueKey('recurring-form-end');
-  static const endErrorKey = ValueKey('recurring-form-end-error');
   static const endClearKey = ValueKey('recurring-form-end-clear');
   static const saveKey = ValueKey('recurring-form-save');
   static const remindKey = ValueKey('recurring-form-remind');
@@ -547,6 +546,10 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
     final option = recurringRepeatOptions[_repeat];
     final showHint = option.unit == RepeatUnit.month && _first.day >= 29;
     final end = _end;
+    // Подпись поля выступает над рамкой на половину своей высоты (растёт с
+    // шрифтом): добавляем выступ к зазору 16, как в правке операции.
+    final fieldGap =
+        AppSpacing.l + MediaQuery.textScalerOf(context).scale(12) / 2;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -638,7 +641,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                           style: TextStyle(color: theme.colorScheme.error),
                         ),
                       ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: fieldGap),
                     PickerField(
                       key: RecurringFormScreen.categoryKey,
                       label: recurringFormCategoryLabel,
@@ -667,7 +670,7 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                           style: TextStyle(color: theme.colorScheme.error),
                         ),
                       ),
-                    const SizedBox(height: AppSpacing.l),
+                    SizedBox(height: fieldGap),
                     PickerField(
                       key: RecurringFormScreen.accountKey,
                       label: recurringFormAccountLabel,
@@ -684,24 +687,24 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                           style: TextStyle(color: theme.colorScheme.error),
                         ),
                       ),
-                    const SizedBox(height: AppSpacing.l),
+                    SizedBox(height: fieldGap),
                     PickerField(
                       key: RecurringFormScreen.repeatKey,
                       label: recurringFormRepeatLabel,
                       value: recurringRepeatOptions[_repeat].label,
                       onTap: () => unawaited(_pickRepeat()),
                     ),
-                    ListTile(
+                    SizedBox(height: fieldGap),
+                    PickerField(
                       key: RecurringFormScreen.firstKey,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(recurringFormFirstLabel),
-                      subtitle: Text(dayLabel(_first, today: widget.today)),
-                      trailing: const Icon(Icons.calendar_today_outlined),
-                      onTap: _pickFirst,
+                      label: recurringFormFirstLabel,
+                      value: dayLabel(_first, today: widget.today),
+                      leading: const Icon(Icons.calendar_today_outlined),
+                      onTap: () => unawaited(_pickFirst()),
                     ),
                     if (showHint)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.only(top: AppSpacing.xs),
                         child: Text(
                           recurringLastDayHint(_first.day),
                           key: RecurringFormScreen.hintKey,
@@ -710,34 +713,40 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                           ),
                         ),
                       ),
-                    ListTile(
-                      key: RecurringFormScreen.endKey,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(recurringFormEndLabel),
-                      subtitle: Text(
-                        end == null
-                            ? recurringFormNoEnd
-                            : dayLabel(end, today: widget.today),
-                      ),
-                      trailing: end == null
-                          ? const Icon(Icons.calendar_today_outlined)
-                          : IconButton(
-                              key: RecurringFormScreen.endClearKey,
-                              tooltip: recurringFormEndClear,
-                              icon: const Icon(Icons.close),
-                              onPressed: () => setState(() {
-                                _end = null;
-                                _endError = null;
-                              }),
+                    SizedBox(height: fieldGap),
+                    // «Убрать окончание» - рядом с полем, а не внутри него:
+                    // поле читается скринридером одной кнопкой.
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: PickerField(
+                            key: RecurringFormScreen.endKey,
+                            label: recurringFormEndLabel,
+                            value: end == null
+                                ? recurringFormNoEnd
+                                : dayLabel(end, today: widget.today),
+                            leading: const Icon(Icons.calendar_today_outlined),
+                            errorText: _endError,
+                            onTap: () => unawaited(_pickEnd()),
+                          ),
+                        ),
+                        if (end != null)
+                          IconButton(
+                            key: RecurringFormScreen.endClearKey,
+                            tooltip: recurringFormEndClear,
+                            constraints: const BoxConstraints(
+                              minWidth: 48,
+                              minHeight: 48,
                             ),
-                      onTap: _pickEnd,
+                            icon: const Icon(Icons.close),
+                            onPressed: () => setState(() {
+                              _end = null;
+                              _endError = null;
+                            }),
+                          ),
+                      ],
                     ),
-                    if (_endError != null)
-                      Text(
-                        _endError!,
-                        key: RecurringFormScreen.endErrorKey,
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
                     SwitchListTile.adaptive(
                       key: RecurringFormScreen.remindKey,
                       contentPadding: EdgeInsets.zero,
