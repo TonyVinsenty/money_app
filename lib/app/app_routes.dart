@@ -34,7 +34,9 @@ import 'package:money_app/features/recurring/data/reminders_channel.dart';
 import 'package:money_app/features/recurring/domain/recurring_payment.dart';
 import 'package:money_app/features/recurring/domain/recurring_repository.dart';
 import 'package:money_app/features/recurring/presentation/recurring_form_screen.dart';
+import 'package:money_app/features/settings/data/thanks_loader.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/settings/presentation/thanks_screen.dart';
 import 'package:money_app/features/transactions/domain/category_kind_mapping.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
@@ -96,6 +98,9 @@ abstract final class AppRoutes {
   /// Форма регулярного платежа. Аргумент маршрута —
   /// [RecurringFormRouteArguments].
   static const recurringForm = '/recurring-form';
+
+  /// Экран «Спасибо». Без аргументов: список имён читается из ресурсов.
+  static const thanks = '/thanks';
 }
 
 /// Аргументы маршрута [AppRoutes.recurringForm]: основная валюта, сегодняшний
@@ -870,6 +875,11 @@ Route<dynamic>? onGenerateAppRoute(RouteSettings settings) {
                 ),
               ),
         ),
+      );
+    case AppRoutes.thanks:
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => const ThanksScreen(load: loadThanks),
       );
   }
   return null;

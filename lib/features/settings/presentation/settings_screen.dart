@@ -32,6 +32,10 @@ const developerPageLabel = 'boosty.to/tony_vinsenty';
 const developerPageUrl = 'https://boosty.to/tony_vinsenty';
 const openLinkFailedMessage = 'Не удалось открыть страницу';
 
+/// Пункт «Спасибо» (шаг 8.33): виден всегда, даже при пустом списке имён.
+const thanksItemLabel = 'Спасибо';
+const thanksItemSubtitle = 'Люди, которые помогают Zuno';
+
 /// Подписи вариантов темы («Как в системе» не помещается в одну строку).
 const themeSystemLabel = 'Системная';
 const themeLightLabel = 'Светлая';
@@ -220,6 +224,7 @@ class SettingsScreen extends StatefulWidget {
     required this.homeBalanceLine,
     required this.onHomeBalanceLineChanged,
     required this.onOpenCategories,
+    required this.onOpenThanks,
     required this.mainCurrency,
     required this.onMainCurrencyChanged,
     required this.onExportCsv,
@@ -254,6 +259,9 @@ class SettingsScreen extends StatefulWidget {
   final HomeBalanceLine homeBalanceLine;
   final ValueChanged<HomeBalanceLine> onHomeBalanceLineChanged;
   final VoidCallback onOpenCategories;
+
+  /// Открывает экран «Спасибо».
+  final VoidCallback onOpenThanks;
 
   /// Текущая основная валюта и обработчик подтверждённой смены.
   final CurrencyInfo mainCurrency;
@@ -658,6 +666,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           onTap: _openDeveloperPage,
+        ),
+        ListTile(
+          leading: const _ItemIcon(Icons.favorite_border),
+          title: const Text(thanksItemLabel),
+          subtitle: const Text(thanksItemSubtitle),
+          trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+          onTap: widget.onOpenThanks,
         ),
         // «Версия» — внизу, вне групп.
         Padding(

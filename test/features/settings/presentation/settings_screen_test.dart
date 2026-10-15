@@ -23,6 +23,7 @@ Widget _app({
   HomeBalanceLine balanceLine = HomeBalanceLine.allTime,
   ValueChanged<HomeBalanceLine>? onBalanceLine,
   VoidCallback? onCategories,
+  VoidCallback? onThanks,
   Future<String> Function()? onExport,
   ShareFile? shareFile,
   OpenLink? openLink,
@@ -54,6 +55,7 @@ Widget _app({
           homeBalanceLine: balanceLine,
           onHomeBalanceLineChanged: onBalanceLine ?? (_) {},
           onOpenCategories: onCategories ?? () {},
+          onOpenThanks: onThanks ?? () {},
           mainCurrency: main,
           onMainCurrencyChanged: (value) {
             onMainCurrency?.call(value);
@@ -1528,6 +1530,46 @@ void main() {
       await tester.tap(find.text(developerInfoItemLabel));
       await tester.pump();
       expect(find.text(openLinkFailedMessage), findsOneWidget);
+    });
+  });
+
+  group('«Спасибо» (шаг 8.33)', () {
+    testWidgets('строка видна всегда, после «Информации о разработчике», '
+        'со значком и подписью', (tester) async {
+      tester.view.physicalSize = const Size(400, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app());
+      expect(find.text(thanksItemLabel), findsOneWidget);
+      expect(find.text(thanksItemSubtitle), findsOneWidget);
+      final tile = find.widgetWithText(ListTile, thanksItemLabel);
+      expect(
+        find.descendant(of: tile, matching: find.byIcon(Icons.favorite_border)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: tile, matching: find.byIcon(Icons.chevron_right)),
+        findsOneWidget,
+      );
+      double top(Finder finder) => tester.getTopLeft(finder).dy;
+      expect(
+        top(find.text(thanksItemLabel)),
+        greaterThan(top(find.text(developerInfoItemLabel))),
+      );
+      // «Версия» по-прежнему в самом низу.
+      expect(
+        top(find.textContaining('Версия')),
+        greaterThan(top(find.text(thanksItemSubtitle))),
+      );
+    });
+
+    testWidgets('касание открывает экран «Спасибо»', (tester) async {
+      var opened = 0;
+      await tester.pumpWidget(_app(onThanks: () => opened++));
+      await tester.scrollUntilVisible(find.text(thanksItemLabel), 200);
+      await tester.tap(find.text(thanksItemLabel));
+      await tester.pump();
+      expect(opened, 1);
     });
   });
 }

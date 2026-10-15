@@ -196,6 +196,7 @@ class _SettingsTabState extends State<SettingsTab> {
         browse.updateToday(services.clock.today());
         browse.resetAfterEraseAll();
       },
+      onOpenThanks: () => Navigator.of(context).pushNamed(AppRoutes.thanks),
       // Репозиторий берём здесь, под AppScope: открытый маршрут его не видит.
       onOpenCategories: () => Navigator.of(context).pushNamed(
         AppRoutes.categories,

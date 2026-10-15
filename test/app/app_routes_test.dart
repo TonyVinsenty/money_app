@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -12,6 +14,7 @@ import 'package:money_app/features/analytics/presentation/category_breakdown_scr
 import 'package:money_app/features/categories/domain/category.dart';
 import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
+import 'package:money_app/features/settings/presentation/thanks_screen.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
@@ -335,6 +338,31 @@ void main() {
           ),
         );
       }
+    });
+  });
+
+  group('маршрут «Спасибо» (шаг 8.33)', () {
+    testWidgets('открывает экран «Спасибо» с именами из ресурсов', (
+      tester,
+    ) async {
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          onGenerateRoute: onGenerateAppRoute,
+          home: const SizedBox.shrink(),
+        ),
+      );
+      unawaited(navigator.currentState!.pushNamed(AppRoutes.thanks));
+      // Файл ресурсов читается настоящим вводом-выводом.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ThanksScreen), findsOneWidget);
+      expect(find.text(thanksTitle), findsOneWidget);
+      // Настоящий список пока пуст — заглушка.
+      expect(find.text(thanksEmptyText), findsOneWidget);
     });
   });
 

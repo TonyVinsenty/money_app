@@ -21,6 +21,7 @@ void main() {
         homeBalanceLine: HomeBalanceLine.allTime,
         onHomeBalanceLineChanged: (_) {},
         onOpenCategories: () {},
+        onOpenThanks: () {},
         mainCurrency: currencyInfoFor('RUB'),
         onMainCurrencyChanged: (_) {},
         onExportCsv: () async => '',
