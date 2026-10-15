@@ -57,6 +57,15 @@ jobs:
             exit 1
           fi
           echo "Bundle id check passed: $BUNDLE_ID ($DISPLAY_NAME)"
+          # Alternate app icons (ADR 0014): Xcode must have put all three sets
+          # into CFBundleIcons, otherwise switching icons silently fails.
+          for ICON in AppIcon-RingBlue AppIcon-Coins AppIcon-Wallet; do
+            if ! /usr/libexec/PlistBuddy -c "Print :CFBundleIcons:CFBundleAlternateIcons:$ICON" "$PLIST" > /dev/null 2>&1; then
+              echo "::error::Alternate icon '$ICON' is missing in CFBundleIcons:CFBundleAlternateIcons"
+              exit 1
+            fi
+          done
+          echo "Alternate icons check passed"
           VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST")
           BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")
           echo "Version $VERSION (build $BUILD)"

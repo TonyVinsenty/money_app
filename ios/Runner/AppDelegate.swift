@@ -21,6 +21,22 @@ import UserNotifications
   // и ключ — как в lib/features/settings/presentation/open_external_link.dart.
   private let linksChannelName = "com.tonyvinsenty.zuno/links"
 
+  // Канал иконки (ADR 0014, п. 2 и 3). Имя, методы и ключ — как в
+  // lib/features/settings/data/app_icon_channel.dart и в MainActivity.kt.
+  private let appIconChannelName = "com.tonyvinsenty.zuno/app_icon"
+
+  // Иконка по умолчанию — набор AppIcon (имя альтернативной иконки nil).
+  private let appIconDefault = "ring"
+
+  // id варианта -> альтернативный набор в Assets.xcassets; те же имена — в
+  // ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES (project.pbxproj).
+  // Имена не менять никогда (ADR 0014, п. 6).
+  private let appIconSets = [
+    "ring_blue": "AppIcon-RingBlue",
+    "coins": "AppIcon-Coins",
+    "wallet": "AppIcon-Wallet",
+  ]
+
   // Ожидающий ответ Dart, пока открыто окно выбора (второй вызов получит "busy").
   // Делегат окна — сам AppDelegate: он живёт всё время работы приложения.
   private var pendingPick: FlutterResult?
@@ -79,6 +95,55 @@ import UserNotifications
     )
     links.setMethodCallHandler { call, result in
       self.handleLinks(call, result: result)
+    }
+
+    let appIcon = FlutterMethodChannel(
+      name: appIconChannelName,
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    appIcon.setMethodCallHandler { call, result in
+      self.handleAppIcon(call, result: result)
+    }
+  }
+
+  // Какая иконка стоит — спрашиваем систему (ADR 0014, п. 1). Окно «Вы
+  // изменили значок» показывает сама iOS, убрать его нельзя.
+  private func handleAppIcon(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    let app = UIApplication.shared
+    switch call.method {
+    case "supported":
+      result(app.supportsAlternateIcons)
+    case "current":
+      guard let name = app.alternateIconName else {
+        result(appIconDefault)
+        return
+      }
+      result(appIconSets.first { $0.value == name }?.key)
+    case "set":
+      guard let args = call.arguments as? [String: Any],
+        let id = args["id"] as? String
+      else {
+        result(false)
+        return
+      }
+      let name: String?
+      if id == appIconDefault {
+        name = nil
+      } else if let set = appIconSets[id] {
+        name = set
+      } else {
+        result(false)
+        return
+      }
+      if app.alternateIconName == name {
+        result(true)
+        return
+      }
+      app.setAlternateIconName(name) { error in
+        DispatchQueue.main.async { result(error == nil) }
+      }
+    default:
+      result(FlutterMethodNotImplemented)
     }
   }
 
