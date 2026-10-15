@@ -113,6 +113,23 @@ List<Rect> barFutureRects(
   ];
 }
 
+/// Где кончается пунктир среднего (шаг 8.55): на границе между сегодняшним
+/// и первым будущим столбиком [futureFrom], чтобы он не читался как прогноз;
+/// будущих нет — у правого края.
+double barAverageLineEnd(
+  Size size,
+  int count,
+  int? futureFrom, [
+  double leftInset = 0,
+]) {
+  if (futureFrom == null || count <= 0 || futureFrom >= count) {
+    return size.width;
+  }
+  final left = math.min(leftInset, size.width);
+  final slot = (size.width - left) / count;
+  return left + slot * math.max(0, futureFrom);
+}
+
 /// Столбик [bar], выросший снизу на долю [progress] (0..1) своей высоты:
 /// низ и ширина на месте, верх опускается к низу.
 Rect growBar(Rect bar, double progress) => Rect.fromLTRB(
@@ -539,12 +556,14 @@ class _BarPainter extends CustomPainter {
       final paint = Paint()
         ..color = lineColor
         ..strokeWidth = 1.5;
-      for (var x = leftInset; x < size.width; x += 8) {
-        canvas.drawLine(
-          Offset(x, y),
-          Offset(math.min(x + 4, size.width), y),
-          paint,
-        );
+      final end = barAverageLineEnd(
+        size,
+        weights.length,
+        futureFrom,
+        leftInset,
+      );
+      for (var x = leftInset; x < end; x += 8) {
+        canvas.drawLine(Offset(x, y), Offset(math.min(x + 4, end), y), paint);
       }
     }
   }

@@ -755,4 +755,24 @@ void main() {
       expect(barFutureRects(_size, 0, 0), isEmpty);
     });
   });
+
+  group('barAverageLineEnd (шаг 8.55)', () {
+    test('будущих нет — до правого края', () {
+      expect(barAverageLineEnd(_size, 31, null), _size.width);
+      expect(barAverageLineEnd(_size, 31, 31), _size.width);
+      expect(barAverageLineEnd(_size, 0, 0), _size.width);
+    });
+
+    test('кончается на границе сегодняшнего и первого будущего столбика', () {
+      // 30 слотов по 10 dp: будущие с 14-го — граница на 140.
+      expect(barAverageLineEnd(_size, 30, 14), moreOrLessEquals(140));
+      final future = barFutureRects(_size, 30, 14);
+      expect(barAverageLineEnd(_size, 30, 14), lessThan(future.first.left));
+    });
+
+    test('с отступом слева под шкалу', () {
+      // Слоты по (300 − 60) / 4 = 60 dp: граница после 2 слотов — 180.
+      expect(barAverageLineEnd(_size, 4, 2, 60), moreOrLessEquals(180));
+    });
+  });
 }

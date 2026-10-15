@@ -745,4 +745,41 @@ void main() {
       expect(label, isNot(contains('подлож')));
     });
   });
+
+  testWidgets('пунктир среднего обрывается на сегодняшнем дне (шаг 8.55)', (
+    tester,
+  ) async {
+    await _pump(tester, transactions: _october);
+    await tester.pumpAndSettle();
+    final paint = find
+        .descendant(
+          of: find.byKey(DynamicsSection.chartKey),
+          matching: find.byType(CustomPaint),
+        )
+        .first;
+    final future = Theme.of(tester.element(paint)).colorScheme.surfaceContainer;
+    var lines = 0;
+    var maxX = 0.0;
+    var firstFuture = double.infinity;
+    expect(
+      paint,
+      paints..everything((method, args) {
+        if (method == #drawLine) {
+          lines++;
+          final end = args[1] as Offset;
+          if (end.dx > maxX) maxX = end.dx;
+        }
+        if (method == #drawRRect &&
+            (args[1] as Paint).color.toARGB32() == future.toARGB32()) {
+          final left = (args[0] as RRect).left;
+          if (left < firstFuture) firstFuture = left;
+        }
+        return true;
+      }),
+    );
+    expect(lines, greaterThan(0));
+    // Линия кончается до первой подложки (21 октября), а не у правого края.
+    expect(firstFuture, lessThan(double.infinity));
+    expect(maxX, lessThan(firstFuture));
+  });
 }
