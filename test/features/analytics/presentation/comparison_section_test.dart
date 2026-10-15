@@ -17,6 +17,7 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 
+import '../../../support/contrast.dart';
 import '../../../support/roboto_font.dart';
 
 final _today = DateOnly(2026, 10, 11);
@@ -76,13 +77,14 @@ Future<void> _pump(
   ValueChanged<TransactionType>? onType,
   ValueChanged<Category>? onOpen,
   double textScale = 1,
+  ThemeData? theme,
 }) async {
   tester.view.physicalSize = const Size(360, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light(),
+      theme: theme ?? AppTheme.light(),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),
@@ -121,6 +123,40 @@ void main() {
 
   final oct = DateOnly(2026, 10, 5);
   final sep = DateOnly(2026, 9, 5);
+
+  for (final entry in {
+    'светлая': AppTheme.light(),
+    'тёмная': AppTheme.dark(),
+  }.entries) {
+    testWidgets('подпись изменения: контраст ≥ 4.5, шрифт ≥ 12 (8.53), '
+        '${entry.key} тема', (tester) async {
+      await _pump(
+        tester,
+        theme: entry.value,
+        transactions: [
+          _tx('a', 'cafe', 800000, oct),
+          _tx('b', 'cafe', 570000, sep),
+        ],
+      );
+      final delta = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(ComparisonSection.rowKey('cafe')),
+          matching: find.textContaining('%'),
+        ),
+      );
+      final card = tester.widget<Material>(
+        find
+            .descendant(of: find.byType(Card), matching: find.byType(Material))
+            .first,
+      );
+      expect(card.color, isNotNull);
+      expect(
+        contrastRatio(delta.style!.color!, card.color!),
+        greaterThanOrEqualTo(4.5),
+      );
+      expect(delta.style!.fontSize, greaterThanOrEqualTo(12));
+    });
+  }
 
   testWidgets('аватар строки вровень с краем карточки, как заголовок (8.9)', (
     tester,

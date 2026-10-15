@@ -237,14 +237,14 @@ void main() {
 
   group('сообщения и меню (8.1)', () {
     for (final entry in themes.entries) {
-      test('${entry.key} тема: сообщение плавающее, радиус 12, зазор 8', () {
+      test('${entry.key} тема: сообщение плавающее, радиус 12, зазор 16', () {
         final snack = entry.value.snackBarTheme;
         expect(snack.behavior, SnackBarBehavior.floating);
         expect(
           (snack.shape! as RoundedRectangleBorder).borderRadius,
           BorderRadius.circular(12),
         );
-        expect(snack.insetPadding, const EdgeInsets.fromLTRB(16, 0, 16, 8));
+        expect(snack.insetPadding, const EdgeInsets.fromLTRB(16, 0, 16, 16));
       });
 
       test('${entry.key} тема: меню — радиус 12, фон surfaceContainerHigh', () {

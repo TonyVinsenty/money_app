@@ -305,6 +305,20 @@ void main() {
             expect(rect.bottom, lessThanOrEqualTo(navTop), reason: label);
           }
           expect(snack.top, greaterThanOrEqualTo(0));
+          // Шаг 8.53: зазор от самой плашки до кнопок 32 = поле панели 16 +
+          // зазор сообщения 16 (раньше 16 + 8 = 24).
+          final plate = tester.getRect(
+            find
+                .descendant(
+                  of: find.byType(SnackBar),
+                  matching: find.byType(Material),
+                )
+                .first,
+          );
+          expect(
+            tester.getRect(button('Расход')).top - plate.bottom,
+            closeTo(32, 0.01),
+          );
 
           // «Отменить» видна и через 5 секунд.
           await tester.pump(const Duration(seconds: 5));
@@ -342,6 +356,21 @@ void main() {
       expect(
         tester.getRect(find.byType(SnackBar)).bottom,
         lessThanOrEqualTo(tester.getRect(find.byType(NavigationBar)).top),
+      );
+      // Шаг 8.53: зазор до верха капсулы 16, раньше был 8.
+      expect(
+        tester.getRect(find.byType(NavCapsule)).top -
+            tester
+                .getRect(
+                  find
+                      .descendant(
+                        of: find.byType(SnackBar),
+                        matching: find.byType(Material),
+                      )
+                      .first,
+                )
+                .bottom,
+        closeTo(16, 0.01),
       );
 
       await tester.pumpWidget(const SizedBox());

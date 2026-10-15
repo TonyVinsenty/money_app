@@ -214,7 +214,7 @@ void main() {
                 .first,
           )
           .bottom,
-      moreOrLessEquals(_capsuleTop(tester) - 8),
+      moreOrLessEquals(_capsuleTop(tester) - 16),
     );
   });
 
