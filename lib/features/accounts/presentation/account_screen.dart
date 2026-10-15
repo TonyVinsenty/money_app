@@ -444,17 +444,6 @@ class _AccountScreenState extends State<AccountScreen> {
             ],
           ),
         ),
-        const SizedBox(height: AppSpacing.m),
-        TextButton(
-          key: AccountScreen.archiveKey,
-          style: ButtonStyle(
-            minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
-            foregroundColor: WidgetStateProperty.all(theme.colorScheme.error),
-          ),
-          onPressed: () =>
-              unawaited(_guarded(() => _archive(account, balance))),
-          child: const Text(accountArchiveButton),
-        ),
         if (_transfers != null &&
             widget.today != null &&
             widget.onEditTransfer != null)
@@ -466,6 +455,18 @@ class _AccountScreenState extends State<AccountScreen> {
             today: widget.today!,
             onOpen: (t) => unawaited(_guarded(() => widget.onEditTransfer!(t))),
           ),
+        // В конце прокрутки и обычным цветом: красный — только у удаления
+        // (D12, 8.51).
+        const SizedBox(height: AppSpacing.m),
+        TextButton(
+          key: AccountScreen.archiveKey,
+          style: ButtonStyle(
+            minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
+          ),
+          onPressed: () =>
+              unawaited(_guarded(() => _archive(account, balance))),
+          child: const Text(accountArchiveButton),
+        ),
       ],
     );
   }

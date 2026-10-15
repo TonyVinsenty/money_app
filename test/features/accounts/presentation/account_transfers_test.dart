@@ -11,6 +11,7 @@ import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/accounts/domain/transfer.dart';
+import 'package:money_app/features/accounts/presentation/account_screen.dart';
 import 'package:money_app/features/accounts/presentation/account_texts.dart';
 import 'package:money_app/features/accounts/presentation/account_transfers_list.dart';
 import 'package:money_app/features/accounts/presentation/transfer_form_screen.dart';
@@ -127,6 +128,22 @@ void main() {
       findsOneWidget,
     );
     handle.dispose();
+  });
+
+  testWidgets('«В архив» lies below the transfers, at the end (8.51)', (
+    tester,
+  ) async {
+    final transfers = InMemoryTransfersRepository([
+      transfer('t1', 'a1', 'a2', 500000, 7),
+    ]);
+    await openAccount(tester, cardAndCash, transfers);
+    final archive = find.byKey(AccountScreen.archiveKey);
+    await tester.ensureVisible(archive);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(archive).dy,
+      greaterThan(tester.getBottomLeft(find.byType(AccountTransfersList)).dy),
+    );
   });
 
   testWidgets('no transfers - no section', (tester) async {

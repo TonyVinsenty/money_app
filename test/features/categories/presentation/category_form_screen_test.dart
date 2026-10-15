@@ -1137,14 +1137,17 @@ void main() {
       await _openForm(tester, repository, renaming: cafe);
       final archive = find.text(categoriesArchiveAction);
       expect(archive, findsOneWidget);
-      // Цвет error.
-      final button = tester.widget<TextButton>(
-        find.widgetWithText(TextButton, categoriesArchiveAction),
+      // Обычный цвет кнопки (primary), красный — только у удаления (8.51).
+      final scheme = Theme.of(tester.element(find.byType(CategoryFormScreen)))
+          .colorScheme;
+      final label = tester.widget<RichText>(
+        find.descendant(
+          of: find.byKey(categoryFormArchiveKey),
+          matching: find.byType(RichText),
+        ),
       );
-      final error = Theme.of(tester.element(find.byType(CategoryFormScreen)))
-          .colorScheme
-          .error;
-      expect(button.style?.foregroundColor?.resolve({}), error);
+      expect(label.text.style?.color, scheme.primary);
+      expect(label.text.style?.color, isNot(scheme.error));
       // Лежит в прокручиваемой части, а не в закреплённом низу (D12, D45).
       expect(
         find.descendant(

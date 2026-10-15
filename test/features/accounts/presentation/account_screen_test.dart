@@ -112,6 +112,17 @@ void main() {
       tester.widget<Text>(find.byKey(AccountScreen.balanceKey)).data,
       formatMoney(Money.fromMinor(15000, 'ABC'), currency: abcInfo),
     );
+    // «В архив» обычным цветом (8.51).
+    final scheme = Theme.of(
+      tester.element(find.byKey(AccountScreen.archiveKey)),
+    ).colorScheme;
+    final archiveLabel = tester.widget<RichText>(
+      find.descendant(
+        of: find.byKey(AccountScreen.archiveKey),
+        matching: find.byType(RichText),
+      ),
+    );
+    expect(archiveLabel.text.style?.color, scheme.primary);
     await tapKey(tester, AccountScreen.archiveKey);
     expect(
       find.text(

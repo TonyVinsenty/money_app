@@ -31,6 +31,9 @@ const categoryFormKindExpense = 'Расход';
 const categoryFormKindIncome = 'Доход';
 const categoryFormIconTitle = 'Иконка';
 const categoryFormIconTitleKey = ValueKey<String>('category-form-icon-title');
+
+/// Кнопка «В архив» в конце формы категории.
+const categoryFormArchiveKey = ValueKey<String>('category-form-archive');
 const categoryFormSaveLabel = 'Сохранить';
 
 /// Строка только для чтения при переименовании: «Тип: Расход».
@@ -463,13 +466,14 @@ class _CategoryFormScreenState extends State<CategoryFormScreen>
                         },
                       ),
                     ],
-                    // В конце прокрутки, не в закреплённом низу (D12, D45).
+                    // В конце прокрутки, не в закреплённом низу (D12, D45),
+                    // обычным цветом: красный — только у удаления (8.51).
                     if (canArchive)
                       Padding(
                         padding: const EdgeInsets.only(top: AppSpacing.l),
                         child: TextButton(
+                          key: categoryFormArchiveKey,
                           style: TextButton.styleFrom(
-                            foregroundColor: theme.colorScheme.error,
                             minimumSize: const Size(48, 48),
                           ),
                           onPressed: _saving
