@@ -12,6 +12,7 @@ import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/recurring/domain/reminder_plan.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
+import 'package:money_app/features/settings/presentation/group_header.dart';
 import 'package:money_app/features/settings/presentation/open_external_link.dart';
 import 'package:money_app/features/settings/presentation/reminder_time_wheel.dart';
 import 'package:money_app/features/settings/presentation/share_csv_file.dart';
@@ -494,7 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return ListView(
       children: [
-        const _GroupHeader(appearanceGroupTitle),
+        const GroupHeader(appearanceGroupTitle),
         _SegmentedChoice<ThemeMode>(
           title: themeSectionTitle,
           options: const [
@@ -513,7 +514,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             value: widget.hideAmounts,
             onChanged: onChanged,
           ),
-        const _GroupHeader(ringGroupTitle),
+        const GroupHeader(ringGroupTitle),
         _SegmentedChoice<HomeBalanceLine>(
           title: homeBalanceSectionTitle,
           options: const [
@@ -532,7 +533,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           value: widget.homeBalanceLine,
           onChanged: widget.onHomeBalanceLineChanged,
         ),
-        const _GroupHeader(bookkeepingGroupTitle),
+        const GroupHeader(bookkeepingGroupTitle),
         ListTile(
           leading: const _ItemIcon(Icons.category_outlined),
           title: const Text(categoriesItemLabel),
@@ -556,7 +557,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
             onTap: _pickReminderTime,
           ),
-        const _GroupHeader(dataGroupTitle),
+        const GroupHeader(dataGroupTitle),
         ListTile(
           leading: const _ItemIcon(Icons.file_upload_outlined),
           title: const Text(exportCsvItemLabel),
@@ -617,7 +618,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           enabled: !_busy,
           onTap: _busy ? null : _importCsv,
         ),
-        const _GroupHeader(resetGroupTitle),
+        const GroupHeader(resetGroupTitle),
         ListTile(
           // Красные только значок и название, и только у доступного пункта;
           // подпись и шеврон обычные, у недоступного ListTile сам берёт цвет
@@ -644,7 +645,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           enabled: !_busy,
           onTap: _busy ? null : _clearAll,
         ),
-        const _GroupHeader(aboutGroupTitle),
+        const GroupHeader(aboutGroupTitle),
         ListTile(
           leading: const _ItemIcon(Icons.person_outline),
           title: const Text(developerInfoItemLabel),
@@ -673,37 +674,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Подзаголовок группы (design-style.md, 8.4): `titleSmall`, 600, цвет
-/// акцента, слева, отступ сверху 24.
-class _GroupHeader extends StatelessWidget {
-  const _GroupHeader(this.title);
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.l,
-        AppSpacing.xl,
-        AppSpacing.l,
-        AppSpacing.s,
-      ),
-      child: Semantics(
-        header: true,
-        child: Text(
-          title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-      ),
     );
   }
 }
