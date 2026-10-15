@@ -373,7 +373,9 @@ void main() {
       expect(find.text('Выберите другой месяц стрелками вверху'), findsOne);
       expect(find.text(historyEmptyTitle), findsNothing);
       expect(find.text(historyAddExpenseLabel), findsNothing);
-      expect(find.byType(TextField), findsOneWidget);
+      // Поле за лупой (И2): лупа есть, поля пока нет.
+      expect(find.byTooltip(historySearchTooltip), findsOneWidget);
+      expect(find.byType(TextField), findsNothing);
     });
 
     testWidgets('поиск начат, а база опустела: поле остаётся', (tester) async {
@@ -504,5 +506,143 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, 2000));
     await tester.pumpAndSettle();
     expect(find.byKey(historyScrolledDividerKey), findsNothing);
+  });
+
+  group('поиск за лупой (И2, шаг 8.42)', () {
+    /// Экран с запросом снаружи (как в приложении): запрос переживает
+    /// пересоздание экрана; [shown] — показан ли экран (смена вкладки).
+    Widget searchable({
+      required ValueNotifier<String> query,
+      bool shown = true,
+    }) => MaterialApp(
+      theme: AppTheme.light(),
+      home: Scaffold(
+        body: !shown
+            ? const SizedBox.shrink()
+            : ValueListenableBuilder<String>(
+                valueListenable: query,
+                builder: (context, value, _) => HistoryScreen(
+                  transactions: Stream.value([
+                    _tx('a', _today, note: 'кофе'),
+                    _tx('b', _today, note: 'хлеб'),
+                  ]),
+                  categories: Stream.value(_categories),
+                  today: _today,
+                  month: _today,
+                  hasAnyTransactions: true,
+                  onTransactionTap: (_) {},
+                  searchQuery: value,
+                  onSearchChanged: (text) => query.value = text,
+                ),
+              ),
+      ),
+    );
+
+    testWidgets('поля нет до касания лупы; касание — поле с фокусом', (
+      tester,
+    ) async {
+      final query = ValueNotifier('');
+      addTearDown(query.dispose);
+      await tester.pumpWidget(searchable(query: query));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TextField), findsNothing);
+      // Лупа — в строке «Фильтр».
+      final lupa = find.byTooltip(historySearchTooltip);
+      expect(lupa, findsOneWidget);
+      expect(
+        tester.getCenter(lupa).dy,
+        moreOrLessEquals(tester.getCenter(find.text('Фильтр')).dy, epsilon: 2),
+      );
+
+      await tester.tap(lupa);
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.byTooltip(historySearchTooltip), findsNothing);
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.focusNode!.hasFocus, isTrue);
+      // Пустое поле: крестик закрывает.
+      expect(find.byTooltip(historySearchCloseTooltip), findsOneWidget);
+    });
+
+    testWidgets('поиск работает как раньше', (tester) async {
+      final query = ValueNotifier('');
+      addTearDown(query.dispose);
+      await tester.pumpWidget(searchable(query: query));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(historySearchTooltip));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'коф');
+      await tester.pumpAndSettle();
+      expect(query.value, 'коф');
+      expect(find.text('кофе'), findsOneWidget);
+      expect(find.text('хлеб'), findsNothing);
+    });
+
+    testWidgets('с текстом поле остаётся и после смены вкладки', (
+      tester,
+    ) async {
+      final query = ValueNotifier('');
+      addTearDown(query.dispose);
+      await tester.pumpWidget(searchable(query: query));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(historySearchTooltip));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'хлеб');
+      await tester.pumpAndSettle();
+
+      // Ушли на другую вкладку и вернулись: экран построен заново.
+      await tester.pumpWidget(searchable(query: query, shown: false));
+      await tester.pumpWidget(searchable(query: query));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'хлеб',
+      );
+    });
+
+    testWidgets('крестик очищает и прячет поле, месяц вернулся', (
+      tester,
+    ) async {
+      final query = ValueNotifier('');
+      addTearDown(query.dispose);
+      await tester.pumpWidget(searchable(query: query));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(historySearchTooltip));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'хлеб');
+      await tester.pumpAndSettle();
+      expect(find.text('Во всех месяцах'), findsOneWidget);
+
+      await tester.tap(find.byTooltip(historySearchClearTooltip));
+      await tester.pumpAndSettle();
+      expect(query.value, '');
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byTooltip(historySearchTooltip), findsOneWidget);
+      expect(find.text('Во всех месяцах'), findsNothing);
+      expect(find.text('кофе'), findsOneWidget);
+    });
+
+    testWidgets('пустое поле прячется, когда из него ушли', (tester) async {
+      final query = ValueNotifier('');
+      addTearDown(query.dispose);
+      await tester.pumpWidget(searchable(query: query));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(historySearchTooltip));
+      await tester.pumpAndSettle();
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
+      expect(find.byTooltip(historySearchTooltip), findsOneWidget);
+    });
+
+    testWidgets('без обработчика поиска лупы нет', (tester) async {
+      await tester.pumpWidget(
+        _app(transactions: Stream.value([_tx('a', _today)]), hasAny: true),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byTooltip(historySearchTooltip), findsNothing);
+    });
   });
 }

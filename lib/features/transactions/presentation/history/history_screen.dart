@@ -41,6 +41,12 @@ const Key historyScrolledDividerKey = ValueKey('history-scrolled-divider');
 /// Ключ заглушки-скелетона: по нему тесты отличают «ещё грузится» от «пусто».
 const Key historySkeletonKey = ValueKey('history-skeleton');
 
+/// Поиск за лупой (И2, шаг 8.42): подсказки кнопок открыть, закрыть и
+/// очистить поиск.
+const historySearchTooltip = 'Поиск';
+const historySearchCloseTooltip = 'Закрыть поиск';
+const historySearchClearTooltip = 'Очистить поиск';
+
 /// Вкладка «История»: живые операции по дням, новые сверху.
 ///
 /// Экран не знает, откуда берутся данные и куда ведёт нажатие: потоки и
@@ -167,9 +173,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   bool get _searching => normalizeHistorySearch(widget.searchQuery).isNotEmpty;
 
+  /// Поле поиска открыли лупой (И2). Пока в поле есть текст, оно видно и
+  /// без этого флага: запрос живёт снаружи и переживает смену вкладки.
+  bool _searchOpen = false;
+  late final FocusNode _searchFocus = FocusNode()..addListener(_onSearchFocus);
+
+  bool get _showSearchField => _searchOpen || widget.searchQuery.isNotEmpty;
+
+  void _openSearch() {
+    setState(() => _searchOpen = true);
+    // Фокус — после кадра, когда поле уже построено.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+  }
+
+  /// Ушли из пустого поля — оно снова прячется за лупу.
+  void _onSearchFocus() {
+    if (!_searchFocus.hasFocus && _search.text.isEmpty && _searchOpen) {
+      setState(() => _searchOpen = false);
+    }
+  }
+
+  /// Очистить запрос и спрятать поле (крестик и «Очистить поиск»).
   void _clearSearch() {
     _search.clear();
     widget.onSearchChanged?.call('');
+    _searchFocus.unfocus();
+    setState(() => _searchOpen = false);
   }
 
   // Имена счетов для полоски «Счёт: Карта» (архивные тоже).
@@ -211,6 +242,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _filter.dispose();
     _scrolled.dispose();
     _search.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -308,6 +340,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   showSort: showSort,
                   sort: widget.sort,
                   onSortChanged: widget.onSortChanged,
+                  // Лупа — пока поле поиска спрятано.
+                  onSearchPressed:
+                      widget.onSearchChanged == null || _showSearchField
+                      ? null
+                      : _openSearch,
                 ),
                 if (widget.filter.isActive)
                   _FilterStrip(
@@ -396,11 +433,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Пока искать нечего, поля нет; начатый поиск (база опустела во время
-        // него) поле не прячет, чтобы его можно было очистить.
+        // Поле — только открытое лупой или с текстом (И2). Пока искать
+        // нечего, поля нет; начатый поиск (база опустела во время него) поле
+        // не прячет, чтобы его можно было очистить.
         if (widget.onSearchChanged != null &&
+            _showSearchField &&
             (widget.hasAnyTransactions != false || _searching))
-          _SearchField(controller: _search, onChanged: widget.onSearchChanged!),
+          _SearchField(
+            controller: _search,
+            focusNode: _searchFocus,
+            onChanged: widget.onSearchChanged!,
+            onClose: _clearSearch,
+          ),
         // Переключатель вне списка: при прокрутке остаётся на месте. Во время
         // поиска стрелок нет (ищем во всех месяцах); высота та же, что со
         // стрелками, чтобы список не прыгал.
@@ -738,6 +782,7 @@ class _ListBar extends StatelessWidget {
     required this.showSort,
     required this.sort,
     required this.onSortChanged,
+    this.onSearchPressed,
   });
 
   final String filterSpoken;
@@ -746,6 +791,9 @@ class _ListBar extends StatelessWidget {
   final bool showSort;
   final HistorySort sort;
   final ValueChanged<HistorySort>? onSortChanged;
+
+  /// Лупа рядом с «Фильтром» открывает поиск; `null` — лупы нет.
+  final VoidCallback? onSearchPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -756,23 +804,35 @@ class _ListBar extends StatelessWidget {
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Semantics(
-            label: filterSpoken,
-            button: true,
-            excludeSemantics: true,
-            onTap: onFilterPressed,
-            child: TextButton.icon(
-              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-              onPressed: onFilterPressed,
-              icon: Badge(
-                isLabelVisible: filterActive,
-                // Акцент, а не красный: красный значит «расход/ошибка».
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                smallSize: 8,
-                child: const Icon(Icons.filter_list, size: 20),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Semantics(
+                label: filterSpoken,
+                button: true,
+                excludeSemantics: true,
+                onTap: onFilterPressed,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                  onPressed: onFilterPressed,
+                  icon: Badge(
+                    isLabelVisible: filterActive,
+                    // Акцент, а не красный: красный значит «расход/ошибка».
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    smallSize: 8,
+                    child: const Icon(Icons.filter_list, size: 20),
+                  ),
+                  label: const Text('Фильтр'),
+                ),
               ),
-              label: const Text('Фильтр'),
-            ),
+              if (onSearchPressed case final onSearch?)
+                IconButton(
+                  icon: const Icon(Icons.search, size: 20),
+                  color: Theme.of(context).colorScheme.primary,
+                  tooltip: historySearchTooltip,
+                  onPressed: onSearch,
+                ),
+            ],
           ),
           if (showSort) _SortButton(sort: sort, onChanged: onSortChanged),
         ],
@@ -826,13 +886,20 @@ class _SortButton extends StatelessWidget {
   }
 }
 
-/// Поле поиска над списком: лупа, серая подсказка, крестик «Очистить поиск»,
-/// пока в поле что-то есть.
+/// Поле поиска над списком: лупа, серая подсказка и крестик — «Очистить
+/// поиск», пока в поле что-то есть, иначе «Закрыть поиск»; оба прячут поле.
 class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.onChanged});
+  const _SearchField({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+    required this.onClose,
+  });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final ValueChanged<String> onChanged;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -842,6 +909,7 @@ class _SearchField extends StatelessWidget {
         valueListenable: controller,
         builder: (context, value, _) => TextField(
           controller: controller,
+          focusNode: focusNode,
           onChanged: onChanged,
           maxLines: 1,
           keyboardType: TextInputType.text,
@@ -849,16 +917,13 @@ class _SearchField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Комментарий или подкатегория',
             prefixIcon: const Icon(Icons.search),
-            suffixIcon: value.text.isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Очистить поиск',
-                    onPressed: () {
-                      controller.clear();
-                      onChanged('');
-                    },
-                  ),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: value.text.isEmpty
+                  ? historySearchCloseTooltip
+                  : historySearchClearTooltip,
+              onPressed: onClose,
+            ),
             isDense: true,
           ),
         ),

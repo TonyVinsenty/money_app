@@ -20,6 +20,7 @@ import 'package:money_app/features/settings/presentation/app_settings_controller
 import 'package:money_app/features/transactions/data/transactions_repository_impl.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/quick_add_screen.dart';
 
 import '../support/fake_id_generator.dart';
@@ -119,7 +120,8 @@ void main() {
     await settleDatabase(tester);
 
     expect(find.text('Здесь будут все ваши доходы и расходы'), findsNothing);
-    expect(find.byType(TextField), findsOneWidget);
+    // Поиск — за лупой (И2, шаг 8.42).
+    expect(find.byTooltip(historySearchTooltip), findsOneWidget);
     await _finish(tester);
   });
 

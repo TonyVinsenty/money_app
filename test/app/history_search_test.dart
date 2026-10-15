@@ -18,6 +18,7 @@ import 'package:money_app/features/categories/domain/category_kind.dart';
 import 'package:money_app/features/settings/presentation/app_settings_controller.dart';
 import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
+import 'package:money_app/features/transactions/presentation/history/history_screen.dart';
 
 import '../support/fake_id_generator.dart';
 import '../support/fakes.dart';
@@ -162,6 +163,11 @@ Finder get _field =>
     find.widgetWithText(TextField, 'Комментарий или подкатегория');
 
 Future<void> _type(WidgetTester tester, String text) async {
+  // Поле спрятано за лупой (И2): открываем.
+  if (find.byType(TextField).evaluate().isEmpty) {
+    await tester.tap(find.byTooltip(historySearchTooltip));
+    await tester.pumpAndSettle();
+  }
   await tester.enterText(find.byType(TextField), text);
   await tester.pumpAndSettle();
 }
@@ -172,11 +178,12 @@ String _fieldText(WidgetTester tester) =>
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
 
-  testWidgets('без запроса: поле с подсказкой, виден месяц со стрелками', (
+  testWidgets('без запроса: поле за лупой, виден месяц со стрелками', (
     tester,
   ) async {
     await _pump(tester);
-    expect(_field, findsOneWidget);
+    expect(_field, findsNothing);
+    expect(find.byTooltip(historySearchTooltip), findsOneWidget);
     expect(find.text('Октябрь 2026'), findsOneWidget);
     expect(find.byKey(PeriodSwitcher.previousKey), findsOneWidget);
     expect(find.text('Кофе с собой'), findsOneWidget);
@@ -235,7 +242,9 @@ void main() {
     expect(repo.allListens, 2);
     await tester.tap(find.byTooltip('Очистить поиск'));
     await tester.pumpAndSettle();
-    expect(_fieldText(tester), '');
+    // Очистка прячет поле за лупу (И2).
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byTooltip(historySearchTooltip), findsOneWidget);
     expect(find.text('Октябрь 2026'), findsOneWidget);
     expect(find.text('Кофе с собой'), findsOneWidget);
     expect(find.text('хлеб'), findsOneWidget);
@@ -256,7 +265,9 @@ void main() {
     await tester.tap(find.widgetWithText(OutlinedButton, 'Очистить поиск'));
     await tester.pumpAndSettle();
 
-    expect(_fieldText(tester), '');
+    // Очистка прячет поле за лупу (И2).
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byTooltip(historySearchTooltip), findsOneWidget);
     expect(find.text('Октябрь 2026'), findsOneWidget);
     expect(find.text('Кофе с собой'), findsOneWidget);
   });
