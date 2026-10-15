@@ -250,7 +250,7 @@ void main() {
       maxScrolls: 500,
       scrollable: find
           .descendant(
-            of: find.byType(ListView),
+            of: find.byType(CustomScrollView),
             matching: find.byType(Scrollable),
           )
           .first,

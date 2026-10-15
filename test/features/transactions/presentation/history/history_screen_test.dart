@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:money_app/core/format/day_label.dart';
 import 'package:money_app/core/format/money_format.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
@@ -289,7 +290,7 @@ void main() {
       findsOneWidget,
     );
     final tiles = find.descendant(
-      of: find.byType(ListView),
+      of: find.byType(CustomScrollView),
       matching: find.byType(InkWell),
     );
     expect(tiles, findsNWidgets(2));
@@ -491,19 +492,20 @@ void main() {
 
     expect(find.byKey(historyScrolledDividerKey), findsNothing);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
     await tester.pump();
     expect(find.byKey(historyScrolledDividerKey), findsOneWidget);
     final line = tester.getSize(find.byKey(historyScrolledDividerKey));
     expect(line.height, 1);
-    final scheme = Theme.of(tester.element(find.byType(ListView))).colorScheme;
+    final scheme = Theme.of(tester.element(find.byType(CustomScrollView)))
+        .colorScheme;
     expect(
       tester.widget<ColoredBox>(find.byKey(historyScrolledDividerKey)).color,
       scheme.outlineVariant,
     );
 
     // Вернулись к началу: линия снова скрыта.
-    await tester.drag(find.byType(ListView), const Offset(0, 2000));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 2000));
     await tester.pumpAndSettle();
     expect(find.byKey(historyScrolledDividerKey), findsNothing);
   });
@@ -643,6 +645,141 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byTooltip(historySearchTooltip), findsNothing);
+    });
+  });
+
+  group('закреплённые заголовки дней (И3, шаг 8.43)', () {
+    /// Три дня по 12 операций.
+    final days = [_today, _today.addDays(-1), _today.addDays(-2)];
+    final list = [
+      for (final (d, day) in days.indexed)
+        for (var i = 0; i < 12; i++)
+          _tx('d${d}_$i', day, minor: 1000 + i, hour: 20 - i),
+    ];
+    // Подписи — лениво: данные дат для «ru» готовятся в setUpAll.
+    List<String> labels() => [
+      for (final day in days) historyDayLabel(day, today: _today),
+    ];
+
+    double listTop(WidgetTester tester) =>
+        tester.getTopLeft(find.byType(CustomScrollView)).dy;
+
+    Future<void> pumpList(WidgetTester tester, {double textScale = 1}) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _app(transactions: Stream.value(list), textScale: textScale),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('при прокрутке заголовок текущего дня — наверху', (
+      tester,
+    ) async {
+      await pumpList(tester);
+      expect(tester.getTopLeft(find.text(labels()[0])).dy, greaterThan(0));
+
+      // Прокрутили в середину первого дня: его заголовок прижат к верху.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      final header = find.ancestor(
+        of: find.text(labels()[0]),
+        matching: find.byType(PinnedHeaderSliver),
+      );
+      expect(header, findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(labels()[0])).dy,
+        lessThan(listTop(tester) + 24),
+      );
+      expect(
+        tester.getTopLeft(find.text(labels()[0])).dy,
+        greaterThanOrEqualTo(listTop(tester)),
+      );
+    });
+
+    testWidgets('следующий день выталкивает предыдущий заголовок', (
+      tester,
+    ) async {
+      await pumpList(tester);
+      // Подводим заголовок второго дня почти к верху списка.
+      final top = listTop(tester);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+      final second = tester.getTopLeft(find.text(labels()[1])).dy;
+      await tester.drag(
+        find.byType(CustomScrollView),
+        Offset(0, -(second - top - 10)),
+      );
+      await tester.pumpAndSettle();
+      // Первый заголовок уехал вверх ровно настолько, насколько его поджал
+      // второй: низ первого = верх второго (в пределах отступов заголовка).
+      final firstRect = tester.getRect(
+        find
+            .ancestor(
+              of: find.text(labels()[0]),
+              matching: find.byType(ColoredBox),
+            )
+            .first,
+      );
+      final secondRect = tester.getRect(
+        find
+            .ancestor(
+              of: find.text(labels()[1]),
+              matching: find.byType(ColoredBox),
+            )
+            .first,
+      );
+      expect(firstRect.bottom, moreOrLessEquals(secondRect.top, epsilon: 1));
+      expect(firstRect.top, lessThan(top));
+
+      // Дальше — второй заголовок прижат к верху, первого не видно.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text(labels()[1])).dy,
+        lessThan(listTop(tester) + 24),
+      );
+      final firstNow = find.text(labels()[0]);
+      if (firstNow.evaluate().isNotEmpty) {
+        expect(tester.getBottomLeft(firstNow).dy, lessThanOrEqualTo(top));
+      }
+    });
+
+    testWidgets('у заголовка фон экрана: строки под ним не просвечивают', (
+      tester,
+    ) async {
+      await pumpList(tester);
+      final box = tester.widget<ColoredBox>(
+        find
+            .ancestor(
+              of: find.text(labels()[0]),
+              matching: find.byType(ColoredBox),
+            )
+            .first,
+      );
+      final scheme = Theme.of(tester.element(find.text(labels()[0])))
+          .colorScheme;
+      expect(box.color, scheme.surface);
+    });
+
+    testWidgets('200 %: закреплённый заголовок не обрезан', (tester) async {
+      await pumpList(tester, textScale: 2);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final text = tester.getRect(find.text(labels()[0]));
+      final box = tester.getRect(
+        find
+            .ancestor(
+              of: find.text(labels()[0]),
+              matching: find.byType(ColoredBox),
+            )
+            .first,
+      );
+      expect(box.top, lessThanOrEqualTo(text.top));
+      expect(box.bottom, greaterThanOrEqualTo(text.bottom));
+      expect(text.top, greaterThanOrEqualTo(listTop(tester)));
     });
   });
 }

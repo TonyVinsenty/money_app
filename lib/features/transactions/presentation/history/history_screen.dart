@@ -544,17 +544,50 @@ class _HistoryListState extends State<_HistoryList> {
     final today = widget.today;
     final byAmount = widget.byAmount;
     final onTransactionTap = widget.onTransactionTap;
-    // Плоский список: заголовок дня (DateOnly) и строки операций (Transaction).
-    // Заголовки идут в порядке списка (при «Сначала старые» — по возрастанию).
-    final items = <Object>[];
-    DateOnly? currentDay;
-    for (final t in transactions) {
-      if (!byAmount && t.occurredOn != currentDay) {
-        currentDay = t.occurredOn;
-        items.add(t.occurredOn);
-      }
-      items.add(t);
+    Widget row(Transaction t) {
+      final category = categoriesById[t.categoryId];
+      final subcategory = t.subcategoryId == null
+          ? null
+          : categoriesById[t.subcategoryId];
+      final title = _title(category, subcategory);
+      final dayText = byAmount
+          ? _shortDayLabel(t.occurredOn, today)
+          : historyDayLabel(t.occurredOn, today: today);
+      final isIncome = t.type == TransactionType.income;
+      final note = t.note;
+      // Сводная подпись для скринридера: тип, сумма словами, категория, день
+      // и комментарий одной фразой.
+      final label = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
+        ..write(maskedSpoken(context, spokenMoney(t.amount)))
+        ..write(', $title, $dayText');
+      if (note != null) label.write(', комментарий: $note');
+      // Вторая строка: при сортировке по сумме - «день · комментарий».
+      final subtitle = byAmount
+          ? (note == null ? dayText : '$dayText · $note')
+          : note;
+      return OperationTile(
+        title: title,
+        subtitle: subtitle,
+        amount: t.amount,
+        isIncome: isIncome,
+        iconKey: category?.iconKey,
+        categoryName: category?.name,
+        semanticLabel: label.toString(),
+        onTap: () => onTransactionTap(t),
+      );
     }
+
+    // Дни подряд идущими группами в порядке списка (при «Сначала старые» —
+    // по возрастанию). При сортировке по сумме заголовков дней нет.
+    final days = <List<Transaction>>[];
+    for (final t in transactions) {
+      if (days.isEmpty || days.last.first.occurredOn != t.occurredOn) {
+        days.add([t]);
+      } else {
+        days.last.add(t);
+      }
+    }
+    final surface = Theme.of(context).colorScheme.surface;
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -564,49 +597,46 @@ class _HistoryListState extends State<_HistoryList> {
         }
         return false;
       },
-      child: ListView.builder(
-        padding: withBottomInset(
-          context,
-          const EdgeInsets.only(bottom: AppSpacing.l),
-        ),
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          final item = items[index];
-          if (item is DateOnly) {
-            return _DayHeader(label: historyDayLabel(item, today: today));
-          }
-          final t = item as Transaction;
-          final category = categoriesById[t.categoryId];
-          final subcategory = t.subcategoryId == null
-              ? null
-              : categoriesById[t.subcategoryId];
-          final title = _title(category, subcategory);
-          final dayText = byAmount
-              ? _shortDayLabel(t.occurredOn, today)
-              : historyDayLabel(t.occurredOn, today: today);
-          final isIncome = t.type == TransactionType.income;
-          final note = t.note;
-          // Сводная подпись для скринридера: тип, сумма словами, категория, день
-          // и комментарий одной фразой.
-          final label = StringBuffer(isIncome ? 'Доход ' : 'Расход ')
-            ..write(maskedSpoken(context, spokenMoney(t.amount)))
-            ..write(', $title, $dayText');
-          if (note != null) label.write(', комментарий: $note');
-          // Вторая строка: при сортировке по сумме - «день · комментарий».
-          final subtitle = byAmount
-              ? (note == null ? dayText : '$dayText · $note')
-              : note;
-          return OperationTile(
-            title: title,
-            subtitle: subtitle,
-            amount: t.amount,
-            isIncome: isIncome,
-            iconKey: category?.iconKey,
-            categoryName: category?.name,
-            semanticLabel: label.toString(),
-            onTap: () => onTransactionTap(t),
-          );
-        },
+      child: CustomScrollView(
+        slivers: [
+          if (byAmount)
+            SliverList.builder(
+              itemCount: transactions.length,
+              itemBuilder: (context, index) => row(transactions[index]),
+            )
+          else
+            // Заголовок дня закреплён наверху, пока виден его день; следующий
+            // день выталкивает его (И3, шаг 8.43). Фон — как у экрана, чтобы
+            // строки не просвечивали.
+            for (final day in days)
+              SliverMainAxisGroup(
+                key: ValueKey(day.first.occurredOn),
+                slivers: [
+                  PinnedHeaderSliver(
+                    child: ColoredBox(
+                      color: surface,
+                      child: _DayHeader(
+                        label: historyDayLabel(
+                          day.first.occurredOn,
+                          today: today,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SliverList.builder(
+                    itemCount: day.length,
+                    itemBuilder: (context, index) => row(day[index]),
+                  ),
+                ],
+              ),
+          SliverPadding(
+            padding: withBottomInset(
+              context,
+              const EdgeInsets.only(bottom: AppSpacing.l),
+            ),
+            sliver: const SliverToBoxAdapter(child: SizedBox.shrink()),
+          ),
+        ],
       ),
     );
   }
