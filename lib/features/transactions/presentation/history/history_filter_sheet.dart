@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart';
+import 'package:money_app/core/ui/app_segmented_button.dart';
 import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -397,8 +398,7 @@ class HistoryFilterSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SegmentedButton<HistoryTypeFilter>(
-                    showSelectedIcon: false,
+                  AppSegmentedButton<HistoryTypeFilter>(
                     segments: const [
                       ButtonSegment(
                         value: HistoryTypeFilter.all,

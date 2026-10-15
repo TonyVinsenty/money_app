@@ -8,6 +8,7 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/app_segmented_button.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/date_wheel_sheet.dart';
 import 'package:money_app/core/ui/font_scale.dart';
@@ -597,9 +598,8 @@ class _RecurringFormScreenState extends State<RecurringFormScreen> {
                     Semantics(
                       container: true,
                       label: recurringFormTypeLabel,
-                      child: SegmentedButton<bool>(
+                      child: AppSegmentedButton<bool>(
                         key: RecurringFormScreen.typeKey,
-                        showSelectedIcon: false,
                         style: const ButtonStyle(
                           minimumSize: WidgetStatePropertyAll(Size(48, 48)),
                         ),

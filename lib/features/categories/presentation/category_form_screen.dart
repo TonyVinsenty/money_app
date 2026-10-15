@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:money_app/core/id/id_generator.dart';
+import 'package:money_app/core/ui/app_segmented_button.dart';
 import 'package:money_app/core/ui/category_icon_view.dart';
 import 'package:money_app/core/ui/category_icons.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
@@ -366,8 +367,7 @@ class _CategoryFormScreenState extends State<CategoryFormScreen>
                         style: theme.textTheme.titleSmall,
                       ),
                       const SizedBox(height: 8),
-                      SegmentedButton<CategoryKind>(
-                        showSelectedIcon: false,
+                      AppSegmentedButton<CategoryKind>(
                         segments: const [
                           ButtonSegment(
                             value: CategoryKind.expense,

@@ -15,6 +15,7 @@ import 'package:money_app/core/database/app_database.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
+import 'package:money_app/core/ui/app_segmented_button.dart';
 import 'package:money_app/core/ui/period_switcher.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/data/accounts_repository_impl.dart';
@@ -284,7 +285,7 @@ void main() {
     });
     await _openTab(tester, 'Аналитика');
     await _settle(tester);
-    final typeButton = tester.widget<SegmentedButton<TransactionType>>(
+    final typeButton = tester.widget<AppSegmentedButton<TransactionType>>(
       find.byKey(CategoryBreakdownCard.typeKey),
     );
     expect(typeButton.selected, {TransactionType.expense});

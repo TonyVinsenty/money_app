@@ -9,6 +9,7 @@ import 'package:money_app/core/time/clock.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/account_avatar.dart';
 import 'package:money_app/core/ui/amount_field.dart';
+import 'package:money_app/core/ui/app_segmented_button.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
 import 'package:money_app/core/ui/category_rule_text.dart';
@@ -685,8 +686,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         label: EditTransactionScreen.typeLabel,
                         child: SizedBox(
                           width: double.infinity,
-                          child: SegmentedButton<TransactionType>(
-                            showSelectedIcon: false,
+                          child: AppSegmentedButton<TransactionType>(
                             style: const ButtonStyle(
                               minimumSize: WidgetStatePropertyAll(Size(48, 48)),
                             ),

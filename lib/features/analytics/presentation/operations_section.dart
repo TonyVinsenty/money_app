@@ -6,6 +6,7 @@ import 'package:money_app/core/money/currency.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/time/period.dart';
 import 'package:money_app/core/ui/app_card.dart';
+import 'package:money_app/core/ui/app_segmented_button.dart';
 import 'package:money_app/core/ui/card_header.dart';
 import 'package:money_app/core/ui/category_avatar.dart';
 import 'package:money_app/core/ui/category_labels.dart';
@@ -86,9 +87,8 @@ class OperationsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Center(
-            child: SegmentedButton<TransactionType>(
+            child: AppSegmentedButton<TransactionType>(
               key: typeKey,
-              showSelectedIcon: false,
               segments: const [
                 ButtonSegment(
                   value: TransactionType.expense,
