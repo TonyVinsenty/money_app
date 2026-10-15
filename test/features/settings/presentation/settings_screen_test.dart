@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/open_external_link.dart';
@@ -186,42 +187,43 @@ void main() {
       }
     });
 
-    testWidgets(
-      '«Тема» и «Вторая строка в кольце» выглядят одинаково (7.30e)',
-      (tester) async {
-        final semantics = tester.ensureSemantics();
-        await tester.pumpWidget(_app());
-        // Значков у заголовков выбора нет: значок — только у пунктов-переходов.
-        expect(find.byIcon(Icons.palette_outlined), findsNothing);
-        expect(find.byIcon(Icons.donut_large), findsNothing);
-        expect(find.byType(Radio<HomeBalanceLine>), findsNothing);
-        final themeButton = find.byType(SegmentedButton<ThemeMode>);
-        final ringButton = find.byType(SegmentedButton<HomeBalanceLine>);
-        for (final (title, button) in [
-          ('Тема', themeButton),
-          ('Вторая строка в кольце', ringButton),
-        ]) {
-          final text = tester.widget<Text>(find.text(title));
-          final context = tester.element(find.text(title));
-          final theme = Theme.of(context);
-          expect(text.style?.fontSize, theme.textTheme.labelLarge?.fontSize);
-          expect(text.style?.color, theme.colorScheme.onSurfaceVariant);
-          expect(tester.getTopLeft(find.text(title)).dx, 16, reason: title);
-          // Заголовок, а не кнопка.
-          final flags = tester.getSemantics(find.text(title)).flagsCollection;
-          expect(flags.isHeader, isTrue, reason: title);
-          expect(flags.isButton, isFalse, reason: title);
-          // Сегменты под заголовком во всю ширину (800 - 2 × 16).
-          expect(
-            tester.getTopLeft(button).dy,
-            greaterThan(tester.getBottomLeft(find.text(title)).dy),
-          );
-          expect(tester.getTopLeft(button).dx, 16, reason: title);
-          expect(tester.getSize(button).width, 768, reason: title);
-        }
-        semantics.dispose();
-      },
-    );
+    testWidgets('«Тема» и «Вторая строка в кольце» выглядят одинаково (7.30e)', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_app());
+      // Значков у заголовков выбора нет: значок — только у пунктов-переходов.
+      expect(find.byIcon(Icons.palette_outlined), findsNothing);
+      expect(find.byIcon(Icons.donut_large), findsNothing);
+      expect(find.byType(Radio<HomeBalanceLine>), findsNothing);
+      final themeButton = find.byType(SegmentedButton<ThemeMode>);
+      final ringButton = find.byType(SegmentedButton<HomeBalanceLine>);
+      for (final (title, button) in [
+        ('Тема', themeButton),
+        ('Вторая строка в кольце', ringButton),
+      ]) {
+        final text = tester.widget<Text>(find.text(title));
+        final context = tester.element(find.text(title));
+        final theme = Theme.of(context);
+        expect(text.style?.fontSize, theme.textTheme.labelLarge?.fontSize);
+        expect(text.style?.color, theme.colorScheme.onSurfaceVariant);
+        // Заголовок — по значкам строк в карточке: 16 + 16.
+        expect(tester.getTopLeft(find.text(title)).dx, 32, reason: title);
+        // Заголовок, а не кнопка.
+        final flags = tester.getSemantics(find.text(title)).flagsCollection;
+        expect(flags.isHeader, isTrue, reason: title);
+        expect(flags.isButton, isFalse, reason: title);
+        // Сегменты под заголовком во всю ширину карточки (8.41): поля экрана 16
+        // и поля сегментов в карточке 8 — 800 - 2 × 24.
+        expect(
+          tester.getTopLeft(button).dy,
+          greaterThan(tester.getBottomLeft(find.text(title)).dy),
+        );
+        expect(tester.getTopLeft(button).dx, 24, reason: title);
+        expect(tester.getSize(button).width, 752, reason: title);
+      }
+      semantics.dispose();
+    });
 
     testWidgets('«Очистить всё»: значок цвета ошибки', (tester) async {
       await tester.pumpWidget(_app());
@@ -1530,6 +1532,92 @@ void main() {
       await tester.tap(find.text(developerInfoItemLabel));
       await tester.pump();
       expect(find.text(openLinkFailedMessage), findsOneWidget);
+    });
+  });
+
+  group('группы карточками (И1, шаг 8.41)', () {
+    const groups = [
+      appearanceGroupTitle,
+      ringGroupTitle,
+      bookkeepingGroupTitle,
+      dataGroupTitle,
+      resetGroupTitle,
+      aboutGroupTitle,
+    ];
+
+    /// Какая карточка содержит текст [text] (номер по порядку).
+    int cardOf(WidgetTester tester, String text) {
+      final cards = find.byType(AppCard).evaluate().toList();
+      for (final (i, card) in cards.indexed) {
+        final inside = find.descendant(
+          of: find.byWidget(card.widget),
+          matching: find.text(text),
+        );
+        if (inside.evaluate().isNotEmpty) return i;
+      }
+      return -1;
+    }
+
+    testWidgets('по карточке на группу, подзаголовок над карточкой', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(400, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app());
+
+      final cards = find.byType(AppCard);
+      expect(cards, findsNWidgets(groups.length));
+      for (final (i, title) in groups.indexed) {
+        final header = tester.getBottomLeft(find.text(title)).dy;
+        final card = tester.getRect(cards.at(i));
+        expect(header, lessThan(card.top), reason: title);
+        // Подзаголовок вне карточки.
+        expect(cardOf(tester, title), -1, reason: title);
+      }
+      // Строки — в своих группах.
+      expect(cardOf(tester, themeSectionTitle), 0);
+      expect(cardOf(tester, homeBalanceSectionTitle), 1);
+      expect(cardOf(tester, categoriesItemLabel), 2);
+      expect(cardOf(tester, mainCurrencyItemLabel), 2);
+      expect(cardOf(tester, exportCsvItemLabel), 3);
+      expect(cardOf(tester, importCsvItemLabel), 3);
+      expect(cardOf(tester, clearAllItemLabel), 4);
+      expect(cardOf(tester, developerInfoItemLabel), 5);
+      expect(cardOf(tester, thanksItemLabel), 5);
+      // «Версия» — внизу, вне карточек.
+      expect(cardOf(tester, versionLabel('0.1.0+19')), -1);
+      expect(
+        tester.getTopLeft(find.text(versionLabel('0.1.0+19'))).dy,
+        greaterThan(tester.getRect(cards.last).bottom),
+      );
+      // Разделителей между строками нет.
+      expect(find.byType(Divider), findsNothing);
+    });
+
+    testWidgets('карточка — по краям экрана 16, строки внутри', (tester) async {
+      tester.view.physicalSize = const Size(400, 3000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app());
+      final card = tester.getRect(find.byType(AppCard).at(2));
+      expect(card.left, 16);
+      expect(card.right, 400 - 16);
+      final row = tester.getRect(
+        find.widgetWithText(ListTile, categoriesItemLabel),
+      );
+      expect(row.left, card.left);
+      expect(row.right, card.right);
+    });
+
+    testWidgets('200 % на 360 dp — без переполнения', (tester) async {
+      tester.view.physicalSize = const Size(360, 740);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_app(textScale: 2));
+      expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(find.text(versionLabel('0.1.0+19')), 300);
+      expect(tester.takeException(), isNull);
     });
   });
 

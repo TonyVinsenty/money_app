@@ -6,6 +6,7 @@ import 'package:money_app/core/format/percent_format.dart';
 import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/adaptive_dialog_action.dart';
+import 'package:money_app/core/ui/app_card.dart';
 import 'package:money_app/core/ui/currency_picker.dart';
 import 'package:money_app/core/ui/option_sheet.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
@@ -575,6 +576,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
   }
 
+  /// Группа «Настроек» (И1, шаг 8.41): подзаголовок над карточкой, строки
+  /// внутри карточки без разделителей, как секции «Баланса».
+  List<Widget> _group(String title, List<Widget> rows) => [
+    GroupHeader(title),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        // Волна нажатия у верхней и нижней строки не выходит за скругление.
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: rows,
+        ),
+      ),
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -582,187 +601,197 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final mutedColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return ListView(
       children: [
-        const GroupHeader(appearanceGroupTitle),
-        _SegmentedChoice<ThemeMode>(
-          title: themeSectionTitle,
-          options: const [
-            (ThemeMode.system, themeSystemLabel, null),
-            (ThemeMode.light, themeLightLabel, null),
-            (ThemeMode.dark, themeDarkLabel, null),
-          ],
-          value: widget.themeMode,
-          onChanged: widget.onThemeModeChanged,
-        ),
-        if (_iconSupported)
+        ..._group(appearanceGroupTitle, [
+          _SegmentedChoice<ThemeMode>(
+            title: themeSectionTitle,
+            options: const [
+              (ThemeMode.system, themeSystemLabel, null),
+              (ThemeMode.light, themeLightLabel, null),
+              (ThemeMode.dark, themeDarkLabel, null),
+            ],
+            value: widget.themeMode,
+            onChanged: widget.onThemeModeChanged,
+          ),
+          if (_iconSupported)
+            ListTile(
+              leading: const _ItemIcon(Icons.apps_outlined),
+              title: const Text(appIconItemLabel),
+              // Название текущей — подписью, как значение «Основной валюты»:
+              // при крупном шрифте переносится, а не упирается в шеврон.
+              subtitle: _icon == null ? null : Text(appIconLabel(_icon!)),
+              trailing: const ExcludeSemantics(
+                child: Icon(Icons.chevron_right),
+              ),
+              onTap: _pickAppIcon,
+            ),
+          if (widget.onHideAmountsChanged case final onChanged?)
+            SwitchListTile.adaptive(
+              secondary: const _ItemIcon(Icons.visibility_off_outlined),
+              title: const Text(hideAmountsLabel),
+              subtitle: const Text(hideAmountsSubtitle),
+              value: widget.hideAmounts,
+              onChanged: onChanged,
+            ),
+        ]),
+        ..._group(ringGroupTitle, [
+          _SegmentedChoice<HomeBalanceLine>(
+            title: homeBalanceSectionTitle,
+            options: const [
+              (
+                HomeBalanceLine.allTime,
+                homeBalanceAllTimeLabel,
+                homeBalanceAllTimeSubtitle,
+              ),
+              (
+                HomeBalanceLine.accounts,
+                homeBalanceAccountsLabel,
+                homeBalanceAccountsSubtitle,
+              ),
+              (HomeBalanceLine.none, homeBalanceNoneLabel, null),
+            ],
+            value: widget.homeBalanceLine,
+            onChanged: widget.onHomeBalanceLineChanged,
+          ),
+        ]),
+        ..._group(bookkeepingGroupTitle, [
           ListTile(
-            leading: const _ItemIcon(Icons.apps_outlined),
-            title: const Text(appIconItemLabel),
-            // Название текущей — подписью, как значение «Основной валюты»:
-            // при крупном шрифте переносится, а не упирается в шеврон.
-            subtitle: _icon == null ? null : Text(appIconLabel(_icon!)),
+            leading: const _ItemIcon(Icons.category_outlined),
+            title: const Text(categoriesItemLabel),
             trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-            onTap: _pickAppIcon,
+            onTap: widget.onOpenCategories,
           ),
-        if (widget.onHideAmountsChanged case final onChanged?)
-          SwitchListTile.adaptive(
-            secondary: const _ItemIcon(Icons.visibility_off_outlined),
-            title: const Text(hideAmountsLabel),
-            subtitle: const Text(hideAmountsSubtitle),
-            value: widget.hideAmounts,
-            onChanged: onChanged,
-          ),
-        const GroupHeader(ringGroupTitle),
-        _SegmentedChoice<HomeBalanceLine>(
-          title: homeBalanceSectionTitle,
-          options: const [
-            (
-              HomeBalanceLine.allTime,
-              homeBalanceAllTimeLabel,
-              homeBalanceAllTimeSubtitle,
-            ),
-            (
-              HomeBalanceLine.accounts,
-              homeBalanceAccountsLabel,
-              homeBalanceAccountsSubtitle,
-            ),
-            (HomeBalanceLine.none, homeBalanceNoneLabel, null),
-          ],
-          value: widget.homeBalanceLine,
-          onChanged: widget.onHomeBalanceLineChanged,
-        ),
-        const GroupHeader(bookkeepingGroupTitle),
-        ListTile(
-          leading: const _ItemIcon(Icons.category_outlined),
-          title: const Text(categoriesItemLabel),
-          trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-          onTap: widget.onOpenCategories,
-        ),
-        ListTile(
-          leading: const _ItemIcon(Icons.payments_outlined),
-          title: const Text(mainCurrencyItemLabel),
-          subtitle: Text(currencyNameWithSymbol(widget.mainCurrency)),
-          trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-          onTap: _pickMainCurrency,
-        ),
-        if (widget.onReminderTimeChanged != null)
           ListTile(
-            leading: const _ItemIcon(Icons.notifications_none),
-            title: const Text(reminderTimeItemLabel),
-            subtitle: Text(
-              (widget.reminderTime ?? ReminderTime.defaultTime()).toString(),
-            ),
+            leading: const _ItemIcon(Icons.payments_outlined),
+            title: const Text(mainCurrencyItemLabel),
+            subtitle: Text(currencyNameWithSymbol(widget.mainCurrency)),
             trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-            onTap: _pickReminderTime,
+            onTap: _pickMainCurrency,
           ),
-        const GroupHeader(dataGroupTitle),
-        ListTile(
-          leading: const _ItemIcon(Icons.file_upload_outlined),
-          title: const Text(exportCsvItemLabel),
-          subtitle:
-              isExportStale(
-                lastExportDay: widget.lastExportDay,
-                today: widget.today,
-                hasOperations: widget.hasOperations,
-              )
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Значок только для глаз: смысл несут слова.
-                    ExcludeSemantics(
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          top: AppSpacing.xs,
-                          right: AppSpacing.s,
-                        ),
-                        child: Icon(
-                          Icons.info_outline,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.tertiary,
+          if (widget.onReminderTimeChanged != null)
+            ListTile(
+              leading: const _ItemIcon(Icons.notifications_none),
+              title: const Text(reminderTimeItemLabel),
+              subtitle: Text(
+                (widget.reminderTime ?? ReminderTime.defaultTime()).toString(),
+              ),
+              trailing: const ExcludeSemantics(
+                child: Icon(Icons.chevron_right),
+              ),
+              onTap: _pickReminderTime,
+            ),
+        ]),
+        ..._group(dataGroupTitle, [
+          ListTile(
+            leading: const _ItemIcon(Icons.file_upload_outlined),
+            title: const Text(exportCsvItemLabel),
+            subtitle:
+                isExportStale(
+                  lastExportDay: widget.lastExportDay,
+                  today: widget.today,
+                  hasOperations: widget.hasOperations,
+                )
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Значок только для глаз: смысл несут слова.
+                      ExcludeSemantics(
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            top: AppSpacing.xs,
+                            right: AppSpacing.s,
+                          ),
+                          child: Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.tertiary,
+                          ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        staleExportLabel(widget.lastExportDay, widget.today),
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.tertiary,
+                      Expanded(
+                        child: Text(
+                          staleExportLabel(widget.lastExportDay, widget.today),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.tertiary,
+                          ),
                         ),
                       ),
+                    ],
+                  )
+                : Text(lastExportLabel(widget.lastExportDay, widget.today)),
+            // Пока идёт выгрузка, вместо стрелки крутится индикатор, а пункт
+            // недоступен: повторное нажатие не запустит вторую выгрузку.
+            trailing: _exporting
+                ? const SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator.adaptive(
+                      strokeWidth: 2,
+                      semanticsLabel: exportPreparingLabel,
                     ),
-                  ],
-                )
-              : Text(lastExportLabel(widget.lastExportDay, widget.today)),
-          // Пока идёт выгрузка, вместо стрелки крутится индикатор, а пункт
-          // недоступен: повторное нажатие не запустит вторую выгрузку.
-          trailing: _exporting
-              ? const SizedBox.square(
-                  dimension: 24,
-                  child: CircularProgressIndicator.adaptive(
-                    strokeWidth: 2,
-                    semanticsLabel: exportPreparingLabel,
-                  ),
-                )
-              : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-          enabled: !_busy,
-          onTap: _busy ? null : _exportCsv,
-        ),
-        ListTile(
-          leading: const _ItemIcon(Icons.file_download_outlined),
-          title: const Text(importCsvItemLabel),
-          subtitle: const Text(importCsvItemSubtitle),
-          trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-          // Второе нажатие, пока открыто окно выбора, ничего не делает.
-          enabled: !_busy,
-          onTap: _busy ? null : _importCsv,
-        ),
-        const GroupHeader(resetGroupTitle),
-        ListTile(
-          // Красные только значок и название, и только у доступного пункта;
-          // подпись и шеврон обычные, у недоступного ListTile сам берёт цвет
-          // неактивного.
-          leading: _busy
-              ? const _ItemIcon(Icons.delete_forever_outlined)
-              : IconTheme.merge(
-                  data: IconThemeData(color: errorColor),
-                  child: const _ItemIcon(Icons.delete_forever_outlined),
-                ),
-          title: _busy
-              ? const Text(clearAllItemLabel)
-              : Text(clearAllItemLabel, style: TextStyle(color: errorColor)),
-          subtitle: const Text(clearAllItemSubtitle),
-          trailing: _erasing
-              ? const SizedBox.square(
-                  dimension: 24,
-                  child: CircularProgressIndicator.adaptive(
-                    strokeWidth: 2,
-                    semanticsLabel: clearAllErasingLabel,
-                  ),
-                )
-              : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-          enabled: !_busy,
-          onTap: _busy ? null : _clearAll,
-        ),
-        const GroupHeader(aboutGroupTitle),
-        ListTile(
-          leading: const _ItemIcon(Icons.person_outline),
-          title: const Text(developerInfoItemLabel),
-          subtitle: const Text(developerPageLabel),
-          trailing: ExcludeSemantics(
-            child: Icon(
-              Theme.of(context).platform == TargetPlatform.iOS
-                  ? Icons.north_east
-                  : Icons.open_in_new,
-            ),
+                  )
+                : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+            enabled: !_busy,
+            onTap: _busy ? null : _exportCsv,
           ),
-          onTap: _openDeveloperPage,
-        ),
-        ListTile(
-          leading: const _ItemIcon(Icons.favorite_border),
-          title: const Text(thanksItemLabel),
-          subtitle: const Text(thanksItemSubtitle),
-          trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
-          onTap: widget.onOpenThanks,
-        ),
+          ListTile(
+            leading: const _ItemIcon(Icons.file_download_outlined),
+            title: const Text(importCsvItemLabel),
+            subtitle: const Text(importCsvItemSubtitle),
+            trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+            // Второе нажатие, пока открыто окно выбора, ничего не делает.
+            enabled: !_busy,
+            onTap: _busy ? null : _importCsv,
+          ),
+        ]),
+        ..._group(resetGroupTitle, [
+          ListTile(
+            // Красные только значок и название, и только у доступного пункта;
+            // подпись и шеврон обычные, у недоступного ListTile сам берёт цвет
+            // неактивного.
+            leading: _busy
+                ? const _ItemIcon(Icons.delete_forever_outlined)
+                : IconTheme.merge(
+                    data: IconThemeData(color: errorColor),
+                    child: const _ItemIcon(Icons.delete_forever_outlined),
+                  ),
+            title: _busy
+                ? const Text(clearAllItemLabel)
+                : Text(clearAllItemLabel, style: TextStyle(color: errorColor)),
+            subtitle: const Text(clearAllItemSubtitle),
+            trailing: _erasing
+                ? const SizedBox.square(
+                    dimension: 24,
+                    child: CircularProgressIndicator.adaptive(
+                      strokeWidth: 2,
+                      semanticsLabel: clearAllErasingLabel,
+                    ),
+                  )
+                : const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+            enabled: !_busy,
+            onTap: _busy ? null : _clearAll,
+          ),
+        ]),
+        ..._group(aboutGroupTitle, [
+          ListTile(
+            leading: const _ItemIcon(Icons.person_outline),
+            title: const Text(developerInfoItemLabel),
+            subtitle: const Text(developerPageLabel),
+            trailing: ExcludeSemantics(
+              child: Icon(
+                Theme.of(context).platform == TargetPlatform.iOS
+                    ? Icons.north_east
+                    : Icons.open_in_new,
+              ),
+            ),
+            onTap: _openDeveloperPage,
+          ),
+          ListTile(
+            leading: const _ItemIcon(Icons.favorite_border),
+            title: const Text(thanksItemLabel),
+            subtitle: const Text(thanksItemSubtitle),
+            trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+            onTap: widget.onOpenThanks,
+          ),
+        ]),
         // «Версия» — внизу, вне групп.
         Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -855,9 +884,9 @@ class _SegmentedChoice<T> extends StatelessWidget {
     final hasDescriptions = options.any((option) => option.$3 != null);
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.l,
+        AppSpacing.s,
         AppSpacing.m,
-        AppSpacing.l,
+        AppSpacing.s,
         AppSpacing.s,
       ),
       child: LayoutBuilder(
@@ -868,13 +897,19 @@ class _SegmentedChoice<T> extends StatelessWidget {
             children: [
               // Заголовок, а не кнопка: значка нет, нажать нечего. Свой узел,
               // чтобы пояснение под сегментами не склеилось с заголовком.
-              Semantics(
-                container: true,
-                header: true,
-                child: Text(
-                  title,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+              // Заголовок и пояснение — по значкам строк карточки, сегменты
+              // шире на 8 с каждой стороны: так «Не показывать» помещается
+              // в строку и на экране 393 dp.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s),
+                child: Semantics(
+                  container: true,
+                  header: true,
+                  child: Text(
+                    title,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -923,22 +958,25 @@ class _SegmentedChoice<T> extends StatelessWidget {
                 const SizedBox(height: AppSpacing.s),
                 // Все пояснения лежат друг на друге, видно только выбранное:
                 // высота — по самому длинному, экран не прыгает при выборе.
-                Stack(
-                  children: [
-                    for (final (option, _, description) in options)
-                      Visibility(
-                        visible: option == value,
-                        maintainSize: true,
-                        maintainAnimation: true,
-                        maintainState: true,
-                        child: Text(
-                          description ?? '',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s),
+                  child: Stack(
+                    children: [
+                      for (final (option, _, description) in options)
+                        Visibility(
+                          visible: option == value,
+                          maintainSize: true,
+                          maintainAnimation: true,
+                          maintainState: true,
+                          child: Text(
+                            description ?? '',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ],
