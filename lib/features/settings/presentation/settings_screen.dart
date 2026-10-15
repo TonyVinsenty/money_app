@@ -7,10 +7,13 @@ import 'package:money_app/core/money/currency_catalog.dart';
 import 'package:money_app/core/time/date_only.dart';
 import 'package:money_app/core/ui/adaptive_dialog_action.dart';
 import 'package:money_app/core/ui/currency_picker.dart';
+import 'package:money_app/core/ui/option_sheet.dart';
 import 'package:money_app/core/ui/tap_to_dismiss_snack_content.dart';
 import 'package:money_app/core/ui/theme/app_spacing.dart';
 import 'package:money_app/features/csv_import/domain/csv_import_result.dart';
 import 'package:money_app/features/recurring/domain/reminder_plan.dart';
+import 'package:money_app/features/settings/domain/app_icon_choice.dart';
+import 'package:money_app/features/settings/domain/app_icon_service.dart';
 import 'package:money_app/features/settings/domain/home_balance_line.dart';
 import 'package:money_app/features/settings/presentation/group_header.dart';
 import 'package:money_app/features/settings/presentation/open_external_link.dart';
@@ -43,6 +46,25 @@ const themeDarkLabel = 'Тёмная';
 
 /// Заголовок раздела с выбором темы.
 const themeSectionTitle = 'Тема';
+
+/// Выбор иконки приложения (шаг 8.39, ADR 0014, п. 4–5).
+const appIconItemLabel = 'Иконка приложения';
+const appIconAndroidWarning =
+    'На Android ярлык на рабочем столе может пропасть, а приложение — '
+    'закрыться. Добавьте ярлык заново из списка приложений';
+const appIconFailedMessage = 'Не удалось сменить иконку';
+
+/// Название варианта иконки в «Настройках».
+String appIconLabel(AppIconChoice choice) => switch (choice) {
+  AppIconChoice.ring => 'Кольцо',
+  AppIconChoice.ringBlue => 'Кольцо на синем',
+  AppIconChoice.coins => 'Монеты',
+  AppIconChoice.wallet => 'Кошелёк',
+};
+
+/// Картинка варианта для листа выбора (`assets/app_icons/<id>.png`).
+String appIconPreviewAsset(AppIconChoice choice) =>
+    'assets/app_icons/${choice.id}.png';
 
 /// Раздел «Вторая строка в кольце» (тексты Т1 утверждены 2026-10-11).
 const homeBalanceSectionTitle = 'Вторая строка в кольце';
@@ -241,12 +263,17 @@ class SettingsScreen extends StatefulWidget {
     this.onReminderTimeChanged,
     this.hideAmounts = false,
     this.onHideAmountsChanged,
+    this.appIcons,
     super.key,
   });
 
   /// «Скрыть суммы» и обработчик; без обработчика пункта нет.
   final bool hideAmounts;
   final ValueChanged<bool>? onHideAmountsChanged;
+
+  /// Смена иконки приложения; без неё (или если система не умеет) строки
+  /// «Иконка приложения» нет.
+  final AppIconService? appIcons;
 
   /// Время напоминаний и обработчик выбора; без обработчика пункта нет.
   final ReminderTime? reminderTime;
@@ -474,6 +501,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// Система умеет менять иконку (иначе строки нет).
+  bool _iconSupported = false;
+
+  /// Иконка, которая стоит сейчас; `null` — пока не знаем.
+  AppIconChoice? _icon;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppIcon();
+  }
+
+  Future<void> _loadAppIcon() async {
+    final service = widget.appIcons;
+    if (service == null || !await service.supported()) return;
+    final current = await service.current();
+    if (!mounted) return;
+    setState(() {
+      _iconSupported = true;
+      _icon = current;
+    });
+  }
+
+  Future<void> _pickAppIcon() async {
+    final service = widget.appIcons;
+    if (service == null) return;
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+    final picked = await showOptionSheet<AppIconChoice>(
+      context,
+      title: appIconItemLabel,
+      selected: _icon,
+      footer: isAndroid ? appIconAndroidWarning : null,
+      items: [
+        for (final choice in AppIconChoice.values)
+          OptionSheetItem(
+            value: choice,
+            title: appIconLabel(choice),
+            leading: _AppIconPreview(choice),
+          ),
+      ],
+    );
+    // Повторное касание текущей ничего не делает.
+    if (picked == null || picked == _icon) return;
+    if (!await service.set(picked)) {
+      _showMessage(appIconFailedMessage);
+      return;
+    }
+    // Правду знает система: спрашиваем ещё раз, что встало.
+    final current = await service.current();
+    if (mounted) setState(() => _icon = current ?? picked);
+  }
+
   Future<void> _openDeveloperPage() async {
     if (!await widget.openLink(developerPageUrl)) {
       _showMessage(openLinkFailedMessage);
@@ -514,6 +593,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           value: widget.themeMode,
           onChanged: widget.onThemeModeChanged,
         ),
+        if (_iconSupported)
+          ListTile(
+            leading: const _ItemIcon(Icons.apps_outlined),
+            title: const Text(appIconItemLabel),
+            // Название текущей — подписью, как значение «Основной валюты»:
+            // при крупном шрифте переносится, а не упирается в шеврон.
+            subtitle: _icon == null ? null : Text(appIconLabel(_icon!)),
+            trailing: const ExcludeSemantics(child: Icon(Icons.chevron_right)),
+            onTap: _pickAppIcon,
+          ),
         if (widget.onHideAmountsChanged case final onChanged?)
           SwitchListTile.adaptive(
             secondary: const _ItemIcon(Icons.visibility_off_outlined),
@@ -858,6 +947,33 @@ class _SegmentedChoice<T> extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Картинка варианта иконки в листе выбора: 56 dp и при крупном шрифте не
+/// растёт (ADR 0014, п. 5); только для глаз — смысл несёт название.
+class _AppIconPreview extends StatelessWidget {
+  const _AppIconPreview(this.choice);
+
+  /// Размер картинки в листе.
+  static const size = 56.0;
+
+  final AppIconChoice choice;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    // Светлые иконки на светлом листе без рамки сливаются с фоном.
+    position: DecorationPosition.foreground,
+    decoration: BoxDecoration(
+      borderRadius: AppRadius.borderM,
+      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+    ),
+    child: Image.asset(
+      appIconPreviewAsset(choice),
+      width: size,
+      height: size,
+      excludeFromSemantics: true,
+    ),
+  );
 }
 
 /// Значок пункта — только для глаз: смысл несёт название.

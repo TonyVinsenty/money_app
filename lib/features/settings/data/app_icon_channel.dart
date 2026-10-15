@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:money_app/features/settings/domain/app_icon_choice.dart';
+import 'package:money_app/features/settings/domain/app_icon_service.dart';
 
 /// Канал к нативному коду (ADR 0014, п. 2; `MainActivity.kt` и
 /// `AppDelegate.swift`): какая иконка стоит и смена иконки.
@@ -27,21 +28,24 @@ Future<Object?> _platformInvoke(String method, [Object? arguments]) =>
 /// нигде не хранится, каждый раз спрашиваем. Ошибка натива или отсутствие
 /// канала (платформа без реализации, тесты) — «не поддерживается» и отказ,
 /// без исключений.
-class AppIconChannel {
+class AppIconChannel implements AppIconService {
   const AppIconChannel({this._invoke = _platformInvoke});
 
   final AppIconInvoke _invoke;
 
   /// Умеет ли система менять иконку.
+  @override
   Future<bool> supported() async => await _call(appIconSupportedMethod) == true;
 
   /// Какая иконка стоит сейчас; `null` — узнать не удалось.
+  @override
   Future<AppIconChoice?> current() async {
     final id = await _call(appIconCurrentMethod);
     return id is String ? AppIconChoice.fromId(id) : null;
   }
 
   /// Меняет иконку; `true` — система согласилась.
+  @override
   Future<bool> set(AppIconChoice choice) async =>
       await _call(appIconSetMethod, {appIconIdArg: choice.id}) == true;
 

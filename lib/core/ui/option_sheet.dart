@@ -23,21 +23,26 @@ class OptionSheetItem<T> {
 
 /// Лист выбора одного из вариантов (D6, D37): заголовок, строки с галочкой
 /// справа у выбранного. Один вид на обеих платформах вместо выпадающих
-/// списков Material. Возвращает значение варианта или `null`, если лист
-/// закрыли.
+/// списков Material; [footer] — пояснение под списком. Возвращает значение
+/// варианта или `null`, если лист закрыли.
 Future<T?> showOptionSheet<T>(
   BuildContext context, {
   required String title,
   required List<OptionSheetItem<T>> items,
   T? selected,
+  String? footer,
 }) {
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     useSafeArea: true,
-    builder: (context) =>
-        _OptionSheet<T>(title: title, items: items, selected: selected),
+    builder: (context) => _OptionSheet<T>(
+      title: title,
+      items: items,
+      selected: selected,
+      footer: footer,
+    ),
   );
 }
 
@@ -46,9 +51,13 @@ class _OptionSheet<T> extends StatelessWidget {
     required this.title,
     required this.items,
     required this.selected,
+    required this.footer,
   });
 
   final String title;
+
+  /// Пояснение под списком (мелко, приглушённо); `null` — без него.
+  final String? footer;
   final List<OptionSheetItem<T>> items;
   final T? selected;
 
@@ -77,6 +86,21 @@ class _OptionSheet<T> extends StatelessWidget {
             children: [for (final item in items) _row(context, item)],
           ),
         ),
+        if (footer case final text?)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.l,
+              AppSpacing.s,
+              AppSpacing.l,
+              AppSpacing.l,
+            ),
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
       ],
     );
   }
