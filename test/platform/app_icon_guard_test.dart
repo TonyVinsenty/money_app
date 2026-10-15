@@ -4,6 +4,9 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_app/core/ui/zuno_mark.dart';
+
+import '../support/png_pixels.dart';
 
 const _res = 'android/app/src/main/res';
 
@@ -33,6 +36,52 @@ void main() {
       expect('android:trimPathEnd'.allMatches(xml).length, 3);
     });
   }
+
+  // Шаг 8.35: иконка по умолчанию — вариант 1 «Кольцо крупнее» (ADR 0014).
+  for (final name in ['ic_launcher_foreground', 'ic_launcher_monochrome']) {
+    test('$name is variant 1: radius 26.4, stroke 12.7, inside safe zone', () {
+      final xml = _read('$_res/drawable/$name.xml');
+      expect(
+        'M54,27.6 A26.4,26.4 0 1,1 54,80.4 A26.4,26.4 0 1,1 54,27.6'
+            .allMatches(xml)
+            .length,
+        3,
+      );
+      expect('android:strokeWidth="12.7"'.allMatches(xml).length, 3);
+      // Внешний диаметр 2 × 26,4 + 12,7 = 65,5 — в безопасном круге 66 dp.
+      expect(2 * 26.4 + 12.7, lessThanOrEqualTo(66));
+    });
+
+    test('$name trims match the in-app Zuno mark', () {
+      final xml = _read('$_res/drawable/$name.xml');
+      double attr(String name, int index) => double.parse(
+        RegExp('android:$name="([0-9.]+)"')
+            .allMatches(xml)
+            .elementAt(index)[1]!,
+      );
+      for (final (i, (start, end, _)) in ZunoMarkPainter.segments.indexed) {
+        expect(attr('trimPathStart', i), start, reason: 'start $i');
+        expect(attr('trimPathEnd', i), end, reason: 'end $i');
+      }
+    });
+  }
+
+  test('foreground colors match the in-app Zuno mark', () {
+    final xml = _read('$_res/drawable/ic_launcher_foreground.xml');
+    final colors = RegExp('android:strokeColor="#([0-9A-F]{6})"')
+        .allMatches(xml)
+        .map((m) => int.parse('FF${m[1]}', radix: 16));
+    expect(colors, ZunoMarkPainter.segments.map((s) => s.$3.toARGB32()));
+  });
+
+  test('legacy PNG icons are RGBA (transparent around the rounded square)', () {
+    final b = File('$_res/mipmap-xxxhdpi/ic_launcher.png').readAsBytesSync();
+    expect(b[25], 6); // тип цвета 6 = RGBA
+    final png = PngPixels.read('$_res/mipmap-xxxhdpi/ic_launcher.png');
+    expect(png.argb(0, 0) >> 24, 0); // угол прозрачный
+    expect(png.argb(96, 96), 0xFFF3F5F6); // центр — фон
+    expect(png.argb(150, 96), 0xFF2F6FD6); // справа — синяя доля
+  });
 
   test('legacy PNG icons exist with expected sizes', () {
     const sizes = {
