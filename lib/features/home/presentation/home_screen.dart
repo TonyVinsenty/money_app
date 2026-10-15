@@ -138,6 +138,9 @@ class _HomeScreenState extends State<HomeScreen> {
             textScale: fontScaleOf(context),
             bannerHeight: banner == null ? 0 : _bannerHeight,
             compact: isCompactHome(context),
+            // Компактный режим: кольцо по высоте, а не по ширине (иначе при
+            // крупном шрифте видна половина кольца).
+            fitHeightOnly: isCompactHome(context),
           );
           final scroll = CustomScrollView(
             slivers: [

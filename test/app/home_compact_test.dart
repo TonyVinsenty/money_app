@@ -177,6 +177,24 @@ void main() {
     }
   }
 
+  testWidgets('411x731, шрифт 130 %: компактно, кольцо целиком без '
+      'прокрутки', (tester) async {
+    await _pump(tester, const Size(411, 731), 1.3);
+    expect(tester.takeException(), isNull);
+    final nbsp = String.fromCharCode(0x00A0);
+    expect(find.text('Дом 43$nbsp%'), findsOneWidget);
+    expect(find.text('Ещё 2'), findsOneWidget);
+    final bar = tester.getRect(find.byType(HomeActionBar));
+    final ring = tester.getRect(find.byType(DonutChart));
+    expect(ring.width, greaterThanOrEqualTo(160));
+    expect(ring.bottom, lessThanOrEqualTo(bar.top));
+    expect(
+      tester.getRect(find.byType(MonthChartCard)).bottom,
+      lessThanOrEqualTo(bar.top + 0.01),
+    );
+    expect(find.byKey(HomeScreen.bottomFadeKey), findsNothing);
+  });
+
   testWidgets('412x915, шрифт 130 %: обычный режим', (tester) async {
     await _pump(tester, const Size(412, 915), 1.3);
     expect(tester.takeException(), isNull);
