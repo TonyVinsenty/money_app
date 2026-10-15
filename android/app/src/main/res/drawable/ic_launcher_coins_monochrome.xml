@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Сгенерировано tool/make_app_icons.dart: правьте скрипт, а не этот файл. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.475"
+        android:pathData="M52.78,38.651 A15.469,15.469 0 1,1 77.349,55.537" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.475"
+        android:pathData="M67.214,55.979 A10.313,10.313 0 1,1 63.433,71.728" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="2.475"
+        android:pathData="M25.125,59.156 A20.625,20.625 0 1,1 66.375,59.156 A20.625,20.625 0 1,1 25.125,59.156 Z" />
+</vector>

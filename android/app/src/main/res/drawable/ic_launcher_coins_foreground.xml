@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Сгенерировано tool/make_app_icons.dart: правьте скрипт, а не этот файл. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#F3F5F6"
+        android:pathData="M50.906,43.688 A16.5,16.5 0 1,1 83.906,43.688 A16.5,16.5 0 1,1 50.906,43.688 Z" />
+    <path android:fillColor="#E9823A"
+        android:pathData="M52.969,43.688 A14.438,14.438 0 1,1 81.844,43.688 A14.438,14.438 0 1,1 52.969,43.688 Z" />
+    <path android:strokeColor="#FFFFFF" android:strokeAlpha="0.45" android:strokeWidth="1.65"
+        android:pathData="M55.65,43.688 A11.756,11.756 0 1,1 79.162,43.688 A11.756,11.756 0 1,1 55.65,43.688 Z" />
+    <path android:fillColor="#F3F5F6"
+        android:pathData="M60.188,65.344 A11.344,11.344 0 1,1 82.875,65.344 A11.344,11.344 0 1,1 60.188,65.344 Z" />
+    <path android:fillColor="#7B57C9"
+        android:pathData="M62.25,65.344 A9.281,9.281 0 1,1 80.813,65.344 A9.281,9.281 0 1,1 62.25,65.344 Z" />
+    <path android:strokeColor="#FFFFFF" android:strokeAlpha="0.45" android:strokeWidth="1.65"
+        android:pathData="M64.519,65.344 A7.012,7.012 0 1,1 78.544,65.344 A7.012,7.012 0 1,1 64.519,65.344 Z" />
+    <path android:fillColor="#F3F5F6"
+        android:pathData="M24.094,59.156 A21.656,21.656 0 1,1 67.406,59.156 A21.656,21.656 0 1,1 24.094,59.156 Z" />
+    <path android:fillColor="#2F6FD6"
+        android:pathData="M26.156,59.156 A19.594,19.594 0 1,1 65.344,59.156 A19.594,19.594 0 1,1 26.156,59.156 Z" />
+    <path android:strokeColor="#FFFFFF" android:strokeAlpha="0.45" android:strokeWidth="1.65"
+        android:pathData="M29.25,59.156 A16.5,16.5 0 1,1 62.25,59.156 A16.5,16.5 0 1,1 29.25,59.156 Z" />
+</vector>

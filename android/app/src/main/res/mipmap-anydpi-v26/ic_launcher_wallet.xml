@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Сгенерировано tool/make_app_icons.dart: правьте скрипт, а не этот файл. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_wallet_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_wallet_monochrome" />
+</adaptive-icon>

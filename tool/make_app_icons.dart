@@ -236,13 +236,14 @@ Uint8List renderLegacy(Art art, int size) {
   return encodePng(pixels, size, alpha: true);
 }
 
-/// Превью для листа выбора: круг на прозрачном фоне (как в листе Android).
+/// Превью для листа выбора (ADR 0014, п. 5): весь рисунок в скруглённом
+/// квадрате, как иконка на iPhone; снаружи прозрачно.
 Uint8List renderPreview(Art art, int size) {
+  final radius = size * 0.2237;
+  final s = size.toDouble();
   final pixels = _render(art, size, (x, y) {
-    final r = size / 2;
-    if (math.pow(x - r, 2) + math.pow(y - r, 2) > r * r) return null;
-    final scale = 1024 / size;
-    return (x * scale, y * scale);
+    if (!insideRoundRect(x, y, 0, 0, s, s, radius)) return null;
+    return (x * 1024 / size, y * 1024 / size);
   });
   return encodePng(pixels, size, alpha: true);
 }
@@ -296,20 +297,344 @@ int _crc32(List<int> bytes) {
 // Иконки (раздел 9 отчёта). Доли кольца — как в `ic_launcher_foreground.xml`
 // и `ZunoMarkPainter`: 0–0,425 / 0,455–0,725 / 0,755–0,97.
 
-final _light = Rgba.hex(0xF3F5F6);
+const _lightHex = 0xF3F5F6;
+final _light = Rgba.hex(_lightHex);
+const _ringColors = [0x2F6FD6, 0xE9823A, 0x7B57C9];
+const _ringBlueColors = [0xFFFFFF, 0xFFB36B, 0xC9B6FF];
+const _blueTop = 0x3D7FE6;
+const _blueBottom = 0x2459B8;
+const _trims = [(0.0, 0.425), (0.455, 0.725), (0.755, 0.97)];
 
 Art ring({required Background background, required List<int> colors}) => [
   background,
-  Arc(250, 120, 0, 0.425, Rgba.hex(colors[0])),
-  Arc(250, 120, 0.455, 0.725, Rgba.hex(colors[1])),
-  Arc(250, 120, 0.755, 0.97, Rgba.hex(colors[2])),
+  for (final (i, (start, end)) in _trims.indexed)
+    Arc(250, 120, start, end, Rgba.hex(colors[i])),
 ];
 
 /// Вариант 1 «Кольцо крупнее» — иконка по умолчанию (шаг 8.35).
-final Art iconRing = ring(
-  background: Background(_light),
-  colors: const [0x2F6FD6, 0xE9823A, 0x7B57C9],
+final Art iconRing = ring(background: Background(_light), colors: _ringColors);
+
+/// Вариант 2 «Кольцо на синем».
+final Art iconRingBlue = ring(
+  background: Background(Rgba.hex(_blueTop), Rgba.hex(_blueBottom)),
+  colors: _ringBlueColors,
 );
+
+/// Монета варианта 6: центр, радиус по SVG (середина светлой обводки
+/// шириной 20), цвет и радиус блика (белая обводка 16, прозрачность 0,45).
+typedef Coin = (double cx, double cy, double r, int color, double glint);
+
+/// Снизу вверх: оранжевая, фиолетовая, синяя (передняя).
+const _coins = <Coin>[
+  (642, 412, 150, 0xE9823A, 114),
+  (682, 622, 100, 0x7B57C9, 68),
+  (432, 562, 200, 0x2F6FD6, 160),
+];
+
+/// Вариант 6 «Монеты». Блик каждой монеты рисуется сразу после неё (в SVG
+/// отчёта — после всех монет, и блик задней ложился поверх передней).
+final Art iconCoins = [
+  Background(_light),
+  for (final (cx, cy, r, color, glint) in _coins) ...[
+    Circle(cx, cy, r + 10, _light),
+    Circle(cx, cy, r - 10, Rgba.hex(color)),
+    Circle(cx, cy, glint, Rgba.hex(0xFFFFFF, 0.45), width: 16),
+  ],
+];
+
+/// Прямоугольник варианта 7: x, y, ширина, высота, скругление, цвет и
+/// поворот (градусы, точка поворота).
+typedef Slab = (
+  double x,
+  double y,
+  double w,
+  double h,
+  double rx,
+  int color,
+  double degrees,
+  double px,
+  double py,
+);
+
+const _walletCards = <Slab>[
+  (330, 236, 360, 170, 28, 0x7B57C9, 8, 510, 321),
+  (280, 262, 360, 160, 28, 0xE9823A, -6, 460, 342),
+];
+const Slab _walletBody = (222, 332, 580, 380, 72, 0x2F6FD6, 0, 0, 0);
+const Slab _walletClasp = (592, 452, 210, 140, 44, _blueBottom, 0, 0, 0);
+const _walletDot = (660.0, 522.0, 24.0);
+
+RoundRect _slab(Slab s) => RoundRect(
+  s.$1,
+  s.$2,
+  s.$3,
+  s.$4,
+  s.$5,
+  Rgba.hex(s.$6),
+  degrees: s.$7,
+  px: s.$8,
+  py: s.$9,
+);
+
+/// Вариант 7 «Кошелёк».
+final Art iconWallet = [
+  Background(_light),
+  for (final card in _walletCards) _slab(card),
+  _slab(_walletBody),
+  _slab(_walletClasp),
+  Circle(_walletDot.$1, _walletDot.$2, _walletDot.$3, _light),
+];
+
+// Векторные слои Android (поле 108 dp). Рисунок 1024 переносится так, чтобы
+// безопасный круг 640 стал безопасным кругом 66 dp; у колец — как у варианта 1
+// (радиус 26,4, толщина 12,7 — как в плане шага 8.35, а не 12,672 по пропорции).
+
+const _ringScale = 26.4 / 250;
+const _artScale = 66 / 640;
+
+String _n(double value) {
+  var text = value.toStringAsFixed(3);
+  if (text.contains('.')) {
+    text = text
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+  }
+  return text == '-0' ? '0' : text;
+}
+
+String _hex(int rgb) =>
+    '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+double _x(double v) => 54 + (v - 512) * _artScale;
+double _len(double v) => v * _artScale;
+
+const _generated =
+    '<!-- Сгенерировано tool/make_app_icons.dart: правьте скрипт, '
+    'а не этот файл. -->';
+
+const _vectorHead =
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '$_generated\n'
+    '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n'
+    '    xmlns:aapt="http://schemas.android.com/aapt"\n'
+    '    android:width="108dp"\n'
+    '    android:height="108dp"\n'
+    '    android:viewportWidth="108"\n'
+    '    android:viewportHeight="108">\n';
+const _vectorTail = '</vector>\n';
+
+String _ringVector(List<int> colors) {
+  final r = 250 * _ringScale;
+  final top = _n(54 - r);
+  final bottom = _n(54 + r);
+  final rr = _n(r);
+  final buffer = StringBuffer(_vectorHead);
+  for (final (i, (start, end)) in _trims.indexed) {
+    buffer
+      ..writeln('    <path')
+      ..writeln(
+        '        android:pathData="M54,$top A$rr,$rr 0 1,1 54,$bottom '
+        'A$rr,$rr 0 1,1 54,$top"',
+      )
+      ..writeln('        android:strokeColor="${_hex(colors[i])}"')
+      ..writeln('        android:strokeWidth="12.7"')
+      ..writeln('        android:strokeLineCap="butt"')
+      ..writeln('        android:trimPathStart="${_n(start)}"')
+      ..writeln('        android:trimPathEnd="${_n(end)}" />');
+  }
+  return '$buffer$_vectorTail';
+}
+
+String _gradientBackground() {
+  final buffer = StringBuffer(_vectorHead)
+    ..writeln('    <path android:pathData="M0,0 H108 V108 H0 Z">')
+    ..writeln('        <aapt:attr name="android:fillColor">')
+    ..writeln('            <gradient')
+    ..writeln('                android:type="linear"')
+    ..writeln('                android:startX="54"')
+    ..writeln('                android:startY="0"')
+    ..writeln('                android:endX="54"')
+    ..writeln('                android:endY="108">')
+    ..writeln(
+      '                <item android:offset="0" '
+      'android:color="${_hex(_blueTop)}" />',
+    )
+    ..writeln(
+      '                <item android:offset="1" '
+      'android:color="${_hex(_blueBottom)}" />',
+    )
+    ..writeln('            </gradient>')
+    ..writeln('        </aapt:attr>')
+    ..writeln('    </path>');
+  return '$buffer$_vectorTail';
+}
+
+/// Круг одной фигурой пути (две полуокружности).
+String _circlePath(double cx, double cy, double r) {
+  final x = _x(cx), y = _x(cy), rr = _n(_len(r));
+  return 'M${_n(x - _len(r))},${_n(y)} '
+      'A$rr,$rr 0 1,1 ${_n(x + _len(r))},${_n(y)} '
+      'A$rr,$rr 0 1,1 ${_n(x - _len(r))},${_n(y)} Z';
+}
+
+String _path(String attributes, String data) =>
+    '    <path $attributes\n        android:pathData="$data" />\n';
+
+String _coinsVector() {
+  final buffer = StringBuffer(_vectorHead);
+  for (final (cx, cy, r, color, glint) in _coins) {
+    buffer
+      ..write(
+        _path(
+          'android:fillColor="${_hex(_lightHex)}"',
+          _circlePath(cx, cy, r + 10),
+        ),
+      )
+      ..write(
+        _path(
+          'android:fillColor="${_hex(color)}"',
+          _circlePath(cx, cy, r - 10),
+        ),
+      )
+      ..write(
+        _path(
+          'android:strokeColor="#FFFFFF" android:strokeAlpha="0.45" '
+          'android:strokeWidth="${_n(_len(16))}"',
+          _circlePath(cx, cy, glint),
+        ),
+      );
+  }
+  return '$buffer$_vectorTail';
+}
+
+/// Видимые части контура монеты [index] (не закрытые монетами спереди вместе
+/// с их светлой обводкой) — дуги для тематического значка.
+List<String> _visibleOutline(int index) {
+  final (cx, cy, r, _, _) = _coins[index];
+  final front = _coins.sublist(index + 1);
+  (double, double) point(double degrees) {
+    final a = degrees * math.pi / 180;
+    return (cx + r * math.cos(a), cy + r * math.sin(a));
+  }
+
+  bool visible(double degrees) {
+    final (x, y) = point(degrees);
+    return front.every(
+      (c) =>
+          math.pow(x - c.$1, 2) + math.pow(y - c.$2, 2) >
+          math.pow(c.$3 + 10, 2),
+    );
+  }
+
+  const step = 0.25;
+  // Начинаем с закрытой точки, чтобы видимая дуга не рвалась на 0°.
+  var origin = 0.0;
+  while (origin < 360 && visible(origin)) {
+    origin += step;
+  }
+  if (origin >= 360) return [_circlePath(cx, cy, r)];
+  final rr = _n(_len(r));
+  final arcs = <String>[];
+  double? runStart;
+  for (var d = 0.0; d <= 360; d += step) {
+    final degrees = origin + d;
+    final isVisible = d < 360 && visible(degrees);
+    if (isVisible) {
+      runStart ??= degrees;
+    } else if (runStart != null) {
+      final end = degrees - step;
+      final (x0, y0) = point(runStart);
+      final (x1, y1) = point(end);
+      final large = end - runStart > 180 ? 1 : 0;
+      arcs.add(
+        'M${_n(_x(x0))},${_n(_x(y0))} '
+        'A$rr,$rr 0 $large,1 ${_n(_x(x1))},${_n(_x(y1))}',
+      );
+      runStart = null;
+    }
+  }
+  return arcs;
+}
+
+String _coinsMonochrome() {
+  final buffer = StringBuffer(_vectorHead);
+  for (var i = 0; i < _coins.length; i++) {
+    for (final arc in _visibleOutline(i)) {
+      buffer.write(
+        _path(
+          'android:strokeColor="#FFFFFF" '
+          'android:strokeWidth="${_n(_len(24))}"',
+          arc,
+        ),
+      );
+    }
+  }
+  return '$buffer$_vectorTail';
+}
+
+String _roundRectPath(Slab s) {
+  final x = _x(s.$1), y = _x(s.$2), w = _len(s.$3), h = _len(s.$4);
+  final r = _len(s.$5);
+  final a = '${_n(r)},${_n(r)} 0 0,1';
+  return 'M${_n(x + r)},${_n(y)} H${_n(x + w - r)} '
+      'A$a ${_n(x + w)},${_n(y + r)} V${_n(y + h - r)} '
+      'A$a ${_n(x + w - r)},${_n(y + h)} H${_n(x + r)} '
+      'A$a ${_n(x)},${_n(y + h - r)} V${_n(y + r)} '
+      'A$a ${_n(x + r)},${_n(y)} Z';
+}
+
+String _slabPath(Slab s, String paint) {
+  final path = _path(paint, _roundRectPath(s));
+  if (s.$7 == 0) return path;
+  return '    <group android:rotation="${_n(s.$7)}" '
+      'android:pivotX="${_n(_x(s.$8))}" android:pivotY="${_n(_x(s.$9))}">\n'
+      '$path    </group>\n';
+}
+
+String _walletVector() {
+  final buffer = StringBuffer(_vectorHead);
+  for (final slab in [..._walletCards, _walletBody, _walletClasp]) {
+    buffer.write(_slabPath(slab, 'android:fillColor="${_hex(slab.$6)}"'));
+  }
+  buffer.write(
+    _path(
+      'android:fillColor="${_hex(_lightHex)}"',
+      _circlePath(_walletDot.$1, _walletDot.$2, _walletDot.$3),
+    ),
+  );
+  return '$buffer$_vectorTail';
+}
+
+String _walletMonochrome() {
+  final buffer = StringBuffer(_vectorHead);
+  for (final card in _walletCards) {
+    buffer.write(_slabPath(card, 'android:fillColor="#FFFFFF"'));
+  }
+  // Кошелёк, застёжка и кнопка одним путём «чёт-нечет»: застёжка вырезана,
+  // кнопка внутри неё снова закрашена.
+  buffer.write(
+    _path(
+      'android:fillColor="#FFFFFF" android:fillType="evenOdd"',
+      '${_roundRectPath(_walletBody)} ${_roundRectPath(_walletClasp)} '
+          '${_circlePath(_walletDot.$1, _walletDot.$2, _walletDot.$3)}',
+    ),
+  );
+  return '$buffer$_vectorTail';
+}
+
+String _adaptiveIcon({
+  required String background,
+  required String foreground,
+  required String monochrome,
+}) =>
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '$_generated\n'
+    '<adaptive-icon '
+    'xmlns:android="http://schemas.android.com/apk/res/android">\n'
+    '    <background android:drawable="$background" />\n'
+    '    <foreground android:drawable="$foreground" />\n'
+    '    <monochrome android:drawable="$monochrome" />\n'
+    '</adaptive-icon>\n';
 
 const _iosDir = 'ios/Runner/Assets.xcassets';
 const _res = 'android/app/src/main/res';
@@ -321,20 +646,95 @@ const _legacySizes = {
   'xxxhdpi': 192,
 };
 
+/// Иконка выбора (ADR 0014): `id`, имя набора iOS (`null` — набор по
+/// умолчанию `AppIcon`), имя ресурсов Android и рисунок.
+typedef IconVariant = (String id, String? iosSet, String android, Art art);
+
+final _variants = <IconVariant>[
+  ('ring', null, 'ic_launcher', iconRing),
+  ('ring_blue', 'AppIcon-RingBlue', 'ic_launcher_ring_blue', iconRingBlue),
+  ('coins', 'AppIcon-Coins', 'ic_launcher_coins', iconCoins),
+  ('wallet', 'AppIcon-Wallet', 'ic_launcher_wallet', iconWallet),
+];
+
+const _iosContents =
+    '{\n'
+    '  "images" : [\n'
+    '    {\n'
+    '      "filename" : "Icon-App-1024x1024@1x.png",\n'
+    '      "idiom" : "universal",\n'
+    '      "platform" : "ios",\n'
+    '      "size" : "1024x1024"\n'
+    '    }\n'
+    '  ],\n'
+    '  "info" : {\n'
+    '    "author" : "xcode",\n'
+    '    "version" : 1\n'
+    '  }\n'
+    '}\n';
+
 void _write(String path, Uint8List bytes) {
-  File(path).writeAsBytesSync(bytes);
+  File(path)
+    ..parent.createSync(recursive: true)
+    ..writeAsBytesSync(bytes);
   stdout.writeln('$path (${bytes.length} байт)');
 }
 
+void _writeText(String path, String text) {
+  File(path)
+    ..parent.createSync(recursive: true)
+    ..writeAsStringSync(text);
+  stdout.writeln(path);
+}
+
 void main() {
-  _write(
-    '$_iosDir/AppIcon.appiconset/Icon-App-1024x1024@1x.png',
-    renderIos(iconRing),
-  );
-  _legacySizes.forEach((density, size) {
+  for (final (id, iosSet, android, art) in _variants) {
+    final set = iosSet ?? 'AppIcon';
     _write(
-      '$_res/mipmap-$density/ic_launcher.png',
-      renderLegacy(iconRing, size),
+      '$_iosDir/$set.appiconset/Icon-App-1024x1024@1x.png',
+      renderIos(art),
     );
+    if (iosSet != null) {
+      _writeText('$_iosDir/$set.appiconset/Contents.json', _iosContents);
+    }
+    _legacySizes.forEach((density, size) {
+      _write('$_res/mipmap-$density/$android.png', renderLegacy(art, size));
+    });
+    _write('assets/app_icons/$id.png', renderPreview(art, 192));
+  }
+
+  // Векторные слои: у варианта 1 они лежат под прежними именами
+  // (`ic_launcher_foreground`, `ic_launcher_monochrome`).
+  const white = [0xFFFFFF, 0xFFFFFF, 0xFFFFFF];
+  final drawables = {
+    'ic_launcher_foreground': _ringVector(_ringColors),
+    'ic_launcher_monochrome': _ringVector(white),
+    'ic_launcher_ring_blue_foreground': _ringVector(_ringBlueColors),
+    'ic_launcher_ring_blue_background': _gradientBackground(),
+    'ic_launcher_coins_foreground': _coinsVector(),
+    'ic_launcher_coins_monochrome': _coinsMonochrome(),
+    'ic_launcher_wallet_foreground': _walletVector(),
+    'ic_launcher_wallet_monochrome': _walletMonochrome(),
+  };
+  drawables.forEach((name, xml) {
+    _writeText('$_res/drawable/$name.xml', xml);
   });
+  _writeText(
+    '$_res/mipmap-anydpi-v26/ic_launcher_ring_blue.xml',
+    _adaptiveIcon(
+      background: '@drawable/ic_launcher_ring_blue_background',
+      foreground: '@drawable/ic_launcher_ring_blue_foreground',
+      monochrome: '@drawable/ic_launcher_monochrome',
+    ),
+  );
+  for (final id in ['coins', 'wallet']) {
+    _writeText(
+      '$_res/mipmap-anydpi-v26/ic_launcher_$id.xml',
+      _adaptiveIcon(
+        background: '@color/ic_launcher_background',
+        foreground: '@drawable/ic_launcher_${id}_foreground',
+        monochrome: '@drawable/ic_launcher_${id}_monochrome',
+      ),
+    );
+  }
 }
