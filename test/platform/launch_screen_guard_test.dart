@@ -31,4 +31,26 @@ void main() {
     expect(xml, contains('android:windowSplashScreenBackground'));
     expect(xml, contains(_hex(AppTheme.dark().colorScheme.surface)));
   });
+
+  test(
+    'Android 12+ dark splash: icon without the light adaptive background',
+    () {
+      final xml = _read('$_res/values-night-v31/styles.xml');
+      final surface = _hex(AppTheme.dark().colorScheme.surface);
+      expect(
+        xml,
+        contains(
+          '<item name="android:windowSplashScreenAnimatedIcon">'
+          '@drawable/ic_launcher_foreground</item>',
+        ),
+      );
+      expect(
+        xml,
+        contains(
+          '<item name="android:windowSplashScreenIconBackgroundColor">'
+          '$surface</item>',
+        ),
+      );
+    },
+  );
 }
