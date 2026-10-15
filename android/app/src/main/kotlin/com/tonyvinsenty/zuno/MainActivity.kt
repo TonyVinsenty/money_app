@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.ClipData
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -207,6 +208,9 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, appIconChannelName)
+            .setMethodCallHandler { call, result -> handleAppIcon(call, result) }
+
         remindersChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, remindersChannelName)
             .apply { setMethodCallHandler { call, result -> handleReminders(call, result) } }
 
@@ -218,6 +222,73 @@ class MainActivity : FlutterActivity() {
                 }
                 result.success(openUrl(call.argument<String>("url")))
             }
+    }
+
+    // Канал иконки (ADR 0014, п. 2 и 4): имя, методы и ключ — как в
+    // lib/features/settings/data/app_icon_channel.dart и ios/Runner/AppDelegate.swift.
+    private val appIconChannelName = "com.tonyvinsenty.zuno/app_icon"
+
+    // id варианта -> ярлык activity-alias в AndroidManifest.xml. Первый —
+    // иконка по умолчанию (включён в манифесте). Имена не менять никогда.
+    private val appIconAliases = linkedMapOf(
+        "ring" to ".IconRing",
+        "ring_blue" to ".IconRingBlue",
+        "coins" to ".IconCoins",
+        "wallet" to ".IconWallet",
+    )
+    private val appIconDefault = "ring"
+
+    private fun aliasComponent(alias: String) =
+        ComponentName(packageName, MainActivity::class.java.name.substringBeforeLast('.') + alias)
+
+    // Какой ярлык включён: явно включённый, иначе — тот, что включён в манифесте.
+    private fun currentAppIcon(): String {
+        val pm = packageManager
+        for ((id, alias) in appIconAliases) {
+            if (pm.getComponentEnabledSetting(aliasComponent(alias)) ==
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            ) {
+                return id
+            }
+        }
+        return appIconDefault
+    }
+
+    private fun handleAppIcon(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "supported" -> result.success(true)
+            "current" -> result.success(currentAppIcon())
+            "set" -> {
+                val id = call.argument<String>("id")
+                val target = appIconAliases[id]
+                if (target == null) {
+                    result.success(false)
+                    return
+                }
+                try {
+                    val pm = packageManager
+                    // Сначала включаем новый ярлык, потом выключаем остальные:
+                    // ни в какой момент не бывает «ни одного ярлыка».
+                    pm.setComponentEnabledSetting(
+                        aliasComponent(target),
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP,
+                    )
+                    for (alias in appIconAliases.values) {
+                        if (alias == target) continue
+                        pm.setComponentEnabledSetting(
+                            aliasComponent(alias),
+                            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                            PackageManager.DONT_KILL_APP,
+                        )
+                    }
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.success(false)
+                }
+            }
+            else -> result.notImplemented()
+        }
     }
 
     // Канал ссылок (шаг 8.0): открыть страницу во внешнем браузере. Имя, метод
