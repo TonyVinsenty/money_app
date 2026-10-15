@@ -13,6 +13,7 @@ import 'package:money_app/core/ui/amount_switcher.dart';
 import 'package:money_app/core/ui/async_view.dart';
 import 'package:money_app/core/ui/bottom_inset.dart';
 import 'package:money_app/core/ui/category_labels.dart';
+import 'package:money_app/core/ui/font_scale.dart';
 import 'package:money_app/core/ui/masked_amount.dart';
 import 'package:money_app/core/ui/operation_tile.dart';
 import 'package:money_app/core/ui/other_currencies_hint.dart';
@@ -588,6 +589,9 @@ class _HistoryListState extends State<_HistoryList> {
       }
     }
     final surface = Theme.of(context).colorScheme.surface;
+    // С 130 % шапка «Истории» и так высокая: закреплённый заголовок дня
+    // отнял бы ещё строку (шаг 8.54), поэтому он едет вместе со списком.
+    final pinHeaders = !useTwoLineRows(context);
 
     return NotificationListener<ScrollNotification>(
       onNotification: (n) {
@@ -605,15 +609,15 @@ class _HistoryListState extends State<_HistoryList> {
               itemBuilder: (context, index) => row(transactions[index]),
             )
           else
-            // Заголовок дня закреплён наверху, пока виден его день; следующий
-            // день выталкивает его (И3, шаг 8.43). Фон — как у экрана, чтобы
-            // строки не просвечивали.
+            // Заголовок дня закреплён наверху (до 130 %), пока виден его
+            // день; следующий день выталкивает его (И3, шаг 8.43). Фон — как
+            // у экрана, чтобы строки не просвечивали.
             for (final day in days)
               SliverMainAxisGroup(
                 key: ValueKey(day.first.occurredOn),
                 slivers: [
-                  PinnedHeaderSliver(
-                    child: ColoredBox(
+                  () {
+                    final header = ColoredBox(
                       color: surface,
                       child: _DayHeader(
                         label: historyDayLabel(
@@ -621,8 +625,11 @@ class _HistoryListState extends State<_HistoryList> {
                           today: today,
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                    return pinHeaders
+                        ? PinnedHeaderSliver(child: header)
+                        : SliverToBoxAdapter(child: header);
+                  }(),
                   SliverList.builder(
                     itemCount: day.length,
                     itemBuilder: (context, index) => row(day[index]),

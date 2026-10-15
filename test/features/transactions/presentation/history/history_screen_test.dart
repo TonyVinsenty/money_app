@@ -763,11 +763,18 @@ void main() {
       expect(box.color, scheme.surface);
     });
 
-    testWidgets('200 %: закреплённый заголовок не обрезан', (tester) async {
-      await pumpList(tester, textScale: 2);
+    testWidgets('125 %: заголовок ещё закреплён и не обрезан', (tester) async {
+      await pumpList(tester, textScale: 1.25);
       await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      expect(
+        find.ancestor(
+          of: find.text(labels()[0]),
+          matching: find.byType(PinnedHeaderSliver),
+        ),
+        findsOneWidget,
+      );
       final text = tester.getRect(find.text(labels()[0]));
       final box = tester.getRect(
         find
@@ -781,5 +788,21 @@ void main() {
       expect(box.bottom, greaterThanOrEqualTo(text.bottom));
       expect(text.top, greaterThanOrEqualTo(listTop(tester)));
     });
+
+    for (final scale in [1.3, 2.0]) {
+      testWidgets('${(scale * 100).round()} %: заголовок дня едет со списком '
+          '(шаг 8.54)', (tester) async {
+        await pumpList(tester, textScale: scale);
+        expect(find.byType(PinnedHeaderSliver), findsNothing);
+        await tester.drag(find.byType(CustomScrollView), const Offset(0, -300));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        // Заголовок первого дня уехал вверх вместе со строками.
+        final first = find.text(labels()[0]);
+        if (first.evaluate().isNotEmpty) {
+          expect(tester.getTopLeft(first).dy, lessThan(listTop(tester)));
+        }
+      });
+    }
   });
 }
