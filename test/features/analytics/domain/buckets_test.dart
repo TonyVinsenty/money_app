@@ -281,4 +281,50 @@ void main() {
       expect(bucketAverage(d, today), isNull);
     });
   });
+
+  group('firstFutureBucket (И5, шаг 8.45)', () {
+    List<Bucket> month(DateOnly day) => bucketTotals(
+      const [],
+      currentPeriod(PeriodKind.month, day),
+      type: TransactionType.expense,
+      currency: 'RUB',
+    );
+
+    test('14 октября: будущие — с 15-го, их 17', () {
+      final buckets = month(DateOnly(2026, 10, 1));
+      final today = DateOnly(2026, 10, 14);
+      final from = firstFutureBucket(buckets, today);
+      expect(from, 14);
+      expect(buckets.length - from, 17);
+      expect(buckets[from].range.start, DateOnly(2026, 10, 15));
+    });
+
+    test('прошлый месяц — будущих нет', () {
+      final buckets = month(DateOnly(2026, 9, 1));
+      expect(
+        firstFutureBucket(buckets, DateOnly(2026, 10, 14)),
+        buckets.length,
+      );
+    });
+
+    test('последний день месяца — будущих нет, первый — все кроме него', () {
+      final buckets = month(DateOnly(2026, 10, 1));
+      expect(firstFutureBucket(buckets, DateOnly(2026, 10, 31)), 31);
+      expect(firstFutureBucket(buckets, DateOnly(2026, 10, 1)), 1);
+    });
+
+    test('год: будущие месяцы', () {
+      final buckets = bucketTotals(
+        const [],
+        currentPeriod(PeriodKind.year, DateOnly(2026, 10, 14)),
+        type: TransactionType.expense,
+        currency: 'RUB',
+      );
+      expect(firstFutureBucket(buckets, DateOnly(2026, 10, 14)), 10);
+    });
+
+    test('пусто — 0', () {
+      expect(firstFutureBucket(const [], DateOnly(2026, 10, 14)), 0);
+    });
+  });
 }

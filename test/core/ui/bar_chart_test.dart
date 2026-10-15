@@ -726,4 +726,33 @@ void main() {
       await t.pumpAndSettle();
     });
   });
+
+  group('barFutureRects (И5, шаг 8.45)', () {
+    test('с futureFrom до конца, на месте столбиков, во всю высоту', () {
+      final weights = List<int>.filled(31, 100);
+      final bars = barRects(_size, weights);
+      final future = barFutureRects(_size, 31, 14);
+      expect(future, hasLength(17));
+      for (var i = 0; i < 17; i++) {
+        final bar = bars[14 + i];
+        expect(future[i].left, moreOrLessEquals(bar.left));
+        expect(future[i].right, moreOrLessEquals(bar.right));
+        expect(future[i].bottom, moreOrLessEquals(bar.bottom));
+        expect(future[i].top, barChartLabelHeight);
+      }
+    });
+
+    test('с отступом слева и полосой оси — как столбики', () {
+      final bars = barRects(_size, [1, 2, 3], null, 16, 40);
+      final future = barFutureRects(_size, 3, 1, 16, 40);
+      expect(future, hasLength(2));
+      expect(future.first.left, moreOrLessEquals(bars[1].left));
+      expect(future.last.bottom, moreOrLessEquals(bars[2].bottom));
+    });
+
+    test('будущих нет или весов нет — пусто', () {
+      expect(barFutureRects(_size, 30, 30), isEmpty);
+      expect(barFutureRects(_size, 0, 0), isEmpty);
+    });
+  });
 }

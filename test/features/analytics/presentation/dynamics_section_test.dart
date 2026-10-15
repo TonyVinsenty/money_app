@@ -685,4 +685,64 @@ void main() {
       );
     });
   });
+
+  group('будущие дни бледно (И5, шаг 8.45)', () {
+    CustomPaint chartPaint(WidgetTester tester) => tester.widget<CustomPaint>(
+      find
+          .descendant(
+            of: find.byKey(DynamicsSection.chartKey),
+            matching: find.byType(CustomPaint),
+          )
+          .first,
+    );
+
+    testWidgets('текущий месяц: подложки с завтрашнего дня', (tester) async {
+      await _pump(tester, transactions: _october);
+      await tester.pumpAndSettle();
+      final chart = tester.widget<BarChart>(
+        find.byKey(DynamicsSection.chartKey),
+      );
+      // 20 октября: с 21-го (номер 20) до 31-го — 11 подложек.
+      expect(chart.futureFrom, 20);
+      final scheme = Theme.of(
+        tester.element(find.byKey(DynamicsSection.chartKey)),
+      ).colorScheme;
+      // 11 подложек и 3 столбика с расходами.
+      expect(
+        find.byWidget(chartPaint(tester)),
+        paints..rrect(color: scheme.surfaceContainer),
+      );
+      expect(
+        find.byWidget(chartPaint(tester)),
+        paintsExactlyCountTimes(#drawRRect, 14),
+      );
+    });
+
+    testWidgets('прошлый месяц — подложек нет', (tester) async {
+      await _pump(
+        tester,
+        transactions: [_tx('s', 100000, DateOnly(2026, 9, 10))],
+        period: currentPeriod(PeriodKind.month, DateOnly(2026, 9, 1)),
+      );
+      await tester.pumpAndSettle();
+      final chart = tester.widget<BarChart>(
+        find.byKey(DynamicsSection.chartKey),
+      );
+      expect(chart.futureFrom, isNull);
+      expect(
+        find.byWidget(chartPaint(tester)),
+        paintsExactlyCountTimes(#drawRRect, 1),
+      );
+    });
+
+    testWidgets('озвучка графика будущие дни не упоминает', (tester) async {
+      await _pump(tester, transactions: _october);
+      await tester.pumpAndSettle();
+      final label = tester
+          .getSemantics(find.byKey(DynamicsSection.chartKey))
+          .label;
+      expect(label, isNot(contains('будущ')));
+      expect(label, isNot(contains('подлож')));
+    });
+  });
 }

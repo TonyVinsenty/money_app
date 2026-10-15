@@ -116,3 +116,11 @@ Money? bucketAverage(List<Bucket> buckets, DateOnly today) {
   }
   return total.dividedBy(elapsed.length);
 }
+
+/// Номер первой будущей корзины (И5, шаг 8.45): первая, что начинается позже
+/// [today]; будущих нет — длина списка. В «Динамике» с неё и до конца столбики
+/// показываются бледной подложкой. У прошлых периодов будущих корзин нет.
+int firstFutureBucket(List<Bucket> buckets, DateOnly today) {
+  final index = buckets.indexWhere((b) => b.range.start > today);
+  return index < 0 ? buckets.length : index;
+}

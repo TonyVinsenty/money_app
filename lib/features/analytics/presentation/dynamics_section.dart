@@ -291,6 +291,10 @@ class _DynamicsSectionState extends State<DynamicsSection> {
             ),
             highlightedIndex: highlighted,
             onHighlight: (index) => setState(() => _highlighted = index),
+            // Дни после сегодня (по Clock) — бледной подложкой (И5).
+            futureFrom: firstFutureBucket(buckets, today) < buckets.length
+                ? firstFutureBucket(buckets, today)
+                : null,
           ),
           const SizedBox(height: 8),
           // Текст под графиком читается как часть подписи графика, отдельно

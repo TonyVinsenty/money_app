@@ -88,6 +88,31 @@ List<Rect> barRects(
   ];
 }
 
+/// Подложки будущих столбиков (И5, шаг 8.45): со столбика [futureFrom] и до
+/// конца — на месте столбика, во всю высоту области столбиков. [futureFrom]
+/// за концом или пустые веса — пустой список.
+List<Rect> barFutureRects(
+  Size size,
+  int count,
+  int futureFrom, [
+  double axisHeight = 0,
+  double leftInset = 0,
+]) {
+  if (count <= 0 || futureFrom >= count) return const [];
+  final plot = _plot(size, axisHeight, leftInset);
+  final slot = plot.width / count;
+  final barWidth = slot * _barFraction;
+  return [
+    for (var i = math.max(0, futureFrom); i < count; i++)
+      Rect.fromLTRB(
+        plot.left + slot * i + (slot - barWidth) / 2,
+        plot.top,
+        plot.left + slot * i + (slot + barWidth) / 2,
+        plot.bottom,
+      ),
+  ];
+}
+
 /// Столбик [bar], выросший снизу на долю [progress] (0..1) своей высоты:
 /// низ и ширина на месте, верх опускается к низу.
 Rect growBar(Rect bar, double progress) => Rect.fromLTRB(
@@ -196,7 +221,12 @@ class BarChart extends StatefulWidget {
     this.highlightedIndex,
     this.onHighlight,
     this.height = 160,
+    this.futureFrom,
   });
+
+  /// С какого столбика начинаются будущие дни (бледная подложка на месте
+  /// столбика); `null` — будущих нет.
+  final int? futureFrom;
 
   /// Подписи шкалы слева: [zeroLabel] внизу, [midLabel] посередине, [topLabel]
   /// вверху. Если заданы обе, они рисуются слева от столбиков (отступ под
@@ -390,6 +420,8 @@ class _BarChartState extends State<BarChart>
                 textScaler: scaler,
                 labelStyle: labelStyle,
                 highlightedIndex: widget.highlightedIndex,
+                futureFrom: widget.futureFrom,
+                futureColor: theme.colorScheme.surfaceContainer,
               ),
             ),
           ),
@@ -414,7 +446,13 @@ class _BarPainter extends CustomPainter {
     required this.textScaler,
     required this.labelStyle,
     required this.highlightedIndex,
+    required this.futureFrom,
+    required this.futureColor,
   }) : super(repaint: progress);
+
+  /// Будущие столбики и цвет их подложки.
+  final int? futureFrom;
+  final Color futureColor;
 
   /// Доля выросшей высоты столбиков; перерисовка — по каждому её шагу.
   final Animation<double> progress;
@@ -468,6 +506,22 @@ class _BarPainter extends CustomPainter {
     }
     final rects = barRects(size, weights, average, axis, leftInset);
     final radius = Radius.circular(math.min(2, size.width / 4));
+    if (futureFrom case final from?) {
+      // Подложки не растут с анимацией: это место будущих дней, не данные.
+      final paint = Paint()..color = futureColor;
+      for (final r in barFutureRects(
+        size,
+        weights.length,
+        from,
+        axis,
+        leftInset,
+      )) {
+        canvas.drawRRect(
+          RRect.fromRectAndCorners(r, topLeft: radius, topRight: radius),
+          paint,
+        );
+      }
+    }
     for (var i = 0; i < rects.length; i++) {
       final bar = growBar(rects[i], progress.value);
       if (bar.height <= 0) continue;
@@ -538,6 +592,8 @@ class _BarPainter extends CustomPainter {
       !listEquals(old.scaleLabels, scaleLabels) ||
       old.labelStyle != labelStyle ||
       old.highlightedIndex != highlightedIndex ||
+      old.futureFrom != futureFrom ||
+      old.futureColor != futureColor ||
       !_sameWeights(old.weights, weights);
 
   static bool _sameWeights(List<int> a, List<int> b) {
