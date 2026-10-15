@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:money_app/app/app.dart';
 import 'package:money_app/core/money/money.dart';
 import 'package:money_app/core/time/date_only.dart';
+import 'package:money_app/core/ui/date_chip.dart';
 import 'package:money_app/core/ui/theme/app_theme.dart';
 import 'package:money_app/features/accounts/domain/account.dart';
 import 'package:money_app/features/categories/domain/category.dart';
@@ -12,6 +13,7 @@ import 'package:money_app/features/transactions/domain/transaction.dart';
 import 'package:money_app/features/transactions/domain/transaction_type.dart';
 import 'package:money_app/features/transactions/presentation/edit/edit_transaction_screen.dart';
 import 'package:money_app/features/transactions/presentation/quick_add/account_chip.dart';
+import 'package:money_app/features/transactions/presentation/quick_add/note_field.dart';
 
 import '../../../../support/fakes.dart';
 import '../../../../support/fixed_clock.dart';
@@ -231,6 +233,56 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(_row, findsOneWidget);
   });
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('зазор между полями правки не меньше 16 (шрифт $scale)', (
+      tester,
+    ) async {
+      await _open(
+        tester,
+        transaction: _tx(accountId: 'a'),
+        accounts: [_acc('a', 'Карта')],
+        textScale: scale,
+      );
+      // Всё поле целиком видно: прокручиваем вниз и берём координаты.
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -2000),
+      );
+      await tester.pumpAndSettle();
+
+      // Верх поля вместе с плавающей подписью, низ - нижняя рамка.
+      double top(String label, Finder box) {
+        final labelTop = tester.getTopLeft(find.text(label)).dy;
+        final boxTop = tester.getTopLeft(box).dy;
+        return labelTop < boxTop ? labelTop : boxTop;
+      }
+
+      final decorators = find.byType(InputDecorator);
+      expect(
+        decorators,
+        findsNWidgets(4),
+      ); // сумма, категория, счёт, комментарий
+      final category = decorators.at(1);
+      final account = decorators.at(2);
+      final note = decorators.at(3);
+
+      final dateBottom = tester.getBottomLeft(find.byType(DateChip)).dy;
+      final categoryTop = top(EditTransactionScreen.categoryLabel, category);
+      final accountTop = top(EditTransactionScreen.accountLabel, account);
+      final noteTop = top(NoteField.label, note);
+
+      expect(categoryTop - dateBottom, greaterThanOrEqualTo(16));
+      expect(
+        accountTop - tester.getBottomLeft(category).dy,
+        greaterThanOrEqualTo(16),
+      );
+      expect(
+        noteTop - tester.getBottomLeft(account).dy,
+        greaterThanOrEqualTo(16),
+      );
+    });
+  }
 
   testWidgets('поток счетов упал: в строке «не найден», сохранение без '
       'изменения счёта', (tester) async {

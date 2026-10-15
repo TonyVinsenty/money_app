@@ -649,6 +649,11 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
     final category = _shownCategory;
     final subcategory = _shownSubcategory;
     final error = _error;
+    // Плавающая подпись поля стоит на верхней рамке и выступает над ней на
+    // половину своей высоты (растёт с крупным шрифтом). Добавляем выступ к
+    // зазору 16, чтобы между рамкой поля выше и подписью следующего было 16.
+    final labelOverhang = MediaQuery.textScalerOf(context).scale(12) / 2;
+    final fieldPadding = EdgeInsets.fromLTRB(16, 16 + labelOverhang, 16, 0);
 
     return Scaffold(
       appBar: AppBar(
@@ -728,12 +733,8 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         _error = null;
                       }),
                     ),
-                    const SizedBox(height: 8),
                     Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                      padding: fieldPadding,
                       child: PickerField(
                         label: EditTransactionScreen.categoryLabel,
                         value: _categoryTitle,
@@ -749,10 +750,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                         (_hasSubcategories[category.id] == true ||
                             subcategory != null))
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+                        padding: fieldPadding,
                         child: PickerField(
                           label: EditTransactionScreen.subcategoryLabel,
                           value:
@@ -772,10 +770,7 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                     // Есть счета этой валюты или у операции уже есть счёт.
                     if (_accountOptions.isNotEmpty || _accountId != null)
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
+                        padding: fieldPadding,
                         child: PickerField(
                           key: EditTransactionScreen.accountRowKey,
                           label: EditTransactionScreen.accountLabel,
@@ -784,7 +779,14 @@ class _EditTransactionScreenState extends State<EditTransactionScreen> {
                           onTap: () => unawaited(_pickAccount()),
                         ),
                       ),
-                    NoteField(controller: _note, focusNode: _noteFocus),
+                    // NoteField сам даёт 16 сверху; добавляем выступ подписи.
+                    Padding(
+                      padding: EdgeInsets.only(top: labelOverhang),
+                      child: NoteField(
+                        controller: _note,
+                        focusNode: _noteFocus,
+                      ),
+                    ),
                   ],
                 ),
               ),
